@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -35,14 +36,16 @@ public final class MemoryTableHandle
     private final String tableName;
     private final Long tableId;
     private final List<MemoryColumnHandle> columnHandles;
+    private Set<Long> activeTableIds;
 
-    public MemoryTableHandle(String connectorId, Long tableId, ConnectorTableMetadata tableMetadata)
+    public MemoryTableHandle(String connectorId, Long tableId, ConnectorTableMetadata tableMetadata, Set<Long> activeTableIds)
     {
         this(connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 tableId,
-                MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()));
+                MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()),
+                activeTableIds);
     }
 
     @JsonCreator
@@ -51,13 +54,15 @@ public final class MemoryTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") Long tableId,
-            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles)
+            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles,
+            @JsonProperty("activeTableIds") Set<Long> activeTableIds)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableId = requireNonNull(tableId, "tableId is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
     }
 
     @JsonProperty
@@ -82,6 +87,12 @@ public final class MemoryTableHandle
     public Long getTableId()
     {
         return tableId;
+    }
+
+    @JsonProperty
+    public Set<Long> getActiveTableIds()
+    {
+        return activeTableIds;
     }
 
     @JsonProperty
@@ -131,6 +142,13 @@ public final class MemoryTableHandle
                 .add("tableName", tableName)
                 .add("tableId", tableId)
                 .add("columnHandles", columnHandles)
+                .add("activeTableIds", activeTableIds)
                 .toString();
+    }
+
+    public MemoryTableHandle updateActiveTableIds(Set<Long> activeTableIds)
+    {
+        this.activeTableIds = activeTableIds;
+        return this;
     }
 }

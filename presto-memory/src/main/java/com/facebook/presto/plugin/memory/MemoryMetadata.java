@@ -32,9 +32,11 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +79,7 @@ public class MemoryMetadata
         if (tableId == null) {
             return null;
         }
-        return tables.get(tableId);
+        return tables.get(tableId).updateActiveTableIds(ImmutableSet.copyOf(tableIds.values()));
     }
 
     @Override
@@ -138,7 +140,8 @@ public class MemoryMetadata
                 oldTableHandle.getSchemaName(),
                 newTableName.getTableName(),
                 oldTableHandle.getTableId(),
-                oldTableHandle.getColumnHandles()
+                oldTableHandle.getColumnHandles(),
+                oldTableHandle.getActiveTableIds()
         );
         tableIds.remove(oldTableHandle.getTableName());
         tableIds.put(newTableName.getTableName(), oldTableHandle.getTableId());
@@ -156,7 +159,14 @@ public class MemoryMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        return new MemoryOutputTableHandle(new MemoryTableHandle(connectorId, nextTableId.getAndIncrement(), tableMetadata));
+        long nextId = nextTableId.getAndIncrement();
+        Set<Long> activeTableIds = new HashSet(tableIds.values());
+        activeTableIds.add(nextId);
+        return new MemoryOutputTableHandle(new MemoryTableHandle(
+                connectorId,
+                nextId,
+                tableMetadata,
+                activeTableIds));
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,11 +27,19 @@ import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestMemoryMetadata
 {
-    private final MemoryMetadata metadata = new MemoryMetadata("test");
+    private MemoryMetadata metadata;
+
+    @BeforeMethod
+    public void setUp()
+    {
+        metadata = new MemoryMetadata("test");
+    }
 
     @Test
     public void tableIsCreatedAfterCommits()
@@ -51,6 +60,30 @@ public class TestMemoryMetadata
         List<SchemaTableName> tables = metadata.listTables(SESSION, null);
         assertTrue(tables.size() == 1, "Expected only one table.");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
+    }
+
+    @Test
+    public void testActiveTableIds()
+    {
+        assertThatNoTableIsCreated();
+
+        SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
+        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()));
+
+        MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
+        Long firstTableId = firstTableHandle.getTableId();
+
+        assertTrue(firstTableHandle.getActiveTableIds().contains(firstTableId));
+
+        SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
+        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()));
+
+        MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName);
+        Long secondTableId = secondTableHandle.getTableId();
+
+        assertNotEquals(firstTableId, secondTableId);
+        assertTrue(secondTableHandle.getActiveTableIds().contains(firstTableId));
+        assertTrue(secondTableHandle.getActiveTableIds().contains(secondTableId));
     }
 
     private void assertThatNoTableIsCreated()
