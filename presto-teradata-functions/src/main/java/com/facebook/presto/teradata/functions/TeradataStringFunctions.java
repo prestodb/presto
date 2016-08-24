@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.teradata.functions;
 
-import com.facebook.presto.operator.scalar.StringFunctions;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -23,6 +24,10 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static java.nio.charset.StandardCharsets.UTF_16BE;
 
 public final class TeradataStringFunctions
@@ -34,27 +39,70 @@ public final class TeradataStringFunctions
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("index")
     @SqlType(StandardTypes.BIGINT)
-    public static long index(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
+    public static long index(
+            @FunctionDependency(
+                    name = "strpos",
+                    returnType = StandardTypes.BIGINT,
+                    argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR})
+                    MethodHandle method,
+            @SqlType(StandardTypes.VARCHAR) Slice string,
+            @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
-        return StringFunctions.stringPosition(string, substring);
+        try {
+            return (long) method.invokeExact(string, substring);
+        }
+        catch (Throwable t) {
+            propagateIfInstanceOf(t, Error.class);
+            propagateIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+        }
     }
 
     @Description("suffix starting at given index")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substring(
+            @FunctionDependency(
+                    name = "substr",
+                    returnType = "varchar(x)",
+                    argumentTypes = {"varchar(x)", StandardTypes.BIGINT})
+                    MethodHandle method,
+            @SqlType("varchar(x)") Slice utf8,
+            @SqlType(StandardTypes.BIGINT) long start)
     {
-        return StringFunctions.substr(utf8, start);
+        try {
+            return (Slice) method.invokeExact(utf8, start);
+        }
+        catch (Throwable t) {
+            propagateIfInstanceOf(t, Error.class);
+            propagateIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+        }
     }
 
     @Description("substring of given length starting at an index")
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substring(@SqlType("varchar(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substring(
+            @FunctionDependency(
+                    name = "substr",
+                    returnType = "varchar(x)",
+                    argumentTypes = {"varchar(x)", StandardTypes.BIGINT, StandardTypes.BIGINT})
+                    MethodHandle method,
+            @SqlType("varchar(x)") Slice utf8,
+            @SqlType(StandardTypes.BIGINT) long start,
+            @SqlType(StandardTypes.BIGINT) long length)
     {
-        return StringFunctions.substr(utf8, start, length);
+        try {
+            return (Slice) method.invokeExact(utf8, start, length);
+        }
+        catch (Throwable t) {
+            propagateIfInstanceOf(t, Error.class);
+            propagateIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+        }
     }
 
     @Description("Returns the hexadecimal representation of the UTF-16BE encoding of the argument")

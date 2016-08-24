@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestTeradataFunctions
 {
@@ -46,6 +47,13 @@ public class TestTeradataFunctions
         assertFunction("INDEX(NULL, '')", BIGINT, null);
         assertFunction("INDEX('', NULL)", BIGINT, null);
         assertFunction("INDEX(NULL, NULL)", BIGINT, null);
+    }
+
+    @Test
+    public void testSubstring()
+    {
+        assertFunction("SUBSTRING('Quadratically', 5)", createVarcharType(13), "ratically");
+        assertFunction("SUBSTRING('Quadratically', 5, 6)", createVarcharType(13), "ratica");
     }
 
     @Test

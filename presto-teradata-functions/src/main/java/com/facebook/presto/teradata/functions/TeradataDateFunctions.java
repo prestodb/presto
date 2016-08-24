@@ -16,6 +16,8 @@ package com.facebook.presto.teradata.functions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.OperatorDependency;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -24,11 +26,14 @@ import com.facebook.presto.util.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 
+import java.lang.invoke.MethodHandle;
+
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -67,11 +72,24 @@ public final class TeradataDateFunctions
     @ScalarFunction("to_date")
     @SqlType(StandardTypes.DATE)
     public static long toDate(
+            @OperatorDependency(
+                    operator = OperatorType.CAST,
+                    returnType = StandardTypes.DATE,
+                    argumentTypes = StandardTypes.TIMESTAMP)
+                    MethodHandle castToDate,
             ConnectorSession session,
             @SqlType(StandardTypes.VARCHAR) Slice dateTime,
             @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        return castToDate(session, parseMillis(session, dateTime, formatString));
+        try {
+            long millis = parseMillis(session, dateTime, formatString);
+            return (long) castToDate.invokeExact(session, millis);
+        }
+        catch (Throwable t) {
+            propagateIfInstanceOf(t, Error.class);
+            propagateIfInstanceOf(t, PrestoException.class);
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+        }
     }
 
     @Description("Converts a string to a TIMESTAMP data type")
