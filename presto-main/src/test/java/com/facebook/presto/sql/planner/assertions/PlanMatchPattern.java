@@ -83,24 +83,24 @@ public final class PlanMatchPattern
         return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName, constraint));
     }
 
-    public static PlanMatchPattern window(List<FunctionCall> functionCalls, PlanMatchPattern... sources)
+    public static PlanMatchPattern window(List<FunctionCall> functionCalls, PlanMatchPattern source)
     {
-        return node(WindowNode.class, sources).with(new WindowMatcher(functionCalls));
+        return node(WindowNode.class, source).with(new WindowMatcher(functionCalls));
     }
 
-    public static PlanMatchPattern project(PlanMatchPattern... sources)
+    public static PlanMatchPattern project(PlanMatchPattern source)
     {
-        return node(ProjectNode.class, sources);
+        return node(ProjectNode.class, source);
     }
 
-    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern... sources)
+    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return node(SemiJoinNode.class, sources).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<AliasPair> expectedEquiCriteria, PlanMatchPattern... sources)
+    public static PlanMatchPattern join(JoinNode.Type joinType, List<AliasPair> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
     {
-        return node(JoinNode.class, sources).with(new JoinMatcher(joinType, expectedEquiCriteria));
+        return node(JoinNode.class, left, right).with(new JoinMatcher(joinType, expectedEquiCriteria));
     }
 
     public static AliasPair aliasPair(String left, String right)
@@ -108,10 +108,10 @@ public final class PlanMatchPattern
         return new AliasPair(left, right);
     }
 
-    public static PlanMatchPattern filter(String predicate, PlanMatchPattern... sources)
+    public static PlanMatchPattern filter(String predicate, PlanMatchPattern source)
     {
         Expression expectedPredicate = new SqlParser().createExpression(predicate);
-        return node(FilterNode.class, sources).with(new FilterMatcher(expectedPredicate));
+        return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
