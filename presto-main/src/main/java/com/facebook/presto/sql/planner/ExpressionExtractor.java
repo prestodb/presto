@@ -24,42 +24,45 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class ExpressionExtractor
-        extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
 {
     public static List<Expression> extractExpressions(PlanNode plan)
     {
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new ExpressionExtractor(), expressionsBuilder);
+        plan.accept(new Visitor(), expressionsBuilder);
         return expressionsBuilder.build();
     }
 
-    @Override
-    public Void visitFilter(FilterNode node, ImmutableList.Builder<Expression> context)
+    private static class Visitor
+            extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
     {
-        context.add(node.getPredicate());
-        return super.visitFilter(node, context);
-    }
-
-    @Override
-    public Void visitProject(ProjectNode node, ImmutableList.Builder<Expression> context)
-    {
-        context.addAll(node.getAssignments().values());
-        return super.visitProject(node, context);
-    }
-
-    @Override
-    public Void visitTableScan(TableScanNode node, ImmutableList.Builder<Expression> context)
-    {
-        if (node.getOriginalConstraint() != null) {
-            context.add(node.getOriginalConstraint());
+        @Override
+        public Void visitFilter(FilterNode node, ImmutableList.Builder<Expression> context)
+        {
+            context.add(node.getPredicate());
+            return super.visitFilter(node, context);
         }
-        return super.visitTableScan(node, context);
-    }
 
-    @Override
-    public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
-    {
-        node.getRows().forEach(context::addAll);
-        return super.visitValues(node, context);
+        @Override
+        public Void visitProject(ProjectNode node, ImmutableList.Builder<Expression> context)
+        {
+            context.addAll(node.getAssignments().values());
+            return super.visitProject(node, context);
+        }
+
+        @Override
+        public Void visitTableScan(TableScanNode node, ImmutableList.Builder<Expression> context)
+        {
+            if (node.getOriginalConstraint() != null) {
+                context.add(node.getOriginalConstraint());
+            }
+            return super.visitTableScan(node, context);
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
+        {
+            node.getRows().forEach(context::addAll);
+            return super.visitValues(node, context);
+        }
     }
 }
