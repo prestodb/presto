@@ -356,7 +356,7 @@ public class ScalarImplementation
                         checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method [%s]", method);
                     }
                     if (annotation instanceof LiteralParameter) {
-                        checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared in @LiteralParameter.");
+                        checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", method);
                     }
                     dependencies.add(parseDependency(annotation));
                 }
