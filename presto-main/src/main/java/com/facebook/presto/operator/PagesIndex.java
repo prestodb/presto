@@ -323,7 +323,7 @@ public class PagesIndex
 
     private Optional<JoinFilterFunctionVerifier> createJoinFilterFunctionVerifier(Optional<JoinFilterFunction> filterFunctionOptional, List<List<Block>> channels)
     {
-        return filterFunctionOptional.map(filterFunction -> new StandardJoinFilterFunctionVerifier(filterFunction, channels));
+        return filterFunctionOptional.map(filterFunction -> joinCompiler.compileJoinFilterFunctionVerifierFactory(filterFunction).createJoinFilterFunctionVerifier(filterFunction, channels));
     }
 
     public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunction> filterFunction)
