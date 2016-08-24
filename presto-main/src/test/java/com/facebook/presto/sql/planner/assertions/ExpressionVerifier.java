@@ -68,6 +68,16 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitInPredicate(InPredicate actual, Expression expectedExpression)
+    {
+        if (expectedExpression instanceof InPredicate) {
+            InPredicate expected = (InPredicate) expectedExpression;
+            return process(actual.getValue(), expected.getValue()) && process(actual.getValueList(), expected.getValueList());
+        }
+        return false;
+    }
+
+    @Override
     protected Boolean visitComparisonExpression(ComparisonExpression actual, Expression expectedExpression)
     {
         if (expectedExpression instanceof ComparisonExpression) {
@@ -79,14 +89,28 @@ final class ExpressionVerifier
         return false;
     }
 
-    @Override
-    protected Boolean visitLongLiteral(LongLiteral actual, Expression expectedExpression)
+    protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expected)
     {
-        if (expectedExpression instanceof LongLiteral) {
-            LongLiteral expected = (LongLiteral) expectedExpression;
-            return actual.getValue() == expected.getValue();
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+    }
+
+    @Override
+    protected Boolean visitLongLiteral(LongLiteral actual, Expression expected)
+    {
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+    }
+
+    private String getValueFromLiteral(Expression expression)
+    {
+        if (expression instanceof LongLiteral) {
+            return String.valueOf(((LongLiteral) expression).getValue());
         }
-        return false;
+        else if (expression instanceof GenericLiteral) {
+            return ((GenericLiteral) expression).getValue();
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported literal expression type: " + expression.getClass().getName());
+        }
     }
 
     @Override
