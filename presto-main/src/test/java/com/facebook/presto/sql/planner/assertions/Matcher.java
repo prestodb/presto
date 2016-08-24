@@ -19,5 +19,5 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 public interface Matcher
 {
-    boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
+    boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases);
 }
