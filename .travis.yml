@@ -71,6 +71,8 @@ before_deploy:
   - cp -n presto-jdbc/target/presto-jdbc-*.jar /tmp/artifacts
   - cp -n presto-cli/target/presto-cli-*-executable.jar /tmp/artifacts
   - echo $TRAVIS_COMMIT > /tmp/artifacts/git-revision.txt
+  - echo "<script>location='https://travis-ci.org/${TRAVIS_REPO_SLUG}/builds/${TRAVIS_BUILD_ID}'</script>"
+    > /tmp/artifacts/travis_build.html
   - ls -lah /tmp/artifacts
 
 deploy:
