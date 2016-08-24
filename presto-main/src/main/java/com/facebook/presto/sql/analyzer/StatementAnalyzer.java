@@ -325,7 +325,7 @@ class StatementAnalyzer
 
         for (Expression expression : node.getProperties().values()) {
             // analyze table property value expressions which must be constant
-            createConstantAnalyzer(metadata, session, analysis.getParameters())
+            createConstantAnalyzer(metadata, session, analysis.getParameters(), analysis.isDescribe())
                     .analyze(expression, scope);
         }
         analysis.setCreateTableProperties(node.getProperties());
@@ -606,7 +606,8 @@ class StatementAnalyzer
                 sqlParser,
                 ImmutableMap.of(),
                 relation.getSamplePercentage(),
-                analysis.getParameters());
+                analysis.getParameters(),
+                analysis.isDescribe());
         ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
         Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {

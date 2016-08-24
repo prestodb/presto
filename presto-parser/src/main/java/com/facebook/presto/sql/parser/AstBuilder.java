@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -383,6 +384,13 @@ class AstBuilder
     {
         String name = context.identifier().getText();
         return new Execute(getLocation(context), name, visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitDescribeInput(SqlBaseParser.DescribeInputContext context)
+    {
+        String name = context.identifier().getText();
+        return new DescribeInput(getLocation(context), name);
     }
 
     // ********************** query expressions ********************

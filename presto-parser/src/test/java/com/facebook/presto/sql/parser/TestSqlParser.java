@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -1586,6 +1587,12 @@ public class TestSqlParser
                                         ComparisonExpression.Type.EQUAL,
                                         new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
                                         new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+    }
+
+    @Test
+    public void testDescribeInput()
+    {
+        assertStatement("DESCRIBE INPUT myquery", new DescribeInput("myquery"));
     }
 
     private static void assertCast(String type)

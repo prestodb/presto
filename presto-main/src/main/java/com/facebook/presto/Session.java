@@ -203,7 +203,11 @@ public final class Session
 
     public String getPreparedStatementFromExecute(Execute execute)
     {
-        String name = execute.getName();
+        return getPreparedStatement(execute.getName());
+    }
+
+    public String getPreparedStatement(String name)
+    {
         String sql = preparedStatements.get(name);
         checkCondition(sql != null, NOT_FOUND, "Prepared statement not found: " + name);
         return sql;

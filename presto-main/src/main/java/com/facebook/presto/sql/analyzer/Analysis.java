@@ -96,12 +96,16 @@ public class Analysis
 
     private Optional<Insert> insert = Optional.empty();
 
-    public Analysis(Statement root, List<Expression> parameters)
+    // for describe input and describe output
+    private final boolean isDescribe;
+
+    public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
     {
         requireNonNull(parameters);
 
         this.root = root;
         this.parameters = parameters;
+        this.isDescribe = isDescribe;
     }
 
     public Statement getStatement()
@@ -495,6 +499,11 @@ public class Analysis
     public List<Expression> getParameters()
     {
         return parameters;
+    }
+
+    public boolean isDescribe()
+    {
+        return isDescribe;
     }
 
     @Immutable
