@@ -5968,6 +5968,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCorrelatedExistsSubqueries()
+    {
+        String errorMsg = "Correlated subquery is not yet supported";
+
+        assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0) FROM lineitem l", errorMsg);
+        assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+
+        // group by
+        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT 1 WHERE l.orderkey > 0) FROM lineitem l GROUP BY l.orderkey", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+
+        // join
+        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON NOT EXISTS(SELECT 1 WHERE l1.orderkey = l2.orderkey)", errorMsg);
+
+        // subrelation
+        assertQueryFails("SELECT count(*) FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0)))", errorMsg);
+    }
+
+    @Test
     public void testPredicatePushdown()
             throws Exception
     {
