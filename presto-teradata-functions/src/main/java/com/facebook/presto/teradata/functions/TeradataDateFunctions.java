@@ -21,8 +21,7 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.teradata.functions.dateformat.DateFormatParser;
-import com.facebook.presto.util.ThreadLocalCache;
+import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 
@@ -31,6 +30,7 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.teradata.functions.dateformat.DateFormatParser.createDateTimeFormatter;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
@@ -39,15 +39,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TeradataDateFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
-    {
-        @Override
-        protected DateTimeFormatter load(Slice format)
-        {
-            String formatString = format.toStringUtf8();
-            return DateFormatParser.createDateTimeFormatter(formatString);
-        }
-    };
+    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE =
+            new ThreadLocalCache<>(100, format -> createDateTimeFormatter(format.toStringUtf8()));
 
     private TeradataDateFunctions()
     {

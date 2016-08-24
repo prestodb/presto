@@ -19,8 +19,8 @@ import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.util.ThreadLocalCache;
 import com.google.common.primitives.Ints;
+import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
@@ -54,14 +54,8 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public final class DateTimeFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE = new ThreadLocalCache<Slice, DateTimeFormatter>(100)
-    {
-        @Override
-        protected DateTimeFormatter load(Slice format)
-        {
-            return createDateTimeFormatter(format);
-        }
-    };
+    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE =
+            new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
 
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
