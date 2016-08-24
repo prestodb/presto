@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.plugin.memory.Types.checkType;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class MemoryPageSinkProvider
@@ -45,7 +46,11 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         MemoryOutputTableHandle memoryOutputTableHandle = checkType(outputTableHandle, MemoryOutputTableHandle.class, "outputTableHandle");
-        long tableId = memoryOutputTableHandle.getTable().getTableId();
+        MemoryTableHandle tableHandle = memoryOutputTableHandle.getTable();
+        long tableId = tableHandle.getTableId();
+        checkState(tableHandle.getActiveTableIds().contains(tableId));
+
+        pagesStore.cleanUp(tableHandle.getActiveTableIds());
         return new MemoryPageSink(pagesStore, tableId);
     }
 
@@ -53,7 +58,11 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         MemoryInsertTableHandle memoryInsertTableHandle = checkType(insertTableHandle, MemoryInsertTableHandle.class, "insertTableHandle");
-        long tableId = memoryInsertTableHandle.getTable().getTableId();
+        MemoryTableHandle tableHandle = memoryInsertTableHandle.getTable();
+        long tableId = tableHandle.getTableId();
+        checkState(tableHandle.getActiveTableIds().contains(tableId));
+
+        pagesStore.cleanUp(tableHandle.getActiveTableIds());
         return new MemoryPageSink(pagesStore, tableId);
     }
 

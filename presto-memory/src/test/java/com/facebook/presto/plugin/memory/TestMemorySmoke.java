@@ -21,7 +21,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
@@ -38,7 +38,7 @@ public class TestMemorySmoke
 {
     private QueryRunner queryRunner;
 
-    @BeforeMethod
+    @BeforeTest
     public void setUp()
             throws Exception
     {
@@ -48,7 +48,18 @@ public class TestMemorySmoke
     @AfterMethod
     public void tearDown()
     {
-        queryRunner.close();
+        dropAllTables();
+    }
+
+    @Test
+    public void createAndDropTable()
+            throws SQLException
+    {
+        queryRunner.execute("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation");
+        assertEquals(listMemoryTables().size(), 1);
+
+        queryRunner.execute(format("DROP TABLE nation"));
+        assertEquals(listMemoryTables().size(), 0);
     }
 
     @Test
@@ -133,5 +144,14 @@ public class TestMemorySmoke
         MaterializedResult expectedRows = session == null ? queryRunner.execute(compareSql) : queryRunner.execute(session, compareSql);
 
         assertEquals(rows, expectedRows);
+    }
+
+    private void dropAllTables()
+    {
+        for (QualifiedObjectName qualifiedObjectName : listMemoryTables()) {
+            queryRunner.execute(format("DROP TABLE %s", qualifiedObjectName.asSchemaTableName().getTableName()));
+        }
+
+        assertEquals(listMemoryTables().size(), 0);
     }
 }

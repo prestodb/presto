@@ -20,9 +20,11 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -55,15 +57,30 @@ public class MemoryPagesStore
         return partitionedPages.build();
     }
 
-    public synchronized void remove(Long tableId)
-    {
-        checkState(pages.containsKey(tableId));
-        pages.remove(tableId);
-    }
-
     public synchronized boolean contains(Long tableId)
     {
         return pages.containsKey(tableId);
+    }
+
+    public synchronized void cleanUp(Set<Long> activeTableIds)
+    {
+        // We have to remember that there might be some race conditions when there are two tables created at once.
+        // That can lead to a situation when MemoryPagesStore already knows about a newer second table on some worker
+        // but cleanUp is triggered by insert from older first table, which MemoryTableHandle was created before
+        // second table creation. Thus activeTableIds can have missing latest ids and we can only clean up tables
+        // that have smaller value then max(activeTableIds).
+
+        if (activeTableIds.isEmpty()) {
+            // if activeTableIds is empty, we can not determine latestTableId...
+            return;
+        }
+        long latestTableId  = Collections.max(activeTableIds);
+
+        for (Long tableId : ImmutableList.copyOf(pages.keySet())) {
+            if (tableId < latestTableId && !activeTableIds.contains(tableId)) {
+                pages.remove(tableId);
+            }
+        }
     }
 
     private static Page reorderPage(Page page, List<Integer> columnIndexes)

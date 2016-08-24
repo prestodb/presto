@@ -26,7 +26,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -45,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.plugin.memory.Types.checkType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -126,9 +124,11 @@ public class MemoryMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        // TODO: implement this method. Problem is that data are distributed across the cluster and this method
-        // is only being invoked on the coordinator
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+        MemoryTableHandle handle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        Long tableId = tableIds.remove(handle.getTableName());
+        if (tableId != null) {
+            tables.remove(tableId);
+        }
     }
 
     @Override

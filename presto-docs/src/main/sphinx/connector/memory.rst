@@ -13,9 +13,8 @@ and both are discarded when Presto restarts.
 
 .. warning::
 
-    This connector does not support ``DROP TABLE`` or any other method
-    to release held resources. Once table is populated it will consume
-    memory until next Presto restart.
+    After ``DROP TABLE`` memory is not released immediately. It is released
+    after next write access to memory connector.
 
 .. warning::
 
@@ -62,3 +61,7 @@ Insert data into a table in the Memory connector::
 Select from the Memory connector::
 
     SELECT * FROM memory.default.nation;
+
+Drop table::
+
+    DROP TABLE memory.default.nation;
