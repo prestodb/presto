@@ -32,6 +32,10 @@ public class ExpressionExtractor
         return expressionsBuilder.build();
     }
 
+    private ExpressionExtractor()
+    {
+    }
+
     private static class Visitor
             extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
     {
