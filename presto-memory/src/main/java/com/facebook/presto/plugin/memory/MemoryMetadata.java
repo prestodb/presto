@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.plugin.memory.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -54,13 +55,13 @@ public class MemoryMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final String connectorId;
-    private final MemoryPagesStore pagesStore;
-    private final Map<String, MemoryTableHandle> tables = new ConcurrentHashMap<>();
+    private final AtomicLong nextTableId = new AtomicLong();
+    private final Map<String, Long> tableIds = new ConcurrentHashMap<>();
+    private final Map<Long, MemoryTableHandle> tables = new ConcurrentHashMap<>();
 
-    public MemoryMetadata(String connectorId, MemoryPagesStore pagesStore)
+    public MemoryMetadata(String connectorId)
     {
         this.connectorId = connectorId;
-        this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
     }
 
     @Override
@@ -72,7 +73,11 @@ public class MemoryMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return tables.get(tableName.getTableName());
+        Long tableId = tableIds.get(tableName.getTableName());
+        if (tableId == null) {
+            return null;
+        }
+        return tables.get(tableId);
     }
 
     @Override
@@ -132,11 +137,13 @@ public class MemoryMetadata
                 oldTableHandle.getConnectorId(),
                 oldTableHandle.getSchemaName(),
                 newTableName.getTableName(),
+                oldTableHandle.getTableId(),
                 oldTableHandle.getColumnHandles()
         );
-        tables.remove(oldTableHandle.getTableName());
-        tables.put(newTableName.getTableName(), newTableHandle);
-        pagesStore.rename(oldTableHandle.toSchemaTableName(), newTableHandle.toSchemaTableName());
+        tableIds.remove(oldTableHandle.getTableName());
+        tableIds.put(newTableName.getTableName(), oldTableHandle.getTableId());
+        tables.remove(oldTableHandle.getTableId());
+        tables.put(oldTableHandle.getTableId(), newTableHandle);
     }
 
     @Override
@@ -149,7 +156,7 @@ public class MemoryMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        return new MemoryOutputTableHandle(new MemoryTableHandle(connectorId, tableMetadata));
+        return new MemoryOutputTableHandle(new MemoryTableHandle(connectorId, nextTableId.getAndIncrement(), tableMetadata));
     }
 
     @Override
@@ -157,7 +164,8 @@ public class MemoryMetadata
     {
         MemoryOutputTableHandle memoryOutputTableHandle = checkType(tableHandle, MemoryOutputTableHandle.class, "tableHandle");
         MemoryTableHandle table = memoryOutputTableHandle.getTable();
-        tables.put(table.getTableName(), table);
+        tableIds.put(table.getTableName(), table.getTableId());
+        tables.put(table.getTableId(), table);
     }
 
     @Override

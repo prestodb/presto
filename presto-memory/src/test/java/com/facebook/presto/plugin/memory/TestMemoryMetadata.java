@@ -16,9 +16,7 @@ package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -32,8 +30,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestMemoryMetadata
 {
-    private final MemoryPagesStore pagesStore = new MemoryPagesStore();
-    private final MemoryMetadata metadata = new MemoryMetadata("test", pagesStore);
+    private final MemoryMetadata metadata = new MemoryMetadata("test");
 
     @Test
     public void tableIsCreatedAfterCommits()
@@ -54,14 +51,6 @@ public class TestMemoryMetadata
         List<SchemaTableName> tables = metadata.listTables(SESSION, null);
         assertTrue(tables.size() == 1, "Expected only one table.");
         assertTrue(tables.get(0).getTableName().equals("temp_table"), "Expected table with name 'temp_table'");
-
-        pagesStore.add(schemaTableName, createEmptyPage());
-    }
-
-    private Page createEmptyPage()
-    {
-        FixedWidthBlockBuilder blockBuilder = new FixedWidthBlockBuilder(4, 0);
-        return new Page(0, blockBuilder.build());
     }
 
     private void assertThatNoTableIsCreated()

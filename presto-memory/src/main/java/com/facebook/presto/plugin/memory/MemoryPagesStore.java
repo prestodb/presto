@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 
@@ -30,23 +29,23 @@ import static com.google.common.base.Preconditions.checkState;
 @ThreadSafe
 public class MemoryPagesStore
 {
-    private final Map<SchemaTableName, List<Page>> pages = new HashMap<>();
+    private final Map<Long, List<Page>> pages = new HashMap<>();
 
-    public synchronized void add(SchemaTableName schemaTableName, Page page)
+    public synchronized void add(Long tableId, Page page)
     {
-        if (!pages.containsKey(schemaTableName)) {
-            pages.put(schemaTableName, new ArrayList<>());
+        if (!pages.containsKey(tableId)) {
+            pages.put(tableId, new ArrayList<>());
         }
 
-        List<Page> tablePages = pages.get(schemaTableName);
+        List<Page> tablePages = pages.get(tableId);
         tablePages.add(page);
     }
 
-    public synchronized List<Page> getPages(SchemaTableName schemaTableName, int partNumber, int totalParts, List<Integer> columnIndexes)
+    public synchronized List<Page> getPages(Long tableId, int partNumber, int totalParts, List<Integer> columnIndexes)
     {
-        checkState(pages.containsKey(schemaTableName));
+        checkState(pages.containsKey(tableId));
 
-        List<Page> tablePages = pages.get(schemaTableName);
+        List<Page> tablePages = pages.get(tableId);
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
 
         for (int i = partNumber; i < tablePages.size(); i += totalParts) {
@@ -56,21 +55,15 @@ public class MemoryPagesStore
         return partitionedPages.build();
     }
 
-    public synchronized void remove(SchemaTableName schemaTableName)
+    public synchronized void remove(Long tableId)
     {
-        checkState(pages.containsKey(schemaTableName));
-        pages.remove(schemaTableName);
+        checkState(pages.containsKey(tableId));
+        pages.remove(tableId);
     }
 
-    public synchronized void rename(SchemaTableName oldSchemaTableName, SchemaTableName newSchemaTableName)
+    public synchronized boolean contains(Long tableId)
     {
-        checkState(pages.containsKey(oldSchemaTableName));
-        pages.put(newSchemaTableName, pages.remove(oldSchemaTableName));
-    }
-
-    public synchronized boolean contains(SchemaTableName schemaTableName)
-    {
-        return pages.containsKey(schemaTableName);
+        return pages.containsKey(tableId);
     }
 
     private static Page reorderPage(Page page, List<Integer> columnIndexes)

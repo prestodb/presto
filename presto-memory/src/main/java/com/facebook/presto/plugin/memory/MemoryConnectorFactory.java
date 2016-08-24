@@ -61,7 +61,7 @@ public class MemoryConnectorFactory
         MemoryPagesStore pagesStore = new MemoryPagesStore();
 
         return new MemoryConnector(
-                new MemoryMetadata(connectorId, pagesStore),
+                new MemoryMetadata(connectorId),
                 new MemorySplitManager(connectorId, nodeManager, splitsPerNode),
                 new MemoryPageSourceProvider(pagesStore),
                 new MemoryPageSinkProvider(pagesStore));

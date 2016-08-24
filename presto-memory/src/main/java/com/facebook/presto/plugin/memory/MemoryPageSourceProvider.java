@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
@@ -48,14 +47,14 @@ public final class MemoryPageSourceProvider
             List<ColumnHandle> columns)
     {
         MemorySplit memorySplit = checkType(split, MemorySplit.class, "split");
-        SchemaTableName schemaTableName = memorySplit.getTableHandle().toSchemaTableName();
+        long tableId = memorySplit.getTableHandle().getTableId();
         int partNumber = memorySplit.getPartNumber();
         int totalParts = memorySplit.getTotalPartsPerWorker();
 
         List<Integer> columnIndexes = columns.stream()
                 .map(value -> checkType(value, MemoryColumnHandle.class, "columns"))
                 .map(MemoryColumnHandle::getColumnIndex).collect(toList());
-        List<Page> pages = pagesStore.getPages(schemaTableName, partNumber, totalParts, columnIndexes);
+        List<Page> pages = pagesStore.getPages(tableId, partNumber, totalParts, columnIndexes);
 
         return new FixedPageSource(pages);
     }

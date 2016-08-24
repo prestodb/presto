@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -46,34 +45,34 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         MemoryOutputTableHandle memoryOutputTableHandle = checkType(outputTableHandle, MemoryOutputTableHandle.class, "outputTableHandle");
-        SchemaTableName schemaTableName = memoryOutputTableHandle.getTable().toSchemaTableName();
-        return new MemoryPageSink(pagesStore, schemaTableName);
+        long tableId = memoryOutputTableHandle.getTable().getTableId();
+        return new MemoryPageSink(pagesStore, tableId);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         MemoryInsertTableHandle memoryInsertTableHandle = checkType(insertTableHandle, MemoryInsertTableHandle.class, "insertTableHandle");
-        SchemaTableName schemaTableName = memoryInsertTableHandle.getTable().toSchemaTableName();
-        return new MemoryPageSink(pagesStore, schemaTableName);
+        long tableId = memoryInsertTableHandle.getTable().getTableId();
+        return new MemoryPageSink(pagesStore, tableId);
     }
 
     private static class MemoryPageSink
             implements ConnectorPageSink
     {
         private final MemoryPagesStore pagesStore;
-        private final SchemaTableName schemaTableName;
+        private final long tableId;
 
-        public MemoryPageSink(MemoryPagesStore pagesStore, SchemaTableName schemaTableName)
+        public MemoryPageSink(MemoryPagesStore pagesStore, long tableId)
         {
             this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
-            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.tableId = tableId;
         }
 
         @Override
         public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
         {
-            pagesStore.add(schemaTableName, page);
+            pagesStore.add(tableId, page);
             return NOT_BLOCKED;
         }
 

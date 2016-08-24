@@ -33,13 +33,15 @@ public final class MemoryTableHandle
     private final String connectorId;
     private final String schemaName;
     private final String tableName;
+    private final Long tableId;
     private final List<MemoryColumnHandle> columnHandles;
 
-    public MemoryTableHandle(String connectorId, ConnectorTableMetadata tableMetadata)
+    public MemoryTableHandle(String connectorId, Long tableId, ConnectorTableMetadata tableMetadata)
     {
         this(connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
+                tableId,
                 MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()));
     }
 
@@ -48,11 +50,13 @@ public final class MemoryTableHandle
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("tableId") Long tableId,
             @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableId = requireNonNull(tableId, "tableId is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
     }
 
@@ -72,6 +76,12 @@ public final class MemoryTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public Long getTableId()
+    {
+        return tableId;
     }
 
     @JsonProperty
@@ -95,7 +105,7 @@ public final class MemoryTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), getTableName());
+        return Objects.hash(getConnectorId(), getTableId());
     }
 
     @Override
@@ -108,8 +118,8 @@ public final class MemoryTableHandle
             return false;
         }
         MemoryTableHandle other = (MemoryTableHandle) obj;
-        return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
-                Objects.equals(this.getTableName(), other.getTableName());
+        return Objects.equals(this.getConnectorId(), other.getConnectorId()) &&
+                Objects.equals(this.getTableId(), other.getTableId());
     }
 
     @Override
@@ -119,6 +129,7 @@ public final class MemoryTableHandle
                 .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
+                .add("tableId", tableId)
                 .add("columnHandles", columnHandles)
                 .toString();
     }
