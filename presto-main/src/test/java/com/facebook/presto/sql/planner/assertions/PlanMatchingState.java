@@ -23,13 +23,13 @@ import static java.util.Objects.requireNonNull;
 final class PlanMatchingState
 {
     private final List<PlanMatchPattern> patterns;
-    private final SymbolAliases symbolAliases;
+    private final ExpressionAliases expressionAliases;
 
-    PlanMatchingState(List<PlanMatchPattern> patterns, SymbolAliases symbolAliases)
+    PlanMatchingState(List<PlanMatchPattern> patterns, ExpressionAliases expressionAliases)
     {
-        requireNonNull(symbolAliases, "symbolAliases is null");
+        requireNonNull(expressionAliases, "expressionAliases is null");
         requireNonNull(patterns, "matchers is null");
-        this.symbolAliases = new SymbolAliases(symbolAliases);
+        this.expressionAliases = new ExpressionAliases(expressionAliases);
         this.patterns = ImmutableList.copyOf(patterns);
     }
 
@@ -41,7 +41,7 @@ final class PlanMatchingState
     PlanMatchingContext createContext(int matcherId)
     {
         checkArgument(matcherId < patterns.size(), "mactcherId out of scope");
-        return new PlanMatchingContext(symbolAliases, patterns.get(matcherId));
+        return new PlanMatchingContext(expressionAliases, patterns.get(matcherId));
     }
 
     List<PlanMatchPattern> getPatterns()

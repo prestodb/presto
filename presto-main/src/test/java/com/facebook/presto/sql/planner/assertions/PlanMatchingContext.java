@@ -17,19 +17,19 @@ import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingContext
 {
-    private final SymbolAliases symbolAliases;
+    private final ExpressionAliases expressionAliases;
     private final PlanMatchPattern pattern;
 
     PlanMatchingContext(PlanMatchPattern pattern)
     {
-        this(new SymbolAliases(), pattern);
+        this(new ExpressionAliases(), pattern);
     }
 
-    PlanMatchingContext(SymbolAliases symbolAliases, PlanMatchPattern pattern)
+    PlanMatchingContext(ExpressionAliases expressionAliases, PlanMatchPattern pattern)
     {
-        requireNonNull(symbolAliases, "symbolAliases is null");
+        requireNonNull(expressionAliases, "expressionAliases is null");
         requireNonNull(pattern, "pattern is null");
-        this.symbolAliases = new SymbolAliases(symbolAliases);
+        this.expressionAliases = new ExpressionAliases(expressionAliases);
         this.pattern = pattern;
     }
 
@@ -38,8 +38,8 @@ final class PlanMatchingContext
         return pattern;
     }
 
-    SymbolAliases getSymbolAliases()
+    ExpressionAliases getExpressionAliases()
     {
-        return symbolAliases;
+        return expressionAliases;
     }
 }

@@ -34,11 +34,11 @@ final class FilterMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         if (node instanceof FilterNode) {
             FilterNode filterNode = (FilterNode) node;
-            if (new ExpressionVerifier(symbolAliases).process(filterNode.getPredicate(), predicate)) {
+            if (new ExpressionVerifier(expressionAliases).process(filterNode.getPredicate(), predicate)) {
                 return true;
             }
         }

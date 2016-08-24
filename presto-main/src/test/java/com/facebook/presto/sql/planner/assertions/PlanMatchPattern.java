@@ -121,20 +121,20 @@ public final class PlanMatchPattern
         this.sourcePatterns = ImmutableList.copyOf(sourcePatterns);
     }
 
-    List<PlanMatchingState> matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    List<PlanMatchingState> matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         ImmutableList.Builder<PlanMatchingState> states = ImmutableList.builder();
         if (anyTree) {
             int sourcesCount = node.getSources().size();
             if (sourcesCount > 1) {
-                states.add(new PlanMatchingState(nCopies(sourcesCount, this), symbolAliases));
+                states.add(new PlanMatchingState(nCopies(sourcesCount, this), expressionAliases));
             }
             else {
-                states.add(new PlanMatchingState(ImmutableList.of(this), symbolAliases));
+                states.add(new PlanMatchingState(ImmutableList.of(this), expressionAliases));
             }
         }
-        if (node.getSources().size() == sourcePatterns.size() && matchers.stream().allMatch(it -> it.matches(node, session, metadata, symbolAliases))) {
-            states.add(new PlanMatchingState(sourcePatterns, symbolAliases));
+        if (node.getSources().size() == sourcePatterns.size() && matchers.stream().allMatch(it -> it.matches(node, session, metadata, expressionAliases))) {
+            states.add(new PlanMatchingState(sourcePatterns, expressionAliases));
         }
         return states.build();
     }
