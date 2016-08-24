@@ -36,9 +36,9 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
-import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
-import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
-import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.FAIR;
+import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
+import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -50,25 +50,25 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
-public class ResourceGroup
+public class InternalResourceGroup
         implements ConfigurableResourceGroup
 {
     public static final int DEFAULT_WEIGHT = 1;
 
-    private final ResourceGroup root;
-    private final Optional<ResourceGroup> parent;
+    private final InternalResourceGroup root;
+    private final Optional<InternalResourceGroup> parent;
     private final ResourceGroupId id;
-    private final BiConsumer<ResourceGroup, Boolean> jmxExportListener;
+    private final BiConsumer<InternalResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
 
     @GuardedBy("root")
-    private final Map<String, ResourceGroup> subGroups = new HashMap<>();
+    private final Map<String, InternalResourceGroup> subGroups = new HashMap<>();
     // Sub groups with queued queries, that have capacity to run them
     // That is, they must return true when internalStartNext() is called on them
     @GuardedBy("root")
-    private UpdateablePriorityQueue<ResourceGroup> eligibleSubGroups = new FifoQueue<>();
+    private UpdateablePriorityQueue<InternalResourceGroup> eligibleSubGroups = new FifoQueue<>();
     @GuardedBy("root")
-    private final Set<ResourceGroup> dirtySubGroups = new HashSet<>();
+    private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
     private long softMemoryLimitBytes;
     @GuardedBy("root")
@@ -100,7 +100,7 @@ public class ResourceGroup
     @GuardedBy("root")
     private boolean jmxExport;
 
-    protected ResourceGroup(Optional<ResourceGroup> parent, String name, BiConsumer<ResourceGroup, Boolean> jmxExportListener, Executor executor)
+    protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -120,7 +120,7 @@ public class ResourceGroup
     {
         synchronized (root) {
             List<ResourceGroupInfo> infos = subGroups.values().stream()
-                    .map(ResourceGroup::getInfo)
+                    .map(InternalResourceGroup::getInfo)
                     .collect(Collectors.toList());
             return new ResourceGroupInfo(
                     id,
@@ -321,7 +321,7 @@ public class ResourceGroup
                 checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
             }
 
-            UpdateablePriorityQueue<ResourceGroup> queue;
+            UpdateablePriorityQueue<InternalResourceGroup> queue;
             UpdateablePriorityQueue<QueryExecution> queryQueue;
             switch (policy) {
                 case FAIR:
@@ -334,7 +334,7 @@ public class ResourceGroup
                     break;
                 case QUERY_PRIORITY:
                     // Sub groups must use query priority to ensure ordering
-                    for (ResourceGroup group : subGroups.values()) {
+                    for (InternalResourceGroup group : subGroups.values()) {
                         group.setSchedulingPolicy(QUERY_PRIORITY);
                     }
                     queue = new IndexedPriorityQueue<>();
@@ -344,7 +344,7 @@ public class ResourceGroup
                     throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
             }
             while (!eligibleSubGroups.isEmpty()) {
-                ResourceGroup group = eligibleSubGroups.poll();
+                InternalResourceGroup group = eligibleSubGroups.poll();
                 queue.addOrUpdate(group, getSubGroupSchedulingPriority(policy, group));
             }
             eligibleSubGroups = queue;
@@ -374,7 +374,7 @@ public class ResourceGroup
         jmxExportListener.accept(this, export);
     }
 
-    public ResourceGroup getOrCreateSubGroup(String name)
+    public InternalResourceGroup getOrCreateSubGroup(String name)
     {
         requireNonNull(name, "name is null");
         synchronized (root) {
@@ -382,7 +382,7 @@ public class ResourceGroup
             if (subGroups.containsKey(name)) {
                 return subGroups.get(name);
             }
-            ResourceGroup subGroup = new ResourceGroup(Optional.of(this), name, jmxExportListener, executor);
+            InternalResourceGroup subGroup = new InternalResourceGroup(Optional.of(this), name, jmxExportListener, executor);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -397,7 +397,7 @@ public class ResourceGroup
         synchronized (root) {
             checkState(subGroups.isEmpty(), "Cannot add queries to %s. It is not a leaf group.", id);
             // Check all ancestors for capacity
-            ResourceGroup group = this;
+            InternalResourceGroup group = this;
             boolean canQueue = true;
             boolean canRun = true;
             while (true) {
@@ -434,7 +434,7 @@ public class ResourceGroup
         checkState(Thread.holdsLock(root), "Must hold lock to enqueue a query");
         synchronized (root) {
             queuedQueries.addOrUpdate(query, getQueryPriority(query.getSession()));
-            ResourceGroup group = this;
+            InternalResourceGroup group = this;
             while (group.parent.isPresent()) {
                 group.parent.get().descendantQueuedQueries++;
                 group = group.parent.get();
@@ -465,7 +465,7 @@ public class ResourceGroup
         checkState(Thread.holdsLock(root), "Must hold lock to start a query");
         synchronized (root) {
             runningQueries.add(query);
-            ResourceGroup group = this;
+            InternalResourceGroup group = this;
             while (group.parent.isPresent()) {
                 group.parent.get().descendantRunningQueries++;
                 group.parent.get().dirtySubGroups.add(group);
@@ -485,7 +485,7 @@ public class ResourceGroup
             }
             // Only count the CPU time if the query succeeded, or the failure was the fault of the user
             if (query.getState() == QueryState.FINISHED || query.getQueryInfo().getErrorType() == USER_ERROR) {
-                ResourceGroup group = this;
+                InternalResourceGroup group = this;
                 while (group != null) {
                     try {
                         group.cpuUsageMillis = Math.addExact(group.cpuUsageMillis, query.getTotalCpuTime().toMillis());
@@ -498,7 +498,7 @@ public class ResourceGroup
             }
             if (runningQueries.contains(query)) {
                 runningQueries.remove(query);
-                ResourceGroup group = this;
+                InternalResourceGroup group = this;
                 while (group.parent.isPresent()) {
                     group.parent.get().descendantRunningQueries--;
                     group = group.parent.get();
@@ -506,7 +506,7 @@ public class ResourceGroup
             }
             else {
                 queuedQueries.remove(query);
-                ResourceGroup group = this;
+                InternalResourceGroup group = this;
                 while (group.parent.isPresent()) {
                     group.parent.get().descendantQueuedQueries--;
                     group = group.parent.get();
@@ -527,8 +527,8 @@ public class ResourceGroup
                 }
             }
             else {
-                for (Iterator<ResourceGroup> iterator = dirtySubGroups.iterator(); iterator.hasNext(); ) {
-                    ResourceGroup subGroup = iterator.next();
+                for (Iterator<InternalResourceGroup> iterator = dirtySubGroups.iterator(); iterator.hasNext(); ) {
+                    InternalResourceGroup subGroup = iterator.next();
                     cachedMemoryUsageBytes -= subGroup.cachedMemoryUsageBytes;
                     subGroup.internalRefreshStats();
                     cachedMemoryUsageBytes += subGroup.cachedMemoryUsageBytes;
@@ -558,7 +558,7 @@ public class ResourceGroup
                 cpuUsageMillis = 0;
             }
             cpuUsageMillis = Math.max(0, cpuUsageMillis);
-            for (ResourceGroup group : subGroups.values()) {
+            for (InternalResourceGroup group : subGroups.values()) {
                 group.internalGenerateCpuQuota(elapsedSeconds);
             }
         }
@@ -578,7 +578,7 @@ public class ResourceGroup
             }
 
             // Remove even if the sub group still has queued queries, so that it goes to the back of the queue
-            ResourceGroup subGroup = eligibleSubGroups.poll();
+            InternalResourceGroup subGroup = eligibleSubGroups.poll();
             if (subGroup == null) {
                 return false;
             }
@@ -593,7 +593,7 @@ public class ResourceGroup
         }
     }
 
-    private static int getSubGroupSchedulingPriority(SubGroupSchedulingPolicy policy, ResourceGroup group)
+    private static int getSubGroupSchedulingPriority(SubGroupSchedulingPolicy policy, InternalResourceGroup group)
     {
         if (policy == QUERY_PRIORITY) {
             return group.getHighestQueryPriority();
@@ -679,10 +679,10 @@ public class ResourceGroup
         if (this == o) {
             return true;
         }
-        if (!(o instanceof ResourceGroup)) {
+        if (!(o instanceof InternalResourceGroup)) {
             return false;
         }
-        ResourceGroup that = (ResourceGroup) o;
+        InternalResourceGroup that = (InternalResourceGroup) o;
         return Objects.equals(id, that.id);
     }
 
@@ -693,10 +693,10 @@ public class ResourceGroup
     }
 
     @ThreadSafe
-    public static final class RootResourceGroup
-            extends ResourceGroup
+    public static final class RootInternalResourceGroup
+            extends InternalResourceGroup
     {
-        public RootResourceGroup(String name, BiConsumer<ResourceGroup, Boolean> jmxExportListener, Executor executor)
+        public RootInternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
         {
             super(Optional.empty(), name, jmxExportListener, executor);
         }

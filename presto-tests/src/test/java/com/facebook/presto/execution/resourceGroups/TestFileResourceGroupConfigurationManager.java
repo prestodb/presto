@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.resourceGroups.FileResourceGroupConfigurationManager.ManagerSpec;
-import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.collect.ImmutableMap;
@@ -28,9 +28,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.execution.resourceGroups.ResourceGroup.DEFAULT_WEIGHT;
-import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.FAIR;
-import static com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.DEFAULT_WEIGHT;
+import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.FAIR;
+import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -76,7 +76,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testMissing()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        ResourceGroup missing = new RootResourceGroup("missing", (group, export) -> { }, directExecutor());
+        InternalResourceGroup missing = new RootInternalResourceGroup("missing", (group, export) -> { }, directExecutor());
         manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), 1));
     }
 
@@ -85,7 +85,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         AtomicBoolean exported = new AtomicBoolean();
-        ResourceGroup global = new RootResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
+        InternalResourceGroup global = new RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
         manager.configure(global, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
@@ -98,7 +98,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getJmxExport(), true);
         assertEquals(exported.get(), true);
         exported.set(false);
-        ResourceGroup sub = global.getOrCreateSubGroup("sub");
+        InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
         manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getMaxRunningQueries(), 3);

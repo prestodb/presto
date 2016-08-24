@@ -16,7 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryQueueManager;
-import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
@@ -56,8 +56,8 @@ public class ResourceGroupManager
 {
     private static final Logger log = Logger.get(ResourceGroupManager.class);
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
-    private final List<RootResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
-    private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
+    private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
+    private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final List<ResourceGroupSelector> selectors;
     private final ResourceGroupConfigurationManager configurationManager;
     private final MBeanExporter exporter;
@@ -119,7 +119,7 @@ public class ResourceGroupManager
             // nano time has overflowed
             lastCpuQuotaGenerationNanos.set(nanoTime);
         }
-        for (RootResourceGroup group : rootGroups) {
+        for (RootInternalResourceGroup group : rootGroups) {
             try {
                 if (elapsedSeconds > 0) {
                     group.generateCpuQuota(elapsedSeconds);
@@ -141,15 +141,15 @@ public class ResourceGroupManager
     {
         SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
         if (!groups.containsKey(id)) {
-            ResourceGroup group;
+            InternalResourceGroup group;
             if (id.getParent().isPresent()) {
                 createGroupIfNecessary(id.getParent().get(), session, executor);
-                ResourceGroup parent = groups.get(id.getParent().get());
+                InternalResourceGroup parent = groups.get(id.getParent().get());
                 requireNonNull(parent, "parent is null");
                 group = parent.getOrCreateSubGroup(id.getLastSegment());
             }
             else {
-                RootResourceGroup root = new RootResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
+                RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
                 group = root;
                 rootGroups.add(root);
             }
@@ -158,9 +158,9 @@ public class ResourceGroupManager
         }
     }
 
-    private void exportGroup(ResourceGroup group, Boolean export)
+    private void exportGroup(InternalResourceGroup group, Boolean export)
     {
-        String objectName = ObjectNames.builder(ResourceGroup.class, group.getId().toString()).build();
+        String objectName = ObjectNames.builder(InternalResourceGroup.class, group.getId().toString()).build();
         try {
             if (export) {
                 exporter.export(objectName, group);
