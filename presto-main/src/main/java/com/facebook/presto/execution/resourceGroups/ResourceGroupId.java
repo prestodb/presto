@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
-
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class ResourceGroupId
 {
@@ -30,12 +30,19 @@ public final class ResourceGroupId
 
     public ResourceGroupId(String name)
     {
-        this(ImmutableList.of(requireNonNull(name, "name is null")));
+        this(singletonList(requireNonNull(name, "name is null")));
     }
 
     public ResourceGroupId(ResourceGroupId parent, String name)
     {
-        this(ImmutableList.<String>builder().addAll(requireNonNull(parent, "parent is null").segments).add(requireNonNull(name, "name is null")).build());
+        this(append(requireNonNull(parent, "parent is null").segments, requireNonNull(name, "name is null")));
+    }
+
+    private static List<String> append(List<String> list, String element)
+    {
+        List<String> result = new ArrayList<>(list);
+        result.add(element);
+        return result;
     }
 
     private ResourceGroupId(List<String> segments)
@@ -43,7 +50,9 @@ public final class ResourceGroupId
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
         for (String segment : segments) {
             checkArgument(!segment.isEmpty(), "Empty segment in resource group id");
-            checkArgument(segment.indexOf('.') < 0, "Invalid resource group id. '%s' contains a '.'", Joiner.on(".").join(segments));
+            String id = segments.stream()
+                    .collect(joining("."));
+            checkArgument(segment.indexOf('.') < 0, "Invalid resource group id. '%s' contains a '.'", id);
         }
         this.segments = segments;
     }
@@ -69,13 +78,21 @@ public final class ResourceGroupId
     public static ResourceGroupId fromString(String value)
     {
         requireNonNull(value, "value is null");
-        return new ResourceGroupId(Splitter.on(".").splitToList(value));
+        return new ResourceGroupId(asList(value.split("\\.")));
+    }
+
+    private static void checkArgument(boolean argument, String format, Object... args)
+    {
+        if (!argument) {
+            throw new IllegalArgumentException(format(format, args));
+        }
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(".").join(segments);
+        return segments.stream()
+                .collect(joining("."));
     }
 
     @Override
