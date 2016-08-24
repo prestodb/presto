@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.sql.tree.Statement;
-
 import java.util.Optional;
 
 public interface ResourceGroupSelector
 {
-    Optional<ResourceGroupId> match(Statement statement, SelectionContext context);
+    Optional<ResourceGroupId> match(SelectionContext context);
 }
