@@ -764,7 +764,7 @@ public class PrestoS3FileSystem
                 int bytesRead = retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
                         .onRetry(STATS::newReadRetry)
                         .run("readStream", () -> {
                             seekStream();
