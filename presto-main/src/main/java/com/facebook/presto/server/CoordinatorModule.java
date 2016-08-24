@@ -70,6 +70,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -223,6 +224,7 @@ public class CoordinatorModule
         executionBinder.addBinding(CreateTableAsSelect.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Insert.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Delete.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(DescribeInput.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
         bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);

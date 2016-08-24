@@ -15,6 +15,7 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -43,7 +44,15 @@ final class ExplainRewrite
         implements StatementRewrite.Rewrite
 {
     @Override
-    public Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters)
+    public Statement rewrite(
+            Session session,
+            Metadata metadata,
+            SqlParser parser,
+            Optional<QueryExplainer> queryExplainer,
+            Statement node,
+            List<Expression> parameters,
+            AccessControl accessControl,
+            boolean experimentalSyntaxEnables)
     {
         return (Statement) new Visitor(session, parser, queryExplainer).process(node, null);
     }

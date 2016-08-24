@@ -16,6 +16,7 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
@@ -30,21 +31,38 @@ import static java.util.Objects.requireNonNull;
 public final class StatementRewrite
 {
     private static final List<Rewrite> REWRITES = ImmutableList.of(
+            new DescribeInputRewrite(),
             new ShowQueriesRewrite(),
             new ExplainRewrite());
 
     private StatementRewrite() {}
 
-    public static Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters)
+    public static Statement rewrite(
+            Session session,
+            Metadata metadata,
+            SqlParser parser,
+            Optional<QueryExplainer> queryExplainer,
+            Statement node,
+            List<Expression> parameters,
+            AccessControl accessControl,
+            boolean experimentalSyntaxEnabled)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, accessControl, experimentalSyntaxEnabled), "Statement rewrite returned null");
         }
         return node;
     }
 
     interface Rewrite
     {
-        Statement rewrite(Session session, Metadata metadata, SqlParser parser, Optional<QueryExplainer> queryExplainer, Statement node, List<Expression> parameters);
+        Statement rewrite(
+                Session session,
+                Metadata metadata,
+                SqlParser parser,
+                Optional<QueryExplainer> queryExplainer,
+                Statement node,
+                List<Expression> parameters,
+                AccessControl accessControl,
+                boolean experimentalSyntaxEnabled);
     }
 }
