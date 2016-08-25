@@ -25,10 +25,10 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -36,6 +36,7 @@ import java.util.List;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -47,6 +48,9 @@ import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.checkOverflow;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static java.lang.Integer.max;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.TEN;
@@ -83,11 +87,11 @@ public final class DecimalOperators
                 .signature(signature)
                 .implementation(b -> b
                         .methods("addShortShortShort")
-                        .withExtraParameters(DecimalOperators::shortRescaleExtraParameters)
+                        .withExtraParameters(DecimalOperators::calculateShortRescaleParameters)
                 )
                 .implementation(b -> b
                         .methods("addShortShortLong", "addLongLongLong", "addShortLongLong", "addLongShortLong")
-                        .withExtraParameters(DecimalOperators::longRescaleExtraParameters)
+                        .withExtraParameters(DecimalOperators::calculateLongRescaleParameters)
                 )
                 .build();
     }
@@ -99,42 +103,51 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice addShortShortLong(long a, long b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice addShortShortLong(long a, long b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalAddLongLongLong(unscaledDecimal(a), unscaledDecimal(b), rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice addLongLongLong(Slice a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice addLongLongLong(Slice a, Slice b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalAddLongLongLong(a, b, rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice addShortLongLong(long a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice addShortLongLong(long a, Slice b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalAddLongLongLong(unscaledDecimal(a), b, rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice addLongShortLong(Slice a, long b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice addLongShortLong(Slice a, long b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalAddLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalAddLongLongLong(a, unscaledDecimal(b), rescale, left);
     }
 
-    private static Slice internalAddLongLongLong(BigInteger aBigInteger, BigInteger bBigInteger, BigInteger aRescale, BigInteger bRescale)
+    private static Slice internalAddLongLongLong(Slice a, Slice b, int rescale, boolean rescaleLeft)
     {
-        BigInteger result = aBigInteger.multiply(aRescale).add(bBigInteger.multiply(bRescale));
-        checkOverflow(result);
-        return Decimals.encodeUnscaledValue(result);
+        try {
+            Slice left = unscaledDecimal();
+            Slice right;
+
+            if (rescaleLeft) {
+                rescale(a, rescale, left);
+                right = b;
+            }
+            else {
+                rescale(b, rescale, left);
+                right = a;
+            }
+
+            UnscaledDecimal128Arithmetic.add(left, right, left);
+            throwIfOverflows(left);
+            return left;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
     }
 
     private static SqlScalarFunction decimalSubtractOperator()
@@ -156,11 +169,11 @@ public final class DecimalOperators
                 .signature(signature)
                 .implementation(b -> b
                         .methods("subtractShortShortShort")
-                        .withExtraParameters(DecimalOperators::shortRescaleExtraParameters)
+                        .withExtraParameters(DecimalOperators::calculateShortRescaleParameters)
                 )
                 .implementation(b -> b
                         .methods("subtractShortShortLong", "subtractLongLongLong", "subtractShortLongLong", "subtractLongShortLong")
-                        .withExtraParameters(DecimalOperators::longRescaleExtraParameters)
+                        .withExtraParameters(DecimalOperators::calculateLongRescaleParameters)
                 )
                 .build();
     }
@@ -172,42 +185,47 @@ public final class DecimalOperators
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractShortShortLong(long a, long b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice subtractShortShortLong(long a, long b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalSubtractLongLongLong(unscaledDecimal(a), unscaledDecimal(b), rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractLongLongLong(Slice a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice subtractLongLongLong(Slice a, Slice b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalSubtractLongLongLong(a, b, rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractShortLongLong(long a, Slice b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice subtractShortLongLong(long a, Slice b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalSubtractLongLongLong(unscaledDecimal(a), b, rescale, left);
     }
 
     @UsedByGeneratedCode
-    public static Slice subtractLongShortLong(Slice a, long b, BigInteger aRescale, BigInteger bRescale)
+    public static Slice subtractLongShortLong(Slice a, long b, int rescale, boolean left)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalSubtractLongLongLong(aBigInteger, bBigInteger, aRescale, bRescale);
+        return internalSubtractLongLongLong(a, unscaledDecimal(b), rescale, left);
     }
 
-    private static Slice internalSubtractLongLongLong(BigInteger aBigInteger, BigInteger bBigInteger, BigInteger aRescale, BigInteger bRescale)
+    private static Slice internalSubtractLongLongLong(Slice a, Slice b, int rescale, boolean rescaleLeft)
     {
-        BigInteger result = aBigInteger.multiply(aRescale).subtract(bBigInteger.multiply(bRescale));
-        checkOverflow(result);
-        return Decimals.encodeUnscaledValue(result);
+        try {
+            Slice tmp = unscaledDecimal();
+            if (rescaleLeft) {
+                rescale(a, rescale, tmp);
+                UnscaledDecimal128Arithmetic.subtract(tmp, b, tmp);
+            }
+            else {
+                rescale(b, rescale, tmp);
+                UnscaledDecimal128Arithmetic.subtract(a, tmp, tmp);
+            }
+            throwIfOverflows(tmp);
+            return tmp;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
     }
 
     private static SqlScalarFunction decimalMultiplyOperator()
@@ -241,40 +259,32 @@ public final class DecimalOperators
     @UsedByGeneratedCode
     public static Slice multiplyShortShortLong(long a, long b)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
+        return multiplyLongLongLong(Decimals.encodeUnscaledValue(a), Decimals.encodeUnscaledValue(b));
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyLongLongLong(Slice a, Slice b)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
+        try {
+            Slice result = UnscaledDecimal128Arithmetic.multiply(a, b);
+            throwIfOverflows(result);
+            return result;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyShortLongLong(long a, Slice b)
     {
-        BigInteger aBigInteger = BigInteger.valueOf(a);
-        BigInteger bBigInteger = Decimals.decodeUnscaledValue(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
+        return multiplyLongLongLong(Decimals.encodeUnscaledValue(a), b);
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyLongShortLong(Slice a, long b)
     {
-        BigInteger aBigInteger = Decimals.decodeUnscaledValue(a);
-        BigInteger bBigInteger = BigInteger.valueOf(b);
-        return internalMultiplyLongLongLong(aBigInteger, bBigInteger);
-    }
-
-    private static Slice internalMultiplyLongLongLong(BigInteger aBigInteger, BigInteger bBigInteger)
-    {
-        BigInteger result = aBigInteger.multiply(bBigInteger);
-        checkOverflow(result);
-        return Decimals.encodeUnscaledValue(result);
+        return multiplyLongLongLong(a, Decimals.encodeUnscaledValue(b));
     }
 
     private static SqlScalarFunction decimalDivideOperator()
@@ -492,11 +502,34 @@ public final class DecimalOperators
                 .build();
     }
 
-    private static List<Object> shortRescaleExtraParameters(SpecializeContext context)
+    private static List<Object> calculateShortRescaleParameters(SpecializeContext context)
     {
         long aRescale = longTenToNth(rescaleFactor(context.getLiteral("a_scale"), context.getLiteral("b_scale")));
         long bRescale = longTenToNth(rescaleFactor(context.getLiteral("b_scale"), context.getLiteral("a_scale")));
         return ImmutableList.of(aRescale, bRescale);
+    }
+
+    private static List<Object> calculateLongRescaleParameters(SpecializeContext context)
+    {
+        long aScale = context.getLiteral("a_scale");
+        long bScale = context.getLiteral("b_scale");
+        int aRescale = rescaleFactor(aScale, bScale);
+        int bRescale = rescaleFactor(bScale, aScale);
+
+        int rescale;
+        boolean left;
+        if (aRescale == 0) {
+            rescale = bRescale;
+            left = false;
+        }
+        else if (bRescale == 0) {
+            rescale = aRescale;
+            left = true;
+        }
+        else {
+            throw new IllegalStateException();
+        }
+        return ImmutableList.of(rescale, left);
     }
 
     private static List<Object> longRescaleExtraParameters(SpecializeContext context)
@@ -613,7 +646,7 @@ public final class DecimalOperators
         @SqlType("bigint")
         public static long hashCode(@SqlType("decimal(p, s)") Slice value)
         {
-            return XxHash64.hash(value);
+            return UnscaledDecimal128Arithmetic.hash(value);
         }
     }
 }

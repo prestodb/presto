@@ -180,6 +180,8 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.CountColumn.COUNT_COLUMN;
+import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
+import static com.facebook.presto.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
@@ -480,6 +482,8 @@ public class FunctionRegistry
                 .function(CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(new Re2JCastToRegexpFunction(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
+                .function(DECIMAL_AVERAGE_AGGREGATION)
+                .function(DECIMAL_SUM_AGGREGATION)
                 .function(TRY_CAST);
 
         builder.function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg()));

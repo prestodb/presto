@@ -64,6 +64,9 @@ public class TestDecimalCasts
         assertDecimalFunction("CAST(1234567890 AS DECIMAL(20, 10))", decimal("1234567890.0000000000"));
         assertDecimalFunction("CAST(-1234567890 AS DECIMAL(20, 10))", decimal("-1234567890.0000000000"));
 
+        //reenable this test after fixing https://github.com/prestodb/presto/issues/5775
+        //assertDecimalFunction("CAST(17014000 AS DECIMAL(38,30))" , decimal("17014000.000000000000000000000000000000"));
+
         assertInvalidCast("CAST(1234567890 AS DECIMAL(17,10))", "Cannot cast INTEGER '1234567890' to DECIMAL(17, 10)");
         assertInvalidCast("CAST(123 AS DECIMAL(2,1))", "Cannot cast INTEGER '123' to DECIMAL(2, 1)");
         assertInvalidCast("CAST(-123 AS DECIMAL(2,1))", "Cannot cast INTEGER '-123' to DECIMAL(2, 1)");
@@ -122,8 +125,12 @@ public class TestDecimalCasts
         assertFunction("CAST(DECIMAL '1' AS DOUBLE)", DOUBLE, 1.0);
         assertFunction("CAST(DECIMAL '-2.49' AS DOUBLE)", DOUBLE, -2.49);
 
+        assertFunction("CAST(CAST(DECIMAL '0' AS DECIMAL(20, 2)) AS DOUBLE)", DOUBLE, 0.0);
+        assertFunction("CAST(CAST(DECIMAL '12.12' AS DECIMAL(20, 2)) AS DOUBLE)", DOUBLE, 12.12);
         assertFunction("CAST(DECIMAL '1234567890.1234567890' AS DOUBLE)", DOUBLE, 1234567890.1234567890);
         assertFunction("CAST(DECIMAL '-1234567890.1234567890' AS DOUBLE)", DOUBLE, -1234567890.1234567890);
+        assertFunction("CAST(DECIMAL '-1234567890123456789012345678' AS DOUBLE)", DOUBLE, -1.2345678901234569E27);
+        assertFunction("CAST(DECIMAL '99999999999999999999999999999999999999' AS DOUBLE)", DOUBLE, 1.0E38);
     }
 
     @Test
@@ -157,8 +164,12 @@ public class TestDecimalCasts
         assertFunction("CAST(DECIMAL '1' AS REAL)", REAL, 1.0f);
         assertFunction("CAST(DECIMAL '-2.49' AS REAL)", REAL, -2.49f);
 
+        assertFunction("CAST(CAST(DECIMAL '0' AS DECIMAL(20, 2)) AS REAL)", REAL, 0.0f);
+        assertFunction("CAST(CAST(DECIMAL '12.12' AS DECIMAL(20, 2)) AS REAL)", REAL, 12.12f);
         assertFunction("CAST(DECIMAL '1234567890.1234567890' AS REAL)", REAL, 1234567890.1234567890f);
         assertFunction("CAST(DECIMAL '-1234567890.1234567890' AS REAL)", REAL, -1234567890.1234567890f);
+        assertFunction("CAST(DECIMAL '-1234567890123456789012345678' AS REAL)", REAL, -1.2345678901234569E27f);
+        assertFunction("CAST(DECIMAL '99999999999999999999999999999999999999' AS REAL)", REAL, 1.0E38f);
     }
 
     @Test
