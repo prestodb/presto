@@ -16,10 +16,12 @@ package com.facebook.presto.memory;
 import com.facebook.presto.execution.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Map;
+
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableMap;
 
 public final class MemoryPoolInfo
 {
@@ -32,7 +34,7 @@ public final class MemoryPoolInfo
     {
         this.maxBytes = maxBytes;
         this.freeBytes = freeBytes;
-        this.queryMemoryReservations = ImmutableMap.copyOf(queryMemoryReservations);
+        this.queryMemoryReservations = unmodifiableMap(new HashMap<>(queryMemoryReservations));
     }
 
     @JsonProperty
@@ -56,9 +58,6 @@ public final class MemoryPoolInfo
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
-                .add("maxBytes", maxBytes)
-                .add("freeBytes", freeBytes)
-                .toString();
+        return format("maxBytes=%s,freeBytes=%s", maxBytes, freeBytes);
     }
 }
