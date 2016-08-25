@@ -56,7 +56,7 @@ public class FileResourceGroupConfigurationManager
     private final Optional<Duration> cpuQuotaPeriodMillis;
 
     @GuardedBy("generalPoolMemoryFraction")
-    private final Map<ConfigurableResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
+    private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
     @GuardedBy("generalPoolMemoryFraction")
     private long generalPoolBytes;
 
@@ -97,7 +97,7 @@ public class FileResourceGroupConfigurationManager
 
         memoryPoolManager.addChangeListener(GENERAL_POOL, poolInfo -> {
             synchronized (generalPoolMemoryFraction) {
-                for (Map.Entry<ConfigurableResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
+                for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
                     double bytes = poolInfo.getMaxBytes() * entry.getValue();
                     entry.getKey().setSoftMemoryLimit(new DataSize(bytes, BYTE));
                 }
@@ -107,7 +107,7 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ConfigurableResourceGroup group, SelectionContext context)
+    public void configure(ResourceGroup group, SelectionContext context)
     {
         List<ResourceGroupSpec> candidates = rootGroups;
         List<String> segments = group.getId().getSegments();

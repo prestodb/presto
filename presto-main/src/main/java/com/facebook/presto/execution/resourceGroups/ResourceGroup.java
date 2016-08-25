@@ -20,7 +20,7 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.ThreadSafe;
 
 @ThreadSafe
-public interface ConfigurableResourceGroup
+public interface ResourceGroup
 {
     ResourceGroupId getId();
 

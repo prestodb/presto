@@ -51,7 +51,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class InternalResourceGroup
-        implements ConfigurableResourceGroup
+        implements ResourceGroup
 {
     public static final int DEFAULT_WEIGHT = 1;
 
