@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -52,9 +51,9 @@ public interface ResourceGroup
 
     void setSchedulingWeight(int weight);
 
-    SubGroupSchedulingPolicy getSchedulingPolicy();
+    SchedulingPolicy getSchedulingPolicy();
 
-    void setSchedulingPolicy(SubGroupSchedulingPolicy policy);
+    void setSchedulingPolicy(SchedulingPolicy policy);
 
     boolean getJmxExport();
 

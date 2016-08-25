@@ -36,9 +36,9 @@ import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
-import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.FAIR;
-import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.QUERY_PRIORITY;
-import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.execution.resourceGroups.SchedulingPolicy.FAIR;
+import static com.facebook.presto.execution.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
+import static com.facebook.presto.execution.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -96,7 +96,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private final Set<QueryExecution> runningQueries = new HashSet<>();
     @GuardedBy("root")
-    private SubGroupSchedulingPolicy schedulingPolicy = FAIR;
+    private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
     private boolean jmxExport;
 
@@ -302,7 +302,7 @@ public class InternalResourceGroup
     }
 
     @Override
-    public SubGroupSchedulingPolicy getSchedulingPolicy()
+    public SchedulingPolicy getSchedulingPolicy()
     {
         synchronized (root) {
             return schedulingPolicy;
@@ -310,7 +310,7 @@ public class InternalResourceGroup
     }
 
     @Override
-    public void setSchedulingPolicy(SubGroupSchedulingPolicy policy)
+    public void setSchedulingPolicy(SchedulingPolicy policy)
     {
         synchronized (root) {
             if (policy == schedulingPolicy) {
@@ -593,7 +593,7 @@ public class InternalResourceGroup
         }
     }
 
-    private static int getSubGroupSchedulingPriority(SubGroupSchedulingPolicy policy, InternalResourceGroup group)
+    private static int getSubGroupSchedulingPriority(SchedulingPolicy policy, InternalResourceGroup group)
     {
         if (policy == QUERY_PRIORITY) {
             return group.getHighestQueryPriority();
@@ -715,12 +715,5 @@ public class InternalResourceGroup
                 internalGenerateCpuQuota(elapsedSeconds);
             }
         }
-    }
-
-    public enum SubGroupSchedulingPolicy
-    {
-        FAIR,
-        WEIGHTED,
-        QUERY_PRIORITY
     }
 }

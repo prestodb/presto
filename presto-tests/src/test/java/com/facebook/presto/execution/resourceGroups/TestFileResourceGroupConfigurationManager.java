@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.DEFAULT_WEIGHT;
-import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.FAIR;
-import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.execution.resourceGroups.SchedulingPolicy.FAIR;
+import static com.facebook.presto.execution.resourceGroups.SchedulingPolicy.WEIGHTED;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.json.JsonCodec.jsonCodec;
