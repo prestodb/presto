@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.SubGroupSchedulingPolicy;
 import com.facebook.presto.memory.ClusterMemoryPoolManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -233,7 +232,7 @@ public class FileResourceGroupConfigurationManager
         private final Optional<Double> softMemoryLimitFraction;
         private final int maxQueued;
         private final int maxRunning;
-        private final Optional<SubGroupSchedulingPolicy> schedulingPolicy;
+        private final Optional<SchedulingPolicy> schedulingPolicy;
         private final Optional<Integer> schedulingWeight;
         private final List<ResourceGroupSpec> subGroups;
         private final Optional<Boolean> jmxExport;
@@ -261,7 +260,7 @@ public class FileResourceGroupConfigurationManager
             this.maxQueued = maxQueued;
             checkArgument(maxRunning >= 0, "maxRunning is negative");
             this.maxRunning = maxRunning;
-            this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SubGroupSchedulingPolicy.valueOf(value.toUpperCase()));
+            this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SchedulingPolicy.valueOf(value.toUpperCase()));
             this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
             requireNonNull(softMemoryLimit, "softMemoryLimit is null");
             Optional<DataSize> absoluteSize;
@@ -305,7 +304,7 @@ public class FileResourceGroupConfigurationManager
             return maxRunning;
         }
 
-        public Optional<SubGroupSchedulingPolicy> getSchedulingPolicy()
+        public Optional<SchedulingPolicy> getSchedulingPolicy()
         {
             return schedulingPolicy;
         }
