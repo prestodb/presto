@@ -28,6 +28,8 @@ import io.airlift.slice.Slice;
 import java.io.IOException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
+import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -124,7 +126,7 @@ public final class JsonExtract
     {
         requireNonNull(jsonInput, "jsonInput is null");
         try {
-            try (JsonParser jsonParser = JSON_FACTORY.createParser(jsonInput.getInput())) {
+            try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, jsonInput)) {
                 // Initialize by advancing to first token and make sure it exists
                 if (jsonParser.nextToken() == null) {
                     return null;
@@ -287,7 +289,7 @@ public final class JsonExtract
             }
 
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
-            try (JsonGenerator jsonGenerator = JSON_FACTORY.createGenerator(dynamicSliceOutput)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, dynamicSliceOutput)) {
                 jsonGenerator.copyCurrentStructure(jsonParser);
             }
             return dynamicSliceOutput.slice();
