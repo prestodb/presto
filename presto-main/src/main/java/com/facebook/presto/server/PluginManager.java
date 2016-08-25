@@ -64,18 +64,11 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class PluginManager
 {
-    private static final List<String> HIDDEN_CLASSES = ImmutableList.<String>builder()
-            .add("com.fasterxml.jackson")
-            .add("org.slf4j")
-            .build();
-
-    private static final ImmutableList<String> PARENT_FIRST_CLASSES = ImmutableList.<String>builder()
-            .add("com.facebook.presto")
-            .add("com.fasterxml.jackson.annotation")
-            .add("io.airlift.slice")
-            .add("io.airlift.units")
-            .add("javax.annotation")
-            .add("java.")
+    private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
+            .add("com.facebook.presto.spi.")
+            .add("com.fasterxml.jackson.annotation.")
+            .add("io.airlift.slice.")
+            .add("io.airlift.units.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
@@ -303,7 +296,7 @@ public class PluginManager
     private URLClassLoader createClassLoader(List<URL> urls)
     {
         ClassLoader parent = getClass().getClassLoader();
-        return new PluginClassLoader(urls, parent, HIDDEN_CLASSES, PARENT_FIRST_CLASSES);
+        return new PluginClassLoader(urls, parent, SPI_PACKAGES);
     }
 
     private static List<File> listFiles(File installedPluginsDir)
