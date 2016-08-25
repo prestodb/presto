@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-public class MemoryPoolInfo
+public final class MemoryPoolInfo
 {
     private final long maxBytes;
     private final long freeBytes;
