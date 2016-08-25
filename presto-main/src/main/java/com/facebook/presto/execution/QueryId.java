@@ -71,7 +71,7 @@ public final class QueryId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final QueryId other = (QueryId) obj;
+        QueryId other = (QueryId) obj;
         return Objects.equals(this.id, other.id);
     }
 
