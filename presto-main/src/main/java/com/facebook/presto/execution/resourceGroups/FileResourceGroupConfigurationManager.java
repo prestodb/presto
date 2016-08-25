@@ -24,7 +24,6 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,10 +47,10 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileResourceGroupConfigurationManager
-        implements ResourceGroupConfigurationManager, Provider<List<? extends ResourceGroupSelector>>
+        implements ResourceGroupConfigurationManager
 {
     private final List<ResourceGroupSpec> rootGroups;
-    private final List<? extends ResourceGroupSelector> selectors;
+    private final List<ResourceGroupSelector> selectors;
     private final Optional<Duration> cpuQuotaPeriodMillis;
 
     @GuardedBy("generalPoolMemoryFraction")
@@ -180,7 +179,7 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public List<? extends ResourceGroupSelector> get()
+    public List<ResourceGroupSelector> getSelectors()
     {
         return selectors;
     }

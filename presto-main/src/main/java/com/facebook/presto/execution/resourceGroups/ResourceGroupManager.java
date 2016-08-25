@@ -19,7 +19,6 @@ import com.facebook.presto.execution.QueryQueueManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
@@ -58,17 +57,15 @@ public class ResourceGroupManager
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
-    private final List<ResourceGroupSelector> selectors;
     private final ResourceGroupConfigurationManager configurationManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
 
     @Inject
-    public ResourceGroupManager(List<? extends ResourceGroupSelector> selectors, ResourceGroupConfigurationManager configurationManager, MBeanExporter exporter)
+    public ResourceGroupManager(ResourceGroupConfigurationManager configurationManager, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
-        this.selectors = ImmutableList.copyOf(selectors);
         this.configurationManager = requireNonNull(configurationManager, "configurationManager is null");
     }
 
@@ -177,7 +174,7 @@ public class ResourceGroupManager
     private ResourceGroupId selectGroup(Session session)
     {
         SelectionContext context = new SelectionContext(session.getIdentity().getPrincipal().isPresent(), session.getUser(), session.getSource(), getQueryPriority(session));
-        for (ResourceGroupSelector selector : selectors) {
+        for (ResourceGroupSelector selector : configurationManager.getSelectors()) {
             Optional<ResourceGroupId> group = selector.match(context);
             if (group.isPresent()) {
                 return group.get();

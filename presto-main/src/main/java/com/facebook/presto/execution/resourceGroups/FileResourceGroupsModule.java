@@ -17,9 +17,6 @@ import com.facebook.presto.execution.resourceGroups.FileResourceGroupConfigurati
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import com.google.inject.TypeLiteral;
-
-import java.util.List;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -32,7 +29,6 @@ public class FileResourceGroupsModule
     {
         jsonCodecBinder(binder).bindJsonCodec(ManagerSpec.class);
         configBinder(binder).bindConfig(FileResourceGroupConfig.class);
-        binder.bind(new TypeLiteral<List<? extends ResourceGroupSelector>>() {}).toProvider(FileResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupConfigurationManager.class).to(FileResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
     }
 }
