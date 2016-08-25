@@ -1439,6 +1439,36 @@ public class TestHiveIntegrationSmokeTest
         assertEqualsIgnoreOrder(actualAfterTransaction, expectedAfter);
     }
 
+    @Test
+    public void testCreateAndInsert()
+    {
+        Session session = getSession();
+
+        List<MaterializedRow> expected = MaterializedResult.resultBuilder(session, BIGINT, BIGINT)
+                .row(101L, 1L)
+                .row(201L, 2L)
+                .row(202L, 2L)
+                .row(301L, 3L)
+                .row(302L, 3L)
+                .build()
+                .getMaterializedRows();
+
+        transaction(queryRunner.getTransactionManager())
+                .execute(session, transactionSession -> {
+                    assertUpdate(
+                            transactionSession,
+                            "CREATE TABLE tmp_create_insert WITH (partitioned_by=array ['z']) AS " +
+                                    "SELECT * from (VALUES (CAST (101 AS BIGINT), CAST (1 AS BIGINT)), (201, 2), (202, 2)) t(a, z)",
+                            3);
+                    assertUpdate(transactionSession, "INSERT INTO tmp_create_insert VALUES (301, 3), (302, 3)", 2);
+                    MaterializedResult actualFromCurrentTransaction = computeActual(transactionSession, "SELECT * FROM tmp_create_insert");
+                    assertEqualsIgnoreOrder(actualFromCurrentTransaction, expected);
+                });
+
+        MaterializedResult actualAfterTransaction = computeActual(session, "SELECT * FROM tmp_create_insert");
+        assertEqualsIgnoreOrder(actualAfterTransaction, expected);
+    }
+
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.inject.Inject;
 
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -57,14 +59,23 @@ public class SqlStandardAccessControl
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
     private final String connectorId;
+    // Two metastores (one transaction-aware, the other not) are available in this class
+    // so that an appropriate one can be chosen based on whether transaction handle is available.
+    // Transaction handle is not available for checkCanSetCatalogSessionProperty.
+    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
     private final ExtendedHiveMetastore metastore;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
 
     @Inject
-    public SqlStandardAccessControl(HiveConnectorId connectorId, ExtendedHiveMetastore metastore, HiveClientConfig hiveClientConfig)
+    public SqlStandardAccessControl(
+            HiveConnectorId connectorId,
+            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            ExtendedHiveMetastore metastore,
+            HiveClientConfig hiveClientConfig)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
 
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
@@ -75,7 +86,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkDatabasePermission(identity, tableName.getSchemaName(), OWNERSHIP)) {
+        if (!checkDatabasePermission(transaction, identity, tableName.getSchemaName(), OWNERSHIP)) {
             denyCreateTable(tableName.toString());
         }
     }
@@ -83,7 +94,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!allowDropTable || !checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!allowDropTable || !checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyDropTable(tableName.toString());
         }
     }
@@ -91,7 +102,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        if (!allowRenameTable || !checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!allowRenameTable || !checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
     }
@@ -99,7 +110,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanAddColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyAddColumn(tableName.toString());
         }
     }
@@ -107,7 +118,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameColumn(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyRenameColumn(tableName.toString());
         }
     }
@@ -115,7 +126,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, SELECT)) {
+        if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
     }
@@ -123,7 +134,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, INSERT)) {
+        if (!checkTablePermission(transaction, identity, tableName, INSERT)) {
             denyInsertTable(tableName.toString());
         }
     }
@@ -131,7 +142,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, DELETE)) {
+        if (!checkTablePermission(transaction, identity, tableName, DELETE)) {
             denyDeleteTable(tableName.toString());
         }
     }
@@ -139,7 +150,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkDatabasePermission(identity, viewName.getSchemaName(), OWNERSHIP)) {
+        if (!checkDatabasePermission(transaction, identity, viewName.getSchemaName(), OWNERSHIP)) {
             denyCreateView(viewName.toString());
         }
     }
@@ -147,7 +158,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkTablePermission(identity, viewName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, identity, viewName, OWNERSHIP)) {
             denyDropView(viewName.toString());
         }
     }
@@ -155,7 +166,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkTablePermission(identity, viewName, SELECT)) {
+        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
             denySelectView(viewName.toString());
         }
     }
@@ -163,10 +174,10 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, SELECT)) {
+        if (!checkTablePermission(transaction, identity, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
-        else if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, tableName)) {
+        else if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, tableName)) {
             denyCreateViewWithSelect(tableName.toString());
         }
     }
@@ -174,10 +185,10 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromView(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName viewName)
     {
-        if (!checkTablePermission(identity, viewName, SELECT)) {
+        if (!checkTablePermission(transaction, identity, viewName, SELECT)) {
             denySelectView(viewName.toString());
         }
-        if (!getGrantOptionForPrivilege(identity, Privilege.SELECT, viewName)) {
+        if (!getGrantOptionForPrivilege(transaction, identity, Privilege.SELECT, viewName)) {
             denyCreateViewWithSelect(viewName.toString());
         }
     }
@@ -193,12 +204,12 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
-        if (checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;
         }
 
         HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !getGrantOptionForPrivilege(identity, privilege, tableName)) {
+        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
         }
     }
@@ -206,18 +217,19 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
-        if (checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             return;
         }
 
         HivePrivilege hivePrivilege = toHivePrivilege(privilege);
-        if (hivePrivilege == null || !getGrantOptionForPrivilege(identity, privilege, tableName)) {
+        if (hivePrivilege == null || !getGrantOptionForPrivilege(transaction, identity, privilege, tableName)) {
             denyRevokeTablePrivilege(privilege.name(), tableName.toString());
         }
     }
 
-    private boolean checkDatabasePermission(Identity identity, String schemaName, HivePrivilege... requiredPrivileges)
+    private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, Identity identity, String schemaName, HivePrivilege... requiredPrivileges)
     {
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         Set<HivePrivilege> privilegeSet = metastore.getDatabasePrivileges(identity.getUser(), schemaName).stream()
                 .map(HivePrivilegeInfo::getHivePrivilege)
                 .collect(Collectors.toSet());
@@ -225,18 +237,20 @@ public class SqlStandardAccessControl
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
-    private boolean getGrantOptionForPrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         return metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName())
                 .contains(new HivePrivilegeInfo(toHivePrivilege(privilege), true));
     }
 
-    private boolean checkTablePermission(Identity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
+    private boolean checkTablePermission(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, HivePrivilege... requiredPrivileges)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return true;
         }
 
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
         Set<HivePrivilege> privilegeSet = metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName()).stream()
                 .map(HivePrivilegeInfo::getHivePrivilege)
                 .collect(Collectors.toSet());
