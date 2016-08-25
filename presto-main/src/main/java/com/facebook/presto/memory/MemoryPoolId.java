@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class MemoryPoolId
+public final class MemoryPoolId
 {
     private final String id;
 
