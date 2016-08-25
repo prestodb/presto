@@ -314,7 +314,7 @@ class RelationPlanner
                 }
             }
 
-            // non inner join subqueries can be applied only to one side of join
+            // subqueries can be applied only to one side of join - left side is selected in arbitrary way
             leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexJoinExpressions, node);
         }
 
