@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.type.ArrayType;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -312,5 +314,17 @@ public class TestJsonFunctions
         assertFunction("JSON '[1,2,3]' != JSON '[2,3,1]'", BOOLEAN, true);
         assertFunction("JSON '{\"p_1\": 1, \"p_2\":\"v_2\", \"p_3\":null, \"p_4\":true, \"p_5\": {\"p_1\":1}}' != " +
                 "JSON '{\"p_2\":\"v_2\", \"p_4\":true, \"p_1\": 1, \"p_3\":null, \"p_5\": {\"p_1\":1}}'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testJsonArrayExtract()
+    {
+        assertFunction("json_array_extract('[{\"a\":{\"b\":\"13\"}}, {\"a\":{\"b\":\"18\"}}, {\"a\":{\"b\":\"12\"}}]', '$.a.b')", new ArrayType(VARCHAR), ImmutableList.of("\"13\"", "\"18\"", "\"12\""));
+    }
+
+    @Test
+    public void testJsonArrayExtractScalar()
+    {
+        assertFunction("json_array_extract_scalar('[{\"a\":{\"b\":\"13\"}}, {\"a\":{\"b\":\"18\"}}, {\"a\":{\"b\":\"12\"}}]', '$.a.b')", new ArrayType(VARCHAR), ImmutableList.of("13", "18", "12"));
     }
 }

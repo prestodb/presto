@@ -28,6 +28,20 @@ JSON Functions
         SELECT json_array_get('["a", "b", "c"]', 10); -- null
         SELECT json_array_get('["c", "b", "a"]', -10); -- null
 
+.. function:: json_array_extract(json, json_path) -> array(varchar)
+    Evaluates the `JSONPath`_-like expression ``json_path`` on ``json``
+    (a string containing JSON) and returns the array(varchar) result. The array's varchar content as a JSON string::
+
+        SELECT json_array_get('[{"book":{"id":"12"}}, {"book":{"id":"14"}}]', '$.book.id'); -- ['"12"', '"14"']
+
+    .. _JSONPath: http://goessner.net/articles/JsonPath/
+
+.. function:: json_array_extract_scalar(json, json_path) -> array(varchar)
+    Like :func:`json_array_extract`, but result array's varchar value as a string (as opposed
+    to being encoded as JSON).
+
+        SELECT json_array_extract_scalar('[{"book":{"id":"12"}}, {"book":{"id":"14"}}]', '$.book.id'); -- ['12', '14']
+
 .. function:: json_array_length(json) -> bigint
 
     Returns the array length of ``json`` (a string containing a JSON array)::
