@@ -19,5 +19,5 @@ public interface ResourceGroupConfigurationManager
      * Implementations may retain a reference to the group, and re-configure it asynchronously.
      * This method is called, once, when the group is created.
      */
-    void configure(ConfigurableResourceGroup group, SelectionContext context);
+    void configure(ResourceGroup group, SelectionContext context);
 }
