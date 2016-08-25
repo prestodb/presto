@@ -35,6 +35,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -66,7 +67,7 @@ public final class TypeJsonUtils
             return null;
         }
 
-        try (JsonParser jsonParser = JSON_FACTORY.createParser(value.getInput())) {
+        try (JsonParser jsonParser = JSON_FACTORY.createParser((InputStream) value.getInput())) {
             jsonParser.nextToken();
             return stackRepresentationToObjectHelper(session, jsonParser, type);
         }
