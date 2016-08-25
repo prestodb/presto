@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
-import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
@@ -34,21 +35,23 @@ import static java.util.Objects.requireNonNull;
 public class NoAccessControl
         implements ConnectorAccessControl
 {
-    private final HiveMetastore metastore;
+    private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
     private final boolean allowAddColumn;
     private final boolean allowRenameColumn;
 
     @Inject
-    public NoAccessControl(HiveMetastore metastore, HiveClientConfig hiveClientConfig)
+    public NoAccessControl(
+            Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
+            HiveClientConfig hiveClientConfig)
     {
         requireNonNull(hiveClientConfig, "hiveClientConfig is null");
         allowDropTable = hiveClientConfig.getAllowDropTable();
         allowRenameTable = hiveClientConfig.getAllowRenameTable();
         allowAddColumn = hiveClientConfig.getAllowAddColumn();
         allowRenameColumn = hiveClientConfig.getAllowRenameColumn();
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
     }
 
     @Override
@@ -63,7 +66,7 @@ public class NoAccessControl
             denyDropTable(tableName.toString());
         }
 
-        Optional<Table> target = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> target = metastoreProvider.apply(((HiveTransactionHandle) transaction)).getTable(tableName.getSchemaName(), tableName.getTableName());
 
         if (!target.isPresent()) {
             denyDropTable(tableName.toString(), "Table not found");

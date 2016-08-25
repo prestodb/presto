@@ -30,6 +30,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.concurrent.MoreFutures;
@@ -65,6 +66,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toGrants;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -593,7 +596,30 @@ public class SemiTransactionalHiveMetastore
     public synchronized Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
     {
         checkReadable();
-        return delegate.getTablePrivileges(user, databaseName, tableName);
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        Action<TableAndMore> tableAction = tableActions.get(schemaTableName);
+        if (tableAction == null) {
+            return delegate.getTablePrivileges(user, databaseName, tableName);
+        }
+        switch (tableAction.getType()) {
+            case ADD:
+            case ALTER: {
+                if (!user.equals(tableAction.getData().getTable().getOwner())) {
+                    throw new PrestoException(NOT_SUPPORTED, "Cannot access a table newly created in the transaction with a different user");
+                }
+                List<PrivilegeGrantInfo> privilegeGrantInfoList = tableAction.getData().getPrincipalPrivilegeSet().getUserPrivileges().get(user);
+                return ImmutableSet.<HivePrivilegeInfo>builder()
+                        .addAll(toGrants(privilegeGrantInfoList))
+                        .add(new HivePrivilegeInfo(OWNERSHIP, true))
+                        .build();
+            }
+            case INSERT_EXISTING:
+                return delegate.getTablePrivileges(user, databaseName, tableName);
+            case DROP:
+                throw new TableNotFoundException(schemaTableName);
+            default:
+                throw new IllegalStateException("Unknown action type");
+        }
     }
 
     public synchronized void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)

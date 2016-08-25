@@ -17,10 +17,12 @@ import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
+import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
@@ -28,8 +30,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -259,6 +263,19 @@ public class MetastoreUtil
         fromMetastoreApiStorageDescriptor(storageDescriptor, partitionBuilder.getStorageBuilder(), format("%s.%s", partition.getTableName(), partition.getValues()));
 
         return partitionBuilder.build();
+    }
+
+    public static Set<HivePrivilegeInfo> toGrants(List<PrivilegeGrantInfo> userGrants)
+    {
+        if (userGrants == null) {
+            return ImmutableSet.of();
+        }
+
+        ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
+        for (PrivilegeGrantInfo userGrant : userGrants) {
+            privileges.addAll(parsePrivilege(userGrant));
+        }
+        return privileges.build();
     }
 
     private static String toThriftDdl(String structName, List<Column> columns)
