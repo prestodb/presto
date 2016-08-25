@@ -49,15 +49,15 @@ public class TestEventListener
     private void setUp()
             throws Exception
     {
-        queryRunner = new DistributedQueryRunner(testSessionBuilder().build(), 1);
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
-        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "3"));
-
         session = testSessionBuilder()
+                .setSystemProperties(ImmutableMap.of("task_concurrency", "1"))
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
+        queryRunner = new DistributedQueryRunner(session, 1);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "3"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -80,6 +80,7 @@ public class TestEventListener
     public void testConstantQuery()
             throws Exception
     {
+        // QueryCreated: 1, QueryCompleted: 1, Splits: 1
         EventsBuilder events = generateEvents("SELECT 1", 3);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(events.getQueryCreatedEvents());
