@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: false; types: BIGINT|DOUBLE
+-- delimiter: |; ignoreOrder: false; types: BIGINT|DECIMAL
 129760|17538456.86|
 166726|16503353.92|
 191287|16474801.97|
