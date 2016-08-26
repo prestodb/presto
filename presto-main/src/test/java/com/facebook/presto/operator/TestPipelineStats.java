@@ -48,6 +48,7 @@ public class TestPipelineStats
             4,
 
             new DataSize(5, BYTE),
+            new DataSize(18, BYTE),
             new DataSize(6, BYTE),
 
             getTestDistribution(7),
@@ -99,6 +100,7 @@ public class TestPipelineStats
         assertEquals(actual.getCompletedDrivers(), 4);
 
         assertEquals(actual.getMemoryReservation(), new DataSize(5, BYTE));
+        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(18, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(6, BYTE));
 
         assertEquals(actual.getQueuedTime().getCount(), 7.0);

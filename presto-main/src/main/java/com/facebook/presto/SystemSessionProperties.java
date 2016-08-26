@@ -61,6 +61,7 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String MEMORY_REVOKING = "memory_revoking";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -219,6 +220,11 @@ public final class SystemSessionProperties
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
+                        false),
+                booleanSessionProperty(
+                        MEMORY_REVOKING,
+                        "Experimental: Enable memory revoking",
+                        featuresConfig.isMemoryRevokingEnabled(),
                         false));
     }
 
@@ -310,6 +316,11 @@ public final class SystemSessionProperties
     public static boolean resourceOvercommit(Session session)
     {
         return session.getProperty(RESOURCE_OVERCOMMIT, Boolean.class);
+    }
+
+    public static boolean revokingEnabled(Session session)
+    {
+        return session.getProperty(MEMORY_REVOKING, Boolean.class);
     }
 
     public static boolean planWithTableNodePartitioning(Session session)

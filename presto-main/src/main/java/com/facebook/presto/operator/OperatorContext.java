@@ -85,12 +85,15 @@ public class OperatorContext
     private final AtomicLong finishUserNanos = new AtomicLong();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final AtomicLong revocableMemoryReservation = new AtomicLong();
     private final OperatorSystemMemoryContext systemMemoryContext;
     private final long maxMemoryReservation;
 
     private final AtomicReference<Supplier<?>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
+    // TODO: drop maxMemoryReservation - partial hash aggregation should switch to revocable memory
+    @Deprecated
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
@@ -224,42 +227,19 @@ public class OperatorContext
 
     public void reserveMemory(long bytes)
     {
-        ListenableFuture<?> future = driverContext.reserveMemory(bytes);
-        if (!future.isDone()) {
-            SettableFuture<?> currentMemoryFuture = memoryFuture.get();
-            while (currentMemoryFuture.isDone()) {
-                SettableFuture<?> settableFuture = SettableFuture.create();
-                // We can't replace one that's not done, because the task may be blocked on that future
-                if (memoryFuture.compareAndSet(currentMemoryFuture, settableFuture)) {
-                    currentMemoryFuture = settableFuture;
-                }
-                else {
-                    currentMemoryFuture = memoryFuture.get();
-                }
-            }
+        handleOutOfMemory(driverContext.reserveMemory(bytes));
 
-            SettableFuture<?> finalMemoryFuture = currentMemoryFuture;
-            // Create a new future, so that this operator can un-block before the pool does, if it's moved to a new pool
-            Futures.addCallback(future, new FutureCallback<Object>()
-            {
-                @Override
-                public void onSuccess(Object result)
-                {
-                    finalMemoryFuture.set(null);
-                }
-
-                @Override
-                public void onFailure(Throwable t)
-                {
-                    finalMemoryFuture.set(null);
-                }
-            });
-        }
         long newReservation = memoryReservation.addAndGet(bytes);
         if (newReservation > maxMemoryReservation) {
             memoryReservation.getAndAdd(-bytes);
             throw exceededLocalLimit(new DataSize(maxMemoryReservation, BYTE));
         }
+    }
+
+    public void reserveRevocableMemory(long bytes)
+    {
+        handleOutOfMemory(driverContext.reserveRevocableMemory(bytes));
+        revocableMemoryReservation.addAndGet(bytes);
     }
 
     public boolean tryReserveMemory(long bytes)
@@ -283,6 +263,14 @@ public class OperatorContext
         checkArgument(bytes <= memoryReservation.get(), "tried to free more memory than is reserved");
         driverContext.freeMemory(bytes);
         memoryReservation.getAndAdd(-bytes);
+    }
+
+    public void freeRevocableMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= revocableMemoryReservation.get(), "tried to free more revocable memory than is reserved");
+        driverContext.freeRevocableMemory(bytes);
+        revocableMemoryReservation.getAndAdd(-bytes);
     }
 
     public AbstractAggregatedMemoryContext getSystemMemoryContext()
@@ -409,10 +397,46 @@ public class OperatorContext
                 new Duration(finishCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                succinctBytes(memoryReservation.get()),
+                succinctBytes(memoryReservation.get() + revocableMemoryReservation.get()),
                 succinctBytes(systemMemoryContext.getReservedBytes()),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
+    }
+
+    private void handleOutOfMemory(ListenableFuture<?> future)
+    {
+        if (future.isDone()) {
+            return;
+        }
+
+        SettableFuture<?> currentMemoryFuture = memoryFuture.get();
+        while (currentMemoryFuture.isDone()) {
+            SettableFuture<?> settableFuture = SettableFuture.create();
+            // We can't replace one that's not done, because the task may be blocked on that future
+            if (memoryFuture.compareAndSet(currentMemoryFuture, settableFuture)) {
+                currentMemoryFuture = settableFuture;
+            }
+            else {
+                currentMemoryFuture = memoryFuture.get();
+            }
+        }
+
+        SettableFuture<?> finalMemoryFuture = currentMemoryFuture;
+        // Create a new future, so that this operator can un-block before the pool does, if it's moved to a new pool
+        Futures.addCallback(future, new FutureCallback<Object>()
+        {
+            @Override
+            public void onSuccess(Object result)
+            {
+                finalMemoryFuture.set(null);
+            }
+
+            @Override
+            public void onFailure(Throwable t)
+            {
+                finalMemoryFuture.set(null);
+            }
+        });
     }
 
     private long currentThreadUserTime()

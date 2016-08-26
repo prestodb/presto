@@ -55,6 +55,7 @@ public class QueryStats
 
     private final double cumulativeMemory;
     private final DataSize totalMemoryReservation;
+    private final DataSize totalRevocableMemoryReservation;
     private final DataSize peakMemoryReservation;
 
     private final Duration totalScheduledTime;
@@ -95,6 +96,7 @@ public class QueryStats
         this.completedDrivers = 0;
         this.cumulativeMemory = 0.0;
         this.totalMemoryReservation = null;
+        this.totalRevocableMemoryReservation = null;
         this.peakMemoryReservation = null;
         this.totalScheduledTime = null;
         this.totalCpuTime = null;
@@ -135,6 +137,7 @@ public class QueryStats
 
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
+            @JsonProperty("totalRevocableMemoryReservation") DataSize totalRevocableMemoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -183,6 +186,7 @@ public class QueryStats
 
         this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
+        this.totalRevocableMemoryReservation = requireNonNull(totalRevocableMemoryReservation, "totalRevocableMemoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -326,6 +330,12 @@ public class QueryStats
     public DataSize getTotalMemoryReservation()
     {
         return totalMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getTotalRevocableMemoryReservation()
+    {
+        return totalRevocableMemoryReservation;
     }
 
     @JsonProperty

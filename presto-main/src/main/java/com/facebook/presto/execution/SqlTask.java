@@ -218,7 +218,8 @@ public class SqlTask
                 failures,
                 taskStats.getQueuedPartitionedDrivers(),
                 taskStats.getRunningPartitionedDrivers(),
-                taskStats.getMemoryReservation());
+                taskStats.getMemoryReservation(),
+                taskStats.getRevocableMemoryReservation());
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

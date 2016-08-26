@@ -199,6 +199,7 @@ public class StageStateMachine
 
         long cumulativeMemory = 0;
         long totalMemoryReservation = 0;
+        long totalRevocableMemoryReservation = 0;
         long peakMemoryReservation = getPeakMemoryInBytes();
 
         long totalScheduledTime = 0;
@@ -236,6 +237,7 @@ public class StageStateMachine
 
             cumulativeMemory += taskStats.getCumulativeMemory();
             totalMemoryReservation += taskStats.getMemoryReservation().toBytes();
+            totalRevocableMemoryReservation += taskStats.getRevocableMemoryReservation().toBytes();
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -273,6 +275,7 @@ public class StageStateMachine
 
                 cumulativeMemory,
                 succinctBytes(totalMemoryReservation),
+                succinctBytes(totalRevocableMemoryReservation),
                 succinctBytes(peakMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),

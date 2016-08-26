@@ -57,6 +57,7 @@ import static com.facebook.presto.SystemSessionProperties.RESOURCE_OVERCOMMIT;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemory;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
+import static com.facebook.presto.SystemSessionProperties.revokingEnabled;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
@@ -139,7 +140,7 @@ public class ClusterMemoryManager
         changeListeners.computeIfAbsent(poolId, id -> new ArrayList<>()).add(listener);
     }
 
-    public synchronized void process(Iterable<QueryExecution> queries)
+    public synchronized void process(List<QueryExecution> queries)
     {
         if (!enabled) {
             return;
@@ -151,12 +152,17 @@ public class ClusterMemoryManager
         }
 
         boolean queryKilled = false;
-        long totalBytes = 0;
+
+        long totalBytes = getTotalMemoryReservation(queries);
+
         for (QueryExecution query : queries) {
             long bytes = query.getTotalMemoryReservation();
+            if (!revokingEnabled(query.getSession())) {
+                // treat revocable memory as normal memory as revoking is disabled
+                bytes += query.getTotalRevocableMemoryReservation();
+            }
             DataSize sessionMaxQueryMemory = getQueryMaxMemory(query.getSession());
             long queryMemoryLimit = Math.min(maxQueryMemory.toBytes(), sessionMaxQueryMemory.toBytes());
-            totalBytes += bytes;
             if (resourceOvercommit(query.getSession()) && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
                 DataSize memory = succinctBytes(bytes);
@@ -188,7 +194,9 @@ public class ClusterMemoryManager
                 QueryExecution biggestQuery = null;
                 long maxMemory = -1;
                 for (QueryExecution query : queries) {
-                    long bytesUsed = query.getTotalMemoryReservation();
+                    // TODO: revoke revocable memory instead of kill?
+                    // for safety we treat revocable memory as normal memory when we are consideryng cluster OOM situation
+                    long bytesUsed = query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation();
                     if (bytesUsed > maxMemory && query.getMemoryPool().getId().equals(GENERAL_POOL)) {
                         biggestQuery = query;
                         maxMemory = bytesUsed;
@@ -223,6 +231,14 @@ public class ClusterMemoryManager
         }
     }
 
+    private long getTotalMemoryReservation(List<QueryExecution> queries)
+    {
+        // for safety we treat revocable memory as normal memory when we are consideryng cluster OOM situation
+        return queries.stream()
+                .mapToLong(query -> query.getTotalMemoryReservation() + query.getTotalRevocableMemoryReservation())
+                .sum();
+    }
+
     @VisibleForTesting
     synchronized Map<MemoryPoolId, ClusterMemoryPool> getPools()
     {
@@ -253,7 +269,7 @@ public class ClusterMemoryManager
                         // since their memory usage is unbounded.
                         continue;
                     }
-                    long bytesUsed = queryExecution.getTotalMemoryReservation();
+                    long bytesUsed = queryExecution.getTotalMemoryReservation() + queryExecution.getTotalRevocableMemoryReservation();
                     if (bytesUsed > maxMemory) {
                         biggestQuery = queryExecution;
                         maxMemory = bytesUsed;

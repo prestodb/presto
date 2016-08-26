@@ -47,6 +47,7 @@ public class FeaturesConfig
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean legacyArrayAgg;
+    private boolean memoryRevokingEnabled = false;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -267,6 +268,19 @@ public class FeaturesConfig
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
+        return this;
+    }
+
+    public Boolean isMemoryRevokingEnabled()
+    {
+        return memoryRevokingEnabled;
+    }
+
+    @Config("memory-revoking-enabled")
+    @ConfigDescription("Experimental: Use memory revoking")
+    public FeaturesConfig setMemoryRevokingEnabled(boolean memoryRevokingEnabled)
+    {
+        this.memoryRevokingEnabled = memoryRevokingEnabled;
         return this;
     }
 }

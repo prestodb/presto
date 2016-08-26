@@ -298,7 +298,7 @@ public class Driver
                 try {
                     long start = System.nanoTime();
                     do {
-                        ListenableFuture<?> future = processInternal();
+                        ListenableFuture<?> future = processInternalAndHandleRevokeMemory();
                         if (!future.isDone()) {
                             return future;
                         }
@@ -324,7 +324,28 @@ public class Driver
                 // this state change by calling isFinished
                 return NOT_BLOCKED;
             }
-            return processInternal();
+            return processInternalAndHandleRevokeMemory();
+        }
+    }
+
+    private ListenableFuture<?> processInternalAndHandleRevokeMemory()
+    {
+        if (driverContext.isWaitingForRevocableMemory()) {
+            for (Operator operator : operators) {
+                operator.revokeMemory();
+            }
+        }
+
+        ListenableFuture<?> future = processInternal();
+
+        // if driver is going to be BLOCKED and holds some revocable memory
+        // make sure that it will be woken up if query runs out of memory
+        if (!future.isDone() && driverContext.hasRevocableMemory()) {
+            SettableFuture<?> outOfMemoryFired = driverContext.getPipelineContext().getTaskContext().getOutOfMemoryFuture();
+            return firstFinishedFuture(ImmutableList.of(outOfMemoryFired, future));
+        }
+        else {
+            return future;
         }
     }
 

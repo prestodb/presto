@@ -32,6 +32,8 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -51,12 +53,14 @@ import java.util.function.Function;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.MEMORY_REVOKING;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.getRootCause;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
@@ -298,6 +302,66 @@ public class TestDriver
         }
     }
 
+    @Test
+    public void testOutOfMemoryUnblocksDriver()
+    {
+        long almostTenMegabytes = new DataSize(10, MEGABYTE).toBytes() - 1;
+        Session testSession = TEST_SESSION.withSystemProperty(MEMORY_REVOKING, "true");
+
+        TaskContext taskContext = createTaskContext(executor, testSession, new DataSize(10, MEGABYTE));
+
+        DriverContext driverContext = taskContext
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        Operator source = new BlockedOperator(
+                driverContext.addOperatorContext(0, new PlanNodeId("test1"), BlockedOperator.class.getSimpleName()),
+                ImmutableList.of(BIGINT));
+
+        driverContext.reserveRevocableMemory(almostTenMegabytes);
+
+        Driver driver = new Driver(driverContext, source);
+
+        ListenableFuture<?> blocked = driver.processFor(new Duration(1, TimeUnit.SECONDS));
+        assertFalse(blocked.isDone());
+
+        taskContext.reserveMemory(almostTenMegabytes);
+
+        assertTrue(blocked.isDone());
+    }
+
+    @Test
+    public void testOutOfMemoryBocksDriverWithoutRevocableMemory()
+    {
+        long almostTenMegabytes = new DataSize(10, MEGABYTE).toBytes() - 1;
+        Session testSession = TEST_SESSION.withSystemProperty(MEMORY_REVOKING, "true");
+
+        TaskContext taskContext = createTaskContext(executor, testSession, new DataSize(10, MEGABYTE));
+
+        DriverContext driverContextWithoutRevocableMemory = taskContext
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        Operator source = new BlockedOperator(
+                driverContextWithoutRevocableMemory.addOperatorContext(0, new PlanNodeId("test1"), BlockedOperator.class.getSimpleName()),
+                ImmutableList.of(BIGINT));
+
+        DriverContext driverContextWithRevocableMemory = taskContext
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        driverContextWithRevocableMemory.reserveRevocableMemory(almostTenMegabytes);
+
+        Driver driver = new Driver(driverContextWithoutRevocableMemory, source);
+
+        ListenableFuture<?> blocked = driver.processFor(new Duration(1, TimeUnit.SECONDS));
+        assertFalse(blocked.isDone());
+
+        taskContext.reserveMemory(almostTenMegabytes);
+
+        assertFalse(blocked.isDone());
+    }
+
     private static Split newMockSplit()
     {
         return new Split("test", TestingTransactionHandle.create("test"), new MockSplit());
@@ -463,6 +527,66 @@ public class TestDriver
 
         @Override
         public Object getInfo()
+        {
+            return null;
+        }
+    }
+
+    private class BlockedOperator
+            implements Operator
+    {
+        private final OperatorContext operatorContext;
+        private final List<Type> types;
+        private final SettableFuture<?> blocked = SettableFuture.create();
+
+        public BlockedOperator(OperatorContext operatorContext, List<Type> types)
+        {
+            this.operatorContext = operatorContext;
+            this.types = types;
+        }
+
+        @Override
+        public ListenableFuture<?> isBlocked()
+        {
+            return blocked;
+        }
+
+        @Override
+        public OperatorContext getOperatorContext()
+        {
+            return operatorContext;
+        }
+
+        @Override
+        public List<Type> getTypes()
+        {
+            return types;
+        }
+
+        @Override
+        public void finish()
+        {
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return false;
+        }
+
+        @Override
+        public boolean needsInput()
+        {
+            return false;
+        }
+
+        @Override
+        public void addInput(Page page)
+        {
+        }
+
+        @Override
+        public Page getOutput()
         {
             return null;
         }

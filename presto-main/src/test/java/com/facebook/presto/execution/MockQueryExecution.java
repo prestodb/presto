@@ -140,6 +140,12 @@ public class MockQueryExecution
     }
 
     @Override
+    public long getTotalRevocableMemoryReservation()
+    {
+        return 0;
+    }
+
+    @Override
     public Duration getTotalCpuTime()
     {
         return cpuUsage;
