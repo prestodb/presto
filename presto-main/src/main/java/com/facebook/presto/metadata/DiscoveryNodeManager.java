@@ -181,7 +181,7 @@ public final class DiscoveryNodeManager
                 // record current node
                 if (node.getNodeIdentifier().equals(nodeInfo.getNodeId())) {
                     currentNode = node;
-                    checkState(currentNode.getNodeVersion().equals(expectedNodeVersion), "INVARIANT: current node version should be equal to expected node version");
+                    checkState(currentNode.getNodeVersion().equals(expectedNodeVersion), "INVARIANT: current node version should be equal to " + expectedNodeVersion);
                 }
 
                 switch (nodeState) {
