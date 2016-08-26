@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.tree;
 
+import com.google.common.base.CharMatcher;
 import io.airlift.slice.Slice;
 
 import java.util.Objects;
@@ -43,7 +44,7 @@ public class CharLiteral
         super(location);
         requireNonNull(value, "value is null");
         this.value = value;
-        this.slice = utf8Slice(value);
+        this.slice = utf8Slice(CharMatcher.is(' ').trimTrailingFrom(value));
     }
 
     public String getValue()
