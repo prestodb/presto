@@ -40,6 +40,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestEventListener
 {
+    private static final int SPLITS_PER_NODE = 3;
     private final EventsBuilder generatedEvents = new EventsBuilder();
 
     private QueryRunner queryRunner;
@@ -57,7 +58,7 @@ public class TestEventListener
         queryRunner = new DistributedQueryRunner(session, 1);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
-        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "3"));
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", Integer.toString(SPLITS_PER_NODE)));
     }
 
     @AfterClass(alwaysRun = true)
@@ -100,7 +101,10 @@ public class TestEventListener
     public void testNormalQuery()
             throws Exception
     {
-        EventsBuilder events = generateEvents("SELECT sum(linenumber) FROM lineitem", 6);
+        // We expect the following events
+        // QueryCreated: 1, QueryCompleted: 1, leaf splits: SPLITS_PER_NODE, aggregation/output split: 1
+        int expectedEvents = SPLITS_PER_NODE + 3;
+        EventsBuilder events = generateEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(events.getQueryCreatedEvents());
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
@@ -114,7 +118,7 @@ public class TestEventListener
 
         // TODO: change to equality check of num events vs statistics for events after we fix final statistics collection
         List<SplitCompletedEvent> splitCompletedEvents = events.getSplitCompletedEvents();
-        assertEquals(splitCompletedEvents.size(), 4);
+        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 1); // leaf splits + aggregation split
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
     }
 
