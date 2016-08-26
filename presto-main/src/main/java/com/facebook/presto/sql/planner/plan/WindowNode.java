@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
@@ -213,9 +214,20 @@ public class WindowNode
 
             Specification other = (Specification) obj;
 
+            // Changing this? Go change WindowMatcher.matches too.
             return Objects.equals(this.partitionBy, other.partitionBy) &&
                     Objects.equals(this.orderBy, other.orderBy) &&
                     Objects.equals(this.orderings, other.orderings);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("partitionBy", this.partitionBy)
+                    .add("orderBy", this.orderBy)
+                    .add("orderings", this.orderings)
+                    .toString();
         }
     }
 
