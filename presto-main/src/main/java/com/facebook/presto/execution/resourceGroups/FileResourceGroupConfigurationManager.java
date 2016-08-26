@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Throwables;
