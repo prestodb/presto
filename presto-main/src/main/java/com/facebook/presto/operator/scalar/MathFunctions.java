@@ -46,6 +46,9 @@ import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isNegative;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.negate;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.DecimalOperators.modulusScalarFunction;
 import static com.facebook.presto.type.DecimalOperators.modulusSignatureBuilder;
@@ -130,7 +133,14 @@ public final class MathFunctions
         @SqlType("decimal(p, s)")
         public static Slice absLong(@SqlType("decimal(p, s)") Slice arg)
         {
-            return encodeUnscaledValue(decodeUnscaledValue(arg).abs());
+            if (isNegative(arg)) {
+                Slice result = unscaledDecimal(arg);
+                negate(result);
+                return result;
+            }
+            else {
+                return arg;
+            }
         }
     }
 
