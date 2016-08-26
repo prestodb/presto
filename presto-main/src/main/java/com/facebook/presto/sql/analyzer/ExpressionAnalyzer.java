@@ -569,7 +569,7 @@ public class ExpressionAnalyzer
 
         protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Void> context)
         {
-            CharType type = CharType.createCharType(SliceUtf8.countCodePoints(node.getSlice()));
+            CharType type = CharType.createCharType(node.getValue().length());
             expressionTypes.put(node, type);
             return type;
         }
