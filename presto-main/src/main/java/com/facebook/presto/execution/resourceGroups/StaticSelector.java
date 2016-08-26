@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
+
 import java.util.Optional;
 import java.util.regex.Pattern;
 
