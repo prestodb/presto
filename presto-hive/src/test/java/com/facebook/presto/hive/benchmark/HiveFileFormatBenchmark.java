@@ -140,6 +140,17 @@ public class HiveFileFormatBenchmark
 
     private final File targetDir = createTempDir("presto-benchmark");
 
+    public HiveFileFormatBenchmark()
+    {
+    }
+
+    public HiveFileFormatBenchmark(DataSet dataSet, HiveCompressionCodec compression, FileFormat fileFormat)
+    {
+        this.dataSet = dataSet;
+        this.compression = compression;
+        this.fileFormat = fileFormat;
+    }
+
     @Setup
     public void setup()
             throws IOException
@@ -170,6 +181,9 @@ public class HiveFileFormatBenchmark
     public List<Page> read(CompressionCounter counter)
             throws IOException
     {
+        if (!fileFormat.supports(data)) {
+            throw new RuntimeException(fileFormat + " does not support data set " + dataSet);
+        }
         List<Page> pages = new ArrayList<>(100);
         try (ConnectorPageSource pageSource = fileFormat.createFileFormatReader(
                 SESSION,
@@ -507,7 +521,7 @@ public class HiveFileFormatBenchmark
         return new TestData(columnNames, columnTypes, pages.build());
     }
 
-    private static class TestData
+    static class TestData
     {
         private final List<String> columnNames;
         private final List<Type> columnTypes;

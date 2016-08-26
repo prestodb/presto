@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.TypeTranslator;
+import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.TestData;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -65,6 +66,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HdfsConfigurationUpdater.configureCompression;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -337,6 +339,11 @@ public enum FileFormat
         }
     }
 
+    public boolean supports(TestData testData)
+    {
+        return true;
+    }
+
     private static ConnectorPageSource createPageSource(
             HiveRecordCursorProvider cursorProvider,
             ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format)
@@ -346,7 +353,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
+            columnHandles.add(new HiveColumnHandle("test", columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
         }
 
         RecordCursor recordCursor = cursorProvider
@@ -379,7 +386,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
+            columnHandles.add(new HiveColumnHandle("test", columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
         }
 
         return pageSourceFactory
@@ -445,7 +452,7 @@ public enum FileFormat
         schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
                 .collect(joining(",")));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
-                .map(type -> HiveType.toHiveType(typeTranslator, type))
+                .map(type -> toHiveType(typeTranslator, type))
                 .map(HiveType::getHiveTypeName)
                 .collect(joining(":")));
         return schema;
