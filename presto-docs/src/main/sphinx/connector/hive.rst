@@ -174,6 +174,11 @@ Property Name                                      Description                  
 
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
                                                    See :ref:`hive-file-based-authorization` for details.
+
+``hive.s3.endpoint``                               The S3 storage endpoint server.
+
+``hive.s3.signer-type``                            Enable specifying Sign type when connecting S3 API.
+                                                   Example: ``S3SignerType`` for v2 signer type.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
