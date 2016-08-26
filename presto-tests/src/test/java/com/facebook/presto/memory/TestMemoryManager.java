@@ -14,11 +14,11 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;

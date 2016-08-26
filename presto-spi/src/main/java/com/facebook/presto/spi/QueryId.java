@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -76,9 +76,9 @@ public final class QueryId
     // Id helper methods
     //
 
-    static final Pattern ID_PATTERN = Pattern.compile("[_a-z0-9]+");
+    private static final Pattern ID_PATTERN = Pattern.compile("[_a-z0-9]+");
 
-    static String validateId(String id)
+    public static String validateId(String id)
     {
         requireNonNull(id, "id is null");
         checkArgument(!id.isEmpty(), "id is empty");
@@ -86,7 +86,7 @@ public final class QueryId
         return id;
     }
 
-    static List<String> parseDottedId(String id, int expectedParts, String name)
+    public static List<String> parseDottedId(String id, int expectedParts, String name)
     {
         requireNonNull(id, "id is null");
         checkArgument(expectedParts > 0, "expectedParts must be at least 1");

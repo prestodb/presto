@@ -20,6 +20,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;

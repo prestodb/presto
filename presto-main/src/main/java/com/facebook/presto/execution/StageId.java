@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.execution.QueryId.validateId;
+import static com.facebook.presto.spi.QueryId.validateId;
 import static java.util.Objects.requireNonNull;
 
 public class StageId

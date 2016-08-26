@@ -13,8 +13,8 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.transaction.TransactionId;

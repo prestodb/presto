@@ -14,9 +14,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.QueryResults;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.HttpClient;

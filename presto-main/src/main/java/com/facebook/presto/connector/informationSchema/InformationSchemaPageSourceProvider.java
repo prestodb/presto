@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -33,6 +32,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.block.Block;

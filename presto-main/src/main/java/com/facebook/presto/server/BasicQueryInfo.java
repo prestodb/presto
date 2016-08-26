@@ -14,12 +14,12 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;

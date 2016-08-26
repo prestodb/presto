@@ -14,13 +14,13 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;

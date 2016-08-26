@@ -26,6 +26,7 @@ import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;

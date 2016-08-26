@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;

@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.QueryId;
 import io.airlift.units.Duration;
 
 import java.util.List;

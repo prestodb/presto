@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.QueryId;
 
 import java.net.URI;
 
