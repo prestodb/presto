@@ -33,11 +33,13 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorTableStatisticsProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -342,6 +344,15 @@ public class MetadataManager
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
 
         return new TableMetadata(tableHandle.getConnectorId(), tableMetadata);
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
+    {
+        ConnectorEntry entry = lookupConnectorFor(tableHandle);
+        ConnectorTableStatisticsProvider tableStatisticsProvider = entry.getTableStatisticsProvider(session);
+        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
+        return tableStatisticsProvider.getTableStatistics(transaction, session.toConnectorSession(entry.getCatalog()), tableLayoutHandle.getConnectorHandle());
     }
 
     @Override
@@ -845,6 +856,11 @@ public class MetadataManager
         public ConnectorMetadata getMetadata(Session session)
         {
             return transactionManager.getMetadata(session.getRequiredTransactionId(), connectorId);
+        }
+
+        public ConnectorTableStatisticsProvider getTableStatisticsProvider(Session session)
+        {
+            return transactionManager.getTableStatisticsProvider(session.getRequiredTransactionId(), connectorId);
         }
 
         public ConnectorMetadata getMetadataForWrite(Session session)

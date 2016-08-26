@@ -22,6 +22,7 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTableStatisticsProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -56,6 +57,7 @@ public class HiveConnector
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final ConnectorAccessControl accessControl;
+    private final ConnectorTableStatisticsProvider tableStatisticsProvider;
     private final ClassLoader classLoader;
 
     private final ConcurrentMap<ConnectorTransactionHandle, HiveMetadata> transactions = new ConcurrentHashMap<>();
@@ -71,6 +73,7 @@ public class HiveConnector
             List<PropertyMetadata<?>> sessionProperties,
             List<PropertyMetadata<?>> tableProperties,
             ConnectorAccessControl accessControl,
+            ConnectorTableStatisticsProvider tableStatisticsProvider,
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -83,6 +86,7 @@ public class HiveConnector
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
@@ -140,6 +144,12 @@ public class HiveConnector
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl;
+    }
+
+    @Override
+    public ConnectorTableStatisticsProvider getTableStatisticsProvider()
+    {
+        return tableStatisticsProvider;
     }
 
     @Override

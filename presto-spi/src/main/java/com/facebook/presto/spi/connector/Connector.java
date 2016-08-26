@@ -16,6 +16,7 @@ package com.facebook.presto.spi.connector;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.List;
@@ -82,6 +83,14 @@ public interface Connector
     default ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @return table statistics provider
+     */
+    default ConnectorTableStatisticsProvider getTableStatisticsProvider()
+    {
+        return (transactionHandle, session, tableLayoutHandle) -> TableStatistics.EMPTY_STATISTICS;
     }
 
     /**
