@@ -36,10 +36,12 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -171,29 +173,14 @@ public final class PlanMatchPattern
         return sourcePatterns.isEmpty();
     }
 
-    private static List<Expression> toExpressionList(String... args)
+    public static FunctionCall functionCall(String name, Window window, boolean distinct, SymbolReference... args)
     {
-        ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-        for (String arg : args) {
-            if (arg.equals("*")) {
-                builder.add(new PlanMatchPattern.AnySymbolReference());
-            }
-            else {
-                builder.add(new SymbolReference(arg));
-            }
-        }
-
-        return builder.build();
+        return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, Arrays.asList(args));
     }
 
-    public static FunctionCall functionCall(String name, Window window, boolean distinct, String... args)
+    public static FunctionCall functionCall(String name, Optional<WindowFrame> frame, SymbolReference... args)
     {
-        return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, toExpressionList(args));
-    }
-
-    public static FunctionCall functionCall(String name, Optional<WindowFrame> frame, String ... args)
-    {
-        return new RelaxedEqualityFunctionCall(QualifiedName.of(name), toExpressionList(args), frame);
+        return new RelaxedEqualityFunctionCall(QualifiedName.of(name), Arrays.asList(args), frame);
     }
 
     @Override
@@ -254,19 +241,11 @@ public final class PlanMatchPattern
         return new SymbolStem(stem);
     }
 
-    public static class SymbolStem extends Symbol
+    private interface Stem
     {
-        private final String stem;
+        String getStem();
 
-        SymbolStem(String stem)
-        {
-            // For useful output when we print out failure messages.
-            super(stem + "_*");
-            this.stem = stem;
-        }
-
-        @Override
-        public boolean equals(Object o)
+        default <T> boolean stemEquals(Object o, Class<T> clazz, Function<T, String> getName)
         {
             if (this == o) {
                 return true;
@@ -276,20 +255,33 @@ public final class PlanMatchPattern
                 return false;
             }
 
-            if (Symbol.class.equals(o.getClass())) {
-                Symbol other = (Symbol) o;
-                String name = other.getName();
-                int endIndex = name.lastIndexOf('_');
-                String otherStem = endIndex == -1 ? name : name.substring(0, endIndex);
-                return stem.equals(otherStem);
-            }
-
-            if (!SymbolStem.class.equals(o.getClass())) {
+            if (!clazz.equals(o.getClass())) {
                 return false;
             }
 
-            SymbolStem other = (SymbolStem) o;
-            return stem.equals(other.stem);
+            T other = clazz.cast(o);
+            String name = getName.apply(other);
+            int endIndex = name.lastIndexOf('_');
+            String otherStem = endIndex == -1 ? name : name.substring(0, endIndex);
+            return getStem().equals(otherStem);
+        }
+    }
+
+    public static class SymbolStem extends Symbol
+        implements Stem
+    {
+        private final String stem;
+
+        public SymbolStem(String stem)
+        {
+            super(stem + "_*");
+            this.stem = requireNonNull(stem);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return this.stemEquals(o, Symbol.class, Symbol::getName);
         }
 
         @Override
@@ -297,11 +289,27 @@ public final class PlanMatchPattern
         {
             return stem.hashCode();
         }
+
+        @Override
+        public String getStem()
+        {
+            return stem;
+        }
     }
 
-    private static class AnySymbolReference extends SymbolReference
+    public static SymbolReference anySymbolReference()
     {
-        AnySymbolReference()
+        return new AnySymbolReference();
+    }
+
+    public static SymbolReference symbolReferenceStem(String stem)
+    {
+        return new SymbolReferenceStem(stem);
+    }
+
+    public static class AnySymbolReference extends SymbolReference
+    {
+        public AnySymbolReference()
         {
             super("*");
         }
@@ -313,7 +321,7 @@ public final class PlanMatchPattern
                 return true;
             }
 
-            if (o == null || !SymbolReference.class.isInstance(o)) {
+            if (o == null || !SymbolReference.class.equals(o.getClass())) {
                 return false;
             }
 
@@ -327,8 +335,37 @@ public final class PlanMatchPattern
         }
     }
 
-    private static class RelaxedEqualityFunctionCall
-            extends FunctionCall
+    public static class SymbolReferenceStem extends SymbolReference
+            implements Stem
+    {
+        private final String stem;
+
+        public SymbolReferenceStem(String stem)
+        {
+            super(stem + "_*");
+            this.stem = requireNonNull(stem);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return this.stemEquals(o, SymbolReference.class, SymbolReference::getName);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public String getStem()
+        {
+            return stem;
+        }
+    }
+
+    private static class RelaxedEqualityFunctionCall extends FunctionCall
     {
         /*
          * FunctionCalls for window functions must have a Window. By the time

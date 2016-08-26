@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -37,10 +38,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbolReference;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.symbolReferenceStem;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.symbolStem;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -48,11 +51,17 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestMergeIdenticalWindows
 {
     private final LocalQueryRunner queryRunner;
+
     private final Symbol suppkey;
     private final Symbol orderkey;
     private final Symbol shipdate;
+
+    private final SymbolReference quantityReference;
+    private final SymbolReference discountReference;
+
     private final Optional<WindowFrame> commonFrame;
     private final Optional<WindowFrame> defaultFrame;
+
     private final WindowNode.Specification specificationA;
     private final WindowNode.Specification specificationB;
 
@@ -77,6 +86,9 @@ public class TestMergeIdenticalWindows
         suppkey = new Symbol("suppkey");
         orderkey = new Symbol("orderkey");
         shipdate = new Symbol("shipdate");
+
+        quantityReference = new SymbolReference("quantity");
+        discountReference = new SymbolReference("discount");
 
         specificationA = new WindowNode.Specification(
                 ImmutableList.of(suppkey),
@@ -128,12 +140,12 @@ public class TestMergeIdenticalWindows
                 anyTree(
                         window(specificationB,
                                 ImmutableList.of(
-                                functionCall("sum", commonFrame, "quantity")),
+                                functionCall("sum", commonFrame, quantityReference)),
                                 anyTree(
                                         window(specificationA,
                                                 ImmutableList.of(
-                                                functionCall("sum", commonFrame, "quantity"),
-                                                functionCall("sum", commonFrame, "discount")),
+                                                functionCall("sum", commonFrame, quantityReference),
+                                                functionCall("sum", commonFrame, discountReference)),
                                                 anyNot(WindowNode.class,
                                                         anyTree())))));
 
@@ -157,11 +169,11 @@ public class TestMergeIdenticalWindows
                 anyTree(
                         window(specificationB,
                                 ImmutableList.of(
-                                functionCall("sum", commonFrame, "quantity")),
+                                functionCall("sum", commonFrame, quantityReference)),
                                 window(specificationA,
                                         ImmutableList.of(
-                                        functionCall("sum", commonFrame, "quantity"),
-                                        functionCall("sum", commonFrame, "discount")),
+                                        functionCall("sum", commonFrame, quantityReference),
+                                        functionCall("sum", commonFrame, discountReference)),
                                         anyNot(WindowNode.class)))));
     }
 
@@ -177,13 +189,13 @@ public class TestMergeIdenticalWindows
         assertUnitPlan(sql,
                 anyTree(
                         window(specificationA,
-                                ImmutableList.of(functionCall("sum", commonFrame, "discount")),
+                                ImmutableList.of(functionCall("sum", commonFrame, discountReference)),
                                 window(specificationB,
-                                        ImmutableList.of(functionCall("lag", commonFrame, "quantity", "*", "*")),
+                                        ImmutableList.of(functionCall("lag", commonFrame, quantityReference, anySymbolReference(), anySymbolReference())),
                                         project(
                                                 window(specificationA,
                                                         ImmutableList.of(
-                                                        functionCall("sum", commonFrame, "quantity")),
+                                                        functionCall("sum", commonFrame, quantityReference)),
                                                         any()))))));
     }
 
@@ -200,12 +212,12 @@ public class TestMergeIdenticalWindows
                 anyTree(
                         window(specificationA,
                                 ImmutableList.of(
-                                functionCall("sum", commonFrame, "discount"),
-                                functionCall("lag", commonFrame, "quantity", "*", "*")),
+                                functionCall("sum", commonFrame, discountReference),
+                                functionCall("lag", commonFrame, quantityReference, anySymbolReference(), anySymbolReference())),
                                 project(
                                         window(specificationA,
                                                 ImmutableList.of(
-                                                functionCall("sum", commonFrame, "quantity")),
+                                                functionCall("sum", commonFrame, quantityReference)),
                                                 any())))));
     }
 
@@ -232,11 +244,11 @@ public class TestMergeIdenticalWindows
                 anyTree(
                         window(specificationD,
                                 ImmutableList.of(
-                                functionCall("sum", defaultFrame, "quantity")),
+                                functionCall("sum", defaultFrame, quantityReference)),
                                 window(specificationC,
                                         ImmutableList.of(
-                                        functionCall("sum", defaultFrame, "quantity"),
-                                        functionCall("sum", defaultFrame, "discount")),
+                                        functionCall("sum", defaultFrame, quantityReference),
+                                        functionCall("sum", defaultFrame, discountReference)),
                                         anyNot(WindowNode.class)))));
     }
 
@@ -273,11 +285,11 @@ public class TestMergeIdenticalWindows
                 anyTree(
                         window(specificationD,
                                 ImmutableList.of(
-                                functionCall("avg", frameD, "quantity")),
+                                functionCall("avg", frameD, quantityReference)),
                                 window(specificationC,
                                         ImmutableList.of(
-                                        functionCall("sum", frameC, "discount"),
-                                        functionCall("sum", frameC, "quantity")),
+                                        functionCall("sum", frameC, discountReference),
+                                        functionCall("sum", frameC, quantityReference)),
                                         any()))));
     }
 
@@ -309,11 +321,11 @@ public class TestMergeIdenticalWindows
                 anyTree(
                         window(specificationD,
                                 ImmutableList.of(
-                                functionCall("avg", frameD, "quantity")),
+                                functionCall("avg", frameD, quantityReference)),
                                 window(specificationC,
                                         ImmutableList.of(
-                                        functionCall("sum", defaultFrame, "discount"),
-                                        functionCall("sum", defaultFrame, "quantity")),
+                                        functionCall("sum", defaultFrame, discountReference),
+                                        functionCall("sum", defaultFrame, quantityReference)),
                                         any()))));
     }
 
@@ -347,10 +359,10 @@ public class TestMergeIdenticalWindows
                 anyTree(
                         join(JoinNode.Type.INNER, ImmutableList.of(),
                                 any(
-                                        window(specificationC, ImmutableList.of(functionCall("sum", commonFrame, "*")),
+                                        window(specificationC, ImmutableList.of(functionCall("sum", commonFrame, symbolReferenceStem("discount"))),
                                                 anyTree())),
                                 any(
-                                        window(specificationC, ImmutableList.of(functionCall("avg", commonFrame, "*")),
+                                        window(specificationC, ImmutableList.of(functionCall("avg", commonFrame, symbolReferenceStem("quantity"))),
                                                 anyTree())))));
     }
 
