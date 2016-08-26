@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 
 import java.util.Objects;

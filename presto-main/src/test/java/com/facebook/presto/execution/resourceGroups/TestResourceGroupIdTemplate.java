@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.spi.resourceGroups;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import javax.annotation.concurrent.ThreadSafe;
-
-@ThreadSafe
 public interface ResourceGroup
 {
     ResourceGroupId getId();

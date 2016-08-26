@@ -11,20 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.spi.resourceGroups;
 
-import java.util.List;
+import java.util.Optional;
 
-public interface ResourceGroupConfigurationManager
+public interface ResourceGroupSelector
 {
-    /**
-     * Implementations may retain a reference to the group, and re-configure it asynchronously.
-     * This method is called, once, when the group is created.
-     */
-    void configure(ResourceGroup group, SelectionContext context);
-
-    /**
-     * This method is called for every query that is submitted, so it should be fast.
-     */
-    List<ResourceGroupSelector> getSelectors();
+    Optional<ResourceGroupId> match(SelectionContext context);
 }
