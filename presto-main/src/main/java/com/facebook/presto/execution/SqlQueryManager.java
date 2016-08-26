@@ -20,6 +20,7 @@ import com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;

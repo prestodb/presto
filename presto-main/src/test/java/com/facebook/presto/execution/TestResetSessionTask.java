@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.transaction.TransactionManager;

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;

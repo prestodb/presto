@@ -18,6 +18,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

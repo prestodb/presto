@@ -14,12 +14,12 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import com.facebook.presto.tpch.TpchConnectorFactory;

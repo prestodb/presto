@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Parameter;
