@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -30,6 +31,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
@@ -86,9 +88,9 @@ public final class PlanMatchPattern
         return node(TableScanNode.class).with(new TableScanMatcher(expectedTableName, constraint));
     }
 
-    public static PlanMatchPattern window(List<FunctionCall> functionCalls, PlanMatchPattern source)
+    public static PlanMatchPattern window(WindowNode.Specification specification, List<FunctionCall> functionCalls, PlanMatchPattern source)
     {
-        return node(WindowNode.class, source).with(new WindowMatcher(functionCalls));
+        return any(source).with(new WindowMatcher(specification, functionCalls));
     }
 
     public static PlanMatchPattern project(PlanMatchPattern source)
@@ -189,9 +191,9 @@ public final class PlanMatchPattern
         return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, toExpressionList(args));
     }
 
-    public static FunctionCall functionCall(String name, String... args)
+    public static FunctionCall functionCall(String name, Optional<WindowFrame> frame, String ... args)
     {
-        return new RelaxedEqualityFunctionCall(QualifiedName.of(name), toExpressionList(args));
+        return new RelaxedEqualityFunctionCall(QualifiedName.of(name), toExpressionList(args), frame);
     }
 
     @Override
@@ -247,8 +249,57 @@ public final class PlanMatchPattern
         return Strings.repeat("    ", indent);
     }
 
-    private static class AnySymbolReference
-            extends SymbolReference
+    public static SymbolStem symbolStem(String stem)
+    {
+        return new SymbolStem(stem);
+    }
+
+    public static class SymbolStem extends Symbol
+    {
+        private final String stem;
+
+        SymbolStem(String stem)
+        {
+            // For useful output when we print out failure messages.
+            super(stem + "_*");
+            this.stem = stem;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null) {
+                return false;
+            }
+
+            if (Symbol.class.equals(o.getClass())) {
+                Symbol other = (Symbol) o;
+                String name = other.getName();
+                int endIndex = name.lastIndexOf('_');
+                String otherStem = endIndex == -1 ? name : name.substring(0, endIndex);
+                return stem.equals(otherStem);
+            }
+
+            if (!SymbolStem.class.equals(o.getClass())) {
+                return false;
+            }
+
+            SymbolStem other = (SymbolStem) o;
+            return stem.equals(other.stem);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return stem.hashCode();
+        }
+    }
+
+    private static class AnySymbolReference extends SymbolReference
     {
         AnySymbolReference()
         {
@@ -279,9 +330,19 @@ public final class PlanMatchPattern
     private static class RelaxedEqualityFunctionCall
             extends FunctionCall
     {
-        RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments)
+        /*
+         * FunctionCalls for window functions must have a Window. By the time
+         * the we've gone through the optimizers, everything but the Frame
+         * has a corresponding entry in the WindowNode. Since the WindowNode
+         * has had default entries filled in, we only need to compare the
+         * window frame with the one in the FunctionCall in equals.
+         */
+        Optional<WindowFrame> frame;
+
+        RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments, Optional<WindowFrame> frame)
         {
             super(name, arguments);
+            this.frame = frame;
         }
 
         @Override
@@ -295,13 +356,19 @@ public final class PlanMatchPattern
             }
             FunctionCall o = (FunctionCall) obj;
             return Objects.equals(getName(), o.getName()) &&
-                    Objects.equals(getArguments(), o.getArguments());
+                    Objects.equals(getArguments(), o.getArguments()) &&
+                    /*
+                     * No isPresent check - it's an error if the FunctionCall
+                     * doesn't have a Window here, and a stack trace is more
+                     * informative than a test failure.
+                     */
+                    Objects.equals(frame, o.getWindow().get().getFrame());
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(getName(), getArguments());
+            throw new UnsupportedOperationException();
         }
     }
 }

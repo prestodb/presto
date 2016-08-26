@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -213,9 +214,20 @@ public class WindowNode
 
             Specification other = (Specification) obj;
 
+            // Changing this? Go change WindowMatcher.matches too.
             return Objects.equals(this.partitionBy, other.partitionBy) &&
                     Objects.equals(this.orderBy, other.orderBy) &&
                     Objects.equals(this.orderings, other.orderings);
+        }
+
+        @Override
+        public String toString()
+        {
+            return MoreObjects.toStringHelper(this)
+                    .add("partitionBy", this.partitionBy)
+                    .add("orderBy", this.orderBy)
+                    .add("orderings", this.orderings)
+                    .toString();
         }
     }
 

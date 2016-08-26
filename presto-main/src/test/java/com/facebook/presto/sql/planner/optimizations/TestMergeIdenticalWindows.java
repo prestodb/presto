@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.FrameBound;
-import com.facebook.presto.sql.tree.SortItem;
-import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -42,18 +41,24 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.symbolStem;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class TestMergeIdenticalWindows
 {
     private final LocalQueryRunner queryRunner;
-    private final Window windowA;
-    private final Window windowB;
+    private final Symbol suppkey;
+    private final Symbol orderkey;
+    private final Symbol shipdate;
+    private final Optional<WindowFrame> commonFrame;
+    private final Optional<WindowFrame> defaultFrame;
+    private final WindowNode.Specification specificationA;
+    private final WindowNode.Specification specificationB;
 
     public TestMergeIdenticalWindows()
     {
-        this.queryRunner = new LocalQueryRunner(testSessionBuilder()
+        queryRunner = new LocalQueryRunner(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
                 .build());
@@ -62,20 +67,26 @@ public class TestMergeIdenticalWindows
                 new TpchConnectorFactory(queryRunner.getNodeManager(), 1),
                 ImmutableMap.<String, String>of());
 
-        WindowFrame frame = new WindowFrame(
+        commonFrame = Optional.of(new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)));
+                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW))));
 
-        windowA = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frame));
+        defaultFrame = Optional.empty();
 
-        windowB = new Window(
-                ImmutableList.of(new SymbolReference("orderkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frame));
+        suppkey = new Symbol("suppkey");
+        orderkey = new Symbol("orderkey");
+        shipdate = new Symbol("shipdate");
+
+        specificationA = new WindowNode.Specification(
+                ImmutableList.of(suppkey),
+                ImmutableList.of(orderkey),
+                ImmutableMap.of(orderkey, SortOrder.ASC_NULLS_LAST));
+
+        specificationB = new WindowNode.Specification(
+                ImmutableList.of(orderkey),
+                ImmutableList.of(shipdate),
+                ImmutableMap.of(shipdate, SortOrder.ASC_NULLS_LAST));
     }
 
     /**
@@ -115,12 +126,14 @@ public class TestMergeIdenticalWindows
 
         PlanMatchPattern pattern =
                 anyTree(
-                        window(ImmutableList.of(
-                                functionCall("sum", windowB, false, "quantity")),
+                        window(specificationB,
+                                ImmutableList.of(
+                                functionCall("sum", commonFrame, "quantity")),
                                 anyTree(
-                                        window(ImmutableList.of(
-                                                functionCall("sum", windowA, false, "quantity"),
-                                                functionCall("sum", windowA, false, "discount")),
+                                        window(specificationA,
+                                                ImmutableList.of(
+                                                functionCall("sum", commonFrame, "quantity"),
+                                                functionCall("sum", commonFrame, "discount")),
                                                 anyNot(WindowNode.class,
                                                         anyTree())))));
 
@@ -142,11 +155,13 @@ public class TestMergeIdenticalWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(ImmutableList.of(
-                                functionCall("sum", windowB, false, "quantity")),
-                                window(ImmutableList.of(
-                                        functionCall("sum", windowA, false, "quantity"),
-                                        functionCall("sum", windowA, false, "discount")),
+                        window(specificationB,
+                                ImmutableList.of(
+                                functionCall("sum", commonFrame, "quantity")),
+                                window(specificationA,
+                                        ImmutableList.of(
+                                        functionCall("sum", commonFrame, "quantity"),
+                                        functionCall("sum", commonFrame, "discount")),
                                         anyNot(WindowNode.class)))));
     }
 
@@ -161,11 +176,14 @@ public class TestMergeIdenticalWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(ImmutableList.of(functionCall("sum", windowA, false, "discount")),
-                                window(ImmutableList.of(functionCall("lag", windowB, false, "quantity", "*", "*")),
+                        window(specificationA,
+                                ImmutableList.of(functionCall("sum", commonFrame, "discount")),
+                                window(specificationB,
+                                        ImmutableList.of(functionCall("lag", commonFrame, "quantity", "*", "*")),
                                         project(
-                                                window(ImmutableList.of(
-                                                        functionCall("sum", windowA, false, "quantity")),
+                                                window(specificationA,
+                                                        ImmutableList.of(
+                                                        functionCall("sum", commonFrame, "quantity")),
                                                         any()))))));
     }
 
@@ -180,27 +198,29 @@ public class TestMergeIdenticalWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(ImmutableList.of(
-                                functionCall("sum", windowA, false, "discount"),
-                                functionCall("lag", windowA, false, "quantity", "*", "*")),
+                        window(specificationA,
+                                ImmutableList.of(
+                                functionCall("sum", commonFrame, "discount"),
+                                functionCall("lag", commonFrame, "quantity", "*", "*")),
                                 project(
-                                        window(ImmutableList.of(
-                                                functionCall("sum", windowA, false, "quantity")),
+                                        window(specificationA,
+                                                ImmutableList.of(
+                                                functionCall("sum", commonFrame, "quantity")),
                                                 any())))));
     }
 
     @Test
     public void testIdenticalWindowSpecificationsDefaultFrame()
     {
-        Window windowC = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.empty());
+        WindowNode.Specification specificationC = new WindowNode.Specification(
+                ImmutableList.of(suppkey),
+                ImmutableList.of(orderkey),
+                ImmutableMap.of(orderkey, SortOrder.ASC_NULLS_LAST));
 
-        Window windowD = new Window(
-                ImmutableList.of(new SymbolReference("orderkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.empty());
+        WindowNode.Specification specificationD = new WindowNode.Specification(
+                ImmutableList.of(orderkey),
+                ImmutableList.of(shipdate),
+                ImmutableMap.of(shipdate, SortOrder.ASC_NULLS_LAST));
 
         @Language("SQL") String sql = "select " +
                 "sum(quantity) over (partition by suppkey order by orderkey), " +
@@ -210,36 +230,38 @@ public class TestMergeIdenticalWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(ImmutableList.of(
-                                functionCall("sum", windowD, false, "quantity")),
-                                window(ImmutableList.of(
-                                        functionCall("sum", windowC, false, "quantity"),
-                                        functionCall("sum", windowC, false, "discount")),
+                        window(specificationD,
+                                ImmutableList.of(
+                                functionCall("sum", defaultFrame, "quantity")),
+                                window(specificationC,
+                                        ImmutableList.of(
+                                        functionCall("sum", defaultFrame, "quantity"),
+                                        functionCall("sum", defaultFrame, "discount")),
                                         anyNot(WindowNode.class)))));
     }
 
     @Test
     public void testNotMergeDifferentFrames()
     {
-        WindowFrame frameC = new WindowFrame(
+        Optional<WindowFrame> frameC = Optional.of(new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
-                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)));
+                Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW))));
 
-        Window windowC = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frameC));
+        WindowNode.Specification specificationC = new WindowNode.Specification(
+                ImmutableList.of(suppkey),
+                ImmutableList.of(orderkey),
+                ImmutableMap.of(orderkey, SortOrder.ASC_NULLS_LAST));
 
-        WindowFrame frameD = new WindowFrame(
+        Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)));
+                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING))));
 
-        Window windowD = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frameD));
+        WindowNode.Specification specificationD = new WindowNode.Specification(
+                ImmutableList.of(suppkey),
+                ImmutableList.of(orderkey),
+                ImmutableMap.of(orderkey, SortOrder.ASC_NULLS_LAST));
 
         @Language("SQL") String sql = "select " +
                 "sum(quantity) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_quantity_C, " +
@@ -249,31 +271,33 @@ public class TestMergeIdenticalWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(ImmutableList.of(
-                                functionCall("avg", windowD, false, "quantity")),
-                                window(ImmutableList.of(
-                                        functionCall("sum", windowC, false, "discount"),
-                                        functionCall("sum", windowC, false, "quantity")),
+                        window(specificationD,
+                                ImmutableList.of(
+                                functionCall("avg", frameD, "quantity")),
+                                window(specificationC,
+                                        ImmutableList.of(
+                                        functionCall("sum", frameC, "discount"),
+                                        functionCall("sum", frameC, "quantity")),
                                         any()))));
     }
 
     @Test
     public void testNotMergeDifferentFramesWithDefault()
     {
-        Window windowC = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.empty());
+        WindowNode.Specification specificationC = new WindowNode.Specification(
+                ImmutableList.of(suppkey),
+                ImmutableList.of(orderkey),
+                ImmutableMap.of(orderkey, SortOrder.ASC_NULLS_LAST));
 
-        WindowFrame frameD = new WindowFrame(
+        Optional<WindowFrame> frameD = Optional.of(new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.CURRENT_ROW),
-                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)));
+                Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING))));
 
-        Window windowD = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frameD));
+        WindowNode.Specification specificationD = new WindowNode.Specification(
+                ImmutableList.of(suppkey),
+                ImmutableList.of(orderkey),
+                ImmutableMap.of(orderkey, SortOrder.ASC_NULLS_LAST));
 
         @Language("SQL") String sql = "select " +
                 "sum(quantity) over (partition by suppkey order by orderkey) sum_quantity_C, " +
@@ -283,11 +307,13 @@ public class TestMergeIdenticalWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        window(ImmutableList.of(
-                                functionCall("avg", windowD, false, "quantity")),
-                                window(ImmutableList.of(
-                                        functionCall("sum", windowC, false, "discount"),
-                                        functionCall("sum", windowC, false, "quantity")),
+                        window(specificationD,
+                                ImmutableList.of(
+                                functionCall("avg", frameD, "quantity")),
+                                window(specificationC,
+                                        ImmutableList.of(
+                                        functionCall("sum", defaultFrame, "discount"),
+                                        functionCall("sum", defaultFrame, "quantity")),
                                         any()))));
     }
 
@@ -297,25 +323,34 @@ public class TestMergeIdenticalWindows
         @Language("SQL") String sql = "with foo as (" +
                 "select " +
                 "suppkey, orderkey, partkey, " +
-                "sum(discount) over (partition by orderkey order by shipdate rows between UNBOUNDED preceding and CURRENT ROW) a " +
+                "sum(discount) over (partition by orderkey order by shipdate, quantity desc rows between UNBOUNDED preceding and CURRENT ROW) a " +
                 "from lineitem where (partkey = 272 or partkey = 273) and suppkey > 50 " +
                 "), " +
                 "bar as ( " +
                 "select " +
                 "suppkey, orderkey, partkey, " +
-                "avg(quantity) over (partition by orderkey order by shipdate rows between UNBOUNDED preceding and CURRENT ROW) b " +
+                "avg(quantity) over (partition by orderkey order by shipdate, quantity desc rows between UNBOUNDED preceding and CURRENT ROW) b " +
                 "from lineitem where (partkey = 272 or partkey = 273) and suppkey > 50 " +
                 ")" +
                 "select * from foo, bar where foo.a = bar.b";
+
+        Symbol orderkey = symbolStem("orderkey");
+        Symbol shipdate = symbolStem("shipdate");
+        Symbol quantity = symbolStem("quantity");
+
+        WindowNode.Specification specificationC = new WindowNode.Specification(
+                ImmutableList.of(orderkey),
+                ImmutableList.of(shipdate, quantity),
+                ImmutableMap.of(shipdate, SortOrder.ASC_NULLS_LAST, quantity, SortOrder.DESC_NULLS_LAST));
 
         assertUnitPlan(sql,
                 anyTree(
                         join(JoinNode.Type.INNER, ImmutableList.of(),
                                 any(
-                                        window(ImmutableList.of(functionCall("sum", "*")),
+                                        window(specificationC, ImmutableList.of(functionCall("sum", commonFrame, "*")),
                                                 anyTree())),
                                 any(
-                                        window(ImmutableList.of(functionCall("avg", "*")),
+                                        window(specificationC, ImmutableList.of(functionCall("avg", commonFrame, "*")),
                                                 anyTree())))));
     }
 
