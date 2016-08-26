@@ -217,7 +217,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitCharLiteral(CharLiteral node, Void context)
         {
-            return constant(node.getSlice(), createCharType(countCodePoints(node.getSlice())));
+            return constant(node.getSlice(), createCharType(node.getValue().length()));
         }
 
         @Override

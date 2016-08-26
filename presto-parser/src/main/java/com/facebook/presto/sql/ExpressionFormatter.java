@@ -179,7 +179,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitCharLiteral(CharLiteral node, Boolean unmangleNames)
         {
-            return formatStringLiteral(node.getValue());
+            return "CHAR " + formatStringLiteral(node.getValue());
         }
 
         @Override
