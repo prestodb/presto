@@ -216,7 +216,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                     inPredicate,
                     mapAssignmentSymbolsToExpression(node.getAssignments()));
 
-            ProjectNode rewrittenNode = (ProjectNode) context.rewrite(node);
+            // cannot use context.rewrite() as it ends with endless loop
+            ProjectNode rewrittenNode = (ProjectNode) super.visitProject(node, context);
             if (semiJoinSymbol.isPresent()) {
                 return appendIdentityProjection(rewrittenNode, semiJoinSymbol.get());
             }
