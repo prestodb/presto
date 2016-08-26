@@ -38,6 +38,6 @@ public final class HyperLogLogFunctions
     @SqlType(StandardTypes.HYPER_LOG_LOG)
     public static Slice empty_approx_set()
     {
-        return HyperLogLog.newInstance(ApproximateSetAggregation.NUMBER_OF_BUCKETS).serialize();
+        return ApproximateSetAggregation.newHyperLogLog().serialize();
     }
 }

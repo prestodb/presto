@@ -30,10 +30,15 @@ import io.airlift.stats.cardinality.HyperLogLog;
 @AggregationFunction("approx_set")
 public final class ApproximateSetAggregation
 {
-    public static final int NUMBER_OF_BUCKETS = 4096;
+    private static final int NUMBER_OF_BUCKETS = 4096;
     private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = new StateCompiler().generateStateSerializer(HyperLogLogState.class);
 
     private ApproximateSetAggregation() {}
+
+    public static HyperLogLog newHyperLogLog()
+    {
+        return HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
+    }
 
     @InputFunction
     public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
@@ -67,7 +72,7 @@ public final class ApproximateSetAggregation
     {
         HyperLogLog hll = state.getHyperLogLog();
         if (hll == null) {
-            hll = HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
+            hll = newHyperLogLog();
             state.setHyperLogLog(hll);
             state.addMemoryUsage(hll.estimatedInMemorySize());
         }
