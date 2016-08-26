@@ -146,7 +146,7 @@ The required replica set name. With this option set, the MongoClient instance wi
 
 This property is optional; no default value.
 
-``mongodb.required-replica-set``
+``mongodb.cursor-batch-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Limits the number of elements returned in one batch. A cursor typically fetches a batch of result objects and stores them locally.
