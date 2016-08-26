@@ -146,6 +146,12 @@ Property Name                                      Description                  
 
 ``hive.s3.sse.enabled``                            Enable S3 server-side encryption.                            ``false``
 
+``hive.s3.endpoint``                               The S3 storage endpoint server. This can be used to connect
+                                                   to an S3-compatible storage system instead of AWS.
+
+``hive.s3.signer-type``                            Specify a different signer type for S3-compatible storage.
+                                                   Example: ``S3SignerType`` for v2 signer type
+
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 

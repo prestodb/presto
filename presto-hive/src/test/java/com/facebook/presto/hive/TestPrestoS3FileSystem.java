@@ -74,6 +74,23 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
+    public void testCompatibleStaticCredentials()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(PrestoS3FileSystem.S3_ACCESS_KEY, "test_secret_access_key");
+        config.set(PrestoS3FileSystem.S3_SECRET_KEY, "test_access_key_id");
+        config.set(PrestoS3FileSystem.S3_ENDPOINT,   "test.example.endpoint.com");
+        config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, "S3SignerType");
+        // the static credentials should be preferred
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), AWSStaticCredentialsProvider.class);
+        }
+    }
+
+    @Test
     public void testInstanceCredentialsEnabled()
             throws Exception
     {
