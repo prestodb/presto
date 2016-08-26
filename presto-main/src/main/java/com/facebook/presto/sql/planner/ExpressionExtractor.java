@@ -24,42 +24,72 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class ExpressionExtractor
-        extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
 {
     public static List<Expression> extractExpressions(PlanNode plan)
     {
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new ExpressionExtractor(), expressionsBuilder);
+        plan.accept(new Visitor(true), expressionsBuilder);
         return expressionsBuilder.build();
     }
 
-    @Override
-    public Void visitFilter(FilterNode node, ImmutableList.Builder<Expression> context)
+    public static List<Expression> extractExpressionsNonRecursive(PlanNode plan)
     {
-        context.add(node.getPredicate());
-        return super.visitFilter(node, context);
+        ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
+        plan.accept(new Visitor(false), expressionsBuilder);
+        return expressionsBuilder.build();
     }
 
-    @Override
-    public Void visitProject(ProjectNode node, ImmutableList.Builder<Expression> context)
+    private ExpressionExtractor()
     {
-        context.addAll(node.getAssignments().values());
-        return super.visitProject(node, context);
     }
 
-    @Override
-    public Void visitTableScan(TableScanNode node, ImmutableList.Builder<Expression> context)
+    private static class Visitor
+            extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
     {
-        if (node.getOriginalConstraint() != null) {
-            context.add(node.getOriginalConstraint());
+        private final boolean recursive;
+
+        public Visitor(boolean recursive)
+        {
+            this.recursive = recursive;
         }
-        return super.visitTableScan(node, context);
-    }
 
-    @Override
-    public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
-    {
-        node.getRows().forEach(context::addAll);
-        return super.visitValues(node, context);
+        @Override
+        protected Void visitPlan(PlanNode node, ImmutableList.Builder<Expression> context)
+        {
+            if (recursive) {
+                return super.visitPlan(node, context);
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitFilter(FilterNode node, ImmutableList.Builder<Expression> context)
+        {
+            context.add(node.getPredicate());
+            return super.visitFilter(node, context);
+        }
+
+        @Override
+        public Void visitProject(ProjectNode node, ImmutableList.Builder<Expression> context)
+        {
+            context.addAll(node.getAssignments().values());
+            return super.visitProject(node, context);
+        }
+
+        @Override
+        public Void visitTableScan(TableScanNode node, ImmutableList.Builder<Expression> context)
+        {
+            if (node.getOriginalConstraint() != null) {
+                context.add(node.getOriginalConstraint());
+            }
+            return super.visitTableScan(node, context);
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
+        {
+            node.getRows().forEach(context::addAll);
+            return super.visitValues(node, context);
+        }
     }
 }

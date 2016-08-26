@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 
@@ -37,9 +38,16 @@ final class PlanMatchingVisitor
     }
 
     @Override
+    public Boolean visitProject(ProjectNode node, PlanMatchingContext context)
+    {
+        context.getExpressionAliases().updateAssignments(node.getAssignments());
+        return super.visitProject(node, context);
+    }
+
+    @Override
     protected Boolean visitPlan(PlanNode node, PlanMatchingContext context)
     {
-        List<PlanMatchingState> states = context.getPattern().matches(node, session, metadata, context.getSymbolAliases());
+        List<PlanMatchingState> states = context.getPattern().matches(node, session, metadata, context.getExpressionAliases());
 
         if (states.isEmpty()) {
             return false;
