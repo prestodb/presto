@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class MemoryPoolId
@@ -29,7 +28,9 @@ public final class MemoryPoolId
     public MemoryPoolId(String id)
     {
         requireNonNull(id, "id is null");
-        checkArgument(!id.isEmpty(), "id is empty");
+        if (id.isEmpty()) {
+            throw new IllegalArgumentException("id is empty");
+        }
         this.id = id;
     }
 
