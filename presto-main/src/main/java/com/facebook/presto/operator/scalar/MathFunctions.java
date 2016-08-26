@@ -43,7 +43,6 @@ import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
-import static com.facebook.presto.spi.type.Decimals.checkOverflow;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
@@ -53,6 +52,7 @@ import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isNegati
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isZero;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.negate;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -65,8 +65,6 @@ import static java.lang.Character.MIN_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
-import static java.math.BigInteger.ONE;
-import static java.math.BigInteger.ZERO;
 
 public final class MathFunctions
 {
@@ -74,7 +72,6 @@ public final class MathFunctions
     public static final SqlScalarFunction[] DECIMAL_CEILING_FUNCTIONS = {decimalCeilingFunction("ceiling"), decimalCeilingFunction("ceil")};
     public static final SqlScalarFunction DECIMAL_FLOOR_FUNCTION = decimalFloorFunction();
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
-    public static final SqlScalarFunction[] DECIMAL_ROUND_FUNCTIONS = {decimalRoundNFunction()};
 
     private MathFunctions() {}
 
@@ -756,88 +753,74 @@ public final class MathFunctions
         }
     }
 
-    private static SqlScalarFunction decimalRoundNFunction()
+    @ScalarFunction("round")
+    @Description("round to given number of decimal places")
+    public static final class RoundN
     {
-        Signature signature = Signature.builder()
-                .kind(SCALAR)
-                .name("round")
-                .longVariableConstraints(
-                        //result precision = increment the input precision only if the input number has a decimal point (scale > 0)
-                        longVariableExpression("return_precision", "min(38, num_precision + 1)"))
-                .argumentTypes(parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")), parseTypeSignature(StandardTypes.BIGINT))
-                .returnType(parseTypeSignature("decimal(return_precision,num_scale)", ImmutableSet.of("return_precision", "num_scale")))
-                .build();
-        return SqlScalarFunction.builder(MathFunctions.class)
-                .signature(signature)
-                .description("round to given number of decimal places")
-                .implementation(b -> b
-                        .methods("roundNShortShortDecimal", "roundNLongLongDecimal", "roundNShortLongDecimal")
-                        .withExtraParameters(MathFunctions::decimalRoundNExtraParameters))
-                .build();
-    }
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp, s)")
+        @Constraint(variable = "rp", expression = "min(38, p + min(s, 1))")
+        public static long roundNShort(
+                @LiteralParameter("p") Long numPrecision,
+                @LiteralParameter("s") Long numScale,
+                @SqlType("decimal(p, s)") long num,
+                @SqlType(StandardTypes.BIGINT) long decimals)
+        {
+            if (num == 0 || numPrecision - numScale + decimals <= 0) {
+                return 0;
+            }
+            if (decimals >= numScale) {
+                return num;
+            }
+            if (num < 0) {
+                return -roundNShort(numPrecision, numScale, -num, decimals);
+            }
 
-    private static List<Object> decimalRoundNExtraParameters(SpecializeContext context)
-    {
-        return ImmutableList.of(context.getLiteral("num_precision"), context.getLiteral("num_scale"));
-    }
-
-    @UsedByGeneratedCode
-    public static long roundNShortShortDecimal(long num, long roundScale, long inputPrecision, long inputScale)
-    {
-        if (num == 0 || inputPrecision - inputScale + roundScale <= 0) {
-            return 0;
-        }
-        if (roundScale >= inputScale) {
-            return num;
-        }
-        if (num < 0) {
-            return -roundNShortShortDecimal(-num, roundScale, inputPrecision, inputScale);
+            long rescaleFactor = longTenToNth((int) (numScale - decimals));
+            long remainder = num % rescaleFactor;
+            int roundUp = (remainder >= rescaleFactor / 2) ? 1 : 0;
+            return (num / rescaleFactor + roundUp) * rescaleFactor;
         }
 
-        long rescaleFactor = longTenToNth((int) (inputScale - roundScale));
-        long remainder = num % rescaleFactor;
-        int roundUp = (remainder >= rescaleFactor >> 1) ? 1 : 0;
-        return (num / rescaleFactor + roundUp) * rescaleFactor;
-    }
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp, s)")
+        @Constraint(variable = "rp", expression = "min(38, p + min(s, 1))")
+        public static Slice roundNLong(
+                @LiteralParameter("s") Long numScale,
+                @LiteralParameter("rp") Long resultPrecision,
+                @SqlType("decimal(p, s)") Slice num,
+                @SqlType(StandardTypes.BIGINT) long decimals)
 
-    @UsedByGeneratedCode
-    public static Slice roundNLongLongDecimal(Slice num, long roundScale, long inputPrecision, long inputScale)
-    {
-        BigInteger unscaledVal = decodeUnscaledValue(num);
-        if (roundScale >= inputScale) {
-            return num;
+        {
+            if (numScale == 0) {
+                return num;
+            }
+            if (decimals >= numScale) {
+                return num;
+            }
+            int rescaleFactor = numScale.intValue() - (int) decimals;
+            try {
+                Slice result = rescale(rescale(num, -rescaleFactor), rescaleFactor);
+                throwIfOverflows(result, resultPrecision.intValue());
+                return result;
+            }
+            catch (ArithmeticException e) {
+                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "decimal overflow: " + num, e);
+            }
         }
-        return roundNLongDecimal(unscaledVal, roundScale, inputPrecision, inputScale);
-    }
 
-    @UsedByGeneratedCode
-    public static Slice roundNShortLongDecimal(long num, long roundScale, long inputPrecision, long inputScale)
-    {
-        if (roundScale >= inputScale) {
-            return encodeUnscaledValue(num);
-        }
-        return roundNLongDecimal(BigInteger.valueOf(num), roundScale, inputPrecision, inputScale);
-    }
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp, s)")
+        @Constraint(variable = "rp", expression = "min(38, p + min(s, 1))")
+        public static Slice roundNShortLong(
+                @LiteralParameter("s") Long numScale,
+                @LiteralParameter("rp") Long resultPrecision,
+                @SqlType("decimal(p, s)") long num,
+                @SqlType(StandardTypes.BIGINT) long decimals)
 
-    private static Slice roundNLongDecimal(BigInteger unscaledValue, long roundScale, long inputPrecision, long inputScale)
-    {
-        if (unscaledValue.signum() == 0 || inputPrecision - inputScale + roundScale <= 0) {
-            return encodeUnscaledValue(0);
+        {
+            return roundNLong(numScale, resultPrecision, unscaledDecimal(num), decimals);
         }
-        BigInteger rescaleFactor = bigIntegerTenToNth((int) (inputScale - roundScale));
-        if (unscaledValue.signum() < 0) {
-            return encodeUnscaledValue(roundNLongDecimal(unscaledValue.negate(), rescaleFactor).negate());
-        }
-        return encodeUnscaledValue(roundNLongDecimal(unscaledValue, rescaleFactor));
-    }
-
-    private static BigInteger roundNLongDecimal(BigInteger num, BigInteger rescaleFactor)
-    {
-        BigInteger[] divideAndRemainder = num.divideAndRemainder(rescaleFactor);
-        BigInteger roundUp = divideAndRemainder[1].compareTo(rescaleFactor.shiftRight(1)) >= 0 ? ONE : ZERO;
-        BigInteger rounded = divideAndRemainder[0].add(roundUp).multiply(rescaleFactor);
-        checkOverflow(rounded);
-        return rounded;
     }
 
     private static SqlScalarFunction decimalTruncateNFunction()
