@@ -49,6 +49,8 @@ public class HdfsConfigurationUpdater
     private final String domainSocketPath;
     private final String s3AwsAccessKey;
     private final String s3AwsSecretKey;
+    private final String s3Endpoint;
+    private final PrestoS3SignerType s3SignerType;
     private final boolean s3UseInstanceCredentials;
     private final boolean s3SslEnabled;
     private final boolean s3SseEnabled;
@@ -80,6 +82,8 @@ public class HdfsConfigurationUpdater
         this.domainSocketPath = hiveClientConfig.getDomainSocketPath();
         this.s3AwsAccessKey = hiveClientConfig.getS3AwsAccessKey();
         this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
+        this.s3Endpoint = hiveClientConfig.getS3Endpoint();
+        this.s3SignerType = hiveClientConfig.getS3SignerType();
         this.s3UseInstanceCredentials = hiveClientConfig.isS3UseInstanceCredentials();
         this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
         this.s3SseEnabled = hiveClientConfig.isS3SseEnabled();
@@ -142,6 +146,13 @@ public class HdfsConfigurationUpdater
         if (s3AwsSecretKey != null) {
             config.set(PrestoS3FileSystem.S3_SECRET_KEY, s3AwsSecretKey);
             config.set("fs.s3bfs.awsSecretAccessKey", s3AwsSecretKey);
+        }
+        if (s3Endpoint != null) {
+            config.set(PrestoS3FileSystem.S3_ENDPOINT, s3Endpoint);
+            config.set("fs.s3bfs.Endpoint", s3Endpoint);
+        }
+        if (s3SignerType != null) {
+            config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, s3SignerType.getSignerType());
         }
 
         configureCompression(config, compressionCodec);
