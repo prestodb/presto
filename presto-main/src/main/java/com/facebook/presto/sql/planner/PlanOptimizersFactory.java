@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.optimizations.MergeIdenticalWindows;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PartialAggregationPushDown;
 import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
@@ -117,6 +118,10 @@ public class PlanOptimizersFactory
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, sqlParser));
+
+        // Optimizers above this do not need to care about aggregations with the type other than SINGLE
+        // This optimizer must be run after all exchange-related optimizers
+        builder.add(new PartialAggregationPushDown(metadata));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
