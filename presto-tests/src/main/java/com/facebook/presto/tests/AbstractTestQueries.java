@@ -5095,6 +5095,30 @@ public abstract class AbstractTestQueries
                         "   UNION ALL " +
                         "   SELECT shipdate ds, orderkey FROM lineitem) a " +
                         "GROUP BY ds");
+        assertQuery(
+                "SELECT ds, count(*) FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY ds");
+        assertQuery(
+                "SELECT ds, count(DISTINCT orderkey) FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY ds");
+        assertQuery(
+                "SELECT clerk, count(DISTINCT orderstatus) FROM (" +
+                        "SELECT * FROM orders WHERE orderkey=0 " +
+                        " UNION ALL " +
+                        "SELECT * FROM orders WHERE orderkey<>0) " +
+                        "GROUP BY clerk");
+        assertQuery(
+                "SELECT count(clerk) FROM (" +
+                        "SELECT clerk FROM orders WHERE orderkey=0 " +
+                        " UNION ALL " +
+                        "SELECT clerk FROM orders WHERE orderkey<>0) " +
+                        "GROUP BY clerk");
     }
 
     @Test
