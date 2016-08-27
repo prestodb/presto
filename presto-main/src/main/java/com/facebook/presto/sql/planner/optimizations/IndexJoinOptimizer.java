@@ -54,6 +54,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.SystemSessionProperties.isIndexJoinsEnabled;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
@@ -105,6 +106,11 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
         {
+            if (!isIndexJoinsEnabled(session)) {
+                // if index joins are disabled per session then skip this optimization
+                return node;
+            }
+
             PlanNode leftRewritten = context.rewrite(node.getLeft());
             PlanNode rightRewritten = context.rewrite(node.getRight());
 

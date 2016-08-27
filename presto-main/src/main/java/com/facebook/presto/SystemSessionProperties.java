@@ -61,6 +61,7 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String INDEX_JOIN = "index_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -219,6 +220,11 @@ public final class SystemSessionProperties
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
+                        false),
+                booleanSessionProperty(
+                        INDEX_JOIN,
+                        "Use index join when possible",
+                        featuresConfig.isIndexJoinsEnabled(),
                         false));
     }
 
@@ -342,5 +348,10 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static boolean isIndexJoinsEnabled(Session session)
+    {
+        return session.getProperty(INDEX_JOIN, Boolean.class);
     }
 }

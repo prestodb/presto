@@ -58,6 +58,8 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
 
+    private boolean indexJoinsEnabled = true;
+
     @NotNull
     public String getResourceGroupManager()
     {
@@ -268,5 +270,18 @@ public class FeaturesConfig
     {
         this.regexLibrary = regexLibrary;
         return this;
+    }
+
+    @Config("index-joins-enabled")
+    @ConfigDescription("Use an index join when possible")
+    public FeaturesConfig setIndexJoinsEnabled(boolean indexJoinsEnabled)
+    {
+        this.indexJoinsEnabled = indexJoinsEnabled;
+        return this;
+    }
+
+    public boolean isIndexJoinsEnabled()
+    {
+        return indexJoinsEnabled;
     }
 }
