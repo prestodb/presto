@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
-import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -34,17 +32,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -98,7 +91,7 @@ public class FileResourceGroupConfigurationManager
         }
         this.selectors = selectors.build();
 
-        memoryPoolManager.addChangeListener(GENERAL_POOL, poolInfo -> {
+        memoryPoolManager.addChangeListener(new MemoryPoolId("general"), poolInfo -> {
             synchronized (generalPoolMemoryFraction) {
                 for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
                     double bytes = poolInfo.getMaxBytes() * entry.getValue();
@@ -187,193 +180,5 @@ public class FileResourceGroupConfigurationManager
     public List<ResourceGroupSelector> getSelectors()
     {
         return selectors;
-    }
-
-    public static class ManagerSpec
-    {
-        private final List<ResourceGroupSpec> rootGroups;
-        private final List<SelectorSpec> selectors;
-        private final Optional<Duration> cpuQuotaPeriod;
-
-        @JsonCreator
-        public ManagerSpec(
-                @JsonProperty("rootGroups") List<ResourceGroupSpec> rootGroups,
-                @JsonProperty("selectors") List<SelectorSpec> selectors,
-                @JsonProperty("cpuQuotaPeriod") Optional<Duration> cpuQuotaPeriod)
-        {
-            this.rootGroups = ImmutableList.copyOf(requireNonNull(rootGroups, "rootGroups is null"));
-            this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
-            this.cpuQuotaPeriod = requireNonNull(cpuQuotaPeriod, "cpuQuotaPeriod is null");
-            Set<ResourceGroupNameTemplate> names = new HashSet<>();
-            for (ResourceGroupSpec group : rootGroups) {
-                checkArgument(!names.contains(group.getName()), "Duplicated root group: %s", group.getName());
-                names.add(group.getName());
-            }
-        }
-
-        public List<ResourceGroupSpec> getRootGroups()
-        {
-            return rootGroups;
-        }
-
-        public List<SelectorSpec> getSelectors()
-        {
-            return selectors;
-        }
-
-        public Optional<Duration> getCpuQuotaPeriod()
-        {
-            return cpuQuotaPeriod;
-        }
-    }
-
-    public static class ResourceGroupSpec
-    {
-        private static final Pattern PERCENT_PATTERN = Pattern.compile("(\\d{1,3}(:?\\.\\d+)?)%");
-
-        private final ResourceGroupNameTemplate name;
-        private final Optional<DataSize> softMemoryLimit;
-        private final Optional<Double> softMemoryLimitFraction;
-        private final int maxQueued;
-        private final int maxRunning;
-        private final Optional<SchedulingPolicy> schedulingPolicy;
-        private final Optional<Integer> schedulingWeight;
-        private final List<ResourceGroupSpec> subGroups;
-        private final Optional<Boolean> jmxExport;
-        private final Optional<Duration> softCpuLimit;
-        private final Optional<Duration> hardCpuLimit;
-
-        @JsonCreator
-        public ResourceGroupSpec(
-                @JsonProperty("name") ResourceGroupNameTemplate name,
-                @JsonProperty("softMemoryLimit") String softMemoryLimit,
-                @JsonProperty("maxQueued") int maxQueued,
-                @JsonProperty("maxRunning") int maxRunning,
-                @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
-                @JsonProperty("schedulingWeight") Optional<Integer> schedulingWeight,
-                @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
-                @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
-                @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
-                @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit)
-        {
-            this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
-            this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
-            this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
-            this.name = requireNonNull(name, "name is null");
-            checkArgument(maxQueued >= 0, "maxQueued is negative");
-            this.maxQueued = maxQueued;
-            checkArgument(maxRunning >= 0, "maxRunning is negative");
-            this.maxRunning = maxRunning;
-            this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SchedulingPolicy.valueOf(value.toUpperCase()));
-            this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
-            requireNonNull(softMemoryLimit, "softMemoryLimit is null");
-            Optional<DataSize> absoluteSize;
-            Optional<Double> fraction;
-            Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit);
-            if (matcher.matches()) {
-                absoluteSize = Optional.empty();
-                fraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
-            }
-            else {
-                absoluteSize = Optional.of(DataSize.valueOf(softMemoryLimit));
-                fraction = Optional.empty();
-            }
-            this.softMemoryLimit = absoluteSize;
-            this.softMemoryLimitFraction = fraction;
-            this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null").orElse(ImmutableList.of()));
-            Set<ResourceGroupNameTemplate> names = new HashSet<>();
-            for (ResourceGroupSpec subGroup : this.subGroups) {
-                checkArgument(!names.contains(subGroup.getName()), "Duplicated sub group: %s", subGroup.getName());
-                names.add(subGroup.getName());
-            }
-        }
-
-        public Optional<DataSize> getSoftMemoryLimit()
-        {
-            return softMemoryLimit;
-        }
-
-        public Optional<Double> getSoftMemoryLimitFraction()
-        {
-            return softMemoryLimitFraction;
-        }
-
-        public int getMaxQueued()
-        {
-            return maxQueued;
-        }
-
-        public int getMaxRunning()
-        {
-            return maxRunning;
-        }
-
-        public Optional<SchedulingPolicy> getSchedulingPolicy()
-        {
-            return schedulingPolicy;
-        }
-
-        public Optional<Integer> getSchedulingWeight()
-        {
-            return schedulingWeight;
-        }
-
-        public ResourceGroupNameTemplate getName()
-        {
-            return name;
-        }
-
-        public List<ResourceGroupSpec> getSubGroups()
-        {
-            return subGroups;
-        }
-
-        public Optional<Boolean> getJmxExport()
-        {
-            return jmxExport;
-        }
-
-        public Optional<Duration> getSoftCpuLimit()
-        {
-            return softCpuLimit;
-        }
-
-        public Optional<Duration> getHardCpuLimit()
-        {
-            return hardCpuLimit;
-        }
-    }
-
-    public static class SelectorSpec
-    {
-        private final Optional<Pattern> userRegex;
-        private final Optional<Pattern> sourceRegex;
-        private final ResourceGroupIdTemplate group;
-
-        @JsonCreator
-        public SelectorSpec(
-                @JsonProperty("user") Optional<Pattern> userRegex,
-                @JsonProperty("source") Optional<Pattern> sourceRegex,
-                @JsonProperty("group") ResourceGroupIdTemplate group)
-        {
-            this.userRegex = requireNonNull(userRegex, "userRegex is null");
-            this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
-            this.group = requireNonNull(group, "group is null");
-        }
-
-        public Optional<Pattern> getUserRegex()
-        {
-            return userRegex;
-        }
-
-        public Optional<Pattern> getSourceRegex()
-        {
-            return sourceRegex;
-        }
-
-        public ResourceGroupIdTemplate getGroup()
-        {
-            return group;
-        }
     }
 }

@@ -26,6 +26,12 @@
     </artifactSet>
 
     <!-- Plugins -->
+    <artifactSet to="plugin/resource-group-managers">
+        <artifact id="${project.groupId}:presto-resource-group-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/jmx">
         <artifact id="${project.groupId}:presto-jmx:zip:${project.version}">
             <unpack />

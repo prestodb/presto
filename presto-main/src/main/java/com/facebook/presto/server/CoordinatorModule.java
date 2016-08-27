@@ -45,7 +45,8 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.resourceGroups.FileResourceGroupsModule;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
@@ -102,8 +103,6 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
-import static com.facebook.presto.server.ConditionalModule.conditionalModule;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -150,9 +149,11 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(StageResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
+        binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
+        binder.bind(LegacyResourceGroupConfigurationManagerFactory.class).in(Scopes.SINGLETON);
         if (buildConfigObject(FeaturesConfig.class).isResourceGroupsEnabled()) {
-            binder.bind(ResourceGroupManager.class).in(Scopes.SINGLETON);
-            binder.bind(QueryQueueManager.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
+            binder.bind(QueryQueueManager.class).to(InternalResourceGroupManager.class);
         }
         else {
             binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
@@ -170,12 +171,6 @@ public class CoordinatorModule
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
-
-        // resource group manager
-        install(conditionalModule(
-                FeaturesConfig.class,
-                config -> config.isResourceGroupsEnabled() && FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
-                moduleBinder -> moduleBinder.install(new FileResourceGroupsModule())));
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);

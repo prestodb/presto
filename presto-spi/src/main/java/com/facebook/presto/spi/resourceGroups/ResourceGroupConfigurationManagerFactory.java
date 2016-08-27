@@ -11,26 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.spi.resourceGroups;
 
-import io.airlift.configuration.Config;
+import java.util.Map;
 
-import javax.validation.constraints.NotNull;
-
-public class FileResourceGroupConfig
+public interface ResourceGroupConfigurationManagerFactory
 {
-    private String configFile;
+    String getName();
 
-    @NotNull
-    public String getConfigFile()
-    {
-        return configFile;
-    }
-
-    @Config("resource-groups.config-file")
-    public FileResourceGroupConfig setConfigFile(String configFile)
-    {
-        this.configFile = configFile;
-        return this;
-    }
+    ResourceGroupConfigurationManager create(Map<String, String> config, ResourceGroupConfigurationManagerContext context);
 }

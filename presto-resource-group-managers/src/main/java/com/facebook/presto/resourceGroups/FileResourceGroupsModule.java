@@ -11,10 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.FileResourceGroupConfigurationManager.ManagerSpec;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -30,6 +28,6 @@ public class FileResourceGroupsModule
     {
         jsonCodecBinder(binder).bindJsonCodec(ManagerSpec.class);
         configBinder(binder).bindConfig(FileResourceGroupConfig.class);
-        binder.bind(ResourceGroupConfigurationManager.class).to(FileResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+        binder.bind(FileResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
@@ -32,7 +33,6 @@ import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -99,7 +99,7 @@ public class TestingPrestoServer
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
-    private final Optional<ResourceGroupManager> resourceGroupManager;
+    private final Optional<InternalResourceGroupManager> resourceGroupManager;
     private final SplitManager splitManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -244,17 +244,12 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
-        FeaturesConfig config = injector.getInstance(FeaturesConfig.class);
-        if (config.isResourceGroupsEnabled()) {
-            resourceGroupManager = Optional.of(injector.getInstance(ResourceGroupManager.class));
-        }
-        else {
-            resourceGroupManager = Optional.empty();
-        }
         if (coordinator) {
+            resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         }
         else {
+            resourceGroupManager = Optional.empty();
             clusterMemoryManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
@@ -352,7 +347,7 @@ public class TestingPrestoServer
         return splitManager;
     }
 
-    public Optional<ResourceGroupManager> getResourceGroupManager()
+    public Optional<InternalResourceGroupManager> getResourceGroupManager()
     {
         return resourceGroupManager;
     }

@@ -11,18 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.spi.resourceGroups;
 
-import com.facebook.presto.execution.QueryQueueManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 
-public interface ResourceGroupManager
-        extends QueryQueueManager
+public interface ResourceGroupConfigurationManagerContext
 {
-    ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
-
-    void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
-
-    void loadConfigurationManager() throws Exception;
+    ClusterMemoryPoolManager getMemoryPoolManager();
 }
