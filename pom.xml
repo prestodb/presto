@@ -113,6 +113,7 @@
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
+        <module>presto-resource-group-managers</module>
     </modules>
 
     <dependencyManagement>
@@ -120,6 +121,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-resource-group-managers</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

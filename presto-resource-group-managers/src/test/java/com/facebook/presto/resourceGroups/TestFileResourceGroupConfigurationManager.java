@@ -11,31 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.FileResourceGroupConfigurationManager.ManagerSpec;
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.execution.resourceGroups.InternalResourceGroup.DEFAULT_WEIGHT;
-import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
-import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -46,27 +35,6 @@ import static org.testng.Assert.fail;
 
 public class TestFileResourceGroupConfigurationManager
 {
-    @Test(timeOut = 60_000)
-    public void testMemoryFraction()
-            throws Exception
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("experimental.resource-groups-enabled", "true");
-        builder.put("resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json"));
-        Map<String, String> properties = builder.build();
-
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), properties)) {
-            queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-            while (true) {
-                TimeUnit.SECONDS.sleep(1);
-                ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(ResourceGroupId.fromString("global"));
-                if (global.getSoftMemoryLimit().toBytes() > 0) {
-                    break;
-                }
-            }
-        }
-    }
-
     @Test
     public void testInvalid()
     {
@@ -79,7 +47,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testMissing()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        InternalResourceGroup missing = new RootInternalResourceGroup("missing", (group, export) -> { }, directExecutor());
+        ResourceGroup missing = new TestingResourceGroup("missing");
         manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), 1));
     }
 
@@ -87,8 +55,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testConfiguration()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        AtomicBoolean exported = new AtomicBoolean();
-        InternalResourceGroup global = new RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
+        ResourceGroup global = new TestingResourceGroup("global");
         manager.configure(global, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
@@ -97,19 +64,17 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getMaxQueuedQueries(), 1000);
         assertEquals(global.getMaxRunningQueries(), 100);
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
-        assertEquals(global.getSchedulingWeight(), DEFAULT_WEIGHT);
+        assertEquals(global.getSchedulingWeight(), 0);
         assertEquals(global.getJmxExport(), true);
-        assertEquals(exported.get(), true);
-        exported.set(false);
-        InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
+
+        ResourceGroup sub = new TestingResourceGroup("global.sub");
         manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getMaxRunningQueries(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
-        assertEquals(sub.getSchedulingPolicy(), FAIR);
+        assertEquals(sub.getSchedulingPolicy(), null);
         assertEquals(sub.getSchedulingWeight(), 5);
         assertEquals(sub.getJmxExport(), false);
-        assertEquals(exported.get(), false);
     }
 
     private FileResourceGroupConfigurationManager parse(String fileName)

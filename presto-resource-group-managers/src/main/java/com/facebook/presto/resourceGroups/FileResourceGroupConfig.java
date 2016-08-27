@@ -11,18 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.resourceGroups;
 
-import com.facebook.presto.execution.QueryQueueManager;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import io.airlift.configuration.Config;
 
-public interface ResourceGroupManager
-        extends QueryQueueManager
+import javax.validation.constraints.NotNull;
+
+public class FileResourceGroupConfig
 {
-    ResourceGroupInfo getResourceGroupInfo(ResourceGroupId id);
+    private String configFile;
 
-    void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
+    @NotNull
+    public String getConfigFile()
+    {
+        return configFile;
+    }
 
-    void loadConfigurationManager() throws Exception;
+    @Config("resource-groups.config-file")
+    public FileResourceGroupConfig setConfigFile(String configFile)
+    {
+        this.configFile = configFile;
+        return this;
+    }
 }
