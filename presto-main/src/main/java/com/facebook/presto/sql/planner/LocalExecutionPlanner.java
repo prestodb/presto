@@ -1704,9 +1704,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            List<Type> types = node.getOutputSymbols().stream()
-                    .map(symbol -> requireNonNull(context.getTypes().get(symbol), format("No type for symbol %s", symbol)))
-                    .collect(toImmutableList());
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
 
             OperatorFactory operatorFactory = new EnforceSingleRowOperator.EnforceSingleRowOperatorFactory(context.getNextOperatorId(), node.getId(), types);
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
