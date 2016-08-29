@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.EnforceUniqueColumns;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -78,6 +79,11 @@ public final class ValidateDependenciesChecker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, Map<Symbol, Type> types)
+    {
+        validate(plan);
+    }
+
+    public static void validate(PlanNode plan)
     {
         plan.accept(new Visitor(), ImmutableSet.of());
     }
@@ -339,6 +345,19 @@ public final class ValidateDependenciesChecker
                 checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
             }
 
+            node.getFilter().ifPresent(predicate -> {
+                Set<Symbol> predicateSymbols = DependencyExtractor.extractUnique(predicate);
+                Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
+                        .addAll(leftInputs)
+                        .addAll(rightInputs)
+                        .build();
+                checkArgument(
+                        allInputs.containsAll(predicateSymbols),
+                        "Symbol from filter (%s) not in sources (%s)",
+                        allInputs,
+                        predicateSymbols);
+            });
+
             return null;
         }
 
@@ -539,6 +558,16 @@ public final class ValidateDependenciesChecker
 
         @Override
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Set<Symbol> boundSymbols)
+        {
+            node.getSource().accept(this, boundSymbols); // visit child
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitEnforceUniqueColumns(EnforceUniqueColumns node, Set<Symbol> boundSymbols)
         {
             node.getSource().accept(this, boundSymbols); // visit child
 

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
+import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -82,7 +83,7 @@ public final class DependencyExtractor
     }
 
     private static class QualifiedNameBuilderVisitor
-            extends DefaultExpressionTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
+            extends DefaultTraversalVisitor<Void, ImmutableSet.Builder<QualifiedName>>
     {
         private final Set<Expression> columnReferences;
 

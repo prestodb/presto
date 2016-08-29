@@ -97,40 +97,34 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
-            InPredicateRewriteResult inPredicateRewriteResult = rewriteInPredicates(
+            PlanNode rewrittenNode = rewriteInPredicates(
                     context.defaultRewrite(node, context.get()),
-                    ImmutableList.of(node.getPredicate()));
-            inPredicateMappings.add(inPredicateRewriteResult.inPredicateMapping);
+                    node.getPredicate());
 
             return new FilterNode(
-                    inPredicateRewriteResult.node.getId(),
-                    getOnlyElement(inPredicateRewriteResult.node.getSources()),
+                    rewrittenNode.getId(),
+                    getOnlyElement(rewrittenNode.getSources()),
                     replaceInPredicates(node.getPredicate()));
-        }
-
-        private Expression replaceInPredicates(Expression expression)
-        {
-            for (Map<InPredicate, Expression> inPredicateMapping : inPredicateMappings) {
-                expression = replaceExpression(expression, inPredicateMapping);
-            }
-            return expression;
         }
 
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            InPredicateRewriteResult inPredicateRewriteResult = rewriteInPredicates(
+            PlanNode rewrittenNode = rewriteInPredicates(
                     context.defaultRewrite(node, context.get()),
                     node.getAssignments().values());
 
-            inPredicateMappings.add(inPredicateRewriteResult.inPredicateMapping);
-
-            return new ProjectNode(inPredicateRewriteResult.node.getId(),
-                    getOnlyElement(inPredicateRewriteResult.node.getSources()),
+            return new ProjectNode(rewrittenNode.getId(),
+                    getOnlyElement(rewrittenNode.getSources()),
                     replaceInPredicateInAssignments(node));
         }
 
-        private InPredicateRewriteResult rewriteInPredicates(PlanNode node, Collection<Expression> expressions)
+        private PlanNode rewriteInPredicates(PlanNode node, Expression expressions)
+        {
+            return rewriteInPredicates(node, ImmutableList.of(expressions));
+        }
+
+        private PlanNode rewriteInPredicates(PlanNode node, Collection<Expression> expressions)
         {
             List<InPredicate> inPredicates = extractApplyInPredicates(expressions);
             ImmutableMap.Builder<InPredicate, Expression> inPredicateMapping = ImmutableMap.builder();
@@ -140,19 +134,8 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 rewrittenNode = rewriteWith(rewriter, rewrittenNode, null);
                 inPredicateMapping.putAll(rewriter.getInPredicateMapping());
             }
-            return new InPredicateRewriteResult(rewrittenNode, inPredicateMapping.build());
-        }
-
-        private static class InPredicateRewriteResult
-        {
-            private final PlanNode node;
-            private final Map<InPredicate, Expression> inPredicateMapping;
-
-            private InPredicateRewriteResult(PlanNode node, Map<InPredicate, Expression> inPredicateMapping)
-            {
-                this.node = requireNonNull(node, "node is null");
-                this.inPredicateMapping = requireNonNull(inPredicateMapping, "inPredicateMapping is null");
-            }
+            inPredicateMappings.add(inPredicateMapping.build());
+            return rewrittenNode;
         }
 
         private Map<Symbol, Expression> replaceInPredicateInAssignments(ProjectNode node)
@@ -163,6 +146,14 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 assignmentsBuilder.put(symbol, replaceInPredicates(assignments.get(symbol)));
             }
             return assignmentsBuilder.build();
+        }
+
+        private Expression replaceInPredicates(Expression expression)
+        {
+            for (Map<InPredicate, Expression> inPredicateMapping : inPredicateMappings) {
+                expression = replaceExpression(expression, inPredicateMapping);
+            }
+            return expression;
         }
     }
 

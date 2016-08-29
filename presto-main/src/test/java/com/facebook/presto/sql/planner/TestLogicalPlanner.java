@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -137,11 +138,24 @@ public class TestLogicalPlanner
     public void testSameScalarSubqueryIsAppliedOnlyOnce()
     {
         // three subqueries with two duplicates, only two scalar joins should be in plan
-        Plan plan = plan(
-                "SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND custkey != (SELECT 1)");
-        PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(EnforceSingleRowNode.class::isInstance);
+        assertEquals(
+                countOfMatchingNodes(
+                        plan("SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND custkey != (SELECT 1)"),
+                        EnforceSingleRowNode.class::isInstance),
+                2);
+        // same query used for left, right and complex join condition
+        assertEquals(
+                countOfMatchingNodes(
+                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 1)"),
+                        EnforceSingleRowNode.class::isInstance),
+                2);
+    }
+
+    private int countOfMatchingNodes(Plan plan, Predicate<PlanNode> predicate)
+    {
+        PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(predicate);
         plan.getRoot().accept(planNodeExtractor, null);
-        assertEquals(planNodeExtractor.getNodes().size(), 2);
+        return planNodeExtractor.getNodes().size();
     }
 
     @Test
@@ -201,6 +215,24 @@ public class TestLogicalPlanner
                                                         tableScan("lineitem").withSymbol("orderkey", "L"),
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
+                                                                        node(ValuesNode.class)
+                                                                ))))))));
+    }
+
+    @Test
+    public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) = 1
+                anyTree(
+                        filter("count > 0",
+                                anyTree(
+                                        node(AggregationNode.class,
+                                                anyTree(
+                                                        join(LEFT, ImmutableList.of(aliasPair("orderkey", "expr")),
+                                                                anyTree(
+                                                                        tableScan("orders")),
+                                                                anyTree(
                                                                         node(ValuesNode.class)
                                                                 ))))))));
     }
