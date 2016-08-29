@@ -101,25 +101,34 @@ class SubqueryPlanner
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
     {
-        builder = appendInPredicateApplyNodes(
-                builder,
-                analysis.getInPredicateSubqueries(node)
-                        .stream()
-                        .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
-                        .collect(toImmutableSet()));
-        builder = appendScalarSubqueryApplyNodes(
-                builder,
-                analysis.getScalarSubqueries(node)
-                        .stream()
-                        .filter(subquery -> nodeContains(expression, subquery))
-                        .collect(toImmutableSet()));
-        builder = appendExistsSubqueryApplyNodes(
-                builder,
-                analysis.getExistsSubqueries(node)
-                        .stream()
-                        .filter(subquery -> nodeContains(expression, subquery))
-                        .collect(toImmutableSet()));
+        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node));
+        builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node));
+        builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node));
         return builder;
+    }
+
+    public Set<InPredicate> collectInPredicateSubqueries(Expression expression, Node node)
+    {
+        return analysis.getInPredicateSubqueries(node)
+                .stream()
+                .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
+                .collect(toImmutableSet());
+    }
+
+    public Set<SubqueryExpression> collectScalarSubqueries(Expression expression, Node node)
+    {
+        return analysis.getScalarSubqueries(node)
+                .stream()
+                .filter(subquery -> nodeContains(expression, subquery))
+                .collect(toImmutableSet());
+    }
+
+    public Set<ExistsPredicate> collectExistsSubqueries(Expression expression, Node node)
+    {
+        return analysis.getExistsSubqueries(node)
+                .stream()
+                .filter(subquery -> nodeContains(expression, subquery))
+                .collect(toImmutableSet());
     }
 
     private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates)
