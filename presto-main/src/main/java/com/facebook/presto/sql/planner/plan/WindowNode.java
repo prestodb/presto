@@ -22,7 +22,6 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,6 +34,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
@@ -223,7 +223,7 @@ public class WindowNode
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("partitionBy", this.partitionBy)
                     .add("orderBy", this.orderBy)
                     .add("orderings", this.orderings)

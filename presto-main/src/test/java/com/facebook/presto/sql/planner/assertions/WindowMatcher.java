@@ -43,7 +43,7 @@ final class WindowMatcher
         this.functionCalls = ImmutableList.copyOf(requireNonNull(functionCalls, "functionCalls is null"));
     }
 
-    private static boolean sameIshSpecification(
+    private static boolean samePartitionAndOrder(
             WindowNode.Specification expected,
             WindowNode.Specification actual)
     {
@@ -85,10 +85,10 @@ final class WindowMatcher
          */
         actualEntries:
         for (Map.Entry<Symbol, SortOrder> actualEntry : actualOrderings.entrySet()) {
-            Symbol actualKey = actualEntry.getKey();
+            Symbol actualSymbol = actualEntry.getKey();
             for (Map.Entry<Symbol, SortOrder> expectedEntry : expectedOrderings.entrySet()) {
-                Symbol expectedKey = expectedEntry.getKey();
-                if (expectedKey.equals(actualKey)) {
+                Symbol expectedSymbol = expectedEntry.getKey();
+                if (expectedSymbol.equals(actualSymbol)) {
                     if (expectedEntry.getValue().equals(actualEntry.getValue())) {
                         continue actualEntries;
                     }
@@ -112,7 +112,7 @@ final class WindowMatcher
 
         WindowNode windowNode = (WindowNode) node;
 
-        if (!sameIshSpecification(specification, windowNode.getSpecification())) {
+        if (!samePartitionAndOrder(specification, windowNode.getSpecification())) {
             return false;
         }
 

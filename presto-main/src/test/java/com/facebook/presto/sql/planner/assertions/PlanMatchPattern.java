@@ -281,7 +281,7 @@ public final class PlanMatchPattern
         @Override
         public boolean equals(Object o)
         {
-            return this.stemEquals(o, Symbol.class, Symbol::getName);
+            return stemEquals(o, Symbol.class, Symbol::getName);
         }
 
         @Override
@@ -349,7 +349,7 @@ public final class PlanMatchPattern
         @Override
         public boolean equals(Object o)
         {
-            return this.stemEquals(o, SymbolReference.class, SymbolReference::getName);
+            return stemEquals(o, SymbolReference.class, SymbolReference::getName);
         }
 
         @Override
@@ -379,7 +379,7 @@ public final class PlanMatchPattern
         RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments, Optional<WindowFrame> frame)
         {
             super(name, arguments);
-            this.frame = frame;
+            this.frame = requireNonNull(frame);
         }
 
         @Override
@@ -388,23 +388,28 @@ public final class PlanMatchPattern
             if (this == obj) {
                 return true;
             }
+
             if (obj == null || obj.getClass() != FunctionCall.class) {
                 return false;
             }
+
             FunctionCall o = (FunctionCall) obj;
+
+            /*
+             * A FunctionCall representing a window function must have a
+             * window. If not, there's a failure somewhere upstream.
+             */
+            checkState(o.getWindow().isPresent());
+
             return Objects.equals(getName(), o.getName()) &&
                     Objects.equals(getArguments(), o.getArguments()) &&
-                    /*
-                     * No isPresent check - it's an error if the FunctionCall
-                     * doesn't have a Window here, and a stack trace is more
-                     * informative than a test failure.
-                     */
                     Objects.equals(frame, o.getWindow().get().getFrame());
         }
 
         @Override
         public int hashCode()
         {
+            // This is a test object. We shouldn't put it in a hash table.
             throw new UnsupportedOperationException();
         }
     }
