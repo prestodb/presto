@@ -1241,7 +1241,6 @@ public class HiveMetadata
                 .build();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
-        PrivilegeGrantInfo allPrivileges = new PrivilegeGrantInfo("all", 0, session.getUser(), PrincipalType.USER, true);
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(viewName.getSchemaName())
@@ -1258,10 +1257,7 @@ public class HiveMetadata
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
                 .setLocation("");
         Table table = tableBuilder.build();
-        PrincipalPrivilegeSet principalPrivilegeSet = new PrincipalPrivilegeSet(
-                ImmutableMap.of(session.getUser(), ImmutableList.of(allPrivileges)),
-                ImmutableMap.of(),
-                ImmutableMap.of());
+        PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(session.getUser());
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
