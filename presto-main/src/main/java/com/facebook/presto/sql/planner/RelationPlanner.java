@@ -71,6 +71,7 @@ import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 
@@ -84,7 +85,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
-import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -303,15 +303,13 @@ class RelationPlanner
                 Optional.empty());
 
         if (node.getType() != INNER) {
-            List<InPredicate> inPredicateSubqueries = analysis.getInPredicateSubqueries(node);
             for (Expression complexExpression : complexJoinExpressions) {
-                for (InPredicate inPredicate :  inPredicateSubqueries) {
-                   if (nodeContains(complexExpression, inPredicate)) {
-                       throw new SemanticException(
-                               NOT_SUPPORTED,
-                               inPredicate,
-                               "IN with subquery predicate in join condition not supported");
-                   }
+                Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
+                if (!inPredicates.isEmpty()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            Iterables.getLast(inPredicates),
+                            "IN with subquery predicate in join condition not supported");
                 }
             }
 
