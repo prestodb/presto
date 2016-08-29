@@ -407,4 +407,10 @@ class SubqueryPlanner
                     rewrittenRows);
         }
     }
+
+    public boolean isCorrelated(Query subquery)
+    {
+        PlanNode subqueryPlan = createRelationPlan(subquery).getRoot();
+        return !extractOuterColumnReferences(subqueryPlan).isEmpty();
+    }
 }
