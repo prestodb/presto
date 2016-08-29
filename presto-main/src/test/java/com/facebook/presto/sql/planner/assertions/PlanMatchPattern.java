@@ -241,11 +241,12 @@ public final class PlanMatchPattern
         return new SymbolStem(stem);
     }
 
-    private interface Stem
+    private interface Stem<T>
     {
         String getStem();
+        String getOtherName(T other);
 
-        default <T> boolean stemEquals(Object o, Class<T> clazz, Function<T, String> getName)
+        default boolean stemEquals(Object o, Class<T> clazz, Function<T, String> getName)
         {
             if (this == o) {
                 return true;
@@ -260,7 +261,7 @@ public final class PlanMatchPattern
             }
 
             T other = clazz.cast(o);
-            String name = getName.apply(other);
+            String name = getOtherName(other);
             int endIndex = name.lastIndexOf('_');
             String otherStem = endIndex == -1 ? name : name.substring(0, endIndex);
             return getStem().equals(otherStem);
@@ -268,7 +269,7 @@ public final class PlanMatchPattern
     }
 
     public static class SymbolStem extends Symbol
-        implements Stem
+        implements Stem<Symbol>
     {
         private final String stem;
 
@@ -294,6 +295,12 @@ public final class PlanMatchPattern
         public String getStem()
         {
             return stem;
+        }
+
+        @Override
+        public String getOtherName(Symbol other)
+        {
+            return other.getName();
         }
     }
 
@@ -336,7 +343,7 @@ public final class PlanMatchPattern
     }
 
     public static class SymbolReferenceStem extends SymbolReference
-            implements Stem
+            implements Stem<SymbolReference>
     {
         private final String stem;
 
@@ -362,6 +369,12 @@ public final class PlanMatchPattern
         public String getStem()
         {
             return stem;
+        }
+
+        @Override
+        public String getOtherName(SymbolReference other)
+        {
+            return other.getName();
         }
     }
 
