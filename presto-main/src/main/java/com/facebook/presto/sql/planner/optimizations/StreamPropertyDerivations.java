@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.EnforceUniqueColumns;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -365,6 +366,12 @@ final class StreamPropertyDerivations
 
         @Override
         public StreamProperties visitEnforceSingleRow(EnforceSingleRowNode node, List<StreamProperties> context)
+        {
+            return StreamProperties.singleStream();
+        }
+
+        @Override
+        public StreamProperties visitEnforceUniqueColumns(EnforceUniqueColumns node, List<StreamProperties> context)
         {
             return StreamProperties.singleStream();
         }
