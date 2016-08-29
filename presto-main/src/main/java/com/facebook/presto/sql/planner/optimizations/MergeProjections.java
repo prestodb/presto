@@ -60,21 +60,30 @@ public class MergeProjections
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            // only merge if the source is completely deterministic or if the current node does not have a TRY
-            // todo perform partial merge, pushing down expressions that have deterministic sources
-            if (source instanceof ProjectNode &&
-                    ((ProjectNode) source).getAssignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic) &&
-                    node.getAssignments().values().stream().noneMatch(e -> e instanceof TryExpression)) {
-                ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
-                for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
-                    Expression inlined = ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(((ProjectNode) source).getAssignments()), projection.getValue());
-                    projections.put(projection.getKey(), inlined);
+            if (source instanceof ProjectNode) {
+                ProjectNode sourceProject = (ProjectNode) source;
+                if (isDeterministic(sourceProject) && !containsTry(node)) {
+                    ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+                    for (Map.Entry<Symbol, Expression> projection : node.getAssignments().entrySet()) {
+                        Expression inlined = ExpressionTreeRewriter.rewriteWith(
+                                new ExpressionSymbolInliner(sourceProject.getAssignments()), projection.getValue());
+                        projections.put(projection.getKey(), inlined);
+                    }
+
+                    return new ProjectNode(node.getId(), sourceProject.getSource(), projections.build());
                 }
-
-                return new ProjectNode(node.getId(), ((ProjectNode) source).getSource(), projections.build());
             }
-
             return replaceChildren(node, ImmutableList.of(source));
+        }
+
+        private static boolean isDeterministic(ProjectNode node)
+        {
+            return node.getAssignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic);
+        }
+
+        private static boolean containsTry(ProjectNode node)
+        {
+            return node.getAssignments().values().stream().anyMatch(TryExpression.class::isInstance);
         }
     }
 }
