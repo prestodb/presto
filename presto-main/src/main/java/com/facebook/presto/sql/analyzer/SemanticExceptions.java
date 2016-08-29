@@ -14,10 +14,12 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 
 public final class SemanticExceptions
 {
@@ -40,5 +42,10 @@ public final class SemanticExceptions
     public static SemanticException throwAmbiguousAttributeException(Expression node, QualifiedName name)
     {
         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", name);
+    }
+
+    public static SemanticException throwNotSupportedException(Node node, String notSupportedFeatureDescription)
+    {
+        throw new SemanticException(NOT_SUPPORTED, node, notSupportedFeatureDescription + " is not supported");
     }
 }

@@ -2413,7 +2413,7 @@ public abstract class AbstractTestQueries
             for (String joinCondition : ImmutableList.of("x IN (VALUES 1)", "y in (VALUES 1)")) {
                 assertQueryFails(
                         queryTemplate.resolve(joinType, condition.of(joinCondition)),
-                        ".*IN with subquery predicate in join condition not supported");
+                        ".*IN with subquery predicate in join condition is not supported");
             }
         }
 
@@ -2457,7 +2457,7 @@ public abstract class AbstractTestQueries
                     queryTemplate.resolve(
                             joinType,
                             condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
-                    ".*IN with subquery predicate in join condition not supported");
+                    ".*IN with subquery predicate in join condition is not supported");
         }
     }
 
