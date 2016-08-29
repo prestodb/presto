@@ -5878,13 +5878,20 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT DISTINCT orderkey FROM lineitem " +
                 "WHERE EXISTS(SELECT avg(orderkey) FROM orders)");
 
-        // subqueries with joins
-        for (String joinType : ImmutableList.of("INNER", "LEFT OUTER")) {
-            assertQuery("SELECT l.orderkey, COUNT(*) " +
-                    "FROM lineitem l " + joinType + " JOIN orders o ON l.orderkey = o.orderkey " +
-                    "WHERE EXISTS(SELECT avg(orderkey) FROM orders) " +
-                    "GROUP BY l.orderkey");
-        }
+        // subqueries used with joins
+        assertQuery("SELECT o1.orderkey, COUNT(*) " +
+                "FROM orders o1 INNER JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
+                "GROUP BY o1.orderkey");
+        assertQuery("SELECT o1.orderkey, COUNT(*) " +
+                "FROM orders o1 LEFT OUTER JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
+                "GROUP BY o1.orderkey");
+        assertQuery("SELECT o1.orderkey, COUNT(*) " +
+                "FROM orders o1 RIGHT OUTER JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
+                "GROUP BY o1.orderkey");
+        assertQuery("SELECT o1.orderkey, COUNT(*) " +
+                "FROM orders o1 FULL JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
+                "GROUP BY o1.orderkey ORDER BY o1.orderkey LIMIT 5",
+                "VALUES (1, 10), (2, 10), (3, 10), (4, 10), (5, 10)");
 
         // subqueries with ORDER BY
         assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY EXISTS(SELECT 2)");
