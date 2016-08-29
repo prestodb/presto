@@ -423,7 +423,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testDereferenceInComparsion()
+    public void testDereferenceInComparison()
             throws Exception
     {
         assertQuery("" +
