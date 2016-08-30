@@ -192,7 +192,7 @@ public class OrcPageSource
                     }
                 }
                 else if (isCharType(type)) {
-                    Slice value = charPartitionKey(partitionKey.getValue(), name, type);
+                    Slice value = charPartitionKey(columnValue, name, type);
                     for (int i = 0; i < MAX_BATCH_SIZE; i++) {
                         type.writeSlice(blockBuilder, value);
                     }
