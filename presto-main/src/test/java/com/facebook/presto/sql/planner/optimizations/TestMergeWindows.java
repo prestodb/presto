@@ -139,16 +139,16 @@ public class TestMergeWindows
 
         PlanMatchPattern pattern =
                 anyTree(
-                        window(specificationB,
+                        window(specificationA,
                                 ImmutableList.of(
-                                functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
+                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)),
+                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
                                 anyTree(
-                                        window(specificationA,
+                                        window(specificationB,
                                                 ImmutableList.of(
-                                                functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS)),
-                                                functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                        functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
                                                 anyNot(WindowNode.class,
-                                                        anyTree(LINEITEM_TABLESCAN_DOQSS))))));
+                                                        LINEITEM_TABLESCAN_DOQSS)))));  // should be anyTree(LINEITEM_TABLESCAN_DOQSS) but anyTree does not handle zero nodes case correctly
 
         assertPlan(sql, pattern);
     }
