@@ -16,12 +16,11 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 
@@ -36,7 +35,7 @@ public final class MapNotEqualOperator
 
     @TypeParameter("K")
     @TypeParameter("V")
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean notEqual(
             @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,

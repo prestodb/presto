@@ -18,14 +18,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 
@@ -39,15 +38,15 @@ public final class ArrayContains
     private ArrayContains() {}
 
     @SqlType(StandardTypes.BOOLEAN)
-    @Nullable
-    public static Boolean arrayWithUnknownType(@SqlType("array(unknown)") Block arrayBlock, @Nullable @SqlType("unknown") Void value)
+    @SqlNullable
+    public static Boolean arrayWithUnknownType(@SqlType("array(unknown)") Block arrayBlock, @SqlNullable @SqlType("unknown") Void value)
     {
         return null;
     }
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
-    @Nullable
+    @SqlNullable
     public static Boolean contains(@TypeParameter("T") Type elementType,
                                    @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
                                    @SqlType("array(T)") Block arrayBlock,
@@ -79,7 +78,7 @@ public final class ArrayContains
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
-    @Nullable
+    @SqlNullable
     public static Boolean contains(@TypeParameter("T") Type elementType,
                                    @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
                                    @SqlType("array(T)") Block arrayBlock,
@@ -111,7 +110,7 @@ public final class ArrayContains
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
-    @Nullable
+    @SqlNullable
     public static Boolean contains(@TypeParameter("T") Type elementType,
                                    @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
                                    @SqlType("array(T)") Block arrayBlock,
@@ -143,7 +142,7 @@ public final class ArrayContains
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
-    @Nullable
+    @SqlNullable
     public static Boolean contains(@TypeParameter("T") Type elementType,
                                    @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
                                    @SqlType("array(T)") Block arrayBlock,
@@ -175,7 +174,7 @@ public final class ArrayContains
 
     @TypeParameter("T")
     @SqlType(StandardTypes.BOOLEAN)
-    @Nullable
+    @SqlNullable
     public static Boolean contains(@TypeParameter("T") Type elementType,
                                    @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
                                    @SqlType("array(T)") Block arrayBlock,

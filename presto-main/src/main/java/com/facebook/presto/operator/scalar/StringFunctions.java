@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
@@ -32,8 +33,6 @@ import io.airlift.slice.InvalidUtf8Exception;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
 
 import java.text.Normalizer;
 import java.util.HashMap;
@@ -318,7 +317,7 @@ public final class StringFunctions
         return parts.build();
     }
 
-    @Nullable
+    @SqlNullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
     @LiteralParameters("x")

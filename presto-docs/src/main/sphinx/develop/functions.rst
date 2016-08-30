@@ -12,7 +12,7 @@ dependency on presto-main) can provide new functions by returning a
     @ScalarFunction("is_null")
     @Description("Returns TRUE if the argument is NULL")
     @SqlType(StandardTypes.Boolean)
-    public static boolean isNull(@Nullable @SqlType(StandardTypes.VARCHAR) Slice string)
+    public static boolean isNull(@SqlNullable @SqlType(StandardTypes.VARCHAR) Slice string)
     {
         return (string == null);
     }
@@ -29,14 +29,14 @@ for its native container type.
   types. Note, that the return type and arguments of the Java code, must match
   the native container types of the corresponding annotations.
 
-* ``@Nullable``:
+* ``@SqlNullable``:
 
-  The ``@Nullable`` annotation indicates that the argument may be ``NULL``. Without
+  The ``@SqlNullable`` annotation indicates that the argument may be ``NULL``. Without
   this annotation the framework assumes that all functions return ``NULL`` if
   any of their arguments are ``NULL``. When working with a ``Type`` that has a
   primitive native container type, such as ``BigintType``, use the object wrapper for the
-  native container type when using ``@Nullable``. The method must be annotated with
-  ``@Nullable`` if it can return ``NULL`` when the arguments are non-null.
+  native container type when using ``@SqlNullable``. The method must be annotated with
+  ``@SqlNullable`` if it can return ``NULL`` when the arguments are non-null.
 
 Parametric Scalar Functions
 ---------------------------
@@ -52,21 +52,21 @@ To make our previous example work with any type we need the following:
     {
         @TypeParameter("T")
         @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isNullSlice(@Nullable @SqlType("T") Slice value)
+        public static boolean isNullSlice(@SqlNullable @SqlType("T") Slice value)
         {
             return (value == null);
         }
 
         @TypeParameter("T")
         @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isNullLong(@Nullable @SqlType("T") Long value)
+        public static boolean isNullLong(@SqlNullable @SqlType("T") Long value)
         {
             return (value == null);
         }
 
         @TypeParameter("T")
         @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isNullDouble(@Nullable @SqlType("T") Double value)
+        public static boolean isNullDouble(@SqlNullable @SqlType("T") Double value)
         {
             return (value == null);
         }
@@ -94,8 +94,8 @@ To make our previous example work with any type we need the following:
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isEqualOrNullSlice(
                 @OperatorDependency(operator = OperatorType.EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
-                @Nullable @SqlType("T") Slice value1,
-                @Nullable @SqlType("T") Slice value2)
+                @SqlNullable @SqlType("T") Slice value1,
+                @SqlNullable @SqlType("T") Slice value2)
         {
             if (value1 == null && value2 == null) {
                 return true;

@@ -18,12 +18,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -777,7 +776,7 @@ public final class MathFunctions
 
     @Description("cosine similarity between the given sparse vectors")
     @ScalarFunction
-    @Nullable
+    @SqlNullable
     @SqlType(StandardTypes.DOUBLE)
     public static Double cosineSimilarity(@SqlType("map(varchar,double)") Block leftMap, @SqlType("map(varchar,double)") Block rightMap)
     {
