@@ -208,7 +208,7 @@ class ParquetPageSource
                     }
                 }
                 else if (isCharType(type)) {
-                    Slice value = charPartitionKey(partitionKey.getValue(), name, type);
+                    Slice value = charPartitionKey(columnValue, name, type);
                     for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                         type.writeSlice(blockBuilder, value);
                     }

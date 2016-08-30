@@ -222,7 +222,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
                     slices[columnIndex] = varcharPartitionKey(columnValue, name, type);
                 }
                 else if (isCharType(type)) {
-                    slices[columnIndex] = charPartitionKey(partitionKey.getValue(), name, type);
+                    slices[columnIndex] = charPartitionKey(columnValue, name, type);
                 }
                 else if (DATE.equals(type)) {
                     longs[columnIndex] = datePartitionKey(columnValue, name);
