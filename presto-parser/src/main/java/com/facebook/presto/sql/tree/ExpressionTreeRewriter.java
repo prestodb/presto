@@ -483,7 +483,11 @@ public final class ExpressionTreeRewriter<C>
             if (node.getWindow().isPresent()) {
                 Window window = node.getWindow().get();
                 if (window instanceof WindowInline) {
-                    rewrittenWindow = Optional.of(new WindowInline(rewriteWindowSpecification(((WindowInline) window).getSpecification(), context)));
+                    WindowSpecification windowSpecification = ((WindowInline) window).getSpecification();
+                    WindowSpecification rewrittenWindowSpecification = rewriteWindowSpecification(windowSpecification, context);
+                    if (windowSpecification != rewrittenWindowSpecification) {
+                        rewrittenWindow = Optional.of(new WindowInline(rewrittenWindowSpecification));
+                    }
                 }
             }
 
