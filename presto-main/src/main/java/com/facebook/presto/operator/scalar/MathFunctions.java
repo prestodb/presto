@@ -27,6 +27,7 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +49,7 @@ import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.add;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isNegative;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isZero;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.negate;
@@ -69,9 +71,29 @@ import static java.lang.String.format;
 
 public final class MathFunctions
 {
-    public static final SqlScalarFunction[] DECIMAL_CEILING_FUNCTIONS = {decimalCeilingFunction("ceiling"), decimalCeilingFunction("ceil")};
     public static final SqlScalarFunction DECIMAL_FLOOR_FUNCTION = decimalFloorFunction();
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
+
+    private static final Slice[] DECIMAL_HALF_UNSCALED_FOR_SCALE;
+    private static final Slice[] DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE;
+
+    static {
+        DECIMAL_HALF_UNSCALED_FOR_SCALE = new Slice[Decimals.MAX_PRECISION];
+        DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE = new Slice[Decimals.MAX_PRECISION];
+        DECIMAL_HALF_UNSCALED_FOR_SCALE[0] = UnscaledDecimal128Arithmetic.unscaledDecimal(0);
+        DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[0] = UnscaledDecimal128Arithmetic.unscaledDecimal(0);
+        for (int scale = 1; scale < Decimals.MAX_PRECISION; ++scale) {
+            DECIMAL_HALF_UNSCALED_FOR_SCALE[scale] = UnscaledDecimal128Arithmetic.unscaledDecimal(
+                    BigInteger.TEN
+                            .pow(scale)
+                            .divide(BigInteger.valueOf(2)));
+            DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[scale] = UnscaledDecimal128Arithmetic.unscaledDecimal(
+                    BigInteger.TEN
+                            .pow(scale)
+                            .divide(BigInteger.valueOf(2))
+                            .subtract(BigInteger.ONE));
+        }
+    }
 
     private MathFunctions() {}
 
@@ -235,26 +257,6 @@ public final class MathFunctions
         return Math.ceil(num);
     }
 
-    private static SqlScalarFunction decimalCeilingFunction(String name)
-    {
-        Signature signature = Signature.builder()
-                .kind(SCALAR)
-                .name(name)
-                .longVariableConstraints(longVariableExpression("return_precision", "num_precision - num_scale + min(num_scale, 1)"))
-                .argumentTypes(parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")))
-                .returnType(parseTypeSignature("decimal(return_precision,0)", ImmutableSet.of("return_precision")))
-                .build();
-        return SqlScalarFunction.builder(MathFunctions.class)
-                .signature(signature)
-                .implementation(b -> b
-                        .methods("ceilingShortShortDecimal")
-                        .withExtraParameters(MathFunctions::decimalTenToScaleAsLongExtraParameters))
-                .implementation(b -> b
-                        .methods("ceilingLongShortDecimal", "ceilingLongLongDecimal")
-                        .withExtraParameters(MathFunctions::decimalTenToScaleAsBigDecimalExtraParameters))
-                .build();
-    }
-
     private static List<Object> decimalTenToScaleAsBigDecimalExtraParameters(SpecializeContext context)
     {
         return ImmutableList.of(bigIntegerTenToNth(context.getLiteral("num_scale").intValue()));
@@ -265,37 +267,52 @@ public final class MathFunctions
         return ImmutableList.of(longTenToNth(context.getLiteral("num_scale").intValue()));
     }
 
-    @UsedByGeneratedCode
-    public static long ceilingShortShortDecimal(long num, long divisor)
-    {
-        long increment = (num % divisor) > 0 ? 1 : 0;
-        return num / divisor + increment;
-    }
-
-    @UsedByGeneratedCode
-    public static long ceilingLongShortDecimal(Slice num, BigInteger divisor)
-    {
-        return ceiling(num, divisor).longValueExact();
-    }
-
-    @UsedByGeneratedCode
-    public static Slice ceilingLongLongDecimal(Slice num, BigInteger divisor)
-    {
-        return encodeUnscaledValue(ceiling(num, divisor));
-    }
-
-    private static BigInteger ceiling(Slice num, BigInteger divisor)
-    {
-        BigInteger[] divideAndRemainder = decodeUnscaledValue(num).divideAndRemainder(divisor);
-        return divideAndRemainder[0].add(BigInteger.valueOf(divideAndRemainder[1].signum() > 0 ? 1 : 0));
-    }
-
     @Description("round up to nearest integer")
     @ScalarFunction(value = "ceiling", alias = "ceil")
     @SqlType(StandardTypes.REAL)
     public static long ceilingFloat(@SqlType(StandardTypes.REAL) long num)
     {
         return floatToRawIntBits((float) ceiling(intBitsToFloat((int) num)));
+    }
+
+    @ScalarFunction(value = "ceiling", alias = "ceil")
+    @Description("round up to nearest integer")
+    public static final class Ceiling
+    {
+        private Ceiling() {}
+
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
+        public static long ceilingShort(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") long num)
+        {
+            long rescaleFactor = Decimals.longTenToNth(numScale.intValue());
+            long increment = (num % rescaleFactor > 0) ? 1 : 0;
+            return num / rescaleFactor + increment;
+        }
+
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
+        public static Slice ceilingLong(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") Slice num)
+        {
+            Slice tmp;
+            if (isNegative(num)) {
+                tmp = add(num, DECIMAL_HALF_UNSCALED_FOR_SCALE[numScale.intValue()]);
+            }
+            else {
+                tmp = add(num, DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[numScale.intValue()]);
+            }
+            return rescale(tmp, -numScale.intValue());
+        }
+
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
+        public static long ceilingLongShort(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") Slice num)
+        {
+            return unscaledDecimalToUnscaledLong(ceilingLong(numScale, num));
+        }
     }
 
     @Description("round to integer by dropping digits after decimal point")
