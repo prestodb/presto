@@ -53,7 +53,7 @@ public class TryCastFunction
     @Override
     public boolean isHidden()
     {
-        return true;
+        return false;
     }
 
     @Override
