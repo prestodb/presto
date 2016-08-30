@@ -222,6 +222,58 @@ public final class UnscaledDecimal128Arithmetic
         }
     }
 
+    public static Slice rescaleTruncate(Slice decimal, int rescaleFactor)
+    {
+        if (rescaleFactor == 0) {
+            return decimal;
+        }
+        else {
+            Slice result = unscaledDecimal();
+            rescaleTruncate(decimal, rescaleFactor, result);
+            return result;
+        }
+    }
+
+    public static void rescaleTruncate(Slice decimal, int rescaleFactor, Slice result)
+    {
+        if (rescaleFactor == 0) {
+            copyUnscaledDecimal(decimal, result);
+        }
+        else if (rescaleFactor > 0) {
+            if (rescaleFactor >= POWERS_OF_TEN.length) {
+                throwOverflowException();
+            }
+            multiply(decimal, POWERS_OF_TEN[rescaleFactor], result);
+        }
+        else {
+            scaleDownTruncate(decimal, -rescaleFactor, result);
+        }
+    }
+
+    private static void scaleDownTruncate(Slice decimal, int scaleFactor, Slice result)
+    {
+        // optimized path for smaller values
+        long low = getLong(decimal, 0);
+        long high = getLong(decimal, 1);
+        if (scaleFactor <= MAX_POWER_OF_TEN_LONG && high == 0 && low >= 0) {
+            long divisor = longTenToNth(scaleFactor);
+            long newLow = low / divisor;
+            pack(result, newLow, 0, isNegative(decimal));
+            return;
+        }
+
+        // Scales down for 10**rescaleFactor.
+        // Because divide by int has limited divisor, we choose code path with the least amount of divisions
+        if ((scaleFactor - 1) / MAX_POWER_OF_FIVE_INT < (scaleFactor - 1) / MAX_POWER_OF_TEN_INT) {
+            // scale down for 10**rescale is equivalent to scaling down with 5**rescaleFactor first, then with 2**rescaleFactor
+            scaleDownFive(decimal, scaleFactor, result);
+            shiftRightTruncate(result, scaleFactor, result);
+        }
+        else {
+            scaleDownTenTruncate(decimal, scaleFactor, result);
+        }
+    }
+
     public static Slice add(Slice left, Slice right)
     {
         Slice result = unscaledDecimal();
@@ -658,9 +710,27 @@ public final class UnscaledDecimal128Arithmetic
         }
     }
 
+    private static void scaleDownTenTruncate(Slice decimal, int tenScale, Slice result)
+    {
+        do {
+            int powerTen = Math.min(tenScale, MAX_POWER_OF_TEN_INT);
+            tenScale -= powerTen;
+
+            int divisor = POWERS_OF_TEN_INT[powerTen];
+            divide(decimal, divisor, result);
+            decimal = result;
+        }
+        while (tenScale > 0);
+    }
+
     private static void shiftRightRoundUp(Slice decimal, int rightShifts, Slice result)
     {
         shiftRight(decimal, rightShifts, true, result);
+    }
+
+    private static void shiftRightTruncate(Slice decimal, int rightShifts, Slice result)
+    {
+        shiftRight(decimal, rightShifts, false, result);
     }
 
     // visible for testing
