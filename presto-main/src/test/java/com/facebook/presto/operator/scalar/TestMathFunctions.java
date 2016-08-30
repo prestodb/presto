@@ -169,18 +169,56 @@ public class TestMathFunctions
         assertFunction("ceiling(REAL '-123.45')", REAL, -123.0f);
 
         // short DECIMAL -> short DECIMAL
+        assertFunction("ceiling(DECIMAL '0')", createDecimalType(1), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '0.00' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '0.00' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '0.01' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-0.01' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '0.49' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-0.49' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '0.50' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-0.50' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '0.99' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-0.99' AS DECIMAL(3,2)))", createDecimalType(2), SqlDecimal.of("0"));
         assertFunction("ceiling(DECIMAL '123')", createDecimalType(3), SqlDecimal.of("123"));
         assertFunction("ceiling(DECIMAL '-123')", createDecimalType(3), SqlDecimal.of("-123"));
+        assertFunction("ceiling(DECIMAL '123.00')", createDecimalType(4), SqlDecimal.of("123"));
+        assertFunction("ceiling(DECIMAL '-123.00')", createDecimalType(4), SqlDecimal.of("-123"));
+        assertFunction("ceiling(DECIMAL '123.01')", createDecimalType(4), SqlDecimal.of("124"));
+        assertFunction("ceiling(DECIMAL '-123.01')", createDecimalType(4), SqlDecimal.of("-123"));
         assertFunction("ceiling(DECIMAL '123.45')", createDecimalType(4), SqlDecimal.of("124"));
         assertFunction("ceiling(DECIMAL '-123.45')", createDecimalType(4), SqlDecimal.of("-123"));
+        assertFunction("ceiling(DECIMAL '123.49')", createDecimalType(4), SqlDecimal.of("124"));
+        assertFunction("ceiling(DECIMAL '-123.49')", createDecimalType(4), SqlDecimal.of("-123"));
+        assertFunction("ceiling(DECIMAL '123.50')", createDecimalType(4), SqlDecimal.of("124"));
+        assertFunction("ceiling(DECIMAL '-123.50')", createDecimalType(4), SqlDecimal.of("-123"));
+        assertFunction("ceiling(DECIMAL '123.99')", createDecimalType(4), SqlDecimal.of("124"));
+        assertFunction("ceiling(DECIMAL '-123.99')", createDecimalType(4), SqlDecimal.of("-123"));
         assertFunction("ceiling(DECIMAL '999.9')", createDecimalType(4), SqlDecimal.of("1000"));
 
         // long DECIMAL -> long DECIMAL
+        assertFunction("ceiling(CAST(DECIMAL '0000000000000000000' AS DECIMAL(19,0)))", createDecimalType(19), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '000000000000000000.00' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '000000000000000000.01' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-000000000000000000.01' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '000000000000000000.49' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-000000000000000000.49' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '000000000000000000.50' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-000000000000000000.50' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("0"));
+        assertFunction("ceiling(CAST(DECIMAL '000000000000000000.99' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("1"));
+        assertFunction("ceiling(CAST(DECIMAL '-000000000000000000.99' AS DECIMAL(20,2)))", createDecimalType(19), SqlDecimal.of("0"));
         assertFunction("ceiling(DECIMAL '123456789012345678')", createDecimalType(18), SqlDecimal.of("123456789012345678"));
         assertFunction("ceiling(DECIMAL '-123456789012345678')", createDecimalType(18), SqlDecimal.of("-123456789012345678"));
         assertFunction("ceiling(DECIMAL '123456789012345678.00')", createDecimalType(19), SqlDecimal.of("123456789012345678"));
+        assertFunction("ceiling(DECIMAL '-123456789012345678.00')", createDecimalType(19), SqlDecimal.of("-123456789012345678"));
+        assertFunction("ceiling(DECIMAL '123456789012345678.01')", createDecimalType(19), SqlDecimal.of("123456789012345679"));
+        assertFunction("ceiling(DECIMAL '-123456789012345678.01')", createDecimalType(19), SqlDecimal.of("-123456789012345678"));
         assertFunction("ceiling(DECIMAL '123456789012345678.99')", createDecimalType(19), SqlDecimal.of("123456789012345679"));
         assertFunction("ceiling(DECIMAL '-123456789012345678.99')", createDecimalType(19), SqlDecimal.of("-123456789012345678"));
+        assertFunction("ceiling(DECIMAL '123456789012345678.49')", createDecimalType(19), SqlDecimal.of("123456789012345679"));
+        assertFunction("ceiling(DECIMAL '-123456789012345678.49')", createDecimalType(19), SqlDecimal.of("-123456789012345678"));
+        assertFunction("ceiling(DECIMAL '123456789012345678.50')", createDecimalType(19), SqlDecimal.of("123456789012345679"));
+        assertFunction("ceiling(DECIMAL '-123456789012345678.50')", createDecimalType(19), SqlDecimal.of("-123456789012345678"));
         assertFunction("ceiling(DECIMAL '999999999999999999.9')", createDecimalType(19), SqlDecimal.of("1000000000000000000"));
 
         // long DECIMAL -> short DECIMAL
