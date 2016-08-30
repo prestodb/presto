@@ -185,6 +185,7 @@ public class TestDecimalOperators
     {
         // short short -> short
         assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0"));
+        assertDecimalFunction("DECIMAL '1' / DECIMAL '3'", decimal("0"));
         assertDecimalFunction("DECIMAL '1.0' / DECIMAL '3'", decimal("0.3"));
         assertDecimalFunction("DECIMAL '1.0' / DECIMAL '0.1'", decimal("10.0"));
         assertDecimalFunction("DECIMAL '1.0' / DECIMAL '9.0'", decimal("00.1"));

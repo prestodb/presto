@@ -52,6 +52,7 @@ import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isNegati
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isZero;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.negate;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescaleTruncate;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
@@ -820,6 +821,46 @@ public final class MathFunctions
 
         {
             return roundNLong(numScale, resultPrecision, unscaledDecimal(num), decimals);
+        }
+    }
+
+    @ScalarFunction("truncate")
+    @Description("round to integer by dropping digits after decimal point")
+    public static final class Truncate
+    {
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "max(1, p - s)")
+        public static long truncateShort(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") long num)
+        {
+            if (num == 0) {
+                return 0;
+            }
+            if (numScale == 0) {
+                return num;
+            }
+
+            long rescaleFactor = Decimals.longTenToNth(numScale.intValue());
+            return num / rescaleFactor;
+        }
+
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "max(1, p - s)")
+        public static Slice truncateLong(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") Slice num)
+        {
+            if (numScale == 0) {
+                return num;
+            }
+            return rescaleTruncate(num, -numScale.intValue());
+        }
+
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "max(1, p - s)")
+        public static long truncateLongShort(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") Slice num)
+        {
+            return unscaledDecimalToUnscaledLong(rescaleTruncate(num, -numScale.intValue()));
         }
     }
 

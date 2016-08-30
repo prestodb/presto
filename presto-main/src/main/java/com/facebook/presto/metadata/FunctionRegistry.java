@@ -436,6 +436,7 @@ public class FunctionRegistry
                 .scalar(MathFunctions.Sign.class)
                 .scalar(MathFunctions.Round.class)
                 .scalar(MathFunctions.RoundN.class)
+                .scalar(MathFunctions.Truncate.class)
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
                 .scalars(JsonFunctions.class)
