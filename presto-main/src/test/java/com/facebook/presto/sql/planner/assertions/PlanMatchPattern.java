@@ -173,11 +173,12 @@ public final class PlanMatchPattern
         return sourcePatterns.isEmpty();
     }
 
-    public static FunctionCall functionCall(String name, Window window, boolean distinct, SymbolReference... args)
-    {
-        return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, Arrays.asList(args));
-    }
-
+    /*
+     * Caveat Emptor: FunctionCall's come from the parser, and represent what
+     * the user has typed. As such, they don't contain a WindowFrame if one
+     * isn't specified in the SQL. In this case, the correct value to pass is
+     * Optional.empty()
+     */
     public static FunctionCall functionCall(String name, Optional<WindowFrame> frame, SymbolReference... args)
     {
         return new RelaxedEqualityFunctionCall(QualifiedName.of(name), Arrays.asList(args), frame);
