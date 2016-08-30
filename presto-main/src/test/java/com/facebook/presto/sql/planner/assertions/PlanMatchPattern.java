@@ -151,9 +151,9 @@ public final class PlanMatchPattern
         return states.build();
     }
 
-    public PlanMatchPattern withSymbol(String pattern, String alias)
+    public PlanMatchPattern withSymbol(Symbol expectedSymbol, String alias)
     {
-        return with(new SymbolMatcher(pattern, alias));
+        return with(new SymbolMatcher(expectedSymbol, alias));
     }
 
     public PlanMatchPattern with(Matcher matcher)
@@ -344,6 +344,12 @@ public final class PlanMatchPattern
         public String getOtherName(Symbol other)
         {
             return other.getName();
+        }
+
+        @Override
+        public SymbolReference toSymbolReference()
+        {
+            return new SymbolReferenceStem(stem);
         }
     }
 

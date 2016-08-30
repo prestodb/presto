@@ -19,19 +19,17 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.base.MoreObjects;
 
-import java.util.regex.Pattern;
-
 import static com.google.common.base.Preconditions.checkState;
 
 final class SymbolMatcher
         implements Matcher
 {
-    private final Pattern pattern;
+    private final Symbol expectedSymbol;
     private final String alias;
 
-    SymbolMatcher(String pattern, String alias)
+    SymbolMatcher(Symbol expectedSymbol, String alias)
     {
-        this.pattern = Pattern.compile(pattern);
+        this.expectedSymbol = expectedSymbol;
         this.alias = alias;
     }
 
@@ -40,8 +38,8 @@ final class SymbolMatcher
     {
         Symbol symbol = null;
         for (Symbol outputSymbol : node.getOutputSymbols()) {
-            if (pattern.matcher(outputSymbol.getName()).find()) {
-                checkState(symbol == null, "%s symbol was found multiple times in %s", pattern, node.getOutputSymbols());
+            if (expectedSymbol.equals(outputSymbol)) {
+                checkState(symbol == null, "%s symbol was found multiple times in %s", expectedSymbol.getName(), node.getOutputSymbols());
                 symbol = outputSymbol;
             }
         }
@@ -57,7 +55,7 @@ final class SymbolMatcher
     {
         return MoreObjects.toStringHelper(this)
                 .add("alias", alias)
-                .add("pattern", pattern)
+                .add("name", expectedSymbol)
                 .toString();
     }
 }
