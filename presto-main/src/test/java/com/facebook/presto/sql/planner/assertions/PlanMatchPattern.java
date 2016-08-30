@@ -150,9 +150,50 @@ public final class PlanMatchPattern
         return states.build();
     }
 
-    public PlanMatchPattern withSymbol(String pattern, String alias)
+    /*
+     * When should I use this? When should I use symbolStem by itself?
+     *
+     * withSymbol is useful if you need to verify that a Symbol in one PlanNode
+     * is exactly the same as the Symbol in another PlanNode. withSymbol
+     * registers an alias for the expectedSymbol so that that exact symbol can
+     * be referenced in another part of the tree.
+     *
+     * This is likely to be most useful if you use symbolStem for the
+     * expectedSymbol, because symbolStem returns a symbol that compares equal
+     * to a symbol that has the same stem, but has been uniquified by the
+     * SymbolAllocator. For example symbolStem("orderkey").equals(new
+     * Symbol("orderkey_729")) returns true.
+     *
+     * The most clear case where this is useful is in testing plans that include
+     * a join where the plan has the form
+     *
+     * OuputNode
+     * `--...
+     *    `--JoinNode orderkey = orderkey
+     *       `--TableScanNode table = tpch.orders, outputs = orderkey
+     *       `--TableScanNode table = tpch.lineitem, outputs = orderkey
+     *
+     * In this case, it's important not only that the join criteria is orderkey
+     * = orderkey, but also that the original source of each of the orderkeys
+     * in the expression is the tables we expect it to be. Note that depending
+     * on the rest of the plan, one or both orderkey symbols may be uniquified,
+     * necessitating the use of symbolStem.
+     *
+     * For tests where you want to assert something about a Symbol in a single
+     * node (e.g. a WindowNode.Specification has a certain partition key), it's
+     * probably sufficient to use symbolStem or a plain symbol if the symbol
+     * isn't uniquified in the resulting plan.
+     *
+     * In a suffiently complex query, it may still be useful to use withSymbol
+     * to trace the origin of the symbol in question, but for simple queries,
+     * doing so is probably overkill.
+     *
+     * Examples of using withSymbol can be found in TestLogicalPlanner
+     * Examples of using symbolStem can be found in TestMergeIdenticalWindows
+     */
+    public PlanMatchPattern withSymbol(Symbol expectedSymbol, String alias)
     {
-        return with(new SymbolMatcher(pattern, alias));
+        return with(new SymbolMatcher(expectedSymbol, alias));
     }
 
     public PlanMatchPattern with(Matcher matcher)
@@ -358,6 +399,12 @@ public final class PlanMatchPattern
         public String getOtherName(Symbol other)
         {
             return other.getName();
+        }
+
+        @Override
+        public SymbolReference toSymbolReference()
+        {
+            return new SymbolReferenceStem(stem);
         }
     }
 
