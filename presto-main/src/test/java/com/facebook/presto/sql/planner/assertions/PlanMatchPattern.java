@@ -268,12 +268,12 @@ public final class PlanMatchPattern
         }
     }
 
-    public static class SymbolStem extends Symbol
+    private static class SymbolStem extends Symbol
         implements Stem<Symbol>
     {
         private final String stem;
 
-        public SymbolStem(String stem)
+        private SymbolStem(String stem)
         {
             super(stem + "_*");
             this.stem = requireNonNull(stem);
@@ -314,9 +314,9 @@ public final class PlanMatchPattern
         return new SymbolReferenceStem(stem);
     }
 
-    public static class AnySymbolReference extends SymbolReference
+    private static class AnySymbolReference extends SymbolReference
     {
-        public AnySymbolReference()
+        private AnySymbolReference()
         {
             super("*");
         }
@@ -342,12 +342,12 @@ public final class PlanMatchPattern
         }
     }
 
-    public static class SymbolReferenceStem extends SymbolReference
+    private static class SymbolReferenceStem extends SymbolReference
             implements Stem<SymbolReference>
     {
         private final String stem;
 
-        public SymbolReferenceStem(String stem)
+        private SymbolReferenceStem(String stem)
         {
             super(stem + "_*");
             this.stem = requireNonNull(stem);
@@ -389,7 +389,7 @@ public final class PlanMatchPattern
          */
         Optional<WindowFrame> frame;
 
-        RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments, Optional<WindowFrame> frame)
+        private RelaxedEqualityFunctionCall(QualifiedName name, List<Expression> arguments, Optional<WindowFrame> frame)
         {
             super(name, arguments);
             this.frame = requireNonNull(frame);
