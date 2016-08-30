@@ -241,6 +241,49 @@ public final class PlanMatchPattern
         return new SymbolStem(stem);
     }
 
+    /*
+     * All comments below about Symbols apply to SymbolReferences as well.
+     *
+     * This is the result of a compromise to satisfy as many of the following
+     * constraints as possible:
+     *
+     * 1) Many objects we want to compare in plans already define equals
+     * methods. We should use these to the greatest degree possible in the
+     * various Matchers, because there's no test-specific code that can get
+     * out of date.
+     * 2) Many of said objects contain either Symbols.
+     * 3) Symbols in the final Plan may be decorated by the SymbolAllocator to
+     * make them unique as needed.
+     * 4) There's no way to know a-priori what the decorated name of a Symbol
+     * will be in the plan. Even if we could, future changes to the planner
+     * might change the name of the Symbols in the plan, rendering the expected
+     * values in tests that depended on them out of date.
+     *
+     * The solution to writing expected plans that match actual plans and are
+     * as self-maintaining as possible is to extend Symbol so that the
+     * following returns true:
+     *   expectedSymbol.equals(actualDecoratedSymbol)
+     *
+     * This ensures that we can construct expected objects containing Symbols
+     * and use their built-in equals() methods to compare them to the actual
+     * objects in the plan.
+     *
+     * To actually implement this, we need to handle comparing the equality
+     * comparison between e.g. column_name and column_name_829. This is done by
+     * treating column_name as a stem and making sure that everything prior to
+     * the last underscore in column_name_829 is the same as the stem.
+     *
+     * This basically reverses the transformation SymbolAllocator does to
+     * create the unique column_name_829 Symbol name in the first place.
+     *
+     * A different approach to this that is problematic is to have a
+     * TestSymbolAllocator that keeps track of the reverse mappings in a Map
+     * having entries such as "column_name_927" -> "column_name". The issue
+     * with this is that constructing the expected plan for a query would have
+     * to depend on the actual plan, which is what actually has the
+     * SymbolAllocator. Having the expected value for a test depend on the
+     * actual value seems fishy.
+     */
     private interface Stem<T>
     {
         String getStem();
