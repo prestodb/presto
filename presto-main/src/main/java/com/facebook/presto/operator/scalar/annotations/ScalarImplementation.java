@@ -25,6 +25,7 @@ import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
@@ -320,7 +321,8 @@ public class ScalarImplementation
         private Parser(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
             this.functionName = requireNonNull(functionName, "functionName is null");
-            this.nullable = method.getAnnotation(Nullable.class) != null;
+            this.nullable = method.getAnnotation(SqlNullable.class) != null;
+            checkArgument(nullable || !containsLegacyNullable(method.getAnnotations()), "Method [%s] is annotated with @Nullable but not @SqlNullable", method);
 
             Stream.of(method.getAnnotationsByType(TypeParameter.class))
                     .forEach(typeParameters::add);
@@ -336,10 +338,10 @@ public class ScalarImplementation
 
             Class<?> actualReturnType = method.getReturnType();
             if (Primitives.isWrapperType(actualReturnType)) {
-                checkArgument(nullable, "Method [%s] has wrapper return type %s but is missing @Nullable", method, actualReturnType.getSimpleName());
+                checkArgument(nullable, "Method [%s] has wrapper return type %s but is missing @SqlNullable", method, actualReturnType.getSimpleName());
             }
             else if (actualReturnType.isPrimitive()) {
-                checkArgument(!nullable, "Method [%s] annotated with @Nullable has primitive return type %s", method, actualReturnType.getSimpleName());
+                checkArgument(!nullable, "Method [%s] annotated with @SqlNullable has primitive return type %s", method, actualReturnType.getSimpleName());
             }
 
             Stream.of(method.getAnnotationsByType(Constraint.class))
@@ -385,17 +387,18 @@ public class ScalarImplementation
                             .map(SqlType.class::cast)
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(format("Method [%s] is missing @SqlType annotation for parameter", method)));
-                    boolean nullableArgument = Stream.of(annotations).anyMatch(Nullable.class::isInstance);
+                    boolean nullableArgument = Stream.of(annotations).anyMatch(SqlNullable.class::isInstance);
+                    checkArgument(nullableArgument || !containsLegacyNullable(annotations), "Method [%s] has parameter annotated with @Nullable but not @SqlNullable", method);
 
                     if (Primitives.isWrapperType(parameterType)) {
-                        checkArgument(nullableArgument, "Method [%s] has parameter with wrapper type %s that is missing @Nullable", method, parameterType.getSimpleName());
+                        checkArgument(nullableArgument, "Method [%s] has parameter with wrapper type %s that is missing @SqlNullable", method, parameterType.getSimpleName());
                     }
                     else if (parameterType.isPrimitive()) {
-                        checkArgument(!nullableArgument, "Method [%s] has parameter with primitive type %s annotated with @Nullable", method, parameterType.getSimpleName());
+                        checkArgument(!nullableArgument, "Method [%s] has parameter with primitive type %s annotated with @SqlNullable", method, parameterType.getSimpleName());
                     }
 
                     if (typeParameterNames.contains(type.value()) && !(parameterType == Object.class && nullableArgument)) {
-                        // Infer specialization on this type parameter. We don't do this for @Nullable Object because it could match a type like BIGINT
+                        // Infer specialization on this type parameter. We don't do this for @SqlNullable Object because it could match a type like BIGINT
                         Class<?> specialization = specializedTypeParameters.get(type.value());
                         Class<?> nativeParameterType = Primitives.unwrap(parameterType);
                         checkArgument(specialization == null || specialization.equals(nativeParameterType), "Method [%s] type %s has conflicting specializations %s and %s", method, type.value(), specialization, nativeParameterType);
@@ -584,6 +587,14 @@ public class ScalarImplementation
         public static ScalarImplementation parseImplementation(String functionName, Method method, Map<Set<TypeParameter>, Constructor<?>> constructors)
         {
             return new Parser(functionName, method, constructors).get();
+        }
+
+        private static boolean containsLegacyNullable(Annotation[] annotations)
+        {
+            return Arrays.stream(annotations)
+                    .map(Annotation::annotationType)
+                    .map(Class::getName)
+                    .anyMatch(name -> name.equals(Nullable.class.getName()));
         }
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -28,8 +29,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 
@@ -59,7 +58,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
     @SqlType(VARCHAR)
     public static Slice castToVarchar(@SqlType(JSON) Slice json)
     {
@@ -100,7 +99,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
     @SqlType(BIGINT)
     public static Long castToBigint(@SqlType(JSON) Slice json)
     {
@@ -138,7 +137,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
     @SqlType(INTEGER)
     public static Long castToInteger(@SqlType(JSON) Slice json)
     {
@@ -176,7 +175,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
     @SqlType(DOUBLE)
     public static Double castToDouble(@SqlType(JSON) Slice json)
     {
@@ -216,7 +215,7 @@ public final class JsonOperators
     }
 
     @ScalarOperator(CAST)
-    @Nullable
+    @SqlNullable
     @SqlType(BOOLEAN)
     public static Boolean castToBoolean(@SqlType(JSON) Slice json)
     {

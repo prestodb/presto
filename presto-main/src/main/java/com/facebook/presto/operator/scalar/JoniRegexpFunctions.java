@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.JoniRegexpType;
@@ -32,8 +33,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-
-import javax.annotation.Nullable;
 
 import java.nio.charset.StandardCharsets;
 
@@ -220,7 +219,7 @@ public final class JoniRegexpFunctions
         return blockBuilder.build();
     }
 
-    @Nullable
+    @SqlNullable
     @Description("string extracted using the given pattern")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -229,7 +228,7 @@ public final class JoniRegexpFunctions
         return regexpExtract(source, pattern, 0);
     }
 
-    @Nullable
+    @SqlNullable
     @Description("returns regex group of extracted string with a pattern")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)

@@ -18,14 +18,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
-
-import javax.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 
@@ -169,8 +168,8 @@ public final class ArrayPositionFunction
     }
 
     @SqlType(StandardTypes.BIGINT)
-    @Nullable
-    public static Long arrayPosition(@SqlType("array(unknown)") Block array, @Nullable @SqlType("unknown") Void element)
+    @SqlNullable
+    public static Long arrayPosition(@SqlType("array(unknown)") Block array, @SqlNullable @SqlType("unknown") Void element)
     {
         return null;
     }
