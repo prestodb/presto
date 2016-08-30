@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
@@ -30,31 +28,24 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 
 import java.math.BigInteger;
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
-import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
-import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.add;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isNegative;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.isZero;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.negate;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescaleTruncate;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.subtract;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
@@ -71,7 +62,6 @@ import static java.lang.String.format;
 
 public final class MathFunctions
 {
-    public static final SqlScalarFunction DECIMAL_FLOOR_FUNCTION = decimalFloorFunction();
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
 
     private static final Slice[] DECIMAL_HALF_UNSCALED_FOR_SCALE;
@@ -257,16 +247,6 @@ public final class MathFunctions
         return Math.ceil(num);
     }
 
-    private static List<Object> decimalTenToScaleAsBigDecimalExtraParameters(SpecializeContext context)
-    {
-        return ImmutableList.of(bigIntegerTenToNth(context.getLiteral("num_scale").intValue()));
-    }
-
-    private static List<Object> decimalTenToScaleAsLongExtraParameters(SpecializeContext context)
-    {
-        return ImmutableList.of(longTenToNth(context.getLiteral("num_scale").intValue()));
-    }
-
     @Description("round up to nearest integer")
     @ScalarFunction(value = "ceiling", alias = "ceil")
     @SqlType(StandardTypes.REAL)
@@ -412,49 +392,47 @@ public final class MathFunctions
         return Math.floor(num);
     }
 
-    private static SqlScalarFunction decimalFloorFunction()
+    @ScalarFunction(value = "floor")
+    @Description("round down to nearest integer")
+    public static final class Floor
     {
-        Signature signature = Signature.builder()
-                .kind(SCALAR)
-                .name("floor")
-                .longVariableConstraints(longVariableExpression("return_precision", "num_precision - num_scale + min(num_scale, 1)"))
-                .argumentTypes(parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")))
-                .returnType(parseTypeSignature("decimal(return_precision,0)", ImmutableSet.of("return_precision")))
-                .build();
-        return SqlScalarFunction.builder(MathFunctions.class)
-                .signature(signature)
-                .implementation(b -> b
-                        .methods("floorShortShortDecimal")
-                        .withExtraParameters(MathFunctions::decimalTenToScaleAsLongExtraParameters))
-                .implementation(b -> b
-                        .methods("floorLongShortDecimal", "floorLongLongDecimal")
-                        .withExtraParameters(MathFunctions::decimalTenToScaleAsBigDecimalExtraParameters))
-                .build();
-    }
+        private Floor() {}
 
-    @UsedByGeneratedCode
-    public static long floorShortShortDecimal(long num, long divisor)
-    {
-        long increment = (num % divisor) < 0 ? -1 : 0;
-        return num / divisor + increment;
-    }
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
+        public static long floorShort(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") long num)
+        {
+            long rescaleFactor = Decimals.longTenToNth(numScale.intValue());
+            long increment = (num % rescaleFactor) < 0 ? -1 : 0;
+            return num / rescaleFactor + increment;
+        }
 
-    @UsedByGeneratedCode
-    public static Slice floorLongLongDecimal(Slice num, BigInteger divisor)
-    {
-        return encodeUnscaledValue(floor(num, divisor));
-    }
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
+        public static Slice floorLong(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") Slice num)
+        {
+            Slice tmp;
+            if (isZero(num)) {
+                return num;
+            }
+            if (isNegative(num)) {
+                tmp = subtract(num, DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[numScale.intValue()]);
+            }
+            else {
+                tmp = subtract(num, DECIMAL_HALF_UNSCALED_FOR_SCALE[numScale.intValue()]);
+            }
+            return rescale(tmp, -numScale.intValue());
+        }
 
-    @UsedByGeneratedCode
-    public static long floorLongShortDecimal(Slice num, BigInteger divisor)
-    {
-        return floor(num, divisor).longValueExact();
-    }
-
-    private static BigInteger floor(Slice num, BigInteger divisor)
-    {
-        BigInteger[] divideAndRemainder = decodeUnscaledValue(num).divideAndRemainder(divisor);
-        return divideAndRemainder[0].add(BigInteger.valueOf(divideAndRemainder[1].signum() < 0 ? -1 : 0));
+        @LiteralParameters({"p", "s", "rp"})
+        @SqlType("decimal(rp,0)")
+        @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
+        public static long floorLongShort(@LiteralParameter("s") Long numScale, @SqlType("decimal(p, s)") Slice num)
+        {
+            return unscaledDecimalToUnscaledLong(floorLong(numScale, num));
+        }
     }
 
     @Description("round down to nearest integer")
