@@ -210,7 +210,25 @@ public class TestMathFunctions
         assertFunction("truncate(" + maxDouble + ")", DOUBLE, Double.MAX_VALUE);
         assertFunction("truncate(" + minDouble + ")", DOUBLE, -Double.MAX_VALUE);
 
-        // short DECIMAL -> short DECIMAL
+        // TRUNCATE short DECIMAL -> short DECIMAL
+        assertFunction("truncate(DECIMAL '1234')", createDecimalType(4, 0), SqlDecimal.of("1234"));
+        assertFunction("truncate(DECIMAL '-1234')", createDecimalType(4, 0), SqlDecimal.of("-1234"));
+        assertFunction("truncate(DECIMAL '1234.56')", createDecimalType(4, 0), SqlDecimal.of("1234"));
+        assertFunction("truncate(DECIMAL '-1234.56')", createDecimalType(4, 0), SqlDecimal.of("-1234"));
+        assertFunction("truncate(DECIMAL '123456789123456.999')", createDecimalType(15, 0), SqlDecimal.of("123456789123456"));
+        assertFunction("truncate(DECIMAL '-123456789123456.999')", createDecimalType(15, 0), SqlDecimal.of("-123456789123456"));
+
+        // TRUNCATE long DECIMAL -> short DECIMAL
+        assertFunction("truncate(DECIMAL '1.99999999999999999999999999')", createDecimalType(1, 0), SqlDecimal.of("1"));
+        assertFunction("truncate(DECIMAL '-1.99999999999999999999999999')", createDecimalType(1, 0), SqlDecimal.of("-1"));
+
+        // TRUNCATE long DECIMAL -> long DECIMAL
+        assertFunction("truncate(DECIMAL '1234567890123456789012')", createDecimalType(22, 0), SqlDecimal.of("1234567890123456789012"));
+        assertFunction("truncate(DECIMAL '-1234567890123456789012')", createDecimalType(22, 0), SqlDecimal.of("-1234567890123456789012"));
+        assertFunction("truncate(DECIMAL '1234567890123456789012.999')", createDecimalType(22, 0), SqlDecimal.of("1234567890123456789012"));
+        assertFunction("truncate(DECIMAL '-1234567890123456789012.999')", createDecimalType(22, 0), SqlDecimal.of("-1234567890123456789012"));
+
+        // TRUNCATE_N short DECIMAL -> short DECIMAL
         assertFunction("truncate(DECIMAL '1234', 1)", createDecimalType(4, 0), SqlDecimal.of("1234"));
         assertFunction("truncate(DECIMAL '1234', -1)", createDecimalType(4, 0), SqlDecimal.of("1230"));
         assertFunction("truncate(DECIMAL '1234.56', 1)", createDecimalType(6, 2), SqlDecimal.of("1234.50"));
@@ -229,7 +247,7 @@ public class TestMathFunctions
         assertFunction("truncate(DECIMAL '1234.56', 3)", createDecimalType(6, 2), SqlDecimal.of("1234.56"));
         assertFunction("truncate(DECIMAL '-1234.56', 3)", createDecimalType(6, 2), SqlDecimal.of("-1234.56"));
 
-        // long DECIMAL -> long DECIMAL
+        // TRUNCATE_N long DECIMAL -> long DECIMAL
         assertFunction("truncate(DECIMAL '1234567890123456789012', 1)", createDecimalType(22, 0), SqlDecimal.of("1234567890123456789012"));
         assertFunction("truncate(DECIMAL '1234567890123456789012', -1)", createDecimalType(22, 0), SqlDecimal.of("1234567890123456789010"));
         assertFunction("truncate(DECIMAL '1234567890123456789012.23', 1)", createDecimalType(24, 2), SqlDecimal.of("1234567890123456789012.20"));
@@ -246,6 +264,9 @@ public class TestMathFunctions
         // NULL
         assertFunction("truncate(CAST(NULL AS DOUBLE))", DOUBLE, null);
         assertFunction("truncate(CAST(NULL AS DECIMAL(1,0)), -1)", createDecimalType(1, 0), null);
+        assertFunction("truncate(CAST(NULL AS DECIMAL(1,0)))", createDecimalType(1, 0), null);
+        assertFunction("truncate(CAST(NULL AS DECIMAL(18,5)))", createDecimalType(13, 0), null);
+        assertFunction("truncate(CAST(NULL AS DECIMAL(25,2)))", createDecimalType(23, 0), null);
         assertFunction("truncate(NULL, NULL)", createDecimalType(1, 0), null);
     }
 
