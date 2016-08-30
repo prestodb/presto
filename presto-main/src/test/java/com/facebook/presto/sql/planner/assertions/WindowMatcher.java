@@ -24,11 +24,13 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 final class WindowMatcher
@@ -83,24 +85,22 @@ final class WindowMatcher
          * because if somebody adds another field to Specification that's included in a equals comparison,
          * this need to be updated too.
          */
-        actualEntries:
-        for (Map.Entry<Symbol, SortOrder> actualEntry : actualOrderings.entrySet()) {
-            Symbol actualSymbol = actualEntry.getKey();
-            for (Map.Entry<Symbol, SortOrder> expectedEntry : expectedOrderings.entrySet()) {
-                Symbol expectedSymbol = expectedEntry.getKey();
-                if (expectedSymbol.equals(actualSymbol)) {
-                    if (expectedEntry.getValue().equals(actualEntry.getValue())) {
-                        continue actualEntries;
-                    }
-                    else {
-                        return false;
-                    }
-                }
-            }
-            return false;
-        }
+        Comparator<Map.Entry<Symbol, SortOrder>> entryComparator =
+                (Map.Entry<Symbol, SortOrder> x, Map.Entry<Symbol, SortOrder> y) -> x.getKey().compareTo(y.getKey());
 
-        return true;
+        List<Map.Entry<Symbol, SortOrder>> actualEntries = actualOrderings
+                .entrySet()
+                .stream()
+                .sorted(entryComparator)
+                .collect(toImmutableList());
+
+        List<Map.Entry<Symbol, SortOrder>> expectedEntries = expectedOrderings
+                .entrySet()
+                .stream()
+                .sorted(entryComparator)
+                .collect(toImmutableList());
+
+        return expectedEntries.equals(actualEntries);
     }
 
     @Override
