@@ -326,12 +326,26 @@ public final class PlanMatchPattern
         @Override
         public boolean equals(Object o)
         {
+            // Inconsistent with hashCode. See below.
             return stemEquals(o, Symbol.class, Symbol::getName);
         }
 
         @Override
         public int hashCode()
         {
+            /*
+             * hashCode() and equals() are inconsistent with each other. In theory, we'd like to
+             * throw UnsupportedOperationException here. We can't, however because creating a
+             * WindowNode.Specification with more than one Ordering requires being able to put
+             * Symbols in a hash table.
+             *
+             * It turns out that this being inconsistent with equals ends up not mattering. We
+             * can't meaningfully do an equals comparison on the hash tables representing the
+             * expected Orderings and the actual Orderings because that would require knowing
+             * the mangled symbols in the expected value a priori. Instead, we do an equals
+             * comparison that relies solely on equals() returning true for mangled and
+             * non-mangled symbols
+             */
             return stem.hashCode();
         }
 
