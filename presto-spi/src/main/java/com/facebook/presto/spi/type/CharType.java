@@ -60,13 +60,13 @@ public final class CharType
     @Override
     public boolean isComparable()
     {
-        return false;
+        return true;
     }
 
     @Override
     public boolean isOrderable()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -84,6 +84,31 @@ public final class CharType
         }
 
         return builder.toString();
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        int leftLength = leftBlock.getLength(leftPosition);
+        int rightLength = rightBlock.getLength(rightPosition);
+        if (leftLength != rightLength) {
+            return false;
+        }
+        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        return block.hash(position, 0, block.getLength(position));
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        int leftLength = leftBlock.getLength(leftPosition);
+        int rightLength = rightBlock.getLength(rightPosition);
+        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 
     @Override
