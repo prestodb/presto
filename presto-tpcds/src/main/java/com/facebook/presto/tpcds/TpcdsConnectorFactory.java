@@ -14,6 +14,7 @@
 package com.facebook.presto.tpcds;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -23,11 +24,13 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Boolean.parseBoolean;
+import static java.lang.Integer.parseInt;
 
 public class TpcdsConnectorFactory
         implements ConnectorFactory
@@ -60,7 +63,10 @@ public class TpcdsConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
-        return new Connector() {
+        int splitsPerNode = getSplitsPerNode(config);
+        NodeManager nodeManager = context.getNodeManager();
+        return new Connector()
+        {
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
             {
@@ -76,20 +82,35 @@ public class TpcdsConnectorFactory
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                throw new NotImplementedException();
+                return new TpcdsSplitManager(nodeManager, splitsPerNode, isWithNoSexism(config));
             }
 
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                throw new NotImplementedException();
+                return new TpcdsRecordSetProvider();
             }
 
             @Override
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
-                throw new NotImplementedException();
+                return new TpcdsNodePartitioningProvider(nodeManager, splitsPerNode);
             }
         };
+    }
+
+    private int getSplitsPerNode(Map<String, String> properties)
+    {
+        try {
+            return parseInt(firstNonNull(properties.get("tpcds.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid property tpcds.splits-per-node");
+        }
+    }
+
+    private boolean isWithNoSexism(Map<String, String> properties)
+    {
+        return parseBoolean(firstNonNull(properties.get("tpcds.with-no-sexism"), String.valueOf(false)));
     }
 }
