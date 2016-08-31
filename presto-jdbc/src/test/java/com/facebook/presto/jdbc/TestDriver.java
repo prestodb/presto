@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.type.BigintType;
@@ -37,6 +38,8 @@ import com.facebook.presto.type.ColorType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
+import io.airlift.testing.Assertions;
+import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -61,15 +64,26 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -85,6 +99,7 @@ public class TestDriver
     private static final String TEST_CATALOG = "test_catalog";
 
     private TestingPrestoServer server;
+    private ExecutorService executorService;
 
     @BeforeClass
     public void setup()
@@ -96,8 +111,19 @@ public class TestDriver
         server.createCatalog(TEST_CATALOG, "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
-
+        waitForNodeRefresh(server);
         setupTestTables();
+        executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    }
+
+    private static void waitForNodeRefresh(TestingPrestoServer server)
+            throws InterruptedException
+    {
+        long start = System.nanoTime();
+        while (server.refreshNodes().getActiveNodes().size() < 1) {
+            Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
+            MILLISECONDS.sleep(10);
+        }
     }
 
     private void setupTestTables()
@@ -109,10 +135,12 @@ public class TestDriver
         }
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
         closeQuietly(server);
+        executorService.shutdownNow();
     }
 
     @Test
@@ -1354,6 +1382,76 @@ public class TestDriver
         String url = format("jdbc:presto://%s/a//", server.getAddress());
         try (Connection ignored = DriverManager.getConnection(url, "test", null)) {
             fail("expected exception");
+        }
+    }
+
+    @Test(timeOut = 10000)
+    public void testQueryCancellation()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole");
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE TABLE test_cancellation (key BIGINT) " +
+                    "WITH (" +
+                    "   split_count = 1, " +
+                    "   pages_per_split = 1, " +
+                    "   rows_per_page = 1, " +
+                    "   page_processing_delay = '1m'" +
+                    ")");
+        }
+
+        CountDownLatch queryStarted = new CountDownLatch(1);
+        CountDownLatch queryFinished = new CountDownLatch(1);
+        AtomicReference<String> queryId = new AtomicReference<>();
+        AtomicReference<Throwable> queryFailure = new AtomicReference<>();
+
+        Future<?> queryFuture = executorService.submit(() -> {
+            try (Connection connection = createConnection("blackhole", "default");
+                    Statement statement = connection.createStatement();
+                    ResultSet resultSet = statement.executeQuery("SELECT * FROM test_cancellation")) {
+                queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
+                queryStarted.countDown();
+                try {
+                    resultSet.next();
+                }
+                catch (SQLException t) {
+                    queryFailure.set(t);
+                }
+                finally {
+                    queryFinished.countDown();
+                }
+            }
+            return null;
+        });
+
+        // start query and make sure it is not finished
+        queryStarted.await(10, SECONDS);
+        assertNotNull(queryId.get());
+        assertFalse(getQueryState(queryId.get()).isDone());
+
+        // interrupt JDBC thread that is waiting for query results
+        queryFuture.cancel(true);
+
+        // make sure the query was aborted
+        queryFinished.await(10, SECONDS);
+        assertNotNull(queryFailure.get());
+        assertEquals(getQueryState(queryId.get()), FAILED);
+
+        try (Connection connection = createConnection("blackhole", "blackhole");
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DROP TABLE test_cancellation");
+        }
+    }
+
+    private QueryState getQueryState(String queryId)
+            throws SQLException
+    {
+        String sql = format("SELECT state FROM system.runtime.queries WHERE query_id = '%s'", queryId);
+        try (Connection connection = createConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            assertTrue(resultSet.next(), "Query was not found");
+            return QueryState.valueOf(requireNonNull(resultSet.getString(1)));
         }
     }
 
