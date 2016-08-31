@@ -9,7 +9,7 @@ services:
   hadoop-master:
     extends:
       service: java-8-base
-    image: 'teradatalabs/cdh5-hive:4'
+    image: ${HADOOP_MASTER_IMAGE}
     hostname: hadoop-master
     ports:
       - '1080:1080'
