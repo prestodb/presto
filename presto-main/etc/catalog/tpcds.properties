@@ -1,0 +1,2 @@
+connector.name=tpcds
+tpcds.splits-per-node=4

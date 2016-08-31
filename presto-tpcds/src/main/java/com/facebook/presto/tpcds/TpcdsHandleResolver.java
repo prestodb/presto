@@ -20,7 +20,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 public class TpcdsHandleResolver
         implements ConnectorHandleResolver
@@ -46,7 +45,7 @@ public class TpcdsHandleResolver
     @Override
     public Class<? extends ConnectorSplit> getSplitClass()
     {
-        throw new NotImplementedException();
+        return TpcdsSplit.class;
     }
 
     @Override
