@@ -60,6 +60,7 @@ import com.facebook.presto.operator.scalar.ArrayGreaterThanOperator;
 import com.facebook.presto.operator.scalar.ArrayGreaterThanOrEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayHashCodeOperator;
 import com.facebook.presto.operator.scalar.ArrayIntersectFunction;
+import com.facebook.presto.operator.scalar.ArrayLessThanOperator;
 import com.facebook.presto.operator.scalar.ArrayLessThanOrEqualOperator;
 import com.facebook.presto.operator.scalar.ArrayMaxFunction;
 import com.facebook.presto.operator.scalar.ArrayMinFunction;
@@ -196,7 +197,6 @@ import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRU
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
-import static com.facebook.presto.operator.scalar.ArrayLessThanOperator.ARRAY_LESS_THAN;
 import static com.facebook.presto.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
@@ -428,6 +428,7 @@ public class FunctionRegistry
                 .scalar(DecimalOperators.Negation.class)
                 .scalar(DecimalOperators.HashCode.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
+                .scalar(ArrayLessThanOperator.class)
                 .scalar(ArrayLessThanOrEqualOperator.class)
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayGreaterThanOperator.class)
@@ -454,7 +455,7 @@ public class FunctionRegistry
                 .scalar(MapToMapCast.class)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
-                .functions(ARRAY_TO_ARRAY_CAST, ARRAY_LESS_THAN)
+                .functions(ARRAY_TO_ARRAY_CAST)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_HASH_CODE)
                 .function(MAP_ELEMENT_AT)
