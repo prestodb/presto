@@ -529,9 +529,10 @@ public class HivePageSink
             target = locationService.targetPath(locationHandle, partition.get(), partitionName.get());
             write = locationService.writePath(locationHandle, partitionName).orElse(target);
         }
+
+        validateSchema(partitionName, schema);
+
         return new HiveRecordWriter(
-                schemaName,
-                tableName,
                 partitionName.orElse(""),
                 compress,
                 isNew,
@@ -544,6 +545,50 @@ public class HivePageSink
                 target.toString(),
                 typeManager,
                 conf);
+    }
+
+    private void validateSchema(Optional<String> partitionName, Properties schema)
+    {
+        // existing tables may have columns in a different order
+        List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
+        List<HiveType> fileColumnHiveTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, ""));
+
+        // verify we can write all input columns to the file
+        Map<String, DataColumn> inputColumnMap = dataColumns.stream()
+                .collect(toMap(DataColumn::getName, identity()));
+        Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
+        if (!missingColumns.isEmpty()) {
+            throw new PrestoException(NOT_FOUND, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
+        }
+        if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
+            throw new PrestoException(HIVE_INVALID_METADATA, format("Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
+                    partitionName,
+                    schemaName,
+                    tableName));
+        }
+
+        // verify the file types match the input type
+        // todo adapt input types to the file types as Hive does
+        for (int fileIndex = 0; fileIndex < fileColumnNames.size(); fileIndex++) {
+            String columnName = fileColumnNames.get(fileIndex);
+            HiveType fileColumnHiveType = fileColumnHiveTypes.get(fileIndex);
+            HiveType inputHiveType = inputColumnMap.get(columnName).getHiveType();
+
+            if (!fileColumnHiveType.equals(inputHiveType)) {
+                // todo this should be moved to a helper
+                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                "There is a mismatch between the table and partition schemas. " +
+                                "The column '%s' in table '%s.%s' is declared as type '%s', " +
+                                "but partition '%s' declared column '%s' as type '%s'.",
+                        columnName,
+                        schemaName,
+                        tableName,
+                        inputHiveType,
+                        partitionName,
+                        columnName,
+                        fileColumnHiveType));
+            }
+        }
     }
 
     static String getFileExtension(JobConf conf, String outputFormat)
@@ -623,8 +668,6 @@ public class HivePageSink
         private final FieldSetter[] setters;
 
         public HiveRecordWriter(
-                String schemaName,
-                String tableName,
                 String partitionName,
                 boolean compress,
                 boolean isNew,
@@ -647,43 +690,6 @@ public class HivePageSink
             // existing tables may have columns in a different order
             List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
             List<HiveType> fileColumnHiveTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, ""));
-
-            // verify we can write all input columns to the file
-            Map<String, DataColumn> inputColumnMap = inputColumns.stream()
-                    .collect(toMap(DataColumn::getName, identity()));
-            Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
-            if (!missingColumns.isEmpty()) {
-                throw new PrestoException(NOT_FOUND, format("Table %s.%s does not have columns %s", schema, tableName, missingColumns));
-            }
-            if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
-                        partitionName,
-                        schemaName,
-                        tableName));
-            }
-
-            // verify the file types match the input type
-            // todo adapt input types to the file types as Hive does
-            for (int fileIndex = 0; fileIndex < fileColumnNames.size(); fileIndex++) {
-                String columnName = fileColumnNames.get(fileIndex);
-                HiveType fileColumnHiveType = fileColumnHiveTypes.get(fileIndex);
-                HiveType inputHiveType = inputColumnMap.get(columnName).getHiveType();
-
-                if (!fileColumnHiveType.equals(inputHiveType)) {
-                    // todo this should be moved to a helper
-                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
-                                    "There is a mismatch between the table and partition schemas. " +
-                                    "The column '%s' in table '%s.%s' is declared as type '%s', " +
-                                    "but partition '%s' declared column '%s' as type '%s'.",
-                            columnName,
-                            schemaName,
-                            tableName,
-                            inputHiveType,
-                            partitionName,
-                            columnName,
-                            fileColumnHiveType));
-                }
-            }
 
             fieldCount = fileColumnNames.size();
 

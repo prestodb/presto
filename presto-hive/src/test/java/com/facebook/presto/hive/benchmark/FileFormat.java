@@ -400,8 +400,6 @@ public enum FileFormat
             }
 
             recordWriter = new HiveRecordWriter(
-                    "test_schema",
-                    "test_table",
                     null,
                     compressionCodec != HiveCompressionCodec.NONE,
                     true,
