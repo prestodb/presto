@@ -485,8 +485,11 @@ public class OperatorContext
         }
 
         @Override
-        protected void updateBytes(long bytes)
+        protected void updateBytes(long bytes, boolean revocable)
         {
+            if (revocable) {
+                throw new IllegalArgumentException("revocable memory not yet supported");
+            }
             checkState(!closed);
             if (bytes > 0) {
                 driverContext.reserveSystemMemory(bytes);
