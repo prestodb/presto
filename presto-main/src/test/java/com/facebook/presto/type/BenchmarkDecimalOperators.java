@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlDecimal;
@@ -65,11 +66,14 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.math.BigInteger.ONE;
+import static java.math.BigInteger.ZERO;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -190,6 +194,177 @@ public class BenchmarkDecimalOperators
 
     @Benchmark
     public List<Page> additionBenchmark(AdditionBenchmarkState state)
+    {
+        return execute(state);
+    }
+
+    @State(Thread)
+    public static class MultiplyBenchmarkState
+            extends BaseState
+    {
+        @Param({"d1 * d2",
+                "d1 * d2 * d3 * d4",
+                "i1 * i2",
+                // short short -> short
+                "s1 * s2",
+                "s1 * s2 * s5 * s6",
+                // short short -> long
+                "s3 * s4",
+                // long short -> long
+                "l2 * s2",
+                "l2 * s2 * s5 * s6",
+                // short long -> long
+                "s1 * l2",
+                // long long -> long
+                "l1 * l2"})
+        private String expression;
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("d1", DOUBLE);
+            addSymbol("d2", DOUBLE);
+            addSymbol("d3", DOUBLE);
+            addSymbol("d4", DOUBLE);
+
+            addSymbol("i1", BIGINT);
+            addSymbol("i2", BIGINT);
+
+            addSymbol("s1", createDecimalType(5, 2));
+            addSymbol("s2", createDecimalType(3, 1));
+            addSymbol("s3", createDecimalType(10, 5));
+            addSymbol("s4", createDecimalType(10, 2));
+            addSymbol("s5", createDecimalType(3, 2));
+            addSymbol("s6", createDecimalType(2, 1));
+
+            addSymbol("l1", createDecimalType(19, 10));
+            addSymbol("l2", createDecimalType(19, 5));
+
+            generateRandomInputPage();
+            generateProcessor(expression);
+            generateResultPageBuilder(expression);
+        }
+    }
+
+    @Benchmark
+    public List<Page> myltiplyBenchmark(MultiplyBenchmarkState state)
+    {
+        return execute(state);
+    }
+
+    @State(Thread)
+    public static class DivisionBenchmarkState
+            extends BaseState
+    {
+        @Param({"d1 / d2",
+                "d1 / d2 / d3 / d4",
+                "i1 / i2",
+                "i1 / i2 / i3 / i4",
+                // short short -> short
+                "s1 / s2",
+                "s1 / s2 / s2 / s2",
+                // short short -> long
+                "s1 / s3",
+                // short long -> short
+                "s2 / l1",
+                // long short -> long
+                "l1 / s2",
+                // short long -> long
+                "s3 / l1",
+                // long long -> long
+                "l2 / l3",
+                "l2 / l4 / l4 / l4",
+                "l2 / s4 / s4 / s4"})
+        private String expression;
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("d1", DOUBLE);
+            addSymbol("d2", DOUBLE);
+            addSymbol("d3", DOUBLE);
+            addSymbol("d4", DOUBLE);
+
+            addSymbol("i1", BIGINT);
+            addSymbol("i2", BIGINT);
+            addSymbol("i3", BIGINT);
+            addSymbol("i4", BIGINT);
+
+            addSymbol("s1", createDecimalType(8, 3));
+            addSymbol("s2", createDecimalType(6, 2));
+            addSymbol("s3", createDecimalType(17, 7));
+            addSymbol("s4", createDecimalType(3, 2));
+
+            addSymbol("l1", createDecimalType(19, 3));
+            addSymbol("l2", createDecimalType(20, 3));
+            addSymbol("l3", createDecimalType(21, 10));
+            addSymbol("l4", createDecimalType(19, 4));
+
+            generateRandomInputPage();
+            generateProcessor(expression);
+            generateResultPageBuilder(expression);
+        }
+    }
+
+    @Benchmark
+    public List<Page> divisionBenchmark(DivisionBenchmarkState state)
+    {
+        return execute(state);
+    }
+
+    @State(Thread)
+    public static class ModuloBenchmarkState
+            extends BaseState
+    {
+        @Param({"d1 % d2",
+                "d1 % d2 % d3 % d4",
+                "i1 % i2",
+                "i1 % i2 % i3 % i4",
+                // short short -> short
+                "s1 % s2",
+                "s1 % s2 % s2 % s2",
+                // short long -> short
+                "s2 % l2",
+                // long short -> long
+                "l3 % s3",
+                // short long -> long
+                "s4 % l3",
+                // long long -> long
+                "l2 % l3",
+                "l2 % l3 % l4 % l1"})
+        private String expression;
+
+        @Setup
+        public void setup()
+        {
+            addSymbol("d1", DOUBLE);
+            addSymbol("d2", DOUBLE);
+            addSymbol("d3", DOUBLE);
+            addSymbol("d4", DOUBLE);
+
+            addSymbol("i1", BIGINT);
+            addSymbol("i2", BIGINT);
+            addSymbol("i3", BIGINT);
+            addSymbol("i4", BIGINT);
+
+            addSymbol("s1", createDecimalType(8, 3));
+            addSymbol("s2", createDecimalType(6, 2));
+            addSymbol("s3", createDecimalType(9, 0));
+            addSymbol("s4", createDecimalType(12, 2));
+
+            addSymbol("l1", createDecimalType(19, 3));
+            addSymbol("l2", createDecimalType(20, 3));
+            addSymbol("l3", createDecimalType(21, 10));
+            addSymbol("l4", createDecimalType(19, 4));
+
+            generateRandomInputPage();
+            generateProcessor(expression);
+            generateResultPageBuilder(expression);
+        }
+    }
+
+    @Benchmark
+    public List<Page> moduloBenchmark(ModuloBenchmarkState state)
     {
         return execute(state);
     }
@@ -423,6 +598,10 @@ public class BenchmarkDecimalOperators
             else if (type instanceof DecimalType) {
                 return randomDecimal((DecimalType) type);
             }
+            else if (type instanceof BigintType) {
+                int randomInt = random.nextInt();
+                return randomInt == 0 ? 1 : randomInt;
+            }
             throw new UnsupportedOperationException(type.toString());
         }
 
@@ -430,6 +609,10 @@ public class BenchmarkDecimalOperators
         {
             int maxBits = (int) (Math.log(Math.pow(10, type.getPrecision())) / Math.log(2));
             BigInteger bigInteger = new BigInteger(maxBits, random);
+
+            if (bigInteger.equals(ZERO)) {
+                bigInteger = ONE;
+            }
 
             if (random.nextBoolean()) {
                 bigInteger = bigInteger.negate();
