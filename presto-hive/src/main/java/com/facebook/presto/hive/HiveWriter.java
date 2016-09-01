@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
@@ -39,9 +39,9 @@ public class HiveWriter
         this.targetPath = targetPath;
     }
 
-    public void addRow(Block[] columns, int position)
+    public void append(Page dataPage)
     {
-        hiveRecordWriter.addRow(columns, position);
+        hiveRecordWriter.appendRows(dataPage);
     }
 
     public void commit()

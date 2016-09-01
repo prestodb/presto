@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -104,14 +105,22 @@ public class HiveRecordWriter
         }
     }
 
-    public void addRow(Block[] columns, int position)
+    public void appendRows(Page dataPage)
+    {
+        for (int position = 0; position < dataPage.getPositionCount(); position++) {
+            appendRow(dataPage, position);
+        }
+    }
+
+    public void appendRow(Page dataPage, int position)
     {
         for (int field = 0; field < fieldCount; field++) {
-            if (columns[field].isNull(position)) {
+            Block block = dataPage.getBlock(field);
+            if (block.isNull(position)) {
                 tableInspector.setStructFieldData(row, structFields.get(field), null);
             }
             else {
-                setters[field].setField(columns[field], position);
+                setters[field].setField(block, position);
             }
         }
 

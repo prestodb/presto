@@ -43,7 +43,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -430,9 +429,8 @@ public enum FileFormat
         @Override
         public void writePage(Page page)
         {
-            Block[] columns = page.getBlocks();
             for (int position = 0; position < page.getPositionCount(); position++) {
-                recordWriter.addRow(columns, position);
+                recordWriter.appendRow(page, position);
             }
         }
 
