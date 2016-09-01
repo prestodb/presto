@@ -20,19 +20,18 @@ import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.IntArrayBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +41,7 @@ import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
@@ -55,19 +55,16 @@ public class HivePageSink
     private final int[] dataColumnInputIndex; // ordinal of columns (not counting sample weight column)
     private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
 
-    private final OptionalInt bucketCount;
     private final int[] bucketColumns;
     private final HiveBucketFunction bucketFunction;
 
-    private final PageIndexer pageIndexer;
+    private final HiveWriterPagePartitioner pagePartitioner;
     private final HdfsEnvironment hdfsEnvironment;
 
-    private final int maxOpenPartitions;
+    private final int maxOpenWriters;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
-    private HiveWriter[] writers;
-    private final List<Int2ObjectMap<HiveWriter>> bucketWriters;
-    private int bucketWriterCount;
+    private final List<HiveWriter> writers = new ArrayList<>();
 
     private final ConnectorSession session;
 
@@ -78,7 +75,7 @@ public class HivePageSink
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
-            int maxOpenPartitions,
+            int maxOpenWriters,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ConnectorSession session)
     {
@@ -89,17 +86,15 @@ public class HivePageSink
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.maxOpenPartitions = maxOpenPartitions;
+        this.maxOpenWriters = maxOpenWriters;
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
-        // divide input columns into partition and data columns
-        ImmutableList.Builder<Type> partitionColumnTypes = ImmutableList.builder();
-        for (HiveColumnHandle column : inputColumns) {
-            if (column.isPartitionKey()) {
-                partitionColumnTypes.add(typeManager.getType(column.getTypeSignature()));
-            }
-        }
-        this.pageIndexer = pageIndexerFactory.createPageIndexer(partitionColumnTypes.build());
+        requireNonNull(bucketProperty, "bucketProperty is null");
+        this.pagePartitioner = new HiveWriterPagePartitioner(
+                inputColumns,
+                bucketProperty.isPresent(),
+                pageIndexerFactory,
+                typeManager);
 
         // determine the input index of the partition columns and data columns
         // and determine the input index and type of bucketing columns
@@ -122,25 +117,19 @@ public class HivePageSink
         this.partitionColumnsInputIndex = Ints.toArray(partitionColumns.build());
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
 
-        requireNonNull(bucketProperty, "bucketProperty is null");
         if (bucketProperty.isPresent()) {
             int bucketCount = bucketProperty.get().getBucketCount();
-            this.bucketCount = OptionalInt.of(bucketCount);
-            this.bucketColumns = bucketProperty.get().getBucketedBy().stream()
+            bucketColumns = bucketProperty.get().getBucketedBy().stream()
                     .mapToInt(dataColumnNameToIdMap::get)
                     .toArray();
             List<HiveType> bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
                     .map(dataColumnNameToTypeMap::get)
                     .collect(toList());
             bucketFunction = new HiveBucketFunction(bucketCount, bucketColumnTypes);
-            bucketWriters = new ArrayList<>();
         }
         else {
-            this.bucketCount = OptionalInt.empty();
-            this.bucketColumns = null;
+            bucketColumns = null;
             bucketFunction = null;
-            bucketWriters = null;
-            writers = new HiveWriter[0];
         }
 
         this.session = requireNonNull(session, "session is null");
@@ -157,43 +146,10 @@ public class HivePageSink
     private ImmutableList<Slice> doFinish()
     {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
-        if (!bucketCount.isPresent()) {
-            for (HiveWriter writer : writers) {
-                if (writer != null) {
-                    writer.commit();
-                    PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
-                    partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
-                }
-            }
-        }
-        else {
-            for (Int2ObjectMap<HiveWriter> writers : bucketWriters) {
-                PartitionUpdate firstPartitionUpdate = null;
-                ImmutableList.Builder<String> fileNamesBuilder = ImmutableList.builder();
-                for (HiveWriter writer : writers.values()) {
-                    writer.commit();
-                    PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
-                    if (firstPartitionUpdate == null) {
-                        firstPartitionUpdate = partitionUpdate;
-                    }
-                    else {
-                        verify(firstPartitionUpdate.getName().equals(partitionUpdate.getName()));
-                        verify(firstPartitionUpdate.isNew() == partitionUpdate.isNew());
-                        verify(firstPartitionUpdate.getTargetPath().equals(partitionUpdate.getTargetPath()));
-                        verify(firstPartitionUpdate.getWritePath().equals(partitionUpdate.getWritePath()));
-                    }
-                    fileNamesBuilder.addAll(partitionUpdate.getFileNames());
-                }
-                if (firstPartitionUpdate == null) {
-                    continue;
-                }
-                partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(new PartitionUpdate(
-                        firstPartitionUpdate.getName(),
-                        firstPartitionUpdate.isNew(),
-                        firstPartitionUpdate.getWritePath(),
-                        firstPartitionUpdate.getTargetPath(),
-                        fileNamesBuilder.build()))));
-            }
+        for (HiveWriter writer : writers) {
+            writer.commit();
+            PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
+            partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
         }
         return partitionUpdates.build();
     }
@@ -208,19 +164,8 @@ public class HivePageSink
 
     private void doAbort()
     {
-        if (!bucketCount.isPresent()) {
-            for (HiveWriter writer : writers) {
-                if (writer != null) {
-                    writer.rollback();
-                }
-            }
-        }
-        else {
-            for (Int2ObjectMap<HiveWriter> writers : bucketWriters) {
-                for (HiveWriter writer : writers.values()) {
-                    writer.rollback();
-                }
-            }
+        for (HiveWriter writer : writers) {
+            writer.rollback();
         }
     }
 
@@ -238,52 +183,52 @@ public class HivePageSink
 
     private CompletableFuture<?> doAppend(Page page)
     {
+        int[] writerIndexes = getWriterIndexes(page);
+
+        Block[] dataBlocks = getDataBlocks(page);
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            int writerIndex = writerIndexes[position];
+            HiveWriter writer = writers.get(writerIndex);
+            writer.addRow(dataBlocks, position);
+        }
+
+        return NOT_BLOCKED;
+    }
+
+    private int[] getWriterIndexes(Page page)
+    {
         Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
-        int[] indexes = pageIndexer.indexPage(partitionColumns);
-        if (pageIndexer.getMaxIndex() >= maxOpenPartitions) {
+        Block bucketBlock = buildBucketBlock(page);
+        int[] writerIndexes = pagePartitioner.partitionPage(partitionColumns, bucketBlock);
+        if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
             throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
         }
 
-        Block[] dataBlocks = getDataBlocks(page);
-        if (!bucketCount.isPresent()) {
-            if (pageIndexer.getMaxIndex() >= writers.length) {
-                writers = Arrays.copyOf(writers, pageIndexer.getMaxIndex() + 1);
-            }
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                int writerIndex = indexes[position];
-                HiveWriter writer = writers[writerIndex];
-                if (writer == null) {
-                    writer = writerFactory.createWriter(partitionColumns, position, OptionalInt.empty());
-                    writers[writerIndex] = writer;
-                }
-
-                writer.addRow(dataBlocks, position);
-            }
+        // expand writers list to new size
+        while (writers.size() <= pagePartitioner.getMaxIndex()) {
+            writers.add(null);
         }
-        else {
-            for (int i = bucketWriters.size(); i <= pageIndexer.getMaxIndex(); i++) {
-                bucketWriters.add(new Int2ObjectOpenHashMap<>());
+
+        // create missing writers
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            int writerIndex = writerIndexes[position];
+            if (writers.get(writerIndex) != null) {
+                continue;
             }
 
-            Page bucketColumnsPage = extractColumns(page, bucketColumns);
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                int writerIndex = indexes[position];
-                Int2ObjectMap<HiveWriter> writers = bucketWriters.get(writerIndex);
-                int bucket = bucketFunction.getBucket(bucketColumnsPage, position);
-                HiveWriter writer = writers.get(bucket);
-                if (writer == null) {
-                    if (bucketWriterCount >= maxOpenPartitions) {
-                        throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open writers for partitions and buckets");
-                    }
-                    bucketWriterCount++;
-                    writer = writerFactory.createWriter(partitionColumns, position, OptionalInt.of(bucket));
-                    writers.put(bucket, writer);
-                }
-
-                writer.addRow(dataBlocks, position);
+            OptionalInt bucketNumber = OptionalInt.empty();
+            if (bucketBlock != null) {
+                bucketNumber = OptionalInt.of(bucketBlock.getInt(position, 0));
             }
+            HiveWriter writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
+
+            writers.set(writerIndex, writer);
         }
-        return NOT_BLOCKED;
+
+        verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
+        verify(!writers.contains(null));
+
+        return writerIndexes;
     }
 
     private Block[] getDataBlocks(Page page)
@@ -296,6 +241,21 @@ public class HivePageSink
         return blocks;
     }
 
+    private Block buildBucketBlock(Page page)
+    {
+        if (bucketFunction == null) {
+            return null;
+        }
+
+        IntArrayBlockBuilder bucketColumnBuilder = new IntArrayBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
+        Page bucketColumnsPage = extractColumns(page, bucketColumns);
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            int bucket = bucketFunction.getBucket(bucketColumnsPage, position);
+            bucketColumnBuilder.writeInt(bucket);
+        }
+        return bucketColumnBuilder.build();
+    }
+
     private static Page extractColumns(Page page, int[] columns)
     {
         Block[] blocks = new Block[columns.length];
@@ -304,5 +264,49 @@ public class HivePageSink
             blocks[i] = page.getBlock(dataColumn);
         }
         return new Page(page.getPositionCount(), blocks);
+    }
+
+    private static class HiveWriterPagePartitioner
+    {
+        private final PageIndexer pageIndexer;
+
+        public HiveWriterPagePartitioner(
+                List<HiveColumnHandle> inputColumns,
+                boolean bucketed,
+                PageIndexerFactory pageIndexerFactory,
+                TypeManager typeManager)
+        {
+            requireNonNull(inputColumns, "inputColumns is null");
+            requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
+
+            List<Type> partitionColumnTypes = inputColumns.stream()
+                    .filter(HiveColumnHandle::isPartitionKey)
+                    .map(column -> typeManager.getType(column.getTypeSignature()))
+                    .collect(toList());
+
+            if (bucketed) {
+                partitionColumnTypes.add(INTEGER);
+            }
+
+            this.pageIndexer = pageIndexerFactory.createPageIndexer(partitionColumnTypes);
+        }
+
+        public int[] partitionPage(Page partitionColumns, Block bucketBlock)
+        {
+            if (bucketBlock != null) {
+                Block[] blocks = new Block[partitionColumns.getChannelCount() + 1];
+                for (int i = 0; i < partitionColumns.getChannelCount(); i++) {
+                    blocks[i] = partitionColumns.getBlock(i);
+                }
+                blocks[blocks.length - 1] = bucketBlock;
+                partitionColumns = new Page(partitionColumns.getPositionCount(), blocks);
+            }
+            return pageIndexer.indexPage(partitionColumns);
+        }
+
+        public int getMaxIndex()
+        {
+            return pageIndexer.getMaxIndex();
+        }
     }
 }
