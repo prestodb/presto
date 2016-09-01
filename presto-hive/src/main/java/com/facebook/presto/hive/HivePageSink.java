@@ -632,51 +632,6 @@ public class HivePageSink
         return new Page(page.getPositionCount(), blocks);
     }
 
-    private static class HiveWriter
-    {
-        private final HiveRecordWriter hiveRecordWriter;
-        private final Optional<String> partitionName;
-        private final boolean isNew;
-        private final String fileName;
-        private final String writePath;
-        private final String targetPath;
-
-        public HiveWriter(HiveRecordWriter hiveRecordWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath)
-        {
-            this.hiveRecordWriter = hiveRecordWriter;
-            this.partitionName = partitionName;
-            this.isNew = isNew;
-            this.fileName = fileName;
-            this.writePath = writePath;
-            this.targetPath = targetPath;
-        }
-
-        public void addRow(Block[] columns, int position)
-        {
-            hiveRecordWriter.addRow(columns, position);
-        }
-
-        public void commit()
-        {
-            hiveRecordWriter.commit();
-        }
-
-        public void rollback()
-        {
-            hiveRecordWriter.rollback();
-        }
-
-        public PartitionUpdate getPartitionUpdate()
-        {
-            return new PartitionUpdate(
-                    partitionName.orElse(""),
-                    isNew,
-                    writePath,
-                    targetPath,
-                    ImmutableList.of(fileName));
-        }
-    }
-
     private static class DataColumn
     {
         private final String name;
