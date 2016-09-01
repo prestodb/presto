@@ -637,12 +637,12 @@ public class HiveMetadata
             return ImmutableList.of();
         }
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(targetPath));
-        String fileExtension = HivePageSink.getFileExtension(conf, storageFormat.getOutputFormat());
+        String fileExtension = HiveWriterFactory.getFileExtension(conf, storageFormat.getOutputFormat());
         Set<String> fileNames = partitionUpdate.getFileNames().stream()
                 .collect(Collectors.toSet());
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
-            String fileName = HivePageSink.computeBucketedFileName(filePrefix, i) + fileExtension;
+            String fileName = HiveWriterFactory.computeBucketedFileName(filePrefix, i) + fileExtension;
             if (!fileNames.contains(fileName)) {
                 missingFileNamesBuilder.add(fileName);
             }

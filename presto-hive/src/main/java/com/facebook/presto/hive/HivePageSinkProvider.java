@@ -27,6 +27,8 @@ import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
+import java.util.OptionalInt;
+
 import static com.facebook.presto.hive.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
@@ -82,24 +84,34 @@ public class HivePageSinkProvider
 
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session)
     {
-        return new HivePageSink(
+        OptionalInt bucketCount = handle.getBucketProperty().isPresent() ? OptionalInt.of(handle.getBucketProperty().get().getBucketCount()) : OptionalInt.empty();
+
+        HiveWriterFactory writerFactory = new HiveWriterFactory(
                 handle.getSchemaName(),
                 handle.getTableName(),
                 isCreateTable,
                 handle.getInputColumns(),
                 handle.getTableStorageFormat(),
                 handle.getPartitionStorageFormat(),
+                bucketCount,
                 handle.getLocationHandle(),
                 locationService,
                 handle.getFilePrefix(),
-                handle.getBucketProperty(),
                 new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), metastore),
+                typeManager,
+                hdfsEnvironment,
+                immutablePartitions,
+                compressed,
+                session);
+
+        return new HivePageSink(
+                writerFactory,
+                handle.getInputColumns(),
+                handle.getBucketProperty(),
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
                 maxOpenPartitions,
-                immutablePartitions,
-                compressed,
                 partitionUpdateCodec,
                 session);
     }
