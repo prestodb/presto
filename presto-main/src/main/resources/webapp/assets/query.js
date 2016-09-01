@@ -270,7 +270,7 @@ var StageDetail = React.createClass({
     render: function() {
         var stage = this.props.stage;
 
-        if (stage === undefined) {
+        if (stage === undefined || !stage.hasOwnProperty('plan')) {
             return (
                 <tr>
                     <td>Information about this stage is unavailable.</td>
