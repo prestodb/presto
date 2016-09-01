@@ -16,15 +16,16 @@ package com.facebook.presto.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
+@DefunctConfig("resource-group-manager")
 public class FeaturesConfig
 {
     public static class ProcessingOptimization
@@ -52,24 +53,9 @@ public class FeaturesConfig
     private boolean dictionaryAggregation;
     private boolean resourceGroups;
 
-    private String resourceGroupManager = FILE_BASED_RESOURCE_GROUP_MANAGER;
-
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
-
-    @NotNull
-    public String getResourceGroupManager()
-    {
-        return resourceGroupManager;
-    }
-
-    @Config("resource-group-manager")
-    public FeaturesConfig setResourceGroupManager(String resourceGroupManager)
-    {
-        this.resourceGroupManager = resourceGroupManager;
-        return this;
-    }
 
     public boolean isResourceGroupsEnabled()
     {
