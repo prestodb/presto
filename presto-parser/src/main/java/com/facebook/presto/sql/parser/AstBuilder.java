@@ -1278,9 +1278,14 @@ class AstBuilder
     @Override
     public Node visitTypeConstructor(SqlBaseParser.TypeConstructorContext context)
     {
-        String type = context.identifier().getText();
         String value = unquote(context.STRING().getText());
 
+        if (context.DOUBLE_PRECISION() != null) {
+            // TODO: Temporary hack that should be removed with new planner.
+            return new GenericLiteral(getLocation(context), "DOUBLE", value);
+        }
+
+        String type = context.identifier().getText();
         if (type.equalsIgnoreCase("time")) {
             return new TimeLiteral(getLocation(context), value);
         }
@@ -1613,6 +1618,10 @@ class AstBuilder
     {
         if (type.baseType() != null) {
             String signature = type.baseType().getText();
+            if (type.baseType().DOUBLE_PRECISION() != null) {
+                // TODO: Temporary hack that should be removed with new planner.
+                signature = "DOUBLE";
+            }
             if (!type.typeParameter().isEmpty()) {
                 String typeParameterSignature = type
                         .typeParameter()

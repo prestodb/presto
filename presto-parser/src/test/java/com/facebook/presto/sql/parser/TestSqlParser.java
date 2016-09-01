@@ -274,6 +274,9 @@ public class TestSqlParser
         assertCast("BIGINT");
         assertCast("double");
         assertCast("DOUBLE");
+        assertCast("DOUBLE PRECISION", "DOUBLE");
+        assertCast("DOUBLE   PRECISION", "DOUBLE");
+        assertCast("double precision", "DOUBLE");
         assertCast("boolean");
         assertCast("date");
         assertCast("time");
