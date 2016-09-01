@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -29,7 +28,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
@@ -39,25 +37,15 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
-import org.apache.hadoop.hive.serde2.SerDeException;
-import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.OptimizedLazyBinaryColumnarSerde;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hive.common.util.ReflectionUtil;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -77,17 +65,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
-import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
-import static com.facebook.presto.hive.HiveWriteUtils.createRecordWriter;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
-import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -101,7 +83,6 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 
 public class HivePageSink
         implements ConnectorPageSink
@@ -693,121 +674,6 @@ public class HivePageSink
                     writePath,
                     targetPath,
                     ImmutableList.of(fileName));
-        }
-    }
-
-    public static class HiveRecordWriter
-    {
-        private final Path path;
-        private final int fieldCount;
-        @SuppressWarnings("deprecation")
-        private final Serializer serializer;
-        private final RecordWriter recordWriter;
-        private final SettableStructObjectInspector tableInspector;
-        private final List<StructField> structFields;
-        private final Object row;
-        private final FieldSetter[] setters;
-
-        public HiveRecordWriter(
-                Path path,
-                List<String> inputColumnNames,
-                boolean compress,
-                String outputFormat,
-                String serDe,
-                Properties schema,
-                TypeManager typeManager,
-                JobConf conf)
-        {
-            this.path = requireNonNull(path, "path is null");
-
-            // existing tables may have columns in a different order
-            List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
-            List<Type> fileColumnTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, "")).stream()
-                    .map(hiveType -> hiveType.getType(typeManager))
-                    .collect(toList());
-
-            fieldCount = fileColumnNames.size();
-
-            if (serDe.equals(LazyBinaryColumnarSerDe.class.getName())) {
-                serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
-            }
-            serializer = initializeSerializer(conf, schema, serDe);
-            recordWriter = createRecordWriter(path, conf, compress, schema, outputFormat);
-
-            List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
-            tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);
-
-            // reorder (and possibly reduce) struct fields to match input
-            structFields = ImmutableList.copyOf(inputColumnNames.stream()
-                    .map(tableInspector::getStructFieldRef)
-                    .collect(toList()));
-
-            row = tableInspector.create();
-
-            setters = new FieldSetter[structFields.size()];
-            for (int i = 0; i < setters.length; i++) {
-                setters[i] = createFieldSetter(tableInspector, row, structFields.get(i), fileColumnTypes.get(structFields.get(i).getFieldID()));
-            }
-        }
-
-        public void addRow(Block[] columns, int position)
-        {
-            for (int field = 0; field < fieldCount; field++) {
-                if (columns[field].isNull(position)) {
-                    tableInspector.setStructFieldData(row, structFields.get(field), null);
-                }
-                else {
-                    setters[field].setField(columns[field], position);
-                }
-            }
-
-            try {
-                recordWriter.write(serializer.serialize(row, tableInspector));
-            }
-            catch (SerDeException | IOException e) {
-                throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
-            }
-        }
-
-        public void commit()
-        {
-            try {
-                recordWriter.close(false);
-            }
-            catch (IOException e) {
-                throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
-            }
-        }
-
-        public void rollback()
-        {
-            try {
-                recordWriter.close(true);
-            }
-            catch (IOException e) {
-                throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
-            }
-        }
-
-        @SuppressWarnings("deprecation")
-        private static Serializer initializeSerializer(Configuration conf, Properties properties, String serializerName)
-        {
-            try {
-                Serializer result = (Serializer) Class.forName(serializerName).getConstructor().newInstance();
-                result.initialize(conf, properties);
-                return result;
-            }
-            catch (SerDeException | ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("path", path)
-                    .toString();
         }
     }
 
