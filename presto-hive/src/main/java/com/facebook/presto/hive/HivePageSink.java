@@ -50,7 +50,6 @@ import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.OptimizedLazyBinaryColumnarSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
@@ -121,7 +120,7 @@ public class HivePageSink
 
     private final OptionalInt bucketCount;
     private final int[] bucketColumns;
-    private final List<TypeInfo> bucketColumnTypes;
+    private final HiveBucketFunction bucketFunction;
 
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
@@ -238,16 +237,16 @@ public class HivePageSink
             this.bucketColumns = bucketProperty.get().getBucketedBy().stream()
                     .mapToInt(dataColumnNameToIdMap::get)
                     .toArray();
-            this.bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
+            List<HiveType> bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
                     .map(dataColumnNameToTypeMap::get)
-                    .map(HiveType::getTypeInfo)
                     .collect(toList());
+            bucketFunction = new HiveBucketFunction(bucketCount, bucketColumnTypes);
             bucketWriters = new ArrayList<>();
         }
         else {
             this.bucketCount = OptionalInt.empty();
             this.bucketColumns = null;
-            this.bucketColumnTypes = null;
+            bucketFunction = null;
             bucketWriters = null;
             writers = new HiveRecordWriter[0];
         }
@@ -388,16 +387,15 @@ public class HivePageSink
             }
         }
         else {
-            int bucketCount = this.bucketCount.getAsInt();
-            Page bucketColumnsPage = extractColumns(page, bucketColumns);
-
             for (int i = bucketWriters.size(); i <= pageIndexer.getMaxIndex(); i++) {
                 bucketWriters.add(new Int2ObjectOpenHashMap<>());
             }
+
+            Page bucketColumnsPage = extractColumns(page, bucketColumns);
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int writerIndex = indexes[position];
                 Int2ObjectMap<HiveRecordWriter> writers = bucketWriters.get(writerIndex);
-                int bucket = HiveBucketing.getHiveBucket(bucketColumnTypes, bucketColumnsPage, position, bucketCount);
+                int bucket = bucketFunction.getBucket(bucketColumnsPage, position);
                 HiveRecordWriter writer = writers.get(bucket);
                 if (writer == null) {
                     if (bucketWriterCount >= maxOpenPartitions) {
