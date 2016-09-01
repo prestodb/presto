@@ -138,8 +138,6 @@ public class HivePageSink
     private final int maxOpenPartitions;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
-    private final List<Object> partitionRow;
-
     private final Table table;
     private final boolean immutablePartitions;
     private final boolean compress;
@@ -256,9 +254,6 @@ public class HivePageSink
 
         this.pageIndexer = pageIndexerFactory.createPageIndexer(this.partitionColumnTypes);
 
-        // preallocate temp space for partition and data
-        this.partitionRow = Arrays.asList(new Object[this.partitionColumnNames.size()]);
-
         if (isCreateTable) {
             this.table = null;
             Optional<Path> writePath = locationService.writePathRoot(locationHandle);
@@ -363,21 +358,20 @@ public class HivePageSink
             return NOT_BLOCKED;
         }
 
-        Block[] dataBlocks = getDataBlocks(page);
-        Block[] partitionBlocks = getPartitionBlocks(page);
+        // Must be wrapped in doAs entirely
+        // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
+        return hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page));
+    }
 
-        int[] indexes = pageIndexer.indexPage(new Page(page.getPositionCount(), partitionBlocks));
+    private CompletableFuture<?> doAppend(Page page)
+    {
+        Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
+        int[] indexes = pageIndexer.indexPage(partitionColumns);
         if (pageIndexer.getMaxIndex() >= maxOpenPartitions) {
             throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open partitions");
         }
 
-        // Must be wrapped in doAs entirely
-        // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
-        return hdfsEnvironment.doAs(session.getUser(), () -> doAppend(page, dataBlocks, partitionBlocks, indexes));
-    }
-
-    private CompletableFuture<?> doAppend(Page page, Block[] dataBlocks, Block[] partitionBlocks, int[] indexes)
-    {
+        Block[] dataBlocks = getDataBlocks(page);
         if (!bucketCount.isPresent()) {
             if (pageIndexer.getMaxIndex() >= writers.length) {
                 writers = Arrays.copyOf(writers, pageIndexer.getMaxIndex() + 1);
@@ -386,11 +380,7 @@ public class HivePageSink
                 int writerIndex = indexes[position];
                 HiveRecordWriter writer = writers[writerIndex];
                 if (writer == null) {
-                    for (int field = 0; field < partitionBlocks.length; field++) {
-                        Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
-                        partitionRow.set(field, value);
-                    }
-                    writer = createWriter(partitionRow, filePrefix + "_" + randomUUID());
+                    writer = createWriter(partitionColumns, position, OptionalInt.empty());
                     writers[writerIndex] = writer;
                 }
 
@@ -399,11 +389,7 @@ public class HivePageSink
         }
         else {
             int bucketCount = this.bucketCount.getAsInt();
-            Block[] bucketBlocks = new Block[bucketColumns.length];
-            for (int i = 0; i < bucketColumns.length; i++) {
-                bucketBlocks[i] = page.getBlock(bucketColumns[i]);
-            }
-            Page bucketColumnsPage = new Page(page.getPositionCount(), bucketBlocks);
+            Page bucketColumnsPage = extractColumns(page, bucketColumns);
 
             for (int i = bucketWriters.size(); i <= pageIndexer.getMaxIndex(); i++) {
                 bucketWriters.add(new Int2ObjectOpenHashMap<>());
@@ -418,11 +404,7 @@ public class HivePageSink
                         throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, "Too many open writers for partitions and buckets");
                     }
                     bucketWriterCount++;
-                    for (int field = 0; field < partitionBlocks.length; field++) {
-                        Object value = getField(partitionColumnTypes.get(field), partitionBlocks[field], position);
-                        partitionRow.set(field, value);
-                    }
-                    writer = createWriter(partitionRow, computeBucketedFileName(filePrefix, bucket));
+                    writer = createWriter(partitionColumns, position, OptionalInt.of(bucket));
                     writers.put(bucket, writer);
                 }
 
@@ -437,13 +419,17 @@ public class HivePageSink
         return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
     }
 
-    private HiveRecordWriter createWriter(List<Object> partitionRow, String fileName)
+    private HiveRecordWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
     {
-        checkArgument(partitionRow.size() == partitionColumnNames.size(), "size of partitionRow is different from partitionColumnNames");
+        String fileName;
+        if (bucketNumber.isPresent()) {
+            fileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt());
+        }
+        else {
+            fileName = filePrefix + "_" + randomUUID();
+        }
 
-        List<String> partitionValues = partitionRow.stream()
-                .map(value -> (value == null) ? HIVE_DEFAULT_DYNAMIC_PARTITION : value.toString())
-                .collect(toList());
+        List<String> partitionValues = toPartitionValues(partitionColumns, position);
 
         Optional<String> partitionName;
         if (!partitionColumnNames.isEmpty()) {
@@ -455,7 +441,7 @@ public class HivePageSink
 
         // attempt to get the existing partition (if this is an existing partitioned table)
         Optional<Partition> partition = Optional.empty();
-        if (!partitionRow.isEmpty() && table != null) {
+        if (!partitionValues.isEmpty() && table != null) {
             partition = pageSinkMetadataProvider.getPartition(partitionValues);
         }
 
@@ -500,7 +486,7 @@ public class HivePageSink
                     isNew = true;
                 }
                 else {
-                    if (bucketCount.isPresent()) {
+                    if (bucketNumber.isPresent()) {
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Can not insert into bucketed unpartitioned Hive table");
                     }
                     if (immutablePartitions) {
@@ -526,7 +512,7 @@ public class HivePageSink
         }
         else {
             // Write to: an existing partition in an existing partitioned table,
-            if (bucketCount.isPresent()) {
+            if (bucketNumber.isPresent()) {
                 throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Can not insert into existing partitions of bucketed Hive table");
             }
             if (immutablePartitions) {
@@ -586,6 +572,21 @@ public class HivePageSink
         }
     }
 
+    private List<String> toPartitionValues(Page partitionColumns, int position)
+    {
+        ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
+        for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
+            Object value = getField(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
+            if (value == null) {
+                partitionValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
+            }
+            else {
+                partitionValues.add(value.toString());
+            }
+        }
+        return partitionValues.build();
+    }
+
     private Block[] getDataBlocks(Page page)
     {
         Block[] blocks = new Block[dataColumnInputIndex.length];
@@ -596,14 +597,14 @@ public class HivePageSink
         return blocks;
     }
 
-    private Block[] getPartitionBlocks(Page page)
+    private static Page extractColumns(Page page, int[] columns)
     {
-        Block[] blocks = new Block[partitionColumnsInputIndex.length];
-        for (int i = 0; i < partitionColumnsInputIndex.length; i++) {
-            int dataColumn = partitionColumnsInputIndex[i];
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            int dataColumn = columns[i];
             blocks[i] = page.getBlock(dataColumn);
         }
-        return blocks;
+        return new Page(page.getPositionCount(), blocks);
     }
 
     @VisibleForTesting
