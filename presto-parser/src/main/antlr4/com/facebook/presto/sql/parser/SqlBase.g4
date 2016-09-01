@@ -260,6 +260,7 @@ primaryExpression
     : NULL                                                                           #nullLiteral
     | interval                                                                       #intervalLiteral
     | identifier STRING                                                              #typeConstructor
+    | DOUBLE_PRECISION STRING                                                        #typeConstructor
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
@@ -330,6 +331,7 @@ typeParameter
 baseType
     : TIME_WITH_TIME_ZONE
     | TIMESTAMP_WITH_TIME_ZONE
+    | DOUBLE_PRECISION
     | identifier
     ;
 
@@ -665,6 +667,10 @@ TIME_WITH_TIME_ZONE
 
 TIMESTAMP_WITH_TIME_ZONE
     : 'TIMESTAMP' WS 'WITH' WS 'TIME' WS 'ZONE'
+    ;
+
+DOUBLE_PRECISION
+    : 'DOUBLE' WS 'PRECISION'
     ;
 
 fragment EXPONENT
