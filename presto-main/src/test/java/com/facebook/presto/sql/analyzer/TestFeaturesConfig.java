@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.DISABLED;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
@@ -49,8 +48,7 @@ public class TestFeaturesConfig
                 .setLegacyArrayAgg(false)
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
-                .setRe2JDfaRetries(5)
-                .setResourceGroupManager(FILE_BASED_RESOURCE_GROUP_MANAGER));
+                .setRe2JDfaRetries(5));
     }
 
     @Test
@@ -73,7 +71,6 @@ public class TestFeaturesConfig
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
-                .put("resource-group-manager", "test")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental-syntax-enabled", "true")
@@ -92,7 +89,6 @@ public class TestFeaturesConfig
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
-                .put("resource-group-manager", "test")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -111,8 +107,7 @@ public class TestFeaturesConfig
                 .setLegacyArrayAgg(true)
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
-                .setRe2JDfaRetries(42)
-                .setResourceGroupManager("test");
+                .setRe2JDfaRetries(42);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
