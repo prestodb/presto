@@ -105,7 +105,7 @@ public interface ShardManager
     void createBuckets(long distributionId, int bucketCount);
 
     /**
-     * Get map of buckets to node identifiers for a table.
+     * Get map of buckets to node identifiers for a distribution.
      */
     Map<Integer, String> getBucketAssignments(long distributionId);
 
