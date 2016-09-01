@@ -22,16 +22,16 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class HiveWriter
 {
-    private final HiveRecordWriter hiveRecordWriter;
+    private final HiveFileWriter fileWriter;
     private final Optional<String> partitionName;
     private final boolean isNew;
     private final String fileName;
     private final String writePath;
     private final String targetPath;
 
-    public HiveWriter(HiveRecordWriter hiveRecordWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath)
+    public HiveWriter(HiveFileWriter fileWriter, Optional<String> partitionName, boolean isNew, String fileName, String writePath, String targetPath)
     {
-        this.hiveRecordWriter = hiveRecordWriter;
+        this.fileWriter = fileWriter;
         this.partitionName = partitionName;
         this.isNew = isNew;
         this.fileName = fileName;
@@ -41,17 +41,17 @@ public class HiveWriter
 
     public void append(Page dataPage)
     {
-        hiveRecordWriter.appendRows(dataPage);
+        fileWriter.appendRows(dataPage);
     }
 
     public void commit()
     {
-        hiveRecordWriter.commit();
+        fileWriter.commit();
     }
 
     public void rollback()
     {
-        hiveRecordWriter.rollback();
+        fileWriter.rollback();
     }
 
     public PartitionUpdate getPartitionUpdate()
@@ -68,7 +68,7 @@ public class HiveWriter
     public String toString()
     {
         return toStringHelper(this)
-                .add("hiveRecordWriter", hiveRecordWriter)
+                .add("fileWriter", fileWriter)
                 .toString();
     }
 }

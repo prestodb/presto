@@ -21,10 +21,10 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
-import com.facebook.presto.hive.HiveRecordWriter;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveTypeTranslator;
+import com.facebook.presto.hive.RecordFileWriter;
 import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.benchmark.HiveFileFormatBenchmark.TestData;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
@@ -406,7 +406,7 @@ public enum FileFormat
             implements FormatWriter
     {
         private static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
-        private final HiveRecordWriter recordWriter;
+        private final RecordFileWriter recordWriter;
 
         public RecordFormatWriter(File targetFile,
                 List<String> columnNames,
@@ -417,13 +417,13 @@ public enum FileFormat
             JobConf config = new JobConf(conf);
             configureCompression(config, compressionCodec);
 
-            recordWriter = new HiveRecordWriter(
+            recordWriter = new RecordFileWriter(
                     new Path(targetFile.toURI()),
                     columnNames,
                     fromHiveStorageFormat(format),
                     createSchema(format, columnNames, columnTypes),
-                    TYPE_MANAGER,
-                    config);
+                    config,
+                    TYPE_MANAGER);
         }
 
         @Override

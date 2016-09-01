@@ -76,6 +76,7 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenCol
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveDataStreamFactories;
+import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static com.facebook.presto.hive.HiveTestUtils.getDefaultHiveRecordCursorProvider;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -198,7 +199,15 @@ public abstract class AbstractTestHiveClientS3
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled());
-        pageSinkProvider = new HivePageSinkProvider(hdfsEnvironment, metastoreClient, new GroupByHashPageIndexerFactory(new JoinCompiler()), typeManager, new HiveClientConfig(), locationService, partitionUpdateCodec);
+        pageSinkProvider = new HivePageSinkProvider(
+                getDefaultHiveFileWriterFactories(hiveClientConfig),
+                hdfsEnvironment,
+                metastoreClient,
+                new GroupByHashPageIndexerFactory(new JoinCompiler()),
+                typeManager,
+                new HiveClientConfig(),
+                locationService,
+                partitionUpdateCodec);
         pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
     }
 

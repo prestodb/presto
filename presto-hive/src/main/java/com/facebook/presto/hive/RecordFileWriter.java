@@ -52,7 +52,8 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 
-public class HiveRecordWriter
+public class RecordFileWriter
+        implements HiveFileWriter
 {
     private final Path path;
     private final int fieldCount;
@@ -64,13 +65,13 @@ public class HiveRecordWriter
     private final Object row;
     private final FieldSetter[] setters;
 
-    public HiveRecordWriter(
+    public RecordFileWriter(
             Path path,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
-            TypeManager typeManager,
-            JobConf conf)
+            JobConf conf,
+            TypeManager typeManager)
     {
         this.path = requireNonNull(path, "path is null");
 
@@ -105,6 +106,7 @@ public class HiveRecordWriter
         }
     }
 
+    @Override
     public void appendRows(Page dataPage)
     {
         for (int position = 0; position < dataPage.getPositionCount(); position++) {
@@ -132,6 +134,7 @@ public class HiveRecordWriter
         }
     }
 
+    @Override
     public void commit()
     {
         try {
@@ -142,6 +145,7 @@ public class HiveRecordWriter
         }
     }
 
+    @Override
     public void rollback()
     {
         try {

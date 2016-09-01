@@ -26,6 +26,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -73,6 +74,7 @@ public class HiveWriterFactory
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
 
+    private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final String schemaName;
     private final String tableName;
 
@@ -99,6 +101,7 @@ public class HiveWriterFactory
     private final OptionalInt bucketCount;
 
     public HiveWriterFactory(
+            Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
             String tableName,
             boolean isCreateTable,
@@ -115,6 +118,7 @@ public class HiveWriterFactory
             boolean immutablePartitions,
             ConnectorSession session)
     {
+        this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
 
@@ -314,16 +318,36 @@ public class HiveWriterFactory
         validateSchema(partitionName, schema);
 
         String fileNameWithExtension = fileName + getFileExtension(conf, outputStorageFormat);
-        HiveRecordWriter hiveRecordWriter = new HiveRecordWriter(
-                new Path(write, fileNameWithExtension),
-                dataColumns.stream()
-                        .map(DataColumn::getName)
-                        .collect(toList()),
-                outputStorageFormat,
-                schema,
-                typeManager,
-                conf);
-        return new HiveWriter(hiveRecordWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString());
+
+        HiveFileWriter hiveFileWriter = null;
+        for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
+            Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+                    new Path(write, fileNameWithExtension),
+                    dataColumns.stream()
+                            .map(DataColumn::getName)
+                            .collect(toList()),
+                    outputStorageFormat,
+                    schema,
+                    conf,
+                    session);
+            if (fileWriter.isPresent()) {
+                hiveFileWriter = fileWriter.get();
+                break;
+            }
+        }
+
+        if (hiveFileWriter == null) {
+            hiveFileWriter = new RecordFileWriter(
+                    new Path(write, fileNameWithExtension),
+                    dataColumns.stream()
+                            .map(DataColumn::getName)
+                            .collect(toList()),
+                    outputStorageFormat,
+                    schema,
+                    conf,
+                    typeManager);
+        }
+        return new HiveWriter(hiveFileWriter, partitionName, isNew, fileNameWithExtension, write.toString(), target.toString());
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)

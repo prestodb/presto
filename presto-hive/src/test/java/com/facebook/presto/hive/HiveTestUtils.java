@@ -61,6 +61,12 @@ public final class HiveTestUtils
                 .build();
     }
 
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveClientConfig hiveClientConfig)
+    {
+        return ImmutableSet.<HiveFileWriterFactory>builder()
+                .build();
+    }
+
     public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();

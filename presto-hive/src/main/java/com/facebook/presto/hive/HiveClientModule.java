@@ -113,6 +113,8 @@ public class HiveClientModule
         pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
 
+        Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = Multibinder.newSetBinder(binder, HiveFileWriterFactory.class);
+
         binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
         newExporter(binder).export(PrestoS3FileSystemStats.class).as(generatedNameOf(PrestoS3FileSystem.class, connectorId));
     }

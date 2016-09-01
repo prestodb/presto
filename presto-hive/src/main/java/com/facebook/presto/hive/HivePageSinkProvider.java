@@ -23,17 +23,20 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSinkProvider
         implements ConnectorPageSinkProvider
 {
+    private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final HdfsEnvironment hdfsEnvironment;
     private final ExtendedHiveMetastore metastore;
     private final PageIndexerFactory pageIndexerFactory;
@@ -45,6 +48,7 @@ public class HivePageSinkProvider
 
     @Inject
     public HivePageSinkProvider(
+            Set<HiveFileWriterFactory> fileWriterFactories,
             HdfsEnvironment hdfsEnvironment,
             ExtendedHiveMetastore metastore,
             PageIndexerFactory pageIndexerFactory,
@@ -53,6 +57,7 @@ public class HivePageSinkProvider
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
+        this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         // TODO: this metastore should not have global cache
         // As a temporary workaround, always disable cache on the workers
@@ -84,6 +89,7 @@ public class HivePageSinkProvider
         OptionalInt bucketCount = handle.getBucketProperty().isPresent() ? OptionalInt.of(handle.getBucketProperty().get().getBucketCount()) : OptionalInt.empty();
 
         HiveWriterFactory writerFactory = new HiveWriterFactory(
+                fileWriterFactories,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 isCreateTable,
