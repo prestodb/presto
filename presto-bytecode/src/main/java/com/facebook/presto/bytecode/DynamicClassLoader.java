@@ -31,19 +31,14 @@ public class DynamicClassLoader
     private final ConcurrentMap<String, byte[]> pendingClasses = new ConcurrentHashMap<>();
     private final Map<Long, MethodHandle> callSiteBindings;
 
-    public DynamicClassLoader()
-    {
-        this(null);
-    }
-
     public DynamicClassLoader(ClassLoader parentClassLoader)
     {
-        this(parentClassLoader, ImmutableMap.<Long, MethodHandle>of());
+        this(parentClassLoader, ImmutableMap.of());
     }
 
     public DynamicClassLoader(ClassLoader parentClassLoader, Map<Long, MethodHandle> callSiteBindings)
     {
-        super(resolveClassLoader(parentClassLoader));
+        super(parentClassLoader);
         this.callSiteBindings = ImmutableMap.copyOf(callSiteBindings);
     }
 
@@ -125,19 +120,5 @@ public class DynamicClassLoader
             resolveClass(clazz);
         }
         return clazz;
-    }
-
-    private static ClassLoader resolveClassLoader(ClassLoader parentClassLoader)
-    {
-        if (parentClassLoader == null) {
-            parentClassLoader = Thread.currentThread().getContextClassLoader();
-        }
-        if (parentClassLoader == null) {
-            parentClassLoader = DynamicClassLoader.class.getClassLoader();
-        }
-        if (parentClassLoader == null) {
-            parentClassLoader = ClassLoader.getSystemClassLoader();
-        }
-        return parentClassLoader;
     }
 }
