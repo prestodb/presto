@@ -13,9 +13,11 @@ Except for the limit on queued queries, when a resource group runs out of a reso
 it does not cause running queries to fail; instead new queries become queued.
 A resource group may have sub groups or may accept queries, but may not do both.
 
-The resource groups and associated selection rules are defined in a JSON file
-The filename of the JSON config file is specified with the
-``resource-groups.config-file`` config property.
+The resource groups and associated selection rules are configured by a manager which is pluggable.
+An implementation that uses a static file can be installed via the ``presto-resource-group-managers``
+plugin and enabled by adding ``resource-groups.configuration-manager=file`` to
+``etc/resource-groups.properties`` and setting ``resource-groups.config-file`` to the
+location of a JSON config file with the properties described below.
 
 Resource Group Properties
 -------------------------
