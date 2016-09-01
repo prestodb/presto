@@ -515,7 +515,7 @@ public final class ExpressionTreeRewriter<C>
                     if (start.getValue().isPresent()) {
                         Expression value = rewrite(start.getValue().get(), context.get());
                         if (value != start.getValue().get()) {
-                            start = new FrameBound(start.getType(), value);
+                            start = new FrameBound(start.getType(), value, start.getOriginalValue().get());
                         }
                     }
 
@@ -525,7 +525,8 @@ public final class ExpressionTreeRewriter<C>
                         if (value.isPresent()) {
                             Expression rewrittenValue = rewrite(value.get(), context.get());
                             if (rewrittenValue != value.get()) {
-                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
+                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(),
+                                        rewrittenValue, rewrittenEnd.get().getOriginalValue().get()));
                             }
                         }
                     }

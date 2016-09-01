@@ -76,8 +76,11 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -623,7 +626,12 @@ public class PlanPrinter
 
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 FunctionCall call = entry.getValue().getFunctionCall();
-                print(indent + 2, "%s := %s(%s)", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()));
+                String frameInfo = call.getWindow()
+                        .flatMap(Window::getFrame)
+                        .map(PlanPrinter::formatFrame)
+                        .orElse("");
+
+                print(indent + 2, "%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
             }
             return processChildren(node, indent + 1);
         }
@@ -1033,6 +1041,25 @@ public class PlanPrinter
         }
 
         return "[" + Joiner.on(", ").join(symbols) + "]";
+    }
+
+    private static String formatFrame(WindowFrame frame)
+    {
+        StringBuilder builder = new StringBuilder(frame.getType().toString());
+        FrameBound start = frame.getStart();
+        if (start.getValue().isPresent()) {
+            builder.append(" ").append(start.getOriginalValue().get());
+        }
+        builder.append(" ").append(start.getType());
+
+        Optional<FrameBound> end = frame.getEnd();
+        if (end.isPresent()) {
+            if (end.get().getOriginalValue().isPresent()) {
+                builder.append(" ").append(end.get().getOriginalValue().get());
+            }
+            builder.append(" ").append(end.get().getType());
+        }
+        return builder.toString();
     }
 
     private static String castToVarchar(Type type, Object value, Metadata metadata, Session session)
