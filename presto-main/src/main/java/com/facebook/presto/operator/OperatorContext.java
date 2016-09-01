@@ -468,6 +468,7 @@ public class OperatorContext
 
         private boolean closed;
         private long reservedBytes;
+        private long reservedRevocableBytes;
 
         public OperatorSystemMemoryContext(DriverContext driverContext)
         {
@@ -481,16 +482,37 @@ public class OperatorContext
             }
             closed = true;
             driverContext.freeSystemMemory(reservedBytes);
+            driverContext.freeRevocableSystemMemory(reservedRevocableBytes);
             reservedBytes = 0;
+            reservedRevocableBytes = 0;
         }
 
         @Override
         protected void updateBytes(long bytes, boolean revocable)
         {
-            if (revocable) {
-                throw new IllegalArgumentException("revocable memory not yet supported");
-            }
             checkState(!closed);
+            if (revocable) {
+                updateRevocableBytes(bytes);
+            }
+            else {
+                updateNonRevocableBytes(bytes);
+            }
+        }
+
+        private void updateRevocableBytes(long bytes)
+        {
+            if (bytes > 0) {
+                driverContext.reserveRevocableSystemMemory(bytes);
+            }
+            else {
+                checkArgument(reservedRevocableBytes + bytes >= 0, "tried to free %s bytes of revocable system memory from %s bytes reserved", -bytes, reservedRevocableBytes);
+                driverContext.freeRevocableSystemMemory(-bytes);
+            }
+            reservedRevocableBytes += bytes;
+        }
+
+        private void updateNonRevocableBytes(long bytes)
+        {
             if (bytes > 0) {
                 driverContext.reserveSystemMemory(bytes);
             }
@@ -506,11 +528,17 @@ public class OperatorContext
             return reservedBytes;
         }
 
+        public long getReservedRevocableBytes()
+        {
+            return reservedRevocableBytes;
+        }
+
         @Override
         public String toString()
         {
             return toStringHelper(this)
                     .add("usedBytes", reservedBytes)
+                    .add("usedRevocableBytes", reservedRevocableBytes)
                     .add("closed", closed)
                     .toString();
         }

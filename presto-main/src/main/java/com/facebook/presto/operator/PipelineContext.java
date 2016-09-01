@@ -62,6 +62,7 @@ public class PipelineContext
 
     private final AtomicLong memoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
+    private final AtomicLong revocableSystemMemoryReservation = new AtomicLong();
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
@@ -229,6 +230,13 @@ public class PipelineContext
         return future;
     }
 
+    public synchronized ListenableFuture<?> reserveRevocableSystemMemory(long bytes)
+    {
+        ListenableFuture<?> future = taskContext.reserveRevocableSystemMemory(bytes);
+        revocableSystemMemoryReservation.getAndAdd(bytes);
+        return future;
+    }
+
     public synchronized boolean tryReserveMemory(long bytes)
     {
         if (taskContext.tryReserveMemory(bytes)) {
@@ -252,6 +260,14 @@ public class PipelineContext
         checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more system memory than is reserved");
         taskContext.freeSystemMemory(bytes);
         systemMemoryReservation.getAndAdd(-bytes);
+    }
+
+    public synchronized void freeRevocableSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes <= revocableSystemMemoryReservation.get(), "tried to free more revocable system memory than is reserved");
+        taskContext.freeRevocableSystemMemory(bytes);
+        revocableSystemMemoryReservation.getAndAdd(-bytes);
     }
 
     public void moreMemoryAvailable()
@@ -424,7 +440,7 @@ public class PipelineContext
                 completedDrivers,
 
                 succinctBytes(memoryReservation.get()),
-                succinctBytes(systemMemoryReservation.get()),
+                succinctBytes(systemMemoryReservation.get() + revocableSystemMemoryReservation.get()),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),
