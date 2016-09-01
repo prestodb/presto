@@ -22,7 +22,7 @@ public abstract class AbstractAggregatedMemoryContext
     // are refactored, there will be only one implementation of this abstract class, and this class
     // can be removed.
 
-    protected abstract void updateBytes(long bytes);
+    protected abstract void updateBytes(long bytes, boolean revocable);
 
     public AggregatedMemoryContext newAggregatedMemoryContext()
     {

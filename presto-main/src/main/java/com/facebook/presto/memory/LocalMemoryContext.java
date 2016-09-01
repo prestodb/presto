@@ -20,6 +20,7 @@ public class LocalMemoryContext
 {
     private final AbstractAggregatedMemoryContext parentMemoryContext;
     private long usedBytes;
+    private long usedRevocableBytes;
 
     public LocalMemoryContext(AbstractAggregatedMemoryContext parentMemoryContext)
     {
@@ -31,11 +32,23 @@ public class LocalMemoryContext
         return usedBytes;
     }
 
+    public long getRevocableBytes()
+    {
+        return usedRevocableBytes;
+    }
+
     public void setBytes(long bytes)
     {
         long oldLocalUsedBytes = this.usedBytes;
         this.usedBytes = bytes;
-        parentMemoryContext.updateBytes(this.usedBytes - oldLocalUsedBytes);
+        parentMemoryContext.updateBytes(this.usedBytes - oldLocalUsedBytes, false);
+    }
+
+    public void setRevocableBytes(long bytes)
+    {
+        long oldLocalUsedBytes = this.usedRevocableBytes;
+        this.usedRevocableBytes = bytes;
+        parentMemoryContext.updateBytes(this.usedRevocableBytes - oldLocalUsedBytes, true);
     }
 
     @Override
@@ -43,6 +56,7 @@ public class LocalMemoryContext
     {
         return toStringHelper(this)
                 .add("usedBytes", usedBytes)
+                .add("usedRevocableBytes", usedRevocableBytes)
                 .toString();
     }
 }
