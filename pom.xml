@@ -46,7 +46,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.135</dep.airlift.version>
+        <dep.airlift.version>0.136</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.24</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
@@ -637,7 +637,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.26</version>
+                <version>1.27</version>
             </dependency>
 
             <dependency>
