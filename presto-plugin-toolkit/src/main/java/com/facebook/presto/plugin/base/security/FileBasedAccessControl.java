@@ -187,7 +187,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
         if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
@@ -195,7 +195,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
         if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
             denyRevokeTablePrivilege(privilege.name(), tableName.toString());

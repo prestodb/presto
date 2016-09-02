@@ -94,12 +94,12 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
     {
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
     {
     }
 

@@ -191,7 +191,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
         if (checkTablePermission(identity, tableName, OWNERSHIP)) {
             return;
@@ -204,7 +204,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
         if (checkTablePermission(identity, tableName, OWNERSHIP)) {
             return;

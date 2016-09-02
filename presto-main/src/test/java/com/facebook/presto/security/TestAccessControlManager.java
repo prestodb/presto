@@ -314,13 +314,13 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
