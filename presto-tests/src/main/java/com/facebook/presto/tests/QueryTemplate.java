@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class QueryTemplate
@@ -27,11 +28,18 @@ public class QueryTemplate
 
     public QueryTemplate(String queryTemplate, Parameter... parameters)
     {
+        for (Parameter parameter : parameters) {
+            String queryParameterKey = asQueryParameterKey(parameter.getKey());
+            checkArgument(
+                    queryTemplate.contains(queryParameterKey),
+                    "Query template does not contain: %s", queryParameterKey);
+        }
+
         this.queryTemplate = queryTemplate;
         this.defaultParameters = ImmutableList.copyOf(parameters);
     }
 
-    public String resolve(Parameter ... parameters)
+    public String resolve(Parameter... parameters)
     {
         String query = queryTemplate;
         for (Parameter parameter : parameters) {
@@ -46,7 +54,12 @@ public class QueryTemplate
 
     private String resolve(String query, String key, String value)
     {
-        return query.replaceAll("%" + key + "%", value);
+        return query.replaceAll(asQueryParameterKey(key), value);
+    }
+
+    private String asQueryParameterKey(String key)
+    {
+        return "%" + key + "%";
     }
 
     public static final class Parameter
