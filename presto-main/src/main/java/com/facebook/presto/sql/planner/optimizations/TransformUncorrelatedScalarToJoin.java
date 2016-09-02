@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -81,6 +82,10 @@ public class TransformUncorrelatedScalarToJoin
 
             if (isScalarAggregation(node)) {
                 return true;
+            }
+
+            if (node instanceof ValuesNode) {
+                return ((ValuesNode) node).getRows().size() == 1;
             }
 
             return false;
