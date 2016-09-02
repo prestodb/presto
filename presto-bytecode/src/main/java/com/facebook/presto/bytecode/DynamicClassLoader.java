@@ -22,6 +22,7 @@ import com.google.common.collect.Sets.SetView;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -30,16 +31,27 @@ public class DynamicClassLoader
 {
     private final ConcurrentMap<String, byte[]> pendingClasses = new ConcurrentHashMap<>();
     private final Map<Long, MethodHandle> callSiteBindings;
+    private final Optional<ClassLoader> overrideClassLoader;
 
     public DynamicClassLoader(ClassLoader parentClassLoader)
     {
         this(parentClassLoader, ImmutableMap.of());
     }
 
+    // TODO: this is a hack that should be removed
+    @Deprecated
+    public DynamicClassLoader(ClassLoader overrideClassLoader, ClassLoader parentClassLoader)
+    {
+        super(parentClassLoader);
+        this.callSiteBindings = ImmutableMap.of();
+        this.overrideClassLoader = Optional.of(overrideClassLoader);
+    }
+
     public DynamicClassLoader(ClassLoader parentClassLoader, Map<Long, MethodHandle> callSiteBindings)
     {
         super(parentClassLoader);
         this.callSiteBindings = ImmutableMap.copyOf(callSiteBindings);
+        this.overrideClassLoader = Optional.empty();
     }
 
     public Class<?> defineClass(String className, byte[] bytecode)
@@ -107,6 +119,15 @@ public class DynamicClassLoader
             }
             catch (ClassNotFoundException ignored) {
                 // not a local class
+            }
+
+            if (overrideClassLoader.isPresent()) {
+                try {
+                    return resolveClass(overrideClassLoader.get().loadClass(name), resolve);
+                }
+                catch (ClassNotFoundException e) {
+                    // not in override loader
+                }
             }
 
             Class<?> clazz = getParent().loadClass(name);
