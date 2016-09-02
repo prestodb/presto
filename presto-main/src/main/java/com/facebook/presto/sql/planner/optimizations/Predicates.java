@@ -11,25 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.tree;
 
-/**
- * When walking Expressions, don't traverse into SubqueryExpressions
- */
-public abstract class DefaultExpressionTraversalVisitor<R, C>
-        extends DefaultTraversalVisitor<R, C>
+package com.facebook.presto.sql.planner.optimizations;
+
+import java.util.function.Predicate;
+
+public class Predicates
 {
-    @Override
-    protected R visitSubqueryExpression(SubqueryExpression node, C context)
+    private Predicates() {}
+
+    public static Predicate isInstanceOfAny(Class... classes)
     {
-        // Don't traverse into Subqueries within an Expression
-        return null;
+        Predicate predicate = alwaysFalse();
+        for (Class clazz : classes) {
+            predicate = predicate.or(clazz::isInstance);
+        }
+        return predicate;
     }
 
-    @Override
-    protected R visitExists(ExistsPredicate node, C context)
+    public static <T> Predicate<T> alwaysTrue()
     {
-        // Don't traverse into Subqueries within an Expression
-        return null;
+        return x -> true;
+    }
+
+    public static <T> Predicate<T> alwaysFalse()
+    {
+        return x -> false;
     }
 }

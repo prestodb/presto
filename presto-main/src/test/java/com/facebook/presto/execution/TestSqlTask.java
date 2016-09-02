@@ -292,7 +292,7 @@ public class TestSqlTask
 
     public SqlTask createInitialTask()
     {
-        TaskId taskId = new TaskId("query", "stage", nextTaskId.incrementAndGet());
+        TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
 
         return new SqlTask(

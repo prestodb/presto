@@ -46,7 +46,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -2394,16 +2393,16 @@ public abstract class AbstractTestQueries
         QueryTemplate.Parameter twoDuplicatedInSubqueriesCondition = condition.of(
                 "(x in (VALUES 1,2,3)) = (y in (VALUES 1,2,3)) AND (x in (VALUES 1,2,4)) = (y in (VALUES 1,2,4))");
         assertQuery(
-                queryTemplate.resolve(twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) = (y in (VALUES 3))")),
+                queryTemplate.replace(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) = (y in (VALUES 3))")),
                 "VALUES (2,2), (2,1), (3,5), (4,5)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))")),
+                queryTemplate.replace(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))")),
                 "VALUES (1,2), (1,1), (3, 3), (4,3)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))")),
+                queryTemplate.replace(condition.of("(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))")),
                 "VALUES (2,3), (2,5), (3, 2), (4,2)");
 
         QueryTemplate.Parameter left = type.of("left");
@@ -2412,19 +2411,19 @@ public abstract class AbstractTestQueries
         for (QueryTemplate.Parameter joinType : ImmutableList.of(left, right, full)) {
             for (String joinCondition : ImmutableList.of("x IN (VALUES 1)", "y in (VALUES 1)")) {
                 assertQueryFails(
-                        queryTemplate.resolve(joinType, condition.of(joinCondition)),
+                        queryTemplate.replace(joinType, condition.of(joinCondition)),
                         ".*IN with subquery predicate in join condition is not supported");
             }
         }
 
         assertQuery(
-                queryTemplate.resolve(left, twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(left, twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null)");
         assertQuery(
-                queryTemplate.resolve(right, twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(right, twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (null, 5)");
         assertQuery(
-                queryTemplate.resolve(full, twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(full, twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null), (null, 5)");
     }
 
@@ -2440,21 +2439,21 @@ public abstract class AbstractTestQueries
                 condition);
 
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4))")),
                 "VALUES (1,3), (2,2), (3,1)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4)) AND (x*y in (VALUES 4,5))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4)) AND (x*y in (VALUES 4,5))")),
                 "VALUES (2,2)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4,5)) AND (x*y IN (VALUES 4,5))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4,5)) AND (x*y IN (VALUES 4,5))")),
                 "VALUES (4,1), (2,2)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
                 "VALUES (4,1)");
 
         for (QueryTemplate.Parameter joinType : ImmutableList.of(type.of("left"), type.of("right"), type.of("full"))) {
             assertQueryFails(
-                    queryTemplate.resolve(
+                    queryTemplate.replace(
                             joinType,
                             condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
                     ".*IN with subquery predicate in join condition is not supported");
@@ -2462,40 +2461,54 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOuterJoinWithComplexCorrelatedSubquery()
+            throws Exception
+    {
+        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type");
+        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
+        QueryTemplate queryTemplate = new QueryTemplate(
+                "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
+                type,
+                condition);
+
+        queryTemplate.replaceAll(
+                (query) -> assertQueryFails(query, "line .*: .* is not supported"),
+                ImmutableList.of(type.of("left"), type.of("right"), type.of("full")),
+                ImmutableList.of(
+                        condition.of("EXISTS(SELECT 1 WHERE x = y)"),
+                        condition.of("(SELECT x = y)"),
+                        condition.of("true IN (SELECT x = y)")));
+    }
+
+    @Test
     public void testJoinWithMultipleScalarSubqueryClauses()
             throws Exception
     {
-        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
-                "FROM " +
-                "    (VALUES 1,2,3,4) t(x) " +
-                joinType + " JOIN " +
-                "    (VALUES 1,2,3,5) t2(y) " +
-                "  ON ";
+        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
+        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
+        QueryTemplate queryTemplate = new QueryTemplate(
+                "SELECT * " + "FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
+                type,
+                condition);
 
+        QueryTemplate.Parameter multipleScalarJoinCondition =
+                condition.of("(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))");
+        assertQuery(queryTemplate.replace(multipleScalarJoinCondition), "VALUES (1,2)");
         assertQuery(
-                queryPrefix.apply("")
-                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
-                "VALUES (1,2)");
-        assertQuery(
-                queryPrefix.apply("")
-                        + "(x = (VALUES 2)) = (y > (VALUES 0)) AND (x > (VALUES 1)) = (y < (VALUES 3))",
+                queryTemplate.replace(condition.of("(x = (VALUES 2)) = (y > (VALUES 0)) AND (x > (VALUES 1)) = (y < (VALUES 3))")),
                 "VALUES (2,2), (2,1)");
         assertQuery(
-                queryPrefix.apply("")
-                        + "(x = (VALUES 1)) = (y = (VALUES 1)) AND (x = (SELECT 2)) != (y = (SELECT 3))",
+                queryTemplate.replace(condition.of("(x = (VALUES 1)) = (y = (VALUES 1)) AND (x = (SELECT 2)) != (y = (SELECT 3))")),
                 "VALUES (2,5), (2,2), (3,3), (4,3)");
 
         assertQuery(
-                queryPrefix.apply("left")
-                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                queryTemplate.replace(type.of("left"), multipleScalarJoinCondition),
                 "VALUES (1,2), (2,null), (3, null), (4, null)");
         assertQuery(
-                queryPrefix.apply("right")
-                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                queryTemplate.replace(type.of("right"), multipleScalarJoinCondition),
                 "VALUES (1,2), (null,1), (null, 3), (null, 5)");
         assertQuery(
-                queryPrefix.apply("full")
-                        + "(x = (VALUES 1)) AND (y = (VALUES 2)) AND (x in (VALUES 2)) = (y in (VALUES 1))",
+                queryTemplate.replace(type.of("full"), multipleScalarJoinCondition),
                 "VALUES (1,2), (2,null), (3, null), (4, null), (null,1), (null, 3), (null, 5)");
     }
 
@@ -2503,51 +2516,45 @@ public abstract class AbstractTestQueries
     public void testJoinWithScalarSubqueryToBeExecutedAsPostJoinFilter()
             throws Exception
     {
-        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
-                "FROM " +
-                "    (VALUES 1,2,3,4) t(x) " +
-                joinType + " JOIN " +
-                "    (VALUES 1,2,3,5) t2(y) " +
-                "  ON ";
+        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
+        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
+        QueryTemplate queryTemplate = new QueryTemplate(
+                "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
+                type,
+                condition);
 
+        QueryTemplate.Parameter xPlusYEqualsSubqueryJoinCondition = condition.of("(x+y = (SELECT 4))");
         assertQuery(
-                queryPrefix.apply("") + " (x+y = (SELECT 4))",
+                queryTemplate.replace(xPlusYEqualsSubqueryJoinCondition),
                 "VALUES (1,3), (2,2), (3,1)");
-        assertQuery(
-                queryPrefix.apply("") + "(x+y = (VALUES 4)) AND (x*y = (VALUES 4))",
-                "VALUES (2,2)");
+        assertQuery(queryTemplate.replace(condition.of("(x+y = (VALUES 4)) AND (x*y = (VALUES 4))")), "VALUES (2,2)");
 
         // all combination of duplicated subquery
         assertQuery(
-                queryPrefix.apply("")
-                        + "x+y > (VALUES 3) AND (x = (VALUES 3)) != (y = (VALUES 3))",
+                queryTemplate.replace(condition.of("x+y > (VALUES 3) AND (x = (VALUES 3)) != (y = (VALUES 3))")),
                 "VALUES (3,1), (3,2), (1,3), (2,3), (4,3), (3,5)");
         assertQuery(
-                queryPrefix.apply("")
-                        + "x+y >= (VALUES 5) AND (x = (VALUES 3)) != (y = (VALUES 3))",
+                queryTemplate.replace(condition.of("x+y >= (VALUES 5) AND (x = (VALUES 3)) != (y = (VALUES 3))")),
                 "VALUES (3,2), (2,3), (4,3), (3,5)");
         assertQuery(
-                queryPrefix.apply("")
-                        + "x+y >= (VALUES 3) AND (x = (VALUES 5)) != (y = (VALUES 3))",
+                queryTemplate.replace(condition.of("x+y >= (VALUES 3) AND (x = (VALUES 5)) != (y = (VALUES 3))")),
                 "VALUES (1,3), (2,3), (3,3), (4,3)");
         assertQuery(
-                queryPrefix.apply("")
-                        + "x+y >= (VALUES 3) AND (x = (VALUES 3)) != (y = (VALUES 5))",
+                queryTemplate.replace(condition.of("x+y >= (VALUES 3) AND (x = (VALUES 3)) != (y = (VALUES 5))")),
                 "VALUES (3,1), (3,2), (3,3), (1,5), (2,5), (4,5)");
         assertQuery(
-                queryPrefix.apply("")
-                        + "x+y >= (VALUES 4) AND (x = (VALUES 3)) != (y = (VALUES 5))",
+                queryTemplate.replace(condition.of("x+y >= (VALUES 4) AND (x = (VALUES 3)) != (y = (VALUES 5))")),
                 "VALUES (3,1), (3,2), (3,3), (1,5), (2,5), (4,5)");
 
         // non inner joins
         assertQuery(
-                queryPrefix.apply("left") + " (x+y = (SELECT 4))",
+                queryTemplate.replace(type.of("left"), xPlusYEqualsSubqueryJoinCondition),
                 "VALUES (1,3), (2,2), (3,1), (4, null)");
         assertQuery(
-                queryPrefix.apply("right") + " (x+y = (SELECT 4))",
+                queryTemplate.replace(type.of("right"), xPlusYEqualsSubqueryJoinCondition),
                 "VALUES (1,3), (2,2), (3,1), (null, 5)");
         assertQuery(
-                queryPrefix.apply("full") + " (x+y = (SELECT 4))",
+                queryTemplate.replace(type.of("full"), xPlusYEqualsSubqueryJoinCondition),
                 "VALUES (1,3), (2,2), (3,1), (4, null), (null, 5)");
     }
 
@@ -2556,30 +2563,21 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         String noOutputQuery = "SELECT 1 WHERE false";
-        Function<String, String> queryPrefix = (String joinType) -> "SELECT * " +
-                "FROM " +
-                "    (" + noOutputQuery + ") t(x) " +
-                joinType + " JOIN " +
-                "    (VALUES 1) t2(y) " +
-                "  ON ";
+        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
+        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
+        QueryTemplate queryTemplate = new QueryTemplate(
+                "SELECT * FROM (" + noOutputQuery + ") t(x) %type% JOIN (VALUES 1) t2(y) ON %condition%",
+                type,
+                condition);
 
-        assertQuery(
-                queryPrefix.apply("") + " (x+y = (SELECT 4))",
-                noOutputQuery);
-        assertQuery(
-                queryPrefix.apply("") + "(x+y = (VALUES 4)) AND (x*y = (VALUES 4))",
-                noOutputQuery);
+        QueryTemplate.Parameter xPlusYEqualsSubqueryJoinCondition = condition.of("(x+y = (SELECT 4))");
+        assertQuery(queryTemplate.replace(xPlusYEqualsSubqueryJoinCondition), noOutputQuery);
+        assertQuery(queryTemplate.replace(condition.of("(x+y = (VALUES 4)) AND (x*y = (VALUES 4))")), noOutputQuery);
 
         // non inner joins
-        assertQuery(
-                queryPrefix.apply("left") + " (x+y = (SELECT 4))",
-                noOutputQuery);
-        assertQuery(
-                queryPrefix.apply("right") + " (x+y = (SELECT 4))",
-                "VALUES (null,1)");
-        assertQuery(
-                queryPrefix.apply("full") + " (x+y = (SELECT 4))",
-                "VALUES (null,1)");
+        assertQuery(queryTemplate.replace(xPlusYEqualsSubqueryJoinCondition, type.of("left")), noOutputQuery);
+        assertQuery(queryTemplate.replace(xPlusYEqualsSubqueryJoinCondition, type.of("right")), "VALUES (null,1)");
+        assertQuery(queryTemplate.replace(xPlusYEqualsSubqueryJoinCondition, type.of("full")), "VALUES (null,1)");
     }
 
     @Test
@@ -6014,7 +6012,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCorrelatedScalarSubqueries()
     {
-        String errorMsg = "Correlated subquery is not yet supported";
+        String errorMsg = "Unsupported correlated subquery type";
 
         assertQueryFails("SELECT (SELECT l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
@@ -6038,9 +6036,110 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCorrelatedScalarSubqueriesWithCountScalarAggregationAndEqualityPredicatesInWhere()
+            throws Exception
+    {
+        assertQuery("SELECT (SELECT count(*) WHERE o.orderkey = 1) FROM orders o");
+        assertQuery("SELECT count(*) FROM orders o WHERE 1 = (SELECT count(*) WHERE o.orderkey = 0)");
+        assertQuery("SELECT * FROM orders o ORDER BY (SELECT count(*) WHERE o.orderkey = 0)");
+
+        // with duplicated rows
+        assertQuery(
+                "SELECT (SELECT count(*) WHERE a = 1) FROM (VALUES 1, 1, 2, 3) t(a)",
+                "VALUES true, true, false, false");
+
+        // group by
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey, (SELECT count(*) WHERE o.orderkey = 0) " +
+                        "FROM orders o GROUP BY o.orderkey");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey " +
+                        "FROM orders o GROUP BY o.orderkey HAVING 1 = (SELECT count(*) WHERE o.orderkey = 0)");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, (SELECT count(*) WHERE o.orderkey = 0)");
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE 1 = (SELECT * FROM (SELECT (SELECT count(*) WHERE o.orderkey = 0)))",
+                "SELECT count(*) FROM orders o WHERE o.orderkey = 0");
+    }
+
+    @Test
+    public void testCorrelatedScalarSubqueriesWithScalarAggregation()
+            throws Exception
+    {
+        // projection
+        assertQuery(
+                "SELECT (SELECT round(3 * avg(i.a)) FROM (VALUES 1, 1, 1, 2, 2, 3, 4) i(a) WHERE i.a < o.a AND i.a < 4) " +
+                        "FROM (VALUES 0, 3, 3, 5) o(a)",
+                "VALUES null, 4, 4, 5");
+
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT avg(i.orderkey) FROM orders i " +
+                        "WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) > 100",
+                "VALUES 14999"); // h2 is slow
+
+        // order by
+        assertQuery(
+                "SELECT orderkey FROM orders o ORDER BY " +
+                        "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)");
+
+        // group by
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey, " +
+                        "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
+                        "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1, 40000.0)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey " +
+                        "FROM orders o " +
+                        "GROUP BY o.orderkey " +
+                        "HAVING 40000 < (SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-07-24', 20000)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, (SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1)"); // h2 is slow
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE 100 < (SELECT * " +
+                        "FROM (SELECT (SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)))",
+                "VALUES 14999"); // h2 is slow
+    }
+
+    @Test
     public void testCorrelatedInPredicateSubqueries()
     {
-        String errorMsg = "Correlated subquery is not yet supported";
+        String errorMsg = "Unsupported correlated subquery type";
 
         assertQueryFails("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
@@ -6091,24 +6190,154 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testCorrelatedExistsSubqueries()
+    public void testCorrelatedExistsSubqueriesWithEqualityPredicatesInWhere()
+            throws Exception
     {
-        String errorMsg = "Correlated subquery is not yet supported";
+        assertQuery("SELECT EXISTS(SELECT 1 WHERE o.orderkey = 1) FROM orders o");
+        assertQuery("SELECT EXISTS(SELECT null WHERE o.orderkey = 1) FROM orders o");
+        assertQuery("SELECT count(*) FROM orders o WHERE EXISTS(SELECT 1 WHERE o.orderkey = 0)");
+        assertQuery("SELECT * FROM orders o ORDER BY EXISTS(SELECT 1 WHERE o.orderkey = 0)");
 
-        assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+        // with duplicated rows
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 WHERE a = 1) FROM (VALUES 1, 1, 2, 3) t(a)",
+                "VALUES true, true, false, false");
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT 1 WHERE l.orderkey > 0) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT 1 WHERE l.orderkey > 0)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey, EXISTS(SELECT 1 WHERE o.orderkey = 0) " +
+                        "FROM orders o GROUP BY o.orderkey");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey " +
+                        "FROM orders o GROUP BY o.orderkey HAVING EXISTS (SELECT 1 WHERE o.orderkey = 0)");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey " +
+                        "FROM orders o GROUP BY o.orderkey, EXISTS (SELECT 1 WHERE o.orderkey = 0)");
 
         // join
-        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON NOT EXISTS(SELECT 1 WHERE l1.orderkey = l2.orderkey)", errorMsg);
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT EXISTS(SELECT 1 WHERE o1.orderkey = o2.orderkey)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT EXISTS(SELECT 1 WHERE o1.orderkey = o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
 
         // subrelation
-        assertQueryFails("SELECT count(*) FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0)))", errorMsg);
+        assertQuery(
+                "SELECT count(*) FROM orders o WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE o.orderkey = 0)))",
+                "SELECT count(*) FROM orders o WHERE o.orderkey = 0");
+    }
+
+    @Test
+    public void testCorrelatedExistsSubqueries()
+            throws Exception
+    {
+        String errorMsg = "Unsupported correlated subquery type";
+
+        // projection
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES 1, 1, 1, 2, 2, 3, 4) i(a) WHERE i.a < o.a AND i.a < 4) " +
+                        "FROM (VALUES 0, 3, 3, 5) o(a)",
+                "VALUES false, true, true, true");
+
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 1000 = 0)",
+                "VALUES 14999"); // h2 is slow
+
+        // order by
+        assertQuery(
+                "SELECT orderkey FROM orders o ORDER BY " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "LIMIT 1",
+                "VALUES 60000"); // h2 is slow
+
+        // group by
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey, " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
+                        "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1, true)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey " +
+                        "FROM orders o " +
+                        "GROUP BY o.orderkey " +
+                        "HAVING EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1)"); // h2 is slow
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)))",
+                "VALUES 14999"); // h2 is slow
+    }
+
+    @Test
+    public void testUnsupportedCorrelatedExistsSubqueries()
+    {
+        String errorMsg = "Unsupported correlated subquery type";
+
+        assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l", errorMsg);
+        assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
+
+        // group by
+        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l GROUP BY l.orderkey", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
+
+        // join
+        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON NOT EXISTS(SELECT 1 WHERE l1.orderkey != l2.orderkey OR l1.orderkey = 3)", errorMsg);
+
+        // subrelation
+        assertQueryFails("SELECT count(*) FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)))", errorMsg);
+    }
+
+    @Test
+    public void testTwoCorrelatedExistsSubqueries()
+            throws Exception
+    {
+        // This is simpliefied TPC-H q21
+        assertQuery("SELECT\n" +
+                "  count(*) AS numwait\n" +
+                "FROM\n" +
+                "  orders l1\n" +
+                "WHERE\n" +
+                "  EXISTS(\n" +
+                "    SELECT *\n" +
+                "    FROM\n" +
+                "      orders l2\n" +
+                "    WHERE\n" +
+                "      l2.orderkey = l1.orderkey\n" +
+                "  )\n" +
+                "  AND NOT EXISTS(\n" +
+                "    SELECT *\n" +
+                "    FROM\n" +
+                "      orders l3\n" +
+                "    WHERE\n" +
+                "      l3.orderkey = l1.orderkey\n" +
+                "  )\n",
+                "VALUES 0"); // EXISTS predicates are contradictory
     }
 
     @Test
