@@ -261,7 +261,7 @@ class SubqueryPlanner
         PlanNode subqueryNode = subqueryPlanner.apply(subquery);
 
         Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subqueryNode);
-        if (!correlationAllowed && correlation.isEmpty()) {
+        if (!correlationAllowed && !correlation.isEmpty()) {
             throwNotSupportedException(subquery, "Correlated subquery in given context");
         }
         subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
