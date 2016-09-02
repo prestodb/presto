@@ -39,7 +39,7 @@ public class QueryTemplate
         this.defaultParameters = ImmutableList.copyOf(parameters);
     }
 
-    public String resolve(Parameter... parameters)
+    public String replace(Parameter... parameters)
     {
         String query = queryTemplate;
         for (Parameter parameter : parameters) {
