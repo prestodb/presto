@@ -2394,16 +2394,16 @@ public abstract class AbstractTestQueries
         QueryTemplate.Parameter twoDuplicatedInSubqueriesCondition = condition.of(
                 "(x in (VALUES 1,2,3)) = (y in (VALUES 1,2,3)) AND (x in (VALUES 1,2,4)) = (y in (VALUES 1,2,4))");
         assertQuery(
-                queryTemplate.resolve(twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) = (y in (VALUES 3))")),
+                queryTemplate.replace(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) = (y in (VALUES 3))")),
                 "VALUES (2,2), (2,1), (3,5), (4,5)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))")),
+                queryTemplate.replace(condition.of("(x in (VALUES 1,2)) = (y in (VALUES 1,2)) AND (x in (VALUES 1)) != (y in (VALUES 3))")),
                 "VALUES (1,2), (1,1), (3, 3), (4,3)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))")),
+                queryTemplate.replace(condition.of("(x in (VALUES 1)) = (y in (VALUES 1)) AND (x in (SELECT 2)) != (y in (SELECT 2))")),
                 "VALUES (2,3), (2,5), (3, 2), (4,2)");
 
         QueryTemplate.Parameter left = type.of("left");
@@ -2412,19 +2412,19 @@ public abstract class AbstractTestQueries
         for (QueryTemplate.Parameter joinType : ImmutableList.of(left, right, full)) {
             for (String joinCondition : ImmutableList.of("x IN (VALUES 1)", "y in (VALUES 1)")) {
                 assertQueryFails(
-                        queryTemplate.resolve(joinType, condition.of(joinCondition)),
+                        queryTemplate.replace(joinType, condition.of(joinCondition)),
                         ".*IN with subquery predicate in join condition is not supported");
             }
         }
 
         assertQuery(
-                queryTemplate.resolve(left, twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(left, twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null)");
         assertQuery(
-                queryTemplate.resolve(right, twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(right, twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (null, 5)");
         assertQuery(
-                queryTemplate.resolve(full, twoDuplicatedInSubqueriesCondition),
+                queryTemplate.replace(full, twoDuplicatedInSubqueriesCondition),
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3), (4, null), (null, 5)");
     }
 
@@ -2440,21 +2440,21 @@ public abstract class AbstractTestQueries
                 condition);
 
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4))")),
                 "VALUES (1,3), (2,2), (3,1)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4)) AND (x*y in (VALUES 4,5))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4)) AND (x*y in (VALUES 4,5))")),
                 "VALUES (2,2)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4,5)) AND (x*y IN (VALUES 4,5))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4,5)) AND (x*y IN (VALUES 4,5))")),
                 "VALUES (4,1), (2,2)");
         assertQuery(
-                queryTemplate.resolve(condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
+                queryTemplate.replace(condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
                 "VALUES (4,1)");
 
         for (QueryTemplate.Parameter joinType : ImmutableList.of(type.of("left"), type.of("right"), type.of("full"))) {
             assertQueryFails(
-                    queryTemplate.resolve(
+                    queryTemplate.replace(
                             joinType,
                             condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
                     ".*IN with subquery predicate in join condition is not supported");
