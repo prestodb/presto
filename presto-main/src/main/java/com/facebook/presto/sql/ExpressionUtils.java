@@ -154,11 +154,6 @@ public final class ExpressionUtils
         return conjuncts.isEmpty() ? emptyDefault : and(conjuncts);
     }
 
-    public static Expression combineDisjuncts(Expression... expressions)
-    {
-        return combineDisjuncts(Arrays.asList(expressions));
-    }
-
     public static Expression combineDisjuncts(Collection<Expression> expressions)
     {
         return combineDisjunctsWithDefault(expressions, FALSE_LITERAL);
