@@ -45,9 +45,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeJsonUtils
@@ -284,6 +286,9 @@ public final class TypeJsonUtils
         else if (javaType == long.class) {
             if (element instanceof SqlDecimal) {
                 type.writeLong(blockBuilder, ((SqlDecimal) element).getUnscaledValue().longValue());
+            }
+            else if (REAL.equals(type)) {
+                type.writeLong(blockBuilder, floatToRawIntBits(((Number) element).floatValue()));
             }
             else {
                 type.writeLong(blockBuilder, ((Number) element).longValue());

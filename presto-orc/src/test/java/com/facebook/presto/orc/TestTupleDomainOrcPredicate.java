@@ -42,18 +42,22 @@ import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
 import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
 
 public class TestTupleDomainOrcPredicate
 {
     private static final Type SHORT_DECIMAL = createDecimalType(5, 2);
     private static final Type LONG_DECIMAL = createDecimalType(20, 10);
+    private static final Type CHAR = createCharType(10);
 
     @Test
     public void testBoolean()
@@ -148,6 +152,31 @@ public class TestTupleDomainOrcPredicate
     }
 
     @Test
+    public void testFloat()
+            throws Exception
+    {
+        assertEquals(getDomain(REAL, 0, null), none(REAL));
+        assertEquals(getDomain(REAL, 10, null), all(REAL));
+
+        assertEquals(getDomain(REAL, 0, doubleColumnStats(null, null, null)), none(REAL));
+        assertEquals(getDomain(REAL, 0, doubleColumnStats(0L, null, null)), none(REAL));
+        assertEquals(getDomain(REAL, 0, doubleColumnStats(0L, (double) 42.24f, (double) 42.24f)), none(REAL));
+
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(0L, null, null)), onlyNull(REAL));
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(10L, null, null)), notNull(REAL));
+
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(10L, (double) 42.24f, (double) 42.24f)), singleValue(REAL, (long) floatToRawIntBits(42.24f)));
+
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(10L, 3.3, (double) 42.24f)), create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(3.3f), true, (long) floatToRawIntBits(42.24f), true)), false));
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(10L, null, (double) 42.24f)), create(ValueSet.ofRanges(lessThanOrEqual(REAL, (long) floatToRawIntBits(42.24f))), false));
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(10L, 3.3, null)), create(ValueSet.ofRanges(greaterThanOrEqual(REAL, (long) floatToRawIntBits(3.3f))), false));
+
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(5L, 3.3, (double) 42.24f)), create(ValueSet.ofRanges(range(REAL, (long) floatToRawIntBits(3.3f), true, (long) floatToRawIntBits(42.24f), true)), true));
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(5L, null, (double) 42.24f)), create(ValueSet.ofRanges(lessThanOrEqual(REAL, (long) floatToRawIntBits(42.24f))), true));
+        assertEquals(getDomain(REAL, 10, doubleColumnStats(5L, 3.3, null)), create(ValueSet.ofRanges(greaterThanOrEqual(REAL, (long) floatToRawIntBits(3.3f))), true));
+    }
+
+    @Test
     public void testString()
             throws Exception
     {
@@ -170,6 +199,39 @@ public class TestTupleDomainOrcPredicate
         assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", "taco")), create(ValueSet.ofRanges(range(VARCHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
         assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, null, "taco")), create(ValueSet.ofRanges(lessThanOrEqual(VARCHAR, utf8Slice("taco"))), true));
         assertEquals(getDomain(VARCHAR, 10, stringColumnStats(5L, "apple", null)), create(ValueSet.ofRanges(greaterThanOrEqual(VARCHAR, utf8Slice("apple"))), true));
+    }
+
+    @Test
+    public void testChar()
+        throws Exception
+    {
+        assertEquals(getDomain(CHAR, 0, null), none(CHAR));
+        assertEquals(getDomain(CHAR, 10, null), all(CHAR));
+
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(null, null, null)), none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, null, null)), none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco      ", "taco      ")), none(CHAR));
+        assertEquals(getDomain(CHAR, 0, stringColumnStats(0L, "taco      ", "taco")), none(CHAR));
+
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(0L, null, null)), onlyNull(CHAR));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, null, null)), notNull(CHAR));
+
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "taco      ", "taco      ")), singleValue(CHAR, utf8Slice("taco")));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "taco      ", "taco")), singleValue(CHAR, utf8Slice("taco")));
+
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco      ")), create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco")), create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, null, "taco      ")), create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), false));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, null, "taco")), create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), false));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", null)), create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), false));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(10L, "apple", null)), create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), false));
+
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", "taco      ")), create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", "taco")), create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, null, "taco      ")), create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), true));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, null, "taco")), create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), true));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", null)), create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), true));
+        assertEquals(getDomain(CHAR, 10, stringColumnStats(5L, "apple", null)), create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), true));
     }
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)

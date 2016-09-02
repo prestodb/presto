@@ -32,6 +32,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -75,6 +76,7 @@ import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
 import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
+import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
 import static com.facebook.presto.hive.HiveUtil.getDecimalType;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
@@ -99,6 +101,7 @@ import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
@@ -111,6 +114,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -161,7 +165,7 @@ public class ParquetHiveRecordCursor
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         requireNonNull(path, "path is null");
-        checkArgument(length >= 0, "totalBytes is negative");
+        checkArgument(length >= 0, "length is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(columns, "columns is null");
@@ -222,6 +226,9 @@ public class ParquetHiveRecordCursor
                 }
                 else if (type.equals(BIGINT)) {
                     longs[columnIndex] = bigintPartitionKey(columnValue, columnName);
+                }
+                else if (type.equals(REAL)) {
+                    longs[columnIndex] = floatPartitionKey(columnValue, columnName);
                 }
                 else if (type.equals(DOUBLE)) {
                     doubles[columnIndex] = doublePartitionKey(columnValue, columnName);
@@ -434,29 +441,25 @@ public class ParquetHiveRecordCursor
 
             MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
 
+            LongArrayList offsets = new LongArrayList(blocks.size());
             List<BlockMetaData> splitGroup = new ArrayList<>();
             for (BlockMetaData block : blocks) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (firstDataPage >= start && firstDataPage < start + length) {
-                    splitGroup.add(block);
+                    if (predicatePushdownEnabled) {
+                        ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
+                        if (predicateMatches(parquetPredicate, block, dataSource, requestedSchema, effectivePredicate)) {
+                            splitGroup.add(block);
+                        }
+                    }
+                    else {
+                        splitGroup.add(block);
+                        offsets.add(block.getStartingPos());
+                    }
                 }
             }
 
-            if (predicatePushdownEnabled) {
-                ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
-                ParquetDataSource finalDataSource = dataSource;
-                splitGroup = splitGroup.stream()
-                        .filter(block -> predicateMatches(parquetPredicate, block, finalDataSource, requestedSchema, effectivePredicate))
-                        .collect(toList());
-            }
-
-            long[] offsets = new long[splitGroup.size()];
-            for (int i = 0; i < splitGroup.size(); i++) {
-                BlockMetaData block = splitGroup.get(i);
-                offsets[i] = block.getStartingPos();
-            }
-
-            ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets);
+            ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets.toLongArray());
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
 
@@ -467,9 +470,7 @@ public class ParquetHiveRecordCursor
             });
         }
         catch (Exception e) {
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
-            }
+            Throwables.propagateIfInstanceOf(e, PrestoException.class);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
                 throw Throwables.propagate(e);
@@ -703,7 +704,7 @@ public class ParquetHiveRecordCursor
         public void addFloat(float value)
         {
             nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            longs[fieldIndex] = floatToRawIntBits(value);
         }
 
         @Override
@@ -1395,7 +1396,7 @@ public class ParquetHiveRecordCursor
         public void addFloat(float value)
         {
             addMissingValues();
-            type.writeDouble(builder, value);
+            type.writeLong(builder, floatToRawIntBits(value));
         }
 
         @Override

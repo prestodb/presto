@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.SmallintType;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -194,6 +196,9 @@ public class JdbcRecordCursor
             Type type = getType(field);
             if (type instanceof VarcharType) {
                 return utf8Slice(resultSet.getString(field + 1));
+            }
+            if (type instanceof CharType) {
+                return utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(field + 1)));
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
                 return wrappedBuffer(resultSet.getBytes(field + 1));

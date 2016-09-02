@@ -167,16 +167,18 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getOrderBy(), "Invalid node. Order by symbols (%s) not in source plan output (%s)", node.getOrderBy(), node.getSource().getOutputSymbols());
 
             ImmutableList.Builder<Symbol> bounds = ImmutableList.builder();
-            if (node.getFrame().getStartValue().isPresent()) {
-                bounds.add(node.getFrame().getStartValue().get());
-            }
-            if (node.getFrame().getEndValue().isPresent()) {
-                bounds.add(node.getFrame().getEndValue().get());
+            for (WindowNode.Frame frame : node.getFrames()) {
+                if (frame.getStartValue().isPresent()) {
+                    bounds.add(frame.getStartValue().get());
+                }
+                if (frame.getEndValue().isPresent()) {
+                    bounds.add(frame.getEndValue().get());
+                }
             }
             checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());
 
-            for (FunctionCall call : node.getWindowFunctions().values()) {
-                Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);
+            for (WindowNode.Function function : node.getWindowFunctions().values()) {
+                Set<Symbol> dependencies = DependencyExtractor.extractUnique(function.getFunctionCall());
                 checkDependencies(inputs, dependencies, "Invalid node. Window function dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
             }
 

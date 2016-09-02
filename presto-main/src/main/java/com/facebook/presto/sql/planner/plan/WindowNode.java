@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -45,8 +46,7 @@ public class WindowNode
     private final Set<Symbol> prePartitionedInputs;
     private final Specification specification;
     private final int preSortedOrderPrefix;
-    private final Map<Symbol, FunctionCall> windowFunctions;
-    private final Map<Symbol, Signature> functionHandles;
+    private final Map<Symbol, Function> windowFunctions;
     private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
@@ -54,8 +54,7 @@ public class WindowNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
-            @JsonProperty("windowFunctions") Map<Symbol, FunctionCall> windowFunctions,
-            @JsonProperty("signatures") Map<Symbol, Signature> signatures,
+            @JsonProperty("windowFunctions") Map<Symbol, Function> windowFunctions,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
@@ -65,8 +64,6 @@ public class WindowNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
-        requireNonNull(signatures, "signatures is null");
-        checkArgument(windowFunctions.keySet().equals(signatures.keySet()), "windowFunctions does not match signatures");
         requireNonNull(hashSymbol, "hashSymbol is null");
         checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         checkArgument(preSortedOrderPrefix <= specification.getOrderBy().size(), "Cannot have sorted more symbols than those requested");
@@ -76,7 +73,6 @@ public class WindowNode
         this.prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
         this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
-        this.functionHandles = ImmutableMap.copyOf(signatures);
         this.hashSymbol = hashSymbol;
         this.preSortedOrderPrefix = preSortedOrderPrefix;
     }
@@ -120,21 +116,17 @@ public class WindowNode
         return specification.getOrderings();
     }
 
-    public Frame getFrame()
-    {
-        return specification.getFrame();
-    }
-
     @JsonProperty
-    public Map<Symbol, FunctionCall> getWindowFunctions()
+    public Map<Symbol, Function> getWindowFunctions()
     {
         return windowFunctions;
     }
 
-    @JsonProperty
-    public Map<Symbol, Signature> getSignatures()
+    public List<Frame> getFrames()
     {
-        return functionHandles;
+        return windowFunctions.values().stream()
+                .map(WindowNode.Function::getFrame)
+                .collect(ImmutableCollectors.toImmutableList());
     }
 
     @JsonProperty
@@ -167,25 +159,21 @@ public class WindowNode
         private final List<Symbol> partitionBy;
         private final List<Symbol> orderBy;
         private final Map<Symbol, SortOrder> orderings;
-        private final Frame frame;
 
         @JsonCreator
         public Specification(
                 @JsonProperty("partitionBy") List<Symbol> partitionBy,
                 @JsonProperty("orderBy") List<Symbol> orderBy,
-                @JsonProperty("orderings") Map<Symbol, SortOrder> orderings,
-                @JsonProperty("frame") Frame frame)
+                @JsonProperty("orderings") Map<Symbol, SortOrder> orderings)
         {
             requireNonNull(partitionBy, "partitionBy is null");
             requireNonNull(orderBy, "orderBy is null");
             checkArgument(orderings.size() == orderBy.size(), "orderBy and orderings sizes don't match");
             checkArgument(orderings.keySet().containsAll(orderBy), "Every orderBy symbol must have an ordering direction");
-            requireNonNull(frame, "frame is null");
 
             this.partitionBy = ImmutableList.copyOf(partitionBy);
             this.orderBy = ImmutableList.copyOf(orderBy);
             this.orderings = ImmutableMap.copyOf(orderings);
-            this.frame = frame;
         }
 
         @JsonProperty
@@ -206,16 +194,10 @@ public class WindowNode
             return orderings;
         }
 
-        @JsonProperty
-        public Frame getFrame()
-        {
-            return frame;
-        }
-
         @Override
         public int hashCode()
         {
-            return Objects.hash(partitionBy, orderBy, orderings, frame);
+            return Objects.hash(partitionBy, orderBy, orderings);
         }
 
         @Override
@@ -233,8 +215,7 @@ public class WindowNode
 
             return Objects.equals(this.partitionBy, other.partitionBy) &&
                     Objects.equals(this.orderBy, other.orderBy) &&
-                    Objects.equals(this.orderings, other.orderings) &&
-                    Objects.equals(this.frame, other.frame);
+                    Objects.equals(this.orderings, other.orderings);
         }
     }
 
@@ -313,6 +294,64 @@ public class WindowNode
                     Objects.equals(this.startValue, other.startValue) &&
                     Objects.equals(this.endType, other.endType) &&
                     Objects.equals(this.endValue, other.endValue);
+        }
+    }
+
+    @Immutable
+    public static final class Function
+    {
+        private final FunctionCall functionCall;
+        private final Signature signature;
+        private final Frame frame;
+
+        @JsonCreator
+        public Function(
+                @JsonProperty("functionCall") FunctionCall functionCall,
+                @JsonProperty("signature") Signature signature,
+                @JsonProperty("frame") Frame frame)
+        {
+            this.functionCall = requireNonNull(functionCall, "functionCall is null");
+            this.signature = requireNonNull(signature, "Signature is null");
+            this.frame = requireNonNull(frame, "Frame is null");
+        }
+
+        @JsonProperty
+        public FunctionCall getFunctionCall()
+        {
+            return functionCall;
+        }
+
+        @JsonProperty
+        public Signature getSignature()
+        {
+            return signature;
+        }
+
+        @JsonProperty
+        public Frame getFrame()
+        {
+            return frame;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(functionCall, signature, frame);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            Function other = (Function) obj;
+            return Objects.equals(this.functionCall, other.functionCall) &&
+                    Objects.equals(this.signature, other.signature) &&
+                    Objects.equals(this.frame, other.frame);
         }
     }
 }

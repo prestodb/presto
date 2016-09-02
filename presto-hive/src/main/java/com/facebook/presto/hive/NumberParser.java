@@ -41,13 +41,20 @@ public final class NumberParser
         return value * sign;
     }
 
+    public static float parseFloat(byte[] bytes, int start, int length)
+    {
+        String string = new String(bytes, 0, start, length);
+        try {
+            return Float.parseFloat(string);
+        }
+        catch (NumberFormatException e) {
+            throw new PrestoException(HIVE_BAD_DATA, e);
+        }
+    }
+
     public static double parseDouble(byte[] bytes, int start, int length)
     {
-        char[] chars = new char[length];
-        for (int pos = 0; pos < length; pos++) {
-            chars[pos] = (char) bytes[start + pos];
-        }
-        String string = new String(chars);
+        String string = new String(bytes, 0, start, length);
         try {
             return Double.parseDouble(string);
         }

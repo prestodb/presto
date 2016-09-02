@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,31 +28,35 @@ public class WindowFunctionDefinition
 {
     private final WindowFunctionSupplier functionSupplier;
     private final Type type;
+    private final FrameInfo frameInfo;
     private final List<Integer> argumentChannels;
 
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, List<Integer> inputs)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, List<Integer> inputs)
+    {
+        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, inputs);
+    }
+
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, Integer... inputs)
+    {
+        return window(functionSupplier, type, frameInfo, Arrays.asList(inputs));
+    }
+
+    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, List<Integer> argumentChannels)
     {
         requireNonNull(functionSupplier, "functionSupplier is null");
         requireNonNull(type, "type is null");
-        requireNonNull(inputs, "inputs is null");
+        requireNonNull(frameInfo, "frameInfo is null");
+        requireNonNull(argumentChannels, "inputs is null");
 
-        return new WindowFunctionDefinition(functionSupplier, type, inputs);
-    }
-
-    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, Integer... inputs)
-    {
-        requireNonNull(functionSupplier, "functionSupplier is null");
-        requireNonNull(type, "type is null");
-        requireNonNull(inputs, "inputs is null");
-
-        return window(functionSupplier, type, Arrays.asList(inputs));
-    }
-
-    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, List<Integer> argumentChannels)
-    {
         this.functionSupplier = functionSupplier;
         this.type = type;
-        this.argumentChannels = argumentChannels;
+        this.frameInfo = frameInfo;
+        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
+    }
+
+    public FrameInfo getFrameInfo()
+    {
+        return frameInfo;
     }
 
     public Type getType()

@@ -44,7 +44,6 @@ import java.util.Optional;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -104,28 +103,7 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            WindowSpecification windowSpecification = new WindowSpecification(
-                    Optional.empty(),
-                    node.getSpecification().getPartitionBy().stream().map(Symbol::toSymbolReference).collect(toImmutableList()),
-                    node.getSpecification().getOrderBy().stream().map(
-                            symbol -> new SortItem(
-                                    symbol.toSymbolReference(),
-                                    node.getSpecification().getOrderings().get(symbol).isAscending() ? SortItem.Ordering.ASCENDING : SortItem.Ordering.DESCENDING,
-                                    node.getSpecification().getOrderings().get(symbol).isNullsFirst() ? SortItem.NullOrdering.FIRST : SortItem.NullOrdering.LAST
-                            )).collect(toImmutableList()),
-                    Optional.of(new WindowFrame(
-                            node.getFrame().getType(),
-                            new FrameBound(
-                                    node.getFrame().getStartType(),
-                                    node.getFrame().getStartValue().map(Symbol::toSymbolReference).orElse(null)),
-                            Optional.of(new FrameBound(
-                                    node.getFrame().getEndType(),
-                                    node.getFrame().getEndValue().map(Symbol::toSymbolReference).orElse(null))))));
-            Map<Symbol, FunctionCall> windowFunctions = node.getWindowFunctions().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, e -> new FunctionCall(e.getValue().getName(), Optional.of(new WindowInline(windowSpecification)), e.getValue().isDistinct(), e.getValue().getArguments())));
-
-            checkFunctionSignature(node.getSignatures());
-            checkFunctionCall(windowFunctions);
+            checkWindowFunctions(node.getWindowFunctions(), node.getSpecification());
 
             return null;
         }
@@ -166,21 +144,68 @@ public final class TypeValidator
             return null;
         }
 
+        private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions, WindowNode.Specification specification)
+        {
+            // Inheritance of the following WindowSpecification components is done by the analyzer. As this information
+            // is not propagated back to the tree nodes a temporary WindowSpecification reflecting the resolved
+            // inheritance is constructed per function.
+            List<Expression> partitionBy = specification.getPartitionBy().stream().map(Symbol::toSymbolReference).collect(toImmutableList());
+            List<SortItem> orderBy = specification.getOrderBy().stream().map(
+                    symbol -> new SortItem(
+                            symbol.toSymbolReference(),
+                            specification.getOrderings().get(symbol).isAscending() ? SortItem.Ordering.ASCENDING : SortItem.Ordering.DESCENDING,
+                            specification.getOrderings().get(symbol).isNullsFirst() ? SortItem.NullOrdering.FIRST : SortItem.NullOrdering.LAST
+                    )).collect(toImmutableList());
+
+            for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
+                Signature signature = entry.getValue().getSignature();
+                WindowNode.Function function = entry.getValue();
+
+                WindowFrame frame = new WindowFrame(
+                        function.getFrame().getType(),
+                        new FrameBound(
+                                function.getFrame().getStartType(),
+                                function.getFrame().getStartValue().map(Symbol::toSymbolReference).orElse(null)),
+                        Optional.of(new FrameBound(
+                                function.getFrame().getEndType(),
+                                function.getFrame().getEndValue().map(Symbol::toSymbolReference).orElse(null))));
+
+                FunctionCall call = new FunctionCall(
+                        function.getFunctionCall().getName(),
+                        Optional.of(new WindowInline(new WindowSpecification(Optional.empty(), partitionBy, orderBy, Optional.of(frame)))),
+                        function.getFunctionCall().isDistinct(),
+                        function.getFunctionCall().getArguments());
+
+                checkSignature(entry.getKey(), signature);
+                checkCall(entry.getKey(), call);
+            }
+        }
+
+        private void checkSignature(Symbol symbol, Signature signature)
+        {
+            TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
+            TypeSignature actualTypeSignature = signature.getReturnType();
+            verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
+        }
+
+        private void checkCall(Symbol symbol, FunctionCall call)
+        {
+            Type expectedType = types.get(symbol);
+            Type actualType = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */).get(call);
+            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+        }
+
         private void checkFunctionSignature(Map<Symbol, Signature> functions)
         {
             for (Map.Entry<Symbol, Signature> entry : functions.entrySet()) {
-                TypeSignature expectedTypeSignature = types.get(entry.getKey()).getTypeSignature();
-                TypeSignature actualTypeSignature = entry.getValue().getReturnType();
-                verifyTypeSignature(entry.getKey(), expectedTypeSignature, actualTypeSignature);
+                checkSignature(entry.getKey(), entry.getValue());
             }
         }
 
         private void checkFunctionCall(Map<Symbol, FunctionCall> functionCalls)
         {
             for (Map.Entry<Symbol, FunctionCall> entry : functionCalls.entrySet()) {
-                Type expectedType = types.get(entry.getKey());
-                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /*parameters already replaced */).get(entry.getValue());
-                verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
+                checkCall(entry.getKey(), entry.getValue());
             }
         }
 

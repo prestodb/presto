@@ -20,6 +20,10 @@ var Table = Reactable.Table,
 
 var TaskList = React.createClass({
     getTasks: function (stage) {
+        if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
+            return []
+        }
+
         return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasks));
     },
     compareTaskId: function(taskA, taskB) {
@@ -53,6 +57,17 @@ var TaskList = React.createClass({
     },
     render: function() {
         var tasks = this.getTasks(this.props.outputStage);
+
+        if (tasks === undefined || tasks.length == 0) {
+            return (
+                <div className="row">
+                    <div className="col-xs-12">
+                        No task information available.
+                    </div>
+                </div>
+            );
+        }
+
         var showPortNumbers = this.showPortNumbers(tasks);
 
         var renderedTasks = tasks.map(function (task) {
@@ -254,6 +269,13 @@ var StageDetail = React.createClass({
     },
     render: function() {
         var stage = this.props.stage;
+
+        if (stage === undefined || !stage.hasOwnProperty('plan')) {
+            return (
+                <tr>
+                    <td>Information about this stage is unavailable.</td>
+                </tr>);
+        }
 
         var totalBufferedBytes = stage.tasks.map(function(task) {
             return task.outputBuffers.totalBufferedBytes;
@@ -469,10 +491,25 @@ var StageDetail = React.createClass({
 
 var StageList = React.createClass({
     getStages: function (stage) {
+        if (stage === undefined || !stage.hasOwnProperty('subStages')) {
+            return []
+        }
+
         return [].concat.apply(stage, stage.subStages.map(this.getStages));
     },
     render: function() {
         var stages = this.getStages(this.props.outputStage);
+
+        if (stages === undefined || stages.length == 0) {
+            return (
+                <div className="row">
+                    <div className="col-xs-12">
+                        No stage information available.
+                    </div>
+                </div>
+            );
+        }
+
         var renderedStages = stages.map(function (stage) {
             return (
                     <StageDetail key={ stage.stageId } stage={ stage } />

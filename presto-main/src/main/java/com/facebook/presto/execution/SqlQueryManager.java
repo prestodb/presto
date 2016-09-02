@@ -328,8 +328,7 @@ public class SqlQueryManager
         QueryInfo queryInfo = queryExecution.getQueryInfo();
         queryMonitor.queryCreatedEvent(queryInfo);
 
-        queryExecution.addStateChangeListener(newValue -> {
-            if (newValue.isDone()) {
+        queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
                 try {
                     QueryInfo info = queryExecution.getQueryInfo();
                     stats.queryFinished(info);
@@ -339,7 +338,6 @@ public class SqlQueryManager
                     // execution MUST be added to the expiration queue or there will be a leak
                     expirationQueue.add(queryExecution);
                 }
-            }
         });
 
         addStatsListener(queryExecution);

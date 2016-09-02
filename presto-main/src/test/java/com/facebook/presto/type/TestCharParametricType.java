@@ -11,26 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
 
-import io.airlift.configuration.Config;
+package com.facebook.presto.type;
 
-import javax.validation.constraints.NotNull;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import org.testng.annotations.Test;
 
-public class FileResourceGroupConfig
+import static com.facebook.presto.spi.type.CharType.createCharType;
+
+public class TestCharParametricType
+        extends AbstractTestFunctions
 {
-    private String configFile;
-
-    @NotNull
-    public String getConfigFile()
+    @Test
+    public void charIsCreatedWithLength()
     {
-        return configFile;
-    }
-
-    @Config("resource-groups.config-file")
-    public FileResourceGroupConfig setConfigFile(String configFile)
-    {
-        this.configFile = configFile;
-        return this;
+        assertFunction("CHAR '   abc\n   '", createCharType(10), "   abc\n   ");
     }
 }

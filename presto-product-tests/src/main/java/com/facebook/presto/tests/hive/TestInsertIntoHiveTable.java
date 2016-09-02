@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Timestamp;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
@@ -36,6 +35,7 @@ import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static com.teradata.tempto.query.QueryExecutor.query;
+import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInUTC;
 
 public class TestInsertIntoHiveTable
         extends ProductTest
@@ -65,6 +65,7 @@ public class TestInsertIntoHiveTable
                 "SMALLINT '32767', " +
                 "2147483647, " +
                 "9223372036854775807, " +
+                "REAL '123.345', " +
                 "234.567, " +
                 "CAST(346 as DECIMAL(10,0))," +
                 "CAST(345.67800 as DECIMAL(10,5))," +
@@ -83,10 +84,11 @@ public class TestInsertIntoHiveTable
                         32767,
                         2147483647,
                         9223372036854775807L,
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        Timestamp.valueOf("2015-05-10 12:15:35.123"),
+                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
@@ -108,10 +110,11 @@ public class TestInsertIntoHiveTable
                         32767,
                         2147483647,
                         9223372036854775807L,
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        Timestamp.valueOf("2015-05-10 12:15:35.123"),
+                        parseTimestampInUTC("2015-05-10 12:15:35.123"),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",

@@ -18,11 +18,13 @@ import com.facebook.presto.execution.TestEventListenerPlugin.TestingEventListene
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -30,16 +32,19 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestEventListener
 {
+    private static final int SPLITS_PER_NODE = 3;
     private final EventsBuilder generatedEvents = new EventsBuilder();
 
     private QueryRunner queryRunner;
@@ -57,7 +62,7 @@ public class TestEventListener
         queryRunner = new DistributedQueryRunner(session, 1);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
-        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "3"));
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", Integer.toString(SPLITS_PER_NODE)));
     }
 
     @AfterClass(alwaysRun = true)
@@ -91,16 +96,19 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
 
-        // TODO: change to equality check of num events vs statistics for events after we fix final statistics collection
         List<SplitCompletedEvent> splitCompletedEvents = events.getSplitCompletedEvents();
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
+        assertEquals(splitCompletedEvents.get(0).getStatistics().getCompletedPositions(), 1);
     }
 
     @Test
     public void testNormalQuery()
             throws Exception
     {
-        EventsBuilder events = generateEvents("SELECT sum(linenumber) FROM lineitem", 6);
+        // We expect the following events
+        // QueryCreated: 1, QueryCompleted: 1, leaf splits: SPLITS_PER_NODE, aggregation/output split: 1
+        int expectedEvents = SPLITS_PER_NODE + 3;
+        EventsBuilder events = generateEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(events.getQueryCreatedEvents());
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
@@ -111,11 +119,28 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
         assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getConnectorId(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
+        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 1);
 
-        // TODO: change to equality check of num events vs statistics for events after we fix final statistics collection
         List<SplitCompletedEvent> splitCompletedEvents = events.getSplitCompletedEvents();
-        assertEquals(splitCompletedEvents.size(), 4);
-        assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
+        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 1); // leaf splits + aggregation split
+
+        // All splits must have the same query ID
+        Set<String> actual = splitCompletedEvents.stream()
+                .map(SplitCompletedEvent::getQueryId)
+                .collect(toSet());
+        assertEquals(actual, ImmutableSet.of(queryCompletedEvent.getMetadata().getQueryId()));
+
+        // Sum of row count processed by all leaf stages is equal to the number of rows in the table
+        long actualCompletedPositions = splitCompletedEvents.stream()
+                .filter(e -> !e.getStageId().endsWith(".0"))    // filter out the root stage
+                .mapToLong(e -> e.getStatistics().getCompletedPositions())
+                .sum();
+
+        MaterializedResult result = queryRunner.execute(session, "SELECT count(*) FROM lineitem");
+        long expectedCompletedPositions = (long) result.getMaterializedRows().get(0).getField(0);
+
+        assertEquals(actualCompletedPositions, expectedCompletedPositions);
+        assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), expectedCompletedPositions);
     }
 
     static class EventsBuilder

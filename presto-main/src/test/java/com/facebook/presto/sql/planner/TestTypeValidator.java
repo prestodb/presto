@@ -141,30 +141,32 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> signatures = ImmutableMap.of(
-                windowSymbol, new Signature(
+        Signature signature = new Signature(
                         "sum",
                         FunctionKind.WINDOW,
                         ImmutableList.of(),
                         ImmutableList.of(),
                         DOUBLE.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> functions = ImmutableMap.of(windowSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
+                        false);
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty());
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), frame);
+
+        WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
+
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
 
         PlanNode node = new WindowNode(
                 newId(),
                 baseTableScan,
                 specification,
-                functions,
-                signatures,
+                ImmutableMap.of(windowSymbol, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -305,30 +307,32 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> signatures = ImmutableMap.of(
-                windowSymbol, new Signature(
+        Signature signature = new Signature(
                         "sum",
                         FunctionKind.WINDOW,
                         ImmutableList.of(),
                         ImmutableList.of(),
                         DOUBLE.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> functions = ImmutableMap.of(windowSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference()))); // shoud be columnC
+                        false);
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())); // should be columnC
+
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty());
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), frame);
+
+        WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
+
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
 
         PlanNode node = new WindowNode(
                 newId(),
                 baseTableScan,
                 specification,
-                functions,
-                signatures,
+                ImmutableMap.of(windowSymbol, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
@@ -341,30 +345,32 @@ public class TestTypeValidator
             throws Exception
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", DOUBLE);
-        Map<Symbol, Signature> signatures = ImmutableMap.of(
-                windowSymbol, new Signature(
+        Signature signature = new Signature(
                         "sum",
                         FunctionKind.WINDOW,
                         ImmutableList.of(),
                         ImmutableList.of(),
                         BIGINT.getTypeSignature(), // should be DOUBLE
                         ImmutableList.of(DOUBLE.getTypeSignature()),
-                        false));
-        Map<Symbol, FunctionCall> functions = ImmutableMap.of(windowSymbol, new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())));
+                        false);
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
+
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
                 Optional.empty());
-        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), frame);
+
+        WindowNode.Function function = new WindowNode.Function(functionCall, signature, frame);
+
+        WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of());
 
         PlanNode node = new WindowNode(
                 newId(),
                 baseTableScan,
                 specification,
-                functions,
-                signatures,
+                ImmutableMap.of(windowSymbol, function),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);

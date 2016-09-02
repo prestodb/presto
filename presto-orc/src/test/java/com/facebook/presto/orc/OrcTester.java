@@ -79,6 +79,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -108,7 +109,6 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -588,9 +588,11 @@ public class OrcTester
             case LIST:
                 ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "fieldInspector");
                 TypeInfo elementTypeInfo = listTypeInfo.getListElementTypeInfo();
-                return ((List<?>) value).stream()
-                        .map(element -> preprocessWriteValueOld(elementTypeInfo, element))
-                        .collect(toList());
+                List<Object> newList = new ArrayList<>(((Collection<?>) value).size());
+                for (Object element : (Iterable<?>) value) {
+                    newList.add(preprocessWriteValueOld(elementTypeInfo, element));
+                }
+                return newList;
             case STRUCT:
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "fieldInspector");
                 List<?> fieldValues = (List<?>) value;

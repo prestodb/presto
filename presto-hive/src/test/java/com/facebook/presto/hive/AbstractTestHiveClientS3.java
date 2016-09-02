@@ -65,6 +65,9 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.AbstractTestHiveClient.createTableProperties;
+import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
+import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
+import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
@@ -77,7 +80,6 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -307,7 +309,7 @@ public abstract class AbstractTestHiveClientS3
     {
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
             try {
-                doCreateTable(temporaryCreateTable, storageFormat, "presto_test");
+                doCreateTable(temporaryCreateTable, storageFormat);
             }
             finally {
                 dropTable(temporaryCreateTable);
@@ -315,7 +317,7 @@ public abstract class AbstractTestHiveClientS3
         }
     }
 
-    private void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat, String tableOwner)
+    private void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
@@ -352,11 +354,11 @@ public abstract class AbstractTestHiveClientS3
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(metadata, tableName));
-        assertEquals(tableMetadata.getColumns(), columns);
+        assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
 
         // verify the data
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, new Constraint<>(TupleDomain.all(), bindings -> true), Optional.empty());
@@ -386,16 +388,6 @@ public abstract class AbstractTestHiveClientS3
         ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
-    }
-
-    private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource source)
-            throws InterruptedException
-    {
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (!source.isFinished()) {
-            splits.addAll(getFutureValue(source.getNextBatch(1000)));
-        }
-        return splits.build();
     }
 
     private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
@@ -458,8 +450,8 @@ public abstract class AbstractTestHiveClientS3
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                delegate.replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
-                delegate.dropTable(databaseName, tableName);
+                replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+                super.dropTable(databaseName, tableName);
 
                 // drop data
                 for (String location : locations) {
@@ -485,7 +477,7 @@ public abstract class AbstractTestHiveClientS3
             Table.Builder tableBuilder = Table.builder(table.get());
             tableBuilder.getStorageBuilder().setLocation(location);
 
-            delegate.replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+            replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
         }
     }
 }

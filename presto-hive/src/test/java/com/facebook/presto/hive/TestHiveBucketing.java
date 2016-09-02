@@ -54,6 +54,7 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -314,6 +315,9 @@ public class TestHiveBucketing
                 break;
             case StandardTypes.BIGINT:
                 type.writeLong(blockBuilder, ((Number) element).longValue());
+                break;
+            case StandardTypes.REAL:
+                type.writeLong(blockBuilder, floatToRawIntBits(((Number) element).floatValue()));
                 break;
             case StandardTypes.DOUBLE:
                 type.writeDouble(blockBuilder, ((Number) element).doubleValue());

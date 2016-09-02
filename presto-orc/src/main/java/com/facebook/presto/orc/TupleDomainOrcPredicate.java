@@ -27,18 +27,22 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
+import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate<C>
@@ -114,6 +118,12 @@ public class TupleDomainOrcPredicate<C>
         else if (isLongDecimal(type)) {
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
         }
+        else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> trimSpacesAndTruncateToLength(value, type));
+        }
+        else if (isVarcharType(type) && columnStatistics.getStringStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
+        }
         else if (type.getTypeSignature().getBase().equals(StandardTypes.DATE) && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
@@ -123,8 +133,8 @@ public class TupleDomainOrcPredicate<C>
         else if (type.getJavaType() == double.class && columnStatistics.getDoubleStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDoubleStatistics());
         }
-        else if (type.getJavaType() == Slice.class && columnStatistics.getStringStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());
+        else if (REAL.equals(type) && columnStatistics.getDoubleStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDoubleStatistics(), value -> (long) floatToRawIntBits(value.floatValue()));
         }
         return Domain.create(ValueSet.all(type), hasNullValue);
     }

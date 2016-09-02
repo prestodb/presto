@@ -139,6 +139,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
+    }
+
+    @Override
     public void fail(Throwable cause)
     {
         stateMachine.transitionToFailed(cause);
