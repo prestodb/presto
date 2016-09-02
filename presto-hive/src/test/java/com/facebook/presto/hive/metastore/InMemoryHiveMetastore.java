@@ -20,6 +20,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -103,7 +104,7 @@ public class InMemoryHiveMetastore
             tableCopy.setSd(new StorageDescriptor());
         }
         else if (tableCopy.getSd().getLocation() != null) {
-            File directory = new File(URI.create(tableCopy.getSd().getLocation()));
+            File directory = new File(new Path(tableCopy.getSd().getLocation()).toUri());
             checkArgument(directory.exists(), "Table directory does not exist");
             checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
         }
@@ -155,7 +156,7 @@ public class InMemoryHiveMetastore
         // remove data
         for (String location : locations) {
             if (location != null) {
-                File directory = new File(URI.create(location));
+                File directory = new File(new Path(location).toUri());
                 checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
                 deleteRecursively(directory);
             }
