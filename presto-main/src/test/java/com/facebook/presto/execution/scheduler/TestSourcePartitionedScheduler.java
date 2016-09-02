@@ -463,7 +463,7 @@ public class TestSourcePartitionedScheduler
 
     private SqlStageExecution createSqlStageExecution(StageExecutionPlan tableScanPlan, NodeTaskMap nodeTaskMap)
     {
-        StageId stageId = new StageId(new QueryId("query"), "stage");
+        StageId stageId = new StageId(new QueryId("query"), 0);
         SqlStageExecution stage = new SqlStageExecution(stageId,
                 locationFactory.createStageLocation(stageId),
                 tableScanPlan.getFragment(),
