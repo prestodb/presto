@@ -2625,14 +2625,14 @@ public abstract class AbstractTestHiveClient
                 .build();
     }
 
-    private static List<ColumnHandle> filterNonHiddenColumnHandles(Collection<ColumnHandle> columnHandles)
+    protected static List<ColumnHandle> filterNonHiddenColumnHandles(Collection<ColumnHandle> columnHandles)
     {
         return columnHandles.stream()
                 .filter(columnHandle -> !((HiveColumnHandle) columnHandle).isHidden())
                 .collect(toList());
     }
 
-    private static List<ColumnMetadata> filterNonHiddenColumnMetadata(Collection<ColumnMetadata> columnMetadatas)
+    protected static List<ColumnMetadata> filterNonHiddenColumnMetadata(Collection<ColumnMetadata> columnMetadatas)
     {
         return columnMetadatas.stream()
                 .filter(columnMetadata -> !columnMetadata.isHidden())
