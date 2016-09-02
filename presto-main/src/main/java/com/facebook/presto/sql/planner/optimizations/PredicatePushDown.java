@@ -767,6 +767,9 @@ public class PredicatePushDown
                     if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
                         Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
                         Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
+                        if (symbols1.isEmpty() || symbols2.isEmpty()) {
+                            return false;
+                        }
                         return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
                                 (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
                     }
