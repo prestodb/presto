@@ -2461,6 +2461,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOuterJoinWithComplexCorrelatedSubquery()
+            throws Exception
+    {
+        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type");
+        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
+        QueryTemplate queryTemplate = new QueryTemplate(
+                "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
+                type,
+                condition);
+
+        queryTemplate.replaceAll(
+                (query) -> assertQueryFails(query, "line .*: .* is not supported"),
+                ImmutableList.of(type.of("left"), type.of("right"), type.of("full")),
+                ImmutableList.of(
+                        condition.of("EXISTS(SELECT 1 WHERE x = y)"),
+                        condition.of("(SELECT x = y)"),
+                        condition.of("true IN (SELECT x = y)")));
+    }
+
+    @Test
     public void testJoinWithMultipleScalarSubqueryClauses()
             throws Exception
     {
