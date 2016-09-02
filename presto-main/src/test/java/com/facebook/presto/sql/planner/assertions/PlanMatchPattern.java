@@ -172,7 +172,7 @@ public final class PlanMatchPattern
      *    `--JoinNode orderkey = orderkey
      *       `--TableScanNode table = tpch.orders, outputs = orderkey
      *       `--TableScanNode table = tpch.lineitem, outputs = orderkey
-     * 
+     *
      * In this case, it's important not only that the join criteria is orderkey
      * = orderkey, but also that the original source of each of the orderkeys
      * in the expression is the tables we expect it to be. Note that depending
