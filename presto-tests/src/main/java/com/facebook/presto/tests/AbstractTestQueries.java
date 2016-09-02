@@ -6295,7 +6295,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testUnsupportedCorrelatedExistsSubqueries()
     {
-        String errorMsg = "Not supported correlated subquery";
+        String errorMsg = "Unsupported correlated subquery type";
 
         assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
