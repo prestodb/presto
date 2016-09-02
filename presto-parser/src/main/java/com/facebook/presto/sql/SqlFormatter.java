@@ -361,9 +361,8 @@ public final class SqlFormatter
                 }
                 else if (criteria instanceof JoinOn) {
                     JoinOn on = (JoinOn) criteria;
-                    builder.append(" ON (")
-                            .append(formatExpression(on.getExpression(), parameters))
-                            .append(")");
+                    builder.append(" ON ")
+                            .append(formatExpression(on.getExpression(), parameters));
                 }
                 else if (!(criteria instanceof NaturalJoin)) {
                     throw new UnsupportedOperationException("unknown join criteria: " + criteria);
