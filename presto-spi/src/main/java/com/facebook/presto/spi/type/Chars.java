@@ -14,8 +14,10 @@
 package com.facebook.presto.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static java.util.Objects.requireNonNull;
 
 public final class Chars
@@ -25,6 +27,50 @@ public final class Chars
     public static boolean isCharType(Type type)
     {
         return type instanceof CharType;
+    }
+
+    public static Slice padSpaces(Slice slice, Type type)
+    {
+        requireNonNull(type, "type is null");
+        if (!isCharType(type)) {
+            throw new IllegalArgumentException("type must be the instance of CharType");
+        }
+        return padSpaces(slice, CharType.class.cast(type));
+    }
+
+    public static Slice padSpaces(Slice slice, CharType charType)
+    {
+        requireNonNull(charType, "charType is null");
+        return padSpaces(slice, charType.getLength());
+    }
+
+    public static Slice padSpaces(Slice slice, int length)
+    {
+        int textLength = countCodePoints(slice);
+
+        // if our string is bigger than requested then truncate
+        if (textLength > length) {
+            throw new IllegalArgumentException("pad length is smaller than slice length");
+        }
+
+        // if our target length is the same as our string then return our string
+        if (textLength == length) {
+            return slice;
+        }
+
+        // preallocate the result
+        int bufferSize = slice.length() + length - textLength;
+        Slice buffer = Slices.allocate(bufferSize);
+
+        // fill in the existing string
+        buffer.setBytes(0, slice);
+
+        // fill padding spaces
+        for (int i = slice.length(); i < bufferSize; ++i) {
+            buffer.setByte(i, ' ');
+        }
+
+        return buffer;
     }
 
     public static Slice trimSpacesAndTruncateToLength(Slice slice, Type type)

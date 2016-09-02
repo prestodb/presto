@@ -19,12 +19,10 @@ import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.type.LiteralParameter;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceUtf8;
-import io.airlift.slice.Slices;
 
+import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.truncateToLength;
-import static io.airlift.slice.SliceUtf8.countCodePoints;
 
 public final class CharacterStringCasts
 {
@@ -67,33 +65,12 @@ public final class CharacterStringCasts
     @ScalarOperator(OperatorType.CAST)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice charToVarcharCast(@LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)
+    public static Slice charToVarcharCast(@LiteralParameter("x") Long x, @LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)
     {
-        int textLength = countCodePoints(slice);
-        int resultLength = y.intValue();
-
-        // if our target length is the same as our string then return our string
-        if (textLength == resultLength) {
-            return slice;
+        if (x.intValue() <= y.intValue()) {
+            return padSpaces(slice, x.intValue());
         }
 
-        // if our string is bigger than requested then truncate
-        if (textLength > resultLength) {
-            return SliceUtf8.substring(slice, 0, resultLength);
-        }
-
-        // preallocate the result
-        int bufferSize = slice.length() + resultLength - textLength;
-        Slice buffer = Slices.allocate(bufferSize);
-
-        // fill in the existing string
-        buffer.setBytes(0, slice);
-
-        // fill padding spaces
-        for (int i = slice.length(); i < bufferSize; ++i) {
-            buffer.setByte(i, ' ');
-        }
-
-        return buffer;
+        return padSpaces(truncateToLength(slice, y.intValue()), y.intValue());
     }
 }

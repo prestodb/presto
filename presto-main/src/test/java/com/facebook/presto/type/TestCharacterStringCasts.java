@@ -47,8 +47,11 @@ public class TestCharacterStringCasts
     public void testCharToVarcharCast()
             throws Exception
     {
-        assertFunction("cast(cast('bar' as char(5)) as varchar(10))", createVarcharType(10), "bar       ");
+        assertFunction("cast(cast('bar' as char(5)) as varchar(10))", createVarcharType(10), "bar  ");
         assertFunction("cast(cast('bar' as char(5)) as varchar(1))", createVarcharType(1), "b");
+        assertFunction("cast(cast('b' as char(5)) as varchar(2))", createVarcharType(2), "b ");
+        assertFunction("cast(cast('b' as char(5)) as varchar(1))", createVarcharType(1), "b");
         assertFunction("cast(cast('bar' as char(3)) as varchar(3))", createVarcharType(3), "bar");
+        assertFunction("cast(cast('b' as char(3)) as varchar(3))", createVarcharType(3), "b  ");
     }
 }
