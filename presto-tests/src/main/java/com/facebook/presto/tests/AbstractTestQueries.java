@@ -6096,9 +6096,7 @@ public abstract class AbstractTestQueries
         // order by
         assertQuery(
                 "SELECT orderkey FROM orders o ORDER BY " +
-                        "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
-                        " LIMIT 1",
-                "VALUES 1");
+                        "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)");
 
         // group by
         assertQuery(
