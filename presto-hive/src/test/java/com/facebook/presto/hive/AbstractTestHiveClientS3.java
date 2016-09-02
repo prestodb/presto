@@ -65,6 +65,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.AbstractTestHiveClient.createTableProperties;
+import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
@@ -77,7 +78,6 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -386,16 +386,6 @@ public abstract class AbstractTestHiveClientS3
         ConnectorTableHandle handle = metadata.getTableHandle(SESSION, tableName);
         checkArgument(handle != null, "table not found: %s", tableName);
         return handle;
-    }
-
-    private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource source)
-            throws InterruptedException
-    {
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (!source.isFinished()) {
-            splits.addAll(getFutureValue(source.getNextBatch(1000)));
-        }
-        return splits.build();
     }
 
     private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
