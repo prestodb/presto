@@ -44,6 +44,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.symbolStem;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -76,9 +77,9 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(aliasPair("O", "L")),
                                 any(
-                                        tableScan("orders").withSymbol("orderkey", "O")),
+                                        tableScan("orders").withSymbol(symbolStem("orderkey"), "O")),
                                 anyTree(
-                                        tableScan("lineitem").withSymbol("orderkey", "L")))));
+                                        tableScan("lineitem").withSymbol(symbolStem("orderkey"), "L")))));
     }
 
     @Test
@@ -88,11 +89,11 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(aliasPair("X", "Y")),
                                 project(
-                                        tableScan("orders").withSymbol("orderkey", "X")),
+                                        tableScan("orders").withSymbol(symbolStem("orderkey"), "X")),
                                 project(
                                         node(EnforceSingleRowNode.class,
                                                 anyTree(
-                                                        tableScan("lineitem").withSymbol("orderkey", "Y")))))));
+                                                        tableScan("lineitem").withSymbol(symbolStem("orderkey"), "Y")))))));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 anyTree(
@@ -100,9 +101,9 @@ public class TestLogicalPlanner
                                 project(
                                         semiJoin("X", "Y", "S",
                                                 anyTree(
-                                                        tableScan("orders").withSymbol("orderkey", "X")),
+                                                        tableScan("orders").withSymbol(symbolStem("orderkey"), "X")),
                                                 anyTree(
-                                                        tableScan("lineitem").withSymbol("orderkey", "Y")))))));
+                                                        tableScan("lineitem").withSymbol(symbolStem("orderkey"), "Y")))))));
 
         assertPlan("SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
@@ -110,9 +111,9 @@ public class TestLogicalPlanner
                                 project(
                                         semiJoin("X", "Y", "S",
                                                 anyTree(
-                                                        tableScan("orders").withSymbol("orderkey", "X")),
+                                                        tableScan("orders").withSymbol(symbolStem("orderkey"), "X")),
                                                 anyTree(
-                                                        tableScan("lineitem").withSymbol("orderkey", "Y")))))));
+                                                        tableScan("lineitem").withSymbol(symbolStem("orderkey"), "Y")))))));
     }
 
     @Test
@@ -193,7 +194,7 @@ public class TestLogicalPlanner
                 anyTree(
                         filter("3 = X",
                                 apply(ImmutableList.of("X"),
-                                        tableScan("orders").withSymbol("orderkey", "X"),
+                                        tableScan("orders").withSymbol(symbolStem("orderkey"), "X"),
                                         node(EnforceSingleRowNode.class,
                                                 project(
                                                         node(ValuesNode.class)
@@ -208,10 +209,10 @@ public class TestLogicalPlanner
                         filter("3 IN (C)",
                                 apply(ImmutableList.of("C", "O"),
                                         project(
-                                                tableScan("orders").withSymbol("orderkey", "O").withSymbol("custkey", "C")),
+                                                tableScan("orders").withSymbol(symbolStem("orderkey"), "O").withSymbol(symbolStem("custkey"), "C")),
                                         anyTree(
                                                 apply(ImmutableList.of("L"),
-                                                        tableScan("lineitem").withSymbol("orderkey", "L"),
+                                                        tableScan("lineitem").withSymbol(symbolStem("orderkey"), "L"),
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
                                                                         node(ValuesNode.class)
