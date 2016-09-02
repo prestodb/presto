@@ -175,7 +175,7 @@ public abstract class AbstractTestQueryFramework
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException ex) {
-            assertExceptionMessage(ex, expectedMessageRegExp);
+            assertExceptionMessage(sql, ex, expectedMessageRegExp);
         }
         finally {
             queryRunner.getExclusiveLock().unlock();
@@ -232,7 +232,7 @@ public abstract class AbstractTestQueryFramework
             fail("Expected " + AccessDeniedException.class.getSimpleName());
         }
         catch (RuntimeException e) {
-            assertExceptionMessage(e, ".*Access Denied: " + exceptionsMessageRegExp);
+            assertExceptionMessage(sql, e, ".*Access Denied: " + exceptionsMessageRegExp);
         }
         finally {
             queryRunner.getAccessControl().reset();
@@ -250,10 +250,10 @@ public abstract class AbstractTestQueryFramework
         assertEquals(actual, expected);
     }
 
-    private static void assertExceptionMessage(Exception exception, @Language("RegExp") String regex)
+    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
     {
         if (!exception.getMessage().matches(regex)) {
-            fail(format("Expected exception message '%s' to match '%s'", exception.getMessage(), regex));
+            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql));
         }
     }
 
