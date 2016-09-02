@@ -229,7 +229,7 @@ public class TestLogicalPlanner
                                 anyTree(
                                         node(AggregationNode.class,
                                                 anyTree(
-                                                        join(LEFT, ImmutableList.of(aliasPair("orderkey", "expr")),
+                                                        join(LEFT, ImmutableList.of(),
                                                                 anyTree(
                                                                         tableScan("orders")),
                                                                 anyTree(
