@@ -55,6 +55,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
@@ -94,16 +95,29 @@ class SubqueryPlanner
     public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
     {
         for (Expression expression : expressions) {
-            builder = handleSubqueries(builder, expression, node);
+            builder = handleSubqueries(builder, expression, node, true);
+        }
+        return builder;
+    }
+
+    public PlanBuilder handleUncorrelatedSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
+    {
+        for (Expression expression : expressions) {
+            builder = handleSubqueries(builder, expression, node, false);
         }
         return builder;
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node)
     {
-        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node));
-        builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node));
-        builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node));
+        return handleSubqueries(builder, expression, node, true);
+    }
+
+    private PlanBuilder handleSubqueries(PlanBuilder builder, Expression expression, Node node, boolean correlationAllowed)
+    {
+        builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed);
+        builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node), correlationAllowed);
+        builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node), correlationAllowed);
         return builder;
     }
 
@@ -131,21 +145,24 @@ class SubqueryPlanner
                 .collect(toImmutableSet());
     }
 
-    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates)
+    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates, boolean correlationAllowed)
     {
         for (InPredicate inPredicate : inPredicates) {
-            subPlan = appendInPredicateApplyNode(subPlan, inPredicate);
+            subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed);
         }
         return subPlan;
     }
 
-    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate)
+    private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, boolean correlationAllowed)
     {
         subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         PlanNode subquery = createRelationPlan(((SubqueryExpression) inPredicate.getValueList()).getQuery()).getRoot();
         Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subquery);
+        if (!correlationAllowed && correlation.isEmpty()) {
+            throwNotSupportedException(inPredicate, "Correlated subquery in given context");
+        }
         subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
         subquery = replaceExpressionsWithSymbols(subquery, correlation);
 
@@ -164,27 +181,28 @@ class SubqueryPlanner
                 analysis.getParameters());
     }
 
-    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries)
+    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
     {
         for (SubqueryExpression scalarSubquery : scalarSubqueries) {
-            builder = appendScalarSubqueryApplyNode(builder, scalarSubquery);
+            builder = appendScalarSubqueryApplyNode(builder, scalarSubquery, correlationAllowed);
         }
         return builder;
     }
 
-    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery)
+    private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery, boolean correlationAllowed)
     {
         return appendSubqueryApplyNode(
                 subPlan,
                 scalarSubquery,
                 scalarSubquery.getQuery(),
-                subquery -> new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(subquery).getRoot()));
+                subquery -> new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(subquery).getRoot()),
+                correlationAllowed);
     }
 
-    private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates)
+    private PlanBuilder appendExistsSubqueryApplyNodes(PlanBuilder builder, Set<ExistsPredicate> existsPredicates, boolean correlationAllowed)
     {
         for (ExistsPredicate existsPredicate : existsPredicates) {
-            builder = appendExistSubqueryApplyNode(builder, existsPredicate);
+            builder = appendExistSubqueryApplyNode(builder, existsPredicate, correlationAllowed);
         }
         return builder;
     }
@@ -199,7 +217,7 @@ class SubqueryPlanner
      *             -- subquery
      * </pre>
      */
-    private PlanBuilder appendExistSubqueryApplyNode(PlanBuilder subPlan, ExistsPredicate existsPredicate)
+    private PlanBuilder appendExistSubqueryApplyNode(PlanBuilder subPlan, ExistsPredicate existsPredicate, boolean correlationAllowed)
     {
         return appendSubqueryApplyNode(subPlan, existsPredicate, existsPredicate.getSubquery(), subquery -> {
             PlanNode subqueryPlan = createRelationPlan(subquery).getRoot();
@@ -230,10 +248,10 @@ class SubqueryPlanner
                             idAllocator.getNextId(),
                             subqueryPlan,
                             ImmutableMap.of(exists, countGreaterThanZero)));
-        });
+        }, correlationAllowed);
     }
 
-    private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Query subquery, Function<Query, PlanNode> subqueryPlanner)
+    private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Query subquery, Function<Query, PlanNode> subqueryPlanner, boolean correlationAllowed)
     {
         if (subPlan.canTranslate(subqueryExpression)) {
             // given subquery is already appended
@@ -243,6 +261,9 @@ class SubqueryPlanner
         PlanNode subqueryNode = subqueryPlanner.apply(subquery);
 
         Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subqueryNode);
+        if (!correlationAllowed && !correlation.isEmpty()) {
+            throwNotSupportedException(subquery, "Correlated subquery in given context");
+        }
         subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
