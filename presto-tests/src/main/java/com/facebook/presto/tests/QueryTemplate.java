@@ -18,7 +18,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -50,14 +53,42 @@ public class QueryTemplate
             query = resolve(query, parameter);
         }
 
+        checkQueryHasAllParametersReplaced(query);
+
+        return query;
+    }
+
+    private void checkQueryHasAllParametersReplaced(String query)
+    {
         for (Parameter parameter : defaultParameters) {
             String queryParameterKey = asQueryParameterKey(parameter.getKey());
             checkArgument(
                     !query.contains(queryParameterKey),
                     "Query template parameters was not given: %s", queryParameterKey);
         }
+    }
 
-        return query;
+    public void replaceAll(Consumer<String> queryConsumer, List<Parameter>... parametersLists)
+    {
+        requireNonNull(queryConsumer, "queryConsumer is null");
+        replaceAll(queryTemplate, queryConsumer, ImmutableList.copyOf(parametersLists));
+    }
+
+    private void replaceAll(String queryTemplate, Consumer<String> queryConsumer, List<List<Parameter>> parametersLists)
+    {
+        if (parametersLists.size() == 0) {
+            checkQueryHasAllParametersReplaced(queryTemplate);
+            queryConsumer.accept(queryTemplate);
+        }
+        else {
+            List<List<Parameter>> restParameters = IntStream.range(1, parametersLists.size())
+                    .mapToObj(parametersLists::get)
+                    .collect(toImmutableList());
+            for (Parameter parameter : parametersLists.get(0)) {
+                String intermediateQueryTemplate = resolve(queryTemplate, parameter);
+                replaceAll(intermediateQueryTemplate, queryConsumer, restParameters);
+            }
+        }
     }
 
     private String resolve(String query, Parameter parameter)
