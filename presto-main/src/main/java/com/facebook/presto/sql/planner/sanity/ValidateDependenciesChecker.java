@@ -341,6 +341,19 @@ public final class ValidateDependenciesChecker
                 checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
             }
 
+            node.getFilter().ifPresent(predicate -> {
+                Set<Symbol> predicateSymbols = DependencyExtractor.extractUnique(predicate);
+                Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
+                        .addAll(leftInputs)
+                        .addAll(rightInputs)
+                        .build();
+                checkArgument(
+                        allInputs.containsAll(predicateSymbols),
+                        "Symbol from filter (%s) not in sources (%s)",
+                        allInputs,
+                        predicateSymbols);
+            });
+
             return null;
         }
 
