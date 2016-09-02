@@ -17,6 +17,7 @@ package com.facebook.presto.tests;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -43,18 +44,27 @@ public class QueryTemplate
     {
         String query = queryTemplate;
         for (Parameter parameter : parameters) {
-            query = resolve(query, parameter.getKey(), parameter.getValue());
+            query = resolve(query, parameter);
         }
         for (Parameter parameter : defaultParameters) {
-            query = resolve(query, parameter.getKey(), parameter.getValue());
+            query = resolve(query, parameter);
+        }
+
+        for (Parameter parameter : defaultParameters) {
+            String queryParameterKey = asQueryParameterKey(parameter.getKey());
+            checkArgument(
+                    !query.contains(queryParameterKey),
+                    "Query template parameters was not given: %s", queryParameterKey);
         }
 
         return query;
     }
 
-    private String resolve(String query, String key, String value)
+    private String resolve(String query, Parameter parameter)
     {
-        return query.replaceAll(asQueryParameterKey(key), value);
+        return parameter.getValue()
+                .map(value -> query.replaceAll(asQueryParameterKey(parameter.getKey()), value))
+                .orElse(query);
     }
 
     private String asQueryParameterKey(String key)
@@ -65,15 +75,25 @@ public class QueryTemplate
     public static final class Parameter
     {
         private final String key;
-        private final String value;
+        private final Optional<String> value;
+
+        public Parameter(String key)
+        {
+            this(key, Optional.empty());
+        }
 
         public Parameter(String key, String value)
+        {
+            this(key, Optional.of(value));
+        }
+
+        private Parameter(String key, Optional<String> value)
         {
             this.key = requireNonNull(key, "key is null");
             this.value = requireNonNull(value, "defaultValue is null");
         }
 
-        public String getValue()
+        public Optional<String> getValue()
         {
             return value;
         }
