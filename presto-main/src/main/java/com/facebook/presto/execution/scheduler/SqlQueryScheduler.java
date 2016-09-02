@@ -195,7 +195,7 @@ public class SqlQueryScheduler
     {
         ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
 
-        StageId stageId = new StageId(queryStateMachine.getQueryId(), String.valueOf(nextStageId.getAndIncrement()));
+        StageId stageId = new StageId(queryStateMachine.getQueryId(), nextStageId.getAndIncrement());
         SqlStageExecution stage = new SqlStageExecution(
                 stageId,
                 locationFactory.createStageLocation(stageId),

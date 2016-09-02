@@ -57,7 +57,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId("test", "1", 1),
+                        new TaskId("test", 1, 1),
                         (Node) node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(1));
@@ -75,7 +75,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId("test", "1", 1),
+                        new TaskId("test", 1, 1),
                         (Node) node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(5));
