@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryExecutionResource
 {
     // synthetic task id used by the output buffer of the top task
-    private static final TaskId OUTPUT_TASK_ID = new TaskId("output", "buffer", 0);
+    private static final TaskId OUTPUT_TASK_ID = new TaskId("output_buffer", 0, 0);
 
     private final QueryManager manager;
 

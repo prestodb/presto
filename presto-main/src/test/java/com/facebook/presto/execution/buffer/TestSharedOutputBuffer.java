@@ -58,7 +58,7 @@ public class TestSharedOutputBuffer
     private static final Duration MAX_WAIT = new Duration(1, TimeUnit.SECONDS);
     private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getSizeInBytes(), BYTE);
     private static final DataSize RETAINED_PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
-    private static final TaskId TASK_ID = new TaskId("query", "stage", 0);
+    private static final TaskId TASK_ID = new TaskId("query", 0, 0);
     private static final int DEFAULT_PARTITION = 0;
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 

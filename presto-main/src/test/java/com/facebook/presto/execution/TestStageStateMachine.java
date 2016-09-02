@@ -45,7 +45,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestStageStateMachine
 {
-    private static final StageId STAGE_ID = new StageId("query", "stage");
+    private static final StageId STAGE_ID = new StageId("query", 0);
     private static final URI LOCATION = URI.create("fake://fake-stage");
     private static final PlanFragment PLAN_FRAGMENT = createValuesPlan();
     private static final SQLException FAILED_CAUSE = new SQLException("FAILED");

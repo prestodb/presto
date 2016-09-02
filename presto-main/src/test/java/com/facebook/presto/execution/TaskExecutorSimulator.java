@@ -209,7 +209,7 @@ public class TaskExecutorSimulator
         return executor.submit((Callable<Void>) () -> {
             int taskId = 0;
             while (!done.get()) {
-                SimulationTask task = new SimulationTask(taskExecutor, new TaskId(userId, "0", taskId++));
+                SimulationTask task = new SimulationTask(taskExecutor, new TaskId(userId, 0, taskId++));
                 task.schedule(splitsPerTask, executor, new Duration(0, MILLISECONDS)).get();
                 task.destroy();
 
