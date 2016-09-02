@@ -65,6 +65,8 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.AbstractTestHiveClient.createTableProperties;
+import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
+import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
 import static com.facebook.presto.hive.AbstractTestHiveClient.listAllDataPaths;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
@@ -307,7 +309,7 @@ public abstract class AbstractTestHiveClientS3
     {
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
             try {
-                doCreateTable(temporaryCreateTable, storageFormat, "presto_test");
+                doCreateTable(temporaryCreateTable, storageFormat);
             }
             finally {
                 dropTable(temporaryCreateTable);
@@ -315,7 +317,7 @@ public abstract class AbstractTestHiveClientS3
         }
     }
 
-    private void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat, String tableOwner)
+    private void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
@@ -352,11 +354,11 @@ public abstract class AbstractTestHiveClientS3
 
         // load the new table
         ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         // verify the metadata
         tableMetadata = metadata.getTableMetadata(SESSION, getTableHandle(metadata, tableName));
-        assertEquals(tableMetadata.getColumns(), columns);
+        assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
 
         // verify the data
         List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(SESSION, tableHandle, new Constraint<>(TupleDomain.all(), bindings -> true), Optional.empty());
@@ -448,8 +450,8 @@ public abstract class AbstractTestHiveClientS3
                 tableBuilder.getStorageBuilder().setLocation("/");
 
                 // drop table
-                delegate.replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
-                delegate.dropTable(databaseName, tableName);
+                replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+                super.dropTable(databaseName, tableName);
 
                 // drop data
                 for (String location : locations) {
@@ -475,7 +477,7 @@ public abstract class AbstractTestHiveClientS3
             Table.Builder tableBuilder = Table.builder(table.get());
             tableBuilder.getStorageBuilder().setLocation(location);
 
-            delegate.replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
+            replaceTable(databaseName, tableName, tableBuilder.build(), new PrincipalPrivilegeSet());
         }
     }
 }
