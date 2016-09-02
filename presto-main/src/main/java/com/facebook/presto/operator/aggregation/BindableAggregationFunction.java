@@ -99,7 +99,7 @@ public class BindableAggregationFunction
         AggregationFunction aggregationAnnotation = definitionClass.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         AggregationMetadata metadata;
         AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
