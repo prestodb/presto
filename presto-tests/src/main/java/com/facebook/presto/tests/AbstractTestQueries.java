@@ -3552,6 +3552,115 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testWindowsSameOrdering()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT " +
+                    "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
+                    "min(tax) OVER(PARTITION BY suppkey ORDER BY shipdate)" +
+                    "FROM lineitem " +
+                    "ORDER BY 1 " +
+                    "LIMIT 10");
+
+        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .row(1.0, 0.0)
+                .row(2.0, 0.0)
+                .row(2.0, 0.0)
+                .row(3.0, 0.0)
+                .row(3.0, 0.0)
+                .row(4.0, 0.0)
+                .row(4.0, 0.0)
+                .row(5.0, 0.0)
+                .row(5.0, 0.0)
+                .row(5.0, 0.0)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowsPrefixPartitioning()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT " +
+                    "max(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)," +
+                    "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)" +
+                    "FROM lineitem " +
+                    "ORDER BY 2, 1 " +
+                    "LIMIT 10");
+
+        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .row(0.06, 1.0)
+                .row(0.02, 2.0)
+                .row(0.06, 2.0)
+                .row(0.02, 3.0)
+                .row(0.08, 3.0)
+                .row(0.03, 4.0)
+                .row(0.03, 4.0)
+                .row(0.02, 5.0)
+                .row(0.03, 5.0)
+                .row(0.07, 5.0)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowsDifferentPartitions()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT " +
+                "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
+                "count(discount) OVER(PARTITION BY partkey ORDER BY receiptdate)," +
+                "min(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)" +
+                "FROM lineitem " +
+                "ORDER BY 1, 2 " +
+                "LIMIT 10");
+
+        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, BIGINT, DOUBLE)
+                .row(1.0, 10L, 0.06)
+                .row(2.0, 4L, 0.06)
+                .row(2.0, 16L, 0.02)
+                .row(3.0, 3L, 0.08)
+                .row(3.0, 38L, 0.02)
+                .row(4.0, 10L, 0.03)
+                .row(4.0, 10L, 0.03)
+                .row(5.0, 9L, 0.03)
+                .row(5.0, 13L, 0.07)
+                .row(5.0, 15L, 0.02)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testWindowsConstantExpression()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("SELECT " +
+                "sum(discount) OVER(PARTITION BY suppkey ORDER BY receiptdate)," +
+                "lag(quantity, 1) OVER(PARTITION BY suppkey ORDER BY orderkey)" +
+                "FROM lineitem " +
+                "ORDER BY 1, 2 " +
+                "LIMIT 10");
+
+        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
+                .row(0.0, 8.0)
+                .row(0.0, 13.0)
+                .row(0.0, 17.0)
+                .row(0.0, 33.0)
+                .row(0.0, 33.0)
+                .row(0.0, 40.0)
+                .row(0.0, 42.0)
+                .row(0.01, 6.0)
+                .row(0.01, 8.0)
+                .row(0.01, 18.0)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testHaving()
     {
         assertQuery("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus HAVING orderstatus = 'O'");
