@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ResourceGroupIdTemplate
@@ -38,6 +39,16 @@ public class ResourceGroupIdTemplate
         this.segments = segments.stream()
                 .map(ResourceGroupNameTemplate::new)
                 .collect(Collectors.toList());
+    }
+
+    public static ResourceGroupIdTemplate forSubGroupNamed(ResourceGroupIdTemplate parent, String name)
+    {
+        return new ResourceGroupIdTemplate(format("%s.%s", requireNonNull(parent, "parent is null"), requireNonNull(name, "name is null")));
+    }
+
+    public static ResourceGroupIdTemplate fromSegments(List<ResourceGroupNameTemplate> segments)
+    {
+        return new ResourceGroupIdTemplate(String.join(".", segments.stream().map(segment -> segment.toString()).collect(Collectors.toList())));
     }
 
     public ResourceGroupId expandTemplate(SelectionContext context)

@@ -159,6 +159,12 @@ public final class InternalResourceGroupManager
         log.info("-- Loaded resource group configuration manager %s --", name);
     }
 
+    @VisibleForTesting
+    public ResourceGroupConfigurationManager getConfigurationManager()
+    {
+        return configurationManager.get();
+    }
+
     private static Map<String, String> loadProperties(File file)
             throws Exception
     {
