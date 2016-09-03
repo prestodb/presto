@@ -22,11 +22,13 @@ import io.airlift.units.Duration;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -144,5 +146,76 @@ public class ResourceGroupSpec
     public Optional<Duration> getHardCpuLimit()
     {
         return hardCpuLimit;
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        if (other == this) {
+            return true;
+        }
+        if (!(other instanceof ResourceGroupSpec)) {
+            return false;
+        }
+        ResourceGroupSpec that = (ResourceGroupSpec) other;
+        return (name.equals(that.name) &&
+                softMemoryLimit.equals(that.softMemoryLimit) &&
+                maxQueued == that.maxQueued &&
+                maxRunning == that.maxRunning &&
+                schedulingPolicy.equals(that.schedulingPolicy) &&
+                schedulingWeight.equals(that.schedulingWeight) &&
+                subGroups.equals(that.subGroups) &&
+                jmxExport.equals(that.jmxExport) &&
+                softCpuLimit.equals(that.softCpuLimit) &&
+                hardCpuLimit.equals(that.hardCpuLimit));
+    }
+
+    // Subgroups not included, used to determine whether a group needs to be reconfigured
+    public boolean sameConfig(ResourceGroupSpec other)
+    {
+        if (other == null) {
+            return false;
+        }
+        return (name.equals(other.name) &&
+                softMemoryLimit.equals(other.softMemoryLimit) &&
+                maxQueued == other.maxQueued &&
+                maxRunning == other.maxRunning &&
+                schedulingPolicy.equals(other.schedulingPolicy) &&
+                schedulingWeight.equals(other.schedulingWeight) &&
+                jmxExport.equals(other.jmxExport) &&
+                softCpuLimit.equals(other.softCpuLimit) &&
+                hardCpuLimit.equals(other.hardCpuLimit));
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                name,
+                softMemoryLimit,
+                maxQueued,
+                maxRunning,
+                schedulingPolicy,
+                schedulingWeight,
+                subGroups,
+                jmxExport,
+                softCpuLimit,
+                hardCpuLimit);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("name", name)
+                .add("softMemoryLimit", softMemoryLimit)
+                .add("maxQueued", maxQueued)
+                .add("maxRunning", maxRunning)
+                .add("schedulingPolicy", schedulingPolicy)
+                .add("schedulingWeight", schedulingWeight)
+                .add("jmxExport", jmxExport)
+                .add("softCpuLimit", softCpuLimit)
+                .add("hardCpuLimit", hardCpuLimit)
+                .toString();
     }
 }

@@ -11,28 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.resourceGroups;
+package com.facebook.presto.execution.resourceGroups.db;
 
-import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.common.collect.ImmutableList;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
-public class ResourceGroupManagerPlugin
+public class H2ResourceGroupManagerPlugin
         implements Plugin
 {
     @Override
     public Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
     {
         return ImmutableList.of(
-                new FileResourceGroupConfigurationManagerFactory(getClassLoader()),
-                new DbResourceGroupConfigurationManagerFactory(getClassLoader()));
+                new H2ResourceGroupConfigurationManagerFactory(getClassLoader()));
     }
 
     private static ClassLoader getClassLoader()
     {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), ResourceGroupManagerPlugin.class.getClassLoader());
+        return firstNonNull(Thread.currentThread().getContextClassLoader(), H2ResourceGroupManagerPlugin.class.getClassLoader());
     }
 }
