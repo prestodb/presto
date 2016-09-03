@@ -55,6 +55,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HdfsConfigurationUpdater.configureCompression;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -395,8 +396,7 @@ public enum FileFormat
             recordWriter = new HiveRecordWriter(
                     new Path(targetFile.toURI()),
                     columnNames,
-                    format.getOutputFormat(),
-                    format.getSerDe(),
+                    fromHiveStorageFormat(format),
                     createSchema(format, columnNames, columnTypes),
                     TYPE_MANAGER,
                     config);

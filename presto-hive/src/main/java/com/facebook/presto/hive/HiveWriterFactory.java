@@ -52,6 +52,7 @@ import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PAR
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -209,8 +210,7 @@ public class HiveWriterFactory
         Properties schema;
         Path target;
         Path write;
-        String outputFormat;
-        String serDe;
+        StorageFormat outputStorageFormat;
         if (!partition.isPresent()) {
             if (table == null) {
                 // Write to: a new partition in a new partitioned table,
@@ -262,13 +262,11 @@ public class HiveWriterFactory
 
             if (partitionName.isPresent()) {
                 // Write to a new partition
-                outputFormat = partitionStorageFormat.getOutputFormat();
-                serDe = partitionStorageFormat.getSerDe();
+                outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
             }
             else {
                 // Write to a new/existing unpartitioned table
-                outputFormat = tableStorageFormat.getOutputFormat();
-                serDe = tableStorageFormat.getSerDe();
+                outputStorageFormat = fromHiveStorageFormat(tableStorageFormat);
             }
         }
         else {
@@ -284,9 +282,7 @@ public class HiveWriterFactory
             // Append to an existing partition
             HiveWriteUtils.checkPartitionIsWritable(partitionName.get(), partition.get());
 
-            StorageFormat storageFormat = partition.get().getStorage().getStorageFormat();
-            outputFormat = storageFormat.getOutputFormat();
-            serDe = storageFormat.getSerDe();
+            outputStorageFormat = partition.get().getStorage().getStorageFormat();
             schema = getHiveSchema(partition.get(), table);
 
             target = locationService.targetPath(locationHandle, partition.get(), partitionName.get());
@@ -295,14 +291,13 @@ public class HiveWriterFactory
 
         validateSchema(partitionName, schema);
 
-        String fileNameWithExtension = fileName + getFileExtension(conf, outputFormat);
+        String fileNameWithExtension = fileName + getFileExtension(conf, outputStorageFormat);
         HiveRecordWriter hiveRecordWriter = new HiveRecordWriter(
                 new Path(write, fileNameWithExtension),
                 dataColumns.stream()
                         .map(DataColumn::getName)
                         .collect(toList()),
-                outputFormat,
-                serDe,
+                outputStorageFormat,
                 schema,
                 typeManager,
                 conf);
@@ -375,10 +370,10 @@ public class HiveWriterFactory
         return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
     }
 
-    public static String getFileExtension(JobConf conf, String outputFormat)
+    public static String getFileExtension(JobConf conf, StorageFormat storageFormat)
     {
         // text format files must have the correct extension when compressed
-        if (!HiveConf.getBoolVar(conf, COMPRESSRESULT) || !HiveIgnoreKeyTextOutputFormat.class.getName().equals(outputFormat)) {
+        if (!HiveConf.getBoolVar(conf, COMPRESSRESULT) || !HiveIgnoreKeyTextOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return "";
         }
 

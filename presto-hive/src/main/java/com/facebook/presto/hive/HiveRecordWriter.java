@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveWriteUtils.FieldSetter;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -65,8 +66,7 @@ public class HiveRecordWriter
     public HiveRecordWriter(
             Path path,
             List<String> inputColumnNames,
-            String outputFormat,
-            String serDe,
+            StorageFormat storageFormat,
             Properties schema,
             TypeManager typeManager,
             JobConf conf)
@@ -81,11 +81,12 @@ public class HiveRecordWriter
 
         fieldCount = fileColumnNames.size();
 
+        String serDe = storageFormat.getSerDe();
         if (serDe.equals(LazyBinaryColumnarSerDe.class.getName())) {
             serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
         }
         serializer = initializeSerializer(conf, schema, serDe);
-        recordWriter = createRecordWriter(path, conf, schema, outputFormat);
+        recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat());
 
         List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
         tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);
