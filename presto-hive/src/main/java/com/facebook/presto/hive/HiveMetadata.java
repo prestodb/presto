@@ -55,7 +55,6 @@ import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
@@ -127,7 +126,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 
 public class HiveMetadata
         implements ConnectorMetadata
@@ -655,7 +653,6 @@ public class HiveMetadata
     private void createEmptyFile(Path path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(path));
-        boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
 
         Properties schema;
         StorageFormat format;
@@ -669,17 +666,17 @@ public class HiveMetadata
         }
 
         for (String fileName : fileNames) {
-            writeEmptyFile(new Path(path, fileName), conf, compress, schema, format.getSerDe(), format.getOutputFormat());
+            writeEmptyFile(new Path(path, fileName), conf, schema, format.getSerDe(), format.getOutputFormat());
         }
     }
 
-    private static void writeEmptyFile(Path target, JobConf conf, boolean compress, Properties properties, String serDe, String outputFormatName)
+    private static void writeEmptyFile(Path target, JobConf conf, Properties properties, String serDe, String outputFormatName)
     {
         // Some serializers such as Avro set a property in the schema.
         initializeSerializer(conf, properties, serDe);
 
         // The code below is not a try with resources because RecordWriter is not Closeable.
-        FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, compress, properties, outputFormatName);
+        FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, properties, outputFormatName);
         try {
             recordWriter.close(false);
         }

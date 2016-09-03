@@ -395,7 +395,6 @@ public enum FileFormat
             recordWriter = new HiveRecordWriter(
                     new Path(targetFile.toURI()),
                     columnNames,
-                    compressionCodec != HiveCompressionCodec.NONE,
                     format.getOutputFormat(),
                     format.getSerDe(),
                     createSchema(format, columnNames, columnTypes),

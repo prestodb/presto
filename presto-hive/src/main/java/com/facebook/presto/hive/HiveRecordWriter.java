@@ -65,7 +65,6 @@ public class HiveRecordWriter
     public HiveRecordWriter(
             Path path,
             List<String> inputColumnNames,
-            boolean compress,
             String outputFormat,
             String serDe,
             Properties schema,
@@ -86,7 +85,7 @@ public class HiveRecordWriter
             serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
         }
         serializer = initializeSerializer(conf, schema, serDe);
-        recordWriter = createRecordWriter(path, conf, compress, schema, outputFormat);
+        recordWriter = createRecordWriter(path, conf, schema, outputFormat);
 
         List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
         tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);

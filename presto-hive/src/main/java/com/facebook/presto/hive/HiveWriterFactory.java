@@ -91,7 +91,6 @@ public class HiveWriterFactory
 
     private final Table table;
     private final boolean immutablePartitions;
-    private final boolean compress;
 
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
@@ -111,7 +110,6 @@ public class HiveWriterFactory
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
             boolean immutablePartitions,
-            boolean compress,
             ConnectorSession session)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -129,7 +127,6 @@ public class HiveWriterFactory
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.immutablePartitions = immutablePartitions;
-        this.compress = compress;
 
         // divide input columns into partition and data columns
         requireNonNull(inputColumns, "inputColumns is null");
@@ -304,7 +301,6 @@ public class HiveWriterFactory
                 dataColumns.stream()
                         .map(DataColumn::getName)
                         .collect(toList()),
-                compress,
                 outputFormat,
                 serDe,
                 schema,
