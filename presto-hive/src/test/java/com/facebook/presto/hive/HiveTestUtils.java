@@ -63,7 +63,9 @@ public final class HiveTestUtils
 
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveClientConfig hiveClientConfig)
     {
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
+                .add(new RcFileFileWriterFactory(hiveClientConfig, testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version")))
                 .build();
     }
 

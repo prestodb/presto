@@ -97,6 +97,7 @@ public class HiveClientConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
 
     private boolean rcfileOptimizedReaderEnabled;
+    private boolean rcfileOptimizedWriterEnabled;
 
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private String hiveMetastoreServicePrincipal;
@@ -662,6 +663,20 @@ public class HiveClientConfig
     public HiveClientConfig setRcfileOptimizedReaderEnabled(boolean rcfileOptimizedReaderEnabled)
     {
         this.rcfileOptimizedReaderEnabled = rcfileOptimizedReaderEnabled;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isRcfileOptimizedWriterEnabled()
+    {
+        return rcfileOptimizedWriterEnabled;
+    }
+
+    @Deprecated
+    @Config("hive.rcfile-optimized-writer.enabled")
+    public HiveClientConfig setRcfileOptimizedWriterEnabled(boolean rcfileOptimizedWriterEnabled)
+    {
+        this.rcfileOptimizedWriterEnabled = rcfileOptimizedWriterEnabled;
         return this;
     }
 

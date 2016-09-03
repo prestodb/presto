@@ -120,6 +120,8 @@ import static com.facebook.presto.rcfile.RcFileTester.Compression.LZ4;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.NONE;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.SNAPPY;
 import static com.facebook.presto.rcfile.RcFileTester.Compression.ZLIB;
+import static com.facebook.presto.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION;
+import static com.facebook.presto.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -416,10 +418,15 @@ public class RcFileTester
 
                     assertFileContentsOld(type, tempFile, format, finalValues);
 
-                    assertFileContentsNew(type, tempFile, format, finalValues, false, metadata);
+                    Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()
+                            .putAll(metadata)
+                            .put(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION)
+                            .build();
+
+                    assertFileContentsNew(type, tempFile, format, finalValues, false, expectedMetadata);
 
                     if (readLastBatchOnlyEnabled) {
-                        assertFileContentsNew(type, tempFile, format, finalValues, true, metadata);
+                        assertFileContentsNew(type, tempFile, format, finalValues, true, expectedMetadata);
                     }
                 }
             }

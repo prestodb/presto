@@ -50,6 +50,13 @@ public class RcFileWriter
     private static final DataSize MIN_BUFFER_SIZE = new DataSize(4, KILOBYTE);
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(1, MEGABYTE);
 
+    static final String PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
+    static final String PRESTO_RCFILE_WRITER_VERSION;
+    static {
+        String version = RcFileWriter.class.getPackage().getImplementationVersion();
+        PRESTO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;
+    }
+
     private final SliceOutput output;
 
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
@@ -104,6 +111,8 @@ public class RcFileWriter
         requireNonNull(codecName, "codecName is null");
         requireNonNull(codecFactory, "codecFactory is null");
         requireNonNull(metadata, "metadata is null");
+        checkArgument(!metadata.containsKey(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY), "Cannot set property %s", PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY);
+        checkArgument(!metadata.containsKey(COLUMN_COUNT_METADATA_KEY), "Cannot set property %s", COLUMN_COUNT_METADATA_KEY);
         requireNonNull(targetMinRowGroupSize, "targetMinRowGroupSize is null");
         requireNonNull(targetMaxRowGroupSize, "targetMaxRowGroupSize is null");
         checkArgument(targetMinRowGroupSize.compareTo(targetMaxRowGroupSize) <= 0, "targetMinRowGroupSize must be less than or equal to targetMaxRowGroupSize");
@@ -119,9 +128,11 @@ public class RcFileWriter
         codecName.ifPresent(name -> writeLengthPrefixedString(output, utf8Slice(name)));
 
         // write metadata
-        output.writeInt(Integer.reverseBytes(metadata.size() + 1));
+        output.writeInt(Integer.reverseBytes(metadata.size() + 2));
         writeLengthPrefixedString(output, utf8Slice(COLUMN_COUNT_METADATA_KEY));
         writeLengthPrefixedString(output, utf8Slice(Integer.toString(types.size())));
+        writeLengthPrefixedString(output, utf8Slice(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY));
+        writeLengthPrefixedString(output, utf8Slice(PRESTO_RCFILE_WRITER_VERSION));
         for (Entry<String, String> entry : metadata.entrySet()) {
             writeLengthPrefixedString(output, utf8Slice(entry.getKey()));
             writeLengthPrefixedString(output, utf8Slice(entry.getValue()));
