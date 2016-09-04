@@ -24,6 +24,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
@@ -98,6 +99,14 @@ public final class DatabaseUtil
                 }
             }
             throw e;
+        }
+    }
+
+    public static void enableStreamingResults(Statement statement)
+            throws SQLException
+    {
+        if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
+            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
         }
     }
 

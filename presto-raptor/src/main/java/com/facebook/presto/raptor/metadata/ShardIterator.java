@@ -39,6 +39,7 @@ import java.util.function.Function;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
+import static com.facebook.presto.raptor.util.DatabaseUtil.enableStreamingResults;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
@@ -215,14 +216,6 @@ final class ShardIterator
     {
         for (RaptorNode node : dao.getNodes()) {
             nodeMap.put(node.getNodeId(), node.getNodeIdentifier());
-        }
-    }
-
-    private static void enableStreamingResults(Statement statement)
-            throws SQLException
-    {
-        if (statement.isWrapperFor(com.mysql.jdbc.Statement.class)) {
-            statement.unwrap(com.mysql.jdbc.Statement.class).enableStreamingResults();
         }
     }
 }
