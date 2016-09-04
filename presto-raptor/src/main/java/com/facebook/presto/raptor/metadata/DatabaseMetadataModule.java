@@ -33,20 +33,33 @@ import org.skife.jdbi.v2.tweak.ConnectionFactory;
 import javax.inject.Singleton;
 import javax.sql.DataSource;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 
-import static com.facebook.presto.raptor.util.ConditionalModule.installIfPropertyEquals;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
 public class DatabaseMetadataModule
         extends AbstractConfigurationAwareModule
 {
     @Override
-    protected void setup(Binder binder)
+    protected void setup(Binder ignored)
     {
-        bindDataSource("metadata", ForMetadata.class);
+        install(installModuleIf(
+                DatabaseConfig.class,
+                config -> "mysql".equals(config.getDatabaseType()),
+                binder -> {
+                    binder.install(new MySqlDataSourceModule("metadata", ForMetadata.class));
+                    bindDaoSupplier(binder, ShardDao.class, MySqlShardDao.class);
+                }));
+
+        install(installModuleIf(
+                DatabaseConfig.class,
+                config -> "h2".equals(config.getDatabaseType()),
+                binder -> {
+                    binder.install(new H2EmbeddedDataSourceModule("metadata", ForMetadata.class));
+                    bindDaoSupplier(binder, ShardDao.class, H2ShardDao.class);
+                }));
     }
 
     @ForMetadata
@@ -55,21 +68,6 @@ public class DatabaseMetadataModule
     public ConnectionFactory createConnectionFactory(@ForMetadata DataSource dataSource)
     {
         return dataSource::getConnection;
-    }
-
-    private void bindDataSource(String type, Class<? extends Annotation> annotation)
-    {
-        String property = type + ".db.type";
-
-        install(installIfPropertyEquals(property, "mysql", binder -> {
-            binder.install(new MySqlDataSourceModule(type, annotation));
-            bindDaoSupplier(binder, ShardDao.class, MySqlShardDao.class);
-        }));
-
-        install(installIfPropertyEquals(property, "h2", binder -> {
-            binder.install(new H2EmbeddedDataSourceModule(type, annotation));
-            bindDaoSupplier(binder, ShardDao.class, H2ShardDao.class);
-        }));
     }
 
     public static <B, T extends B> void bindDaoSupplier(Binder binder, Class<B> baseType, Class<T> type)
