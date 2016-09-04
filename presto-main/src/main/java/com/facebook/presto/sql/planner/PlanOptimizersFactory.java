@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
+import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedScalarToJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -77,6 +78,11 @@ public class PlanOptimizersFactory
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
+                new PruneUnreferencedOutputs(),
+                new MergeProjections(),
+                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                new TransformUncorrelatedScalarToJoin(),
+                new TransformCorrelatedScalarAggregationToJoin(metadata),
                 new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),
                 new SimplifyExpressions(metadata, sqlParser), // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
@@ -90,9 +96,7 @@ public class PlanOptimizersFactory
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new PruneIdentityProjections(), // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
-                new MetadataQueryOptimizer(metadata),
-                new TransformUncorrelatedScalarToJoin(),
-                new TransformUncorrelatedInPredicateSubqueryToSemiJoin());
+                new MetadataQueryOptimizer(metadata));
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(new SingleDistinctOptimizer());
