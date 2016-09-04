@@ -33,7 +33,7 @@ import java.util.Map;
 
 import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_FILE;
 import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_NONE;
-import static com.facebook.presto.atop.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory

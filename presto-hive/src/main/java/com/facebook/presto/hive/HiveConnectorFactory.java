@@ -48,7 +48,6 @@ import javax.management.MBeanServer;
 import java.lang.management.ManagementFactory;
 import java.util.Map;
 
-import static com.facebook.presto.hive.ConditionalModule.installModuleIf;
 import static com.facebook.presto.hive.SecurityConfig.ALLOW_ALL_ACCESS_CONTROL;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static com.facebook.presto.hive.authentication.AuthenticationModules.kerberosHiveMetastoreAuthenticationModule;
@@ -58,6 +57,7 @@ import static com.facebook.presto.hive.authentication.AuthenticationModules.noHi
 import static com.facebook.presto.hive.authentication.AuthenticationModules.simpleImpersonatingHdfsAuthenticationModule;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
 public class HiveConnectorFactory
