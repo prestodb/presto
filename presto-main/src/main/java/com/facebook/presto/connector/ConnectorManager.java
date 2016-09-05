@@ -49,6 +49,8 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 
 import javax.annotation.PreDestroy;
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Map;
@@ -63,6 +65,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public class ConnectorManager
 {
     public static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
@@ -86,9 +89,12 @@ public class ConnectorManager
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
 
+    @GuardedBy("this")
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
+    @GuardedBy("this")
     private final Set<String> catalogs = newConcurrentHashSet();
+    @GuardedBy("this")
     private final ConcurrentMap<String, Connector> connectors = new ConcurrentHashMap<>();
 
     private final AtomicBoolean stopped = new AtomicBoolean();
@@ -126,7 +132,7 @@ public class ConnectorManager
     }
 
     @PreDestroy
-    public void stop()
+    public synchronized void stop()
     {
         if (stopped.getAndSet(true)) {
             return;
@@ -149,7 +155,7 @@ public class ConnectorManager
         addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
     }
 
-    public void addConnectorFactory(ConnectorFactory connectorFactory)
+    public synchronized void addConnectorFactory(ConnectorFactory connectorFactory)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         ConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(connectorFactory.getName(), connectorFactory);
@@ -157,7 +163,7 @@ public class ConnectorManager
         handleResolver.addConnectorName(connectorFactory.getName(), connectorFactory.getHandleResolver());
     }
 
-    public void createConnection(String catalogName, String connectorName, Map<String, String> properties)
+    public synchronized void createConnection(String catalogName, String connectorName, Map<String, String> properties)
     {
         requireNonNull(connectorName, "connectorName is null");
         ConnectorFactory connectorFactory = connectorFactories.get(connectorName);
