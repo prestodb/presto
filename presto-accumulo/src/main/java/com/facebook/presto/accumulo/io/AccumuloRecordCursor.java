@@ -54,8 +54,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -273,7 +273,7 @@ public class AccumuloRecordCursor
     @Override
     public long getLong(int field)
     {
-        checkFieldType(field, BIGINT, DATE, FLOAT, INTEGER, SMALLINT, TIME, TIMESTAMP, TINYINT);
+        checkFieldType(field, BIGINT, DATE, INTEGER, REAL, SMALLINT, TIME, TIMESTAMP, TINYINT);
         Type type = getType(field);
         if (type.equals(BIGINT)) {
             return serializer.getLong(fieldToColumnName[field]);
@@ -281,11 +281,11 @@ public class AccumuloRecordCursor
         else if (type.equals(DATE)) {
             return serializer.getDate(fieldToColumnName[field]).getTime();
         }
-        else if (type.equals(FLOAT)) {
-            return Float.floatToIntBits(serializer.getFloat(fieldToColumnName[field]));
-        }
         else if (type.equals(INTEGER)) {
             return serializer.getInt(fieldToColumnName[field]);
+        }
+        else if (type.equals(REAL)) {
+            return Float.floatToIntBits(serializer.getFloat(fieldToColumnName[field]));
         }
         else if (type.equals(SMALLINT)) {
             return serializer.getShort(fieldToColumnName[field]);

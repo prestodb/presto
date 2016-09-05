@@ -28,8 +28,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -50,7 +50,7 @@ public class TestRow
         r1.addField(true, BOOLEAN);
         r1.addField(new Field(new Date(new GregorianCalendar(1999, 0, 1).getTime().getTime()), DATE));
         r1.addField(123.45678, DOUBLE);
-        r1.addField(new Field(123.45678f, FLOAT));
+        r1.addField(new Field(123.45678f, REAL));
         r1.addField(12345678, INTEGER);
         r1.addField(new Field(12345678L, BIGINT));
         r1.addField(new Field((short) 12345, SMALLINT));
@@ -85,7 +85,7 @@ public class TestRow
         expected.addField(true, BOOLEAN);
         expected.addField(new Field(new Date(TimeUnit.MILLISECONDS.toDays(new GregorianCalendar(1999, 0, 1).getTime().getTime())), DATE));
         expected.addField(123.45678, DOUBLE);
-        expected.addField(new Field(123.45678f, FLOAT));
+        expected.addField(new Field(123.45678f, REAL));
         expected.addField(12345678, INTEGER);
         expected.addField(new Field(12345678L, BIGINT));
         expected.addField(new Field((short) 12345, SMALLINT));
@@ -101,7 +101,7 @@ public class TestRow
         schema.addColumn("b", Optional.of("b"), Optional.of("b"), BOOLEAN);
         schema.addColumn("c", Optional.of("c"), Optional.of("c"), DATE);
         schema.addColumn("d", Optional.of("d"), Optional.of("d"), DOUBLE);
-        schema.addColumn("e", Optional.of("e"), Optional.of("e"), FLOAT);
+        schema.addColumn("e", Optional.of("e"), Optional.of("e"), REAL);
         schema.addColumn("f", Optional.of("f"), Optional.of("f"), INTEGER);
         schema.addColumn("g", Optional.of("g"), Optional.of("g"), BIGINT);
         schema.addColumn("h", Optional.of("h"), Optional.of("h"), SMALLINT);

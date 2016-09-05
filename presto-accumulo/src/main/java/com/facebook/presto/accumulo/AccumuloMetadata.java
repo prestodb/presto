@@ -351,8 +351,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session,
-            SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
@@ -410,8 +409,8 @@ public class AccumuloMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        // List all tables if schema is null
-        if (prefix.getSchemaName() == null) {
+        // List all tables if schema or table is null
+        if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
             return listTables(session, prefix.getSchemaName());
         }
 

@@ -19,6 +19,7 @@ import com.facebook.presto.accumulo.model.AccumuloSplit;
 import com.facebook.presto.accumulo.model.AccumuloTableHandle;
 import com.facebook.presto.accumulo.model.AccumuloTableLayoutHandle;
 import com.facebook.presto.accumulo.model.TabletSplitMetadata;
+import com.facebook.presto.accumulo.model.WrappedRange;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -37,6 +38,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.Types.checkType;
 import static java.util.Objects.requireNonNull;
@@ -86,7 +88,7 @@ public class AccumuloSplitManager
                     tableName,
                     rowIdName,
                     tableHandle.getSerializerClassName(),
-                    splitMetadata.getRanges(),
+                    splitMetadata.getRanges().stream().map(WrappedRange::new).collect(Collectors.toList()),
                     constraints,
                     tableHandle.getScanAuthorizations(),
                     splitMetadata.getHostPort());

@@ -35,8 +35,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -60,7 +60,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testArray()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = new ArrayType(VARCHAR);
         List<Object> expected = ImmutableList.of("a", "b", "c");
         byte[] data = serializer.encode(type, AccumuloRowSerializer.getBlockFromArray(VARCHAR, expected));
@@ -76,7 +76,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testBoolean()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = BOOLEAN;
         byte[] data = serializer.encode(type, true);
         boolean actual = serializer.decode(type, data);
@@ -99,7 +99,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testDate()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = DATE;
         Date expected = new Date(new java.util.Date().getTime());
         byte[] data = serializer.encode(type, expected);
@@ -115,7 +115,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testDouble()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = DOUBLE;
         Double expected = 123.45678;
         byte[] data = serializer.encode(type, expected);
@@ -131,8 +131,8 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testFloat()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
-        Type type = FLOAT;
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
+        Type type = REAL;
         Float expected = 123.45678f;
         byte[] data = serializer.encode(type, expected);
         Float actual = ((Double) serializer.decode(type, data)).floatValue();
@@ -147,7 +147,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testInt()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = INTEGER;
         Integer expected = 123456;
         byte[] data = serializer.encode(type, expected);
@@ -164,7 +164,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testLong()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = BIGINT;
         Long expected = 123456L;
         byte[] data = serializer.encode(type, expected);
@@ -180,7 +180,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testMap()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = new MapType(VARCHAR, BIGINT);
         Map<Object, Object> expected = ImmutableMap.of("a", 1L, "b", 2L, "3", 3L);
         byte[] data = serializer.encode(type, AccumuloRowSerializer.getBlockFromMap(type, expected));
@@ -196,7 +196,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testSmallInt()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = SMALLINT;
         Short expected = 12345;
         byte[] data = serializer.encode(type, expected);
@@ -212,7 +212,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testTime()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = TIME;
         Time expected = new Time(new java.util.Date().getTime());
         byte[] data = serializer.encode(type, expected);
@@ -228,7 +228,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testTimestamp()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = TIMESTAMP;
         Timestamp expected = new Timestamp(new java.util.Date().getTime());
         byte[] data = serializer.encode(type, expected);
@@ -244,7 +244,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testTinyInt()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = TINYINT;
         Byte expected = 123;
         byte[] data = serializer.encode(type, expected);
@@ -260,7 +260,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testVarbinary()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = VARBINARY;
         byte[] expected = b(UUID.randomUUID().toString());
         byte[] data = serializer.encode(type, expected);
@@ -276,7 +276,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     public void testVarchar()
             throws Exception
     {
-        AccumuloRowSerializer serializer = serializerClass.newInstance();
+        AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = VARCHAR;
         String expected = UUID.randomUUID().toString();
         byte[] data = serializer.encode(type, expected);

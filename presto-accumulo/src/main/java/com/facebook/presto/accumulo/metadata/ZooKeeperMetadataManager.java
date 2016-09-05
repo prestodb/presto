@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.accumulo.metadata;
 
-import com.facebook.presto.accumulo.AccumuloClient;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.TypeManager;
-import io.airlift.log.Logger;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
+import org.apache.zookeeper.KeeperException;
 
 import javax.activity.InvalidActivityException;
 
@@ -32,6 +31,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
 import static java.lang.String.format;
+import static org.apache.zookeeper.KeeperException.Code.NONODE;
 
 /**
  * An implementation of {@link AccumuloMetadataManager} that persists metadata to Apache ZooKeeper.
@@ -40,7 +40,6 @@ public class ZooKeeperMetadataManager
         extends AccumuloMetadataManager
 {
     private static final String DEFAULT_SCHEMA = "default";
-    private static final Logger LOG = Logger.get(ZooKeeperMetadataManager.class);
 
     private final CuratorFramework curator;
 
@@ -50,9 +49,7 @@ public class ZooKeeperMetadataManager
     {
         super(config, typeManager);
         String zkMetadataRoot = config.getZkMetadataRoot();
-
-        // Need to get ZooKeepers from AccumuloClient in the event MAC is enabled
-        String zookeepers = AccumuloClient.getAccumuloConnector(config).getInstance().getZooKeepers();
+        String zookeepers = config.getZooKeepers();
 
         // Create the connection to ZooKeeper to check if the metadata root exists
         CuratorFramework checkRoot = CuratorFrameworkFactory.newClient(zookeepers, new RetryForever(1000));
@@ -135,12 +132,15 @@ public class ZooKeeperMetadataManager
             if (curator.checkExists().forPath(getTablePath(stName)) != null) {
                 return toAccumuloTable(curator.getData().forPath(getTablePath(stName)));
             }
-            else {
-                LOG.debug("No metadata for table " + stName);
-                return null;
-            }
+
+            return null;
         }
         catch (Exception e) {
+            // Capture race condition between checkExists and getData
+            if (e instanceof KeeperException && ((KeeperException) e).code().equals(NONODE)) {
+                return null;
+            }
+
             throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching table", e);
         }
     }
@@ -184,12 +184,15 @@ public class ZooKeeperMetadataManager
             if (curator.checkExists().forPath(tablePath) != null) {
                 return toAccumuloView(curator.getData().forPath(tablePath));
             }
-            else {
-                LOG.debug("No metadata for view " + stName);
-                return null;
-            }
+
+            return null;
         }
         catch (Exception e) {
+            // Capture race condition between checkExists and getData
+            if (e instanceof KeeperException && ((KeeperException) e).code().equals(NONODE)) {
+                return null;
+            }
+
             throw new PrestoException(ZOOKEEPER_ERROR, "Error fetching view", e);
         }
     }
@@ -282,6 +285,11 @@ public class ZooKeeperMetadataManager
             return curator.checkExists().forPath(path) != null && super.isAccumuloTable(curator.getData().forPath(path));
         }
         catch (Exception e) {
+            // Capture race condition between checkExists and getData
+            if (e instanceof KeeperException && ((KeeperException) e).code().equals(NONODE)) {
+                return false;
+            }
+
             throw new PrestoException(ZOOKEEPER_ERROR, "Error checking if path %s is an AccumuloTable object", e);
         }
     }
@@ -293,6 +301,11 @@ public class ZooKeeperMetadataManager
             return curator.checkExists().forPath(path) != null && super.isAccumuloView(curator.getData().forPath(path));
         }
         catch (Exception e) {
+            // Capture race condition between checkExists and getData
+            if (e instanceof KeeperException && ((KeeperException) e).code().equals(NONODE)) {
+                return false;
+            }
+
             throw new PrestoException(ZOOKEEPER_ERROR, "Error checking if path is an AccumuloView object", e);
         }
     }

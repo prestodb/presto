@@ -36,8 +36,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -322,14 +322,14 @@ public class StringRowSerializer
         else if (type.equals(DOUBLE)) {
             setDouble(text, (Double) value);
         }
-        else if (type.equals(FLOAT)) {
-            setFloat(text, (Float) value);
-        }
         else if (type.equals(INTEGER) && value instanceof Integer) {
             setInt(text, (Integer) value);
         }
         else if (type.equals(INTEGER) && value instanceof Long) {
             setInt(text, ((Long) value).intValue());
+        }
+        else if (type.equals(REAL)) {
+            setFloat(text, (Float) value);
         }
         else if (type.equals(SMALLINT)) {
             setShort(text, (Short) value);
@@ -385,11 +385,11 @@ public class StringRowSerializer
         else if (type.equals(DOUBLE)) {
             return (T) (Double) Double.parseDouble(strValue);
         }
-        else if (type.equals(FLOAT)) {
-            return (T) (Double) ((Float) Float.parseFloat(strValue)).doubleValue();
-        }
         else if (type.equals(INTEGER)) {
             return (T) (Long) ((Integer) Integer.parseInt(strValue)).longValue();
+        }
+        else if (type.equals(REAL)) {
+            return (T) (Double) ((Float) Float.parseFloat(strValue)).doubleValue();
         }
         else if (type.equals(SMALLINT)) {
             return (T) (Long) ((Short) Short.parseShort(strValue)).longValue();

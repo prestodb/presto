@@ -41,7 +41,6 @@ public class AccumuloConfig
     public static final String METADATA_MANAGER_CLASS = "accumulo.metadata.manager.class";
     public static final String CARDINALITY_CACHE_SIZE = "accumulo.cardinality.cache.size";
     public static final String CARDINALITY_CACHE_EXPIRE_DURATION = "accumulo.cardinality.cache.expire.duration";
-    public static final String MINI_ACCUMULO_CLUSTER = "accumulo.mini.accumulo.cluster";
 
     private String instance = null;
     private String zooKeepers = null;
@@ -51,7 +50,6 @@ public class AccumuloConfig
     private String metaManClass = "default";
     private int cardinalityCacheSize = 100_000;
     private Duration cardinalityCacheExpiration = new Duration(5, TimeUnit.MINUTES);
-    private boolean isMiniAccumuloCluster = false;
 
     @NotNull
     public String getInstance()
@@ -174,17 +172,5 @@ public class AccumuloConfig
     public void setCardinalityCacheExpiration(Duration cardinalityCacheExpiration)
     {
         this.cardinalityCacheExpiration = cardinalityCacheExpiration;
-    }
-
-    public boolean isMiniAccumuloCluster()
-    {
-        return isMiniAccumuloCluster;
-    }
-
-    @Config(MINI_ACCUMULO_CLUSTER)
-    @ConfigDescription("Sets whether or not to use MiniAccumuloCluster.  This is for testing only.")
-    public void setMiniAccumuloCluster(boolean isMiniAccumuloCluster)
-    {
-        this.isMiniAccumuloCluster = isMiniAccumuloCluster;
     }
 }

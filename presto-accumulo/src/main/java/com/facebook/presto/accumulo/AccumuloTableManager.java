@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
@@ -45,9 +44,9 @@ public class AccumuloTableManager
     private static final String DEFAULT = "default";
     private final Connector connector;
 
-    public AccumuloTableManager(AccumuloConfig config)
+    public AccumuloTableManager(Connector connector)
     {
-        this.connector = AccumuloClient.getAccumuloConnector(requireNonNull(config, "config is null"));
+        this.connector = requireNonNull(connector, "connector is null");
     }
 
     /**

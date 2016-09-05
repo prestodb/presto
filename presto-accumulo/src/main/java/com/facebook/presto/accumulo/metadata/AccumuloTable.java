@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.collect.ImmutableList;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Optional;
 
@@ -247,9 +248,9 @@ public class AccumuloTable
     public AccumuloRowSerializer getSerializerInstance()
     {
         try {
-            return (AccumuloRowSerializer) Class.forName(serializerClassName).newInstance();
+            return (AccumuloRowSerializer) Class.forName(serializerClassName).getConstructor().newInstance();
         }
-        catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+        catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new PrestoException(VALIDATION, "Configured serializer class not found", e);
         }
     }

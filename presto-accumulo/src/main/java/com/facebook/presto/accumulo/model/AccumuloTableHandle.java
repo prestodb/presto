@@ -94,9 +94,9 @@ public final class AccumuloTableHandle
     public AccumuloRowSerializer getSerializerInstance()
     {
         try {
-            return (AccumuloRowSerializer) Class.forName(serializerClassName).newInstance();
+            return (AccumuloRowSerializer) Class.forName(serializerClassName).getConstructor().newInstance();
         }
-        catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+        catch (Exception e) {
             throw new PrestoException(VALIDATION, "Configured serializer class not found", e);
         }
     }

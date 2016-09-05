@@ -20,22 +20,13 @@ import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.collect.ImmutableList;
 import org.apache.accumulo.core.data.Range;
-import org.apache.hadoop.io.DataInputBuffer;
-import org.apache.hadoop.io.DataOutputBuffer;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -53,10 +44,7 @@ public class AccumuloSplit
     private final Optional<String> hostPort;
     private final List<HostAddress> addresses;
     private final List<AccumuloColumnConstraint> constraints;
-
-    @JsonSerialize(contentUsing = RangeSerializer.class)
-    @JsonDeserialize(contentUsing = RangeDeserializer.class)
-    private List<Range> ranges;
+    private List<WrappedRange> ranges;
 
     @JsonCreator
     public AccumuloSplit(
@@ -65,7 +53,7 @@ public class AccumuloSplit
             @JsonProperty("table") String table,
             @JsonProperty("rowId") String rowId,
             @JsonProperty("serializerClassName") String serializerClassName,
-            @JsonProperty("ranges") List<Range> ranges,
+            @JsonProperty("ranges") List<WrappedRange> ranges,
             @JsonProperty("constraints") List<AccumuloColumnConstraint> constraints,
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations,
             @JsonProperty("hostPort") Optional<String> hostPort)
@@ -78,7 +66,7 @@ public class AccumuloSplit
         this.constraints = ImmutableList.copyOf(requireNonNull(constraints, "constraints is null"));
         this.scanAuthorizations = requireNonNull(scanAuthorizations, "scanAuthorizations is null");
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
-        this.ranges = ImmutableList.copyOf(requireNonNull(ranges, "ranges is null"));
+        this.ranges = ranges;
 
         // Parse the host address into a list of addresses, this would be an Accumulo Tablet server or some localhost thing
         if (hostPort.isPresent()) {
@@ -131,10 +119,22 @@ public class AccumuloSplit
         return this.serializerClassName;
     }
 
+    @JsonSetter
+    public void setWrappedRanges(List<WrappedRange> ranges)
+    {
+        this.ranges = ImmutableList.copyOf(ranges);
+    }
+
     @JsonProperty
-    public List<Range> getRanges()
+    public List<WrappedRange> getWrappedRanges()
     {
         return ranges;
+    }
+
+    @JsonIgnore
+    public List<Range> getRanges()
+    {
+        return ranges.stream().map(WrappedRange::getRange).collect(Collectors.toList());
     }
 
     @JsonProperty
@@ -194,66 +194,5 @@ public class AccumuloSplit
                 .add("scanAuthorizations", scanAuthorizations)
                 .add("hostPort", hostPort)
                 .toString();
-    }
-
-    public static final class RangeSerializer
-            extends JsonSerializer<Range>
-    {
-        private static final ThreadLocal<DataOutputBuffer> TL_OUT = new ThreadLocal<DataOutputBuffer>()
-        {
-            @Override
-            protected DataOutputBuffer initialValue()
-            {
-                return new DataOutputBuffer();
-            }
-        };
-
-        @Override
-        public void serialize(Range value, JsonGenerator jgen, SerializerProvider provider)
-                throws IOException
-        {
-            DataOutputBuffer out = TL_OUT.get();
-            out.reset();
-            value.write(out);
-            jgen.writeBinary(out.getData(), 0, out.getLength());
-        }
-    }
-
-    public static final class RangeDeserializer
-            extends JsonDeserializer<Range>
-    {
-        private static final ThreadLocal<DataOutputBuffer> TL_OUT = new ThreadLocal<DataOutputBuffer>()
-        {
-            @Override
-            protected DataOutputBuffer initialValue()
-            {
-                return new DataOutputBuffer();
-            }
-        };
-
-        private static final ThreadLocal<DataInputBuffer> TL_BUFFER = new ThreadLocal<DataInputBuffer>()
-        {
-            @Override
-            protected DataInputBuffer initialValue()
-            {
-                return new DataInputBuffer();
-            }
-        };
-
-        @Override
-        public Range deserialize(JsonParser jp, DeserializationContext ctxt)
-                throws IOException
-        {
-            DataOutputBuffer out = TL_OUT.get();
-            DataInputBuffer buffer = TL_BUFFER.get();
-
-            out.reset();
-            jp.readBinaryValue(out);
-
-            buffer.reset(out.getData(), out.getLength());
-            Range r = new Range();
-            r.readFields(buffer);
-            return r;
-        }
     }
 }

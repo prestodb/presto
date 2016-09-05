@@ -20,6 +20,7 @@ import org.apache.accumulo.core.data.Range;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.testng.Assert.assertEquals;
 
@@ -36,7 +37,7 @@ public class TestAccumuloSplit
                 "table",
                 "id",
                 LexicoderRowSerializer.class.getCanonicalName(),
-                ImmutableList.of(new Range(), new Range("bar", "foo"), new Range("bar", false, "baz", false)),
+                ImmutableList.of(new Range(), new Range("bar", "foo"), new Range("bar", false, "baz", false)).stream().map(WrappedRange::new).collect(Collectors.toList()),
                 ImmutableList.of(
                         new AccumuloColumnConstraint(
                                 "id",

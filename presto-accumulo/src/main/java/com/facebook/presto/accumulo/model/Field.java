@@ -38,8 +38,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -88,11 +88,11 @@ public class Field
         else if (type.equals(DOUBLE)) {
             this.value = field.getDouble();
         }
-        else if (type.equals(FLOAT)) {
-            this.value = field.getFloat();
-        }
         else if (type.equals(INTEGER)) {
             this.value = field.getInt();
+        }
+        else if (type.equals(REAL)) {
+            this.value = field.getFloat();
         }
         else if (type.equals(SMALLINT)) {
             this.value = field.getShort();
@@ -347,7 +347,7 @@ public class Field
         }
 
         // Validate the object is the given type
-        if (type.equals(BIGINT) || type.equals(BOOLEAN) || type.equals(DOUBLE) || type.equals(FLOAT) || type.equals(INTEGER) || type.equals(TINYINT) || type.equals(SMALLINT)) {
+        if (type.equals(BIGINT) || type.equals(BOOLEAN) || type.equals(DOUBLE) || type.equals(INTEGER) || type.equals(REAL) || type.equals(TINYINT) || type.equals(SMALLINT)) {
             return value.toString();
         }
         else if (type.equals(DATE)) {
@@ -439,7 +439,7 @@ public class Field
                 throw new PrestoException(INTERNAL_ERROR, "Object is not a Double, but " + value.getClass());
             }
         }
-        else if (type.equals(FLOAT)) {
+        else if (type.equals(REAL)) {
             if (value instanceof Long) {
                 return Float.intBitsToFloat(((Long) value).intValue());
             }

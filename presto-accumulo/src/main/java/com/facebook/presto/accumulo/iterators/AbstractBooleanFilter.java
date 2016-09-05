@@ -51,7 +51,7 @@ public abstract class AbstractBooleanFilter
             try {
                 Map<String, String> props = OBJECT_MAPPER.readValue(entry.getValue(), new TypeReference<Map<String, String>>() {});
                 String clazz = props.remove(FILTER_JAVA_CLASS_NAME);
-                RowFilter filter = (RowFilter) Class.forName(clazz).newInstance();
+                RowFilter filter = (RowFilter) Class.forName(clazz).getConstructor().newInstance();
                 filter.init(this, props, env);
                 filters.add(filter);
                 LOG.debug("%s: Added Filter %s", super.toString(), filter);

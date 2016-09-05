@@ -32,6 +32,7 @@ Table of Contents
 #. `Adding Columns <#adding-columns>`__
 #. `Serializers <#serializers>`__
 #. `Metadata Management <#metadata-management>`__
+#. `Converting Table from Internal to External <#converting-table-from-internal-to-external>`__
 
 Dependencies
 ~~~~~~~~~~~~
@@ -63,13 +64,10 @@ that is located at `https://github.com/bloomberg/presto-accumulo <https://github
 
 Connector Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~
-See ``presto-accumulo/etc/catalog/accumulo.properties`` for an example
-configuration of the Accumulo connector. Fill in the appropriate values
-to fit your cluster, then copy this file into
-``$PRESTO_HOME/etc/catalog``. The list of configuration variables is
-below.
+Create a file called ``$PRESTO_HOME/etc/catalog/accumulo.properties`` and use the below
+table of properties to configure the Accumulo connector.
 
-Restart the Presto server, then use the presto client with the
+After configuring, restart the Presto server, then use the Presto client with the
 ``accumulo`` catalog like so:
 
 .. code-block:: bash
@@ -78,27 +76,27 @@ Restart the Presto server, then use the presto client with the
 
 Configuration Variables
 -----------------------
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| Parameter Name                    | Default Value    | Required | Description                                                                                      |
-+===================================+==================+==========+==================================================================================================+
-| connector.name                    | (none)           | Yes      | Name of the connector. Do not change!                                                            |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| instance                          | (none)           | Yes      | Name of the Accumulo instance                                                                    |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| zookeepers                        | (none)           | Yes      | ZooKeeper connect string                                                                         |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| username                          | (none)           | Yes      | Accumulo user for Presto                                                                         |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| password                          | (none)           | Yes      | Accumulo password for user                                                                       |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| zookeeper.metadata.root           | /presto-accumulo | No       | Root znode for storing metadata. Only relevant if using default Metadata Manager                 |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| metadata.manager.class            | default          | No       | Fully qualified classname for the MetadataManager class. Default is the ZooKeeperMetadataManager |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| cardinality.cache.size            | 100000           | No       | Sets the size of the index cardinality cache                                                     |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| cardinality.cache.expire.duration | 5m               | No       | Sets the expiration duration of the cardinality cache.                                           |
-+-----------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| Parameter Name                             | Default Value    | Required | Description                                                                                      |
++============================================+==================+==========+==================================================================================================+
+| connector.name                             | (none)           | Yes      | Name of the connector. Do not change!                                                            |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.instance                          | (none)           | Yes      | Name of the Accumulo instance                                                                    |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.zookeepers                        | (none)           | Yes      | ZooKeeper connect string                                                                         |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.username                          | (none)           | Yes      | Accumulo user for Presto                                                                         |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.password                          | (none)           | Yes      | Accumulo password for user                                                                       |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.zookeeper.metadata.root           | /presto-accumulo | No       | Root znode for storing metadata. Only relevant if using default Metadata Manager                 |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.metadata.manager.class            | default          | No       | Fully qualified classname for the MetadataManager class. Default is the ZooKeeperMetadataManager |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.cardinality.cache.size            | 100000           | No       | Sets the size of the index cardinality cache                                                     |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
+| accumulo.cardinality.cache.expire.duration | 5m               | No       | Sets the expiration duration of the cardinality cache.                                           |
++--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
 
 Unsupported Features
 ~~~~~~~~~~~~~~~~~~~~
@@ -107,7 +105,7 @@ Of the available Presto DDL/DML statements and features, the Accumulo connector 
 
 - **Adding columns via ALTER TABLE**: While you cannot add columns via SQL, you can using a tool.
   See the below section on `Adding Columns <#adding-columns>`__ for more.
-- **DELETE**: Deleting rows are not yet implemented for the connector, but you could always use the Accumulo API
+- **DELETE**: Deleting rows are not yet implemented for the connector
 
 Usage
 ~~~~~
@@ -139,7 +137,8 @@ Simply issue a ``CREATE TABLE`` statement to create a new Presto/Accumulo table.
 
 This command will create a new Accumulo table with the ``recordkey`` column
 as the Accumulo row ID. The name, age, and birthday columns are mapped to
-auto-generated column family and qualifier values.
+auto-generated column family and qualifier values (which, in practice,
+are both identical to the Presto column name).
 
 When creating a table using SQL, you can optionally specify a
 ``column_mapping`` table property. The value of this property is a
@@ -429,7 +428,7 @@ Table property usage example:
 +-----------------+----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Property Name   | Default Value  | Description                                                                                                                                                                                                                                                                        |
 +=================+================+====================================================================================================================================================================================================================================================================================+
-| column_mapping  | (generated     | Comma-delimited list of column metadata: col_name:col_family:col_qualifier,[...]. Required for external tables.  Not setting this property results in auto-generated column names.                                                                                                 |
+| column_mapping  | (generated)    | Comma-delimited list of column metadata: col_name:col_family:col_qualifier,[...]. Required for external tables.  Not setting this property results in auto-generated column names.                                                                                                 |
 +-----------------+----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | index_columns   | (none)         | A comma-delimited list of Presto columns that are indexed in this table's corresponding index table                                                                                                                                                                                |
 +-----------------+----------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -502,6 +501,10 @@ default serializer is the ``lexicoder`` serializer, as this serializer
 does not require expensive conversion operations back and forth between
 ``String`` objects and the Presto types -- the cell's value is encoded as a
 byte array.
+
+Additionally, the ``lexicoder`` serializer does proper lexigraphical ordering of
+numerical types like ``BIGINT`` or ``TIMESTAMP``.  This is essential for the connector
+to properly leverage the secondary index when querying for data.
 
 You can change the default the serializer by specifying the
 ``serializer`` table property, using either ``default`` (which is
@@ -593,3 +596,53 @@ If you have a need to programmatically manipulate the ZooKeeper metadata
 for Accumulo, take a look at
 ``com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager`` for some
 Java code to simplify the process.
+
+Converting Table from Internal to External
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If your table is *internal*, you can convert it to an external table by deleting
+the corresponding znode in ZooKeeper, effectively making the table no longer exist as
+far as Presto is concerned.  Then, create the table again using the same DDL, but adding the
+``external = true`` table property.
+
+For example:
+
+1. We're starting with an internal table ``foo.bar`` that was created with the below DDL.
+If you have not previously defined a table property for ``column_mapping`` (like this example),
+be sure to describe the table **before** deleting the metadata.  We'll need the column mappings
+when creating the external table.
+
+.. code-block:: sql
+
+    CREATE TABLE foo.bar (a VARCHAR, b BIGINT, c DATE)
+    WITH (
+        index_columns = 'b,c'
+    );
+
+    DESCRIBE foo.bar;
+     Column |  Type   |               Comment
+    --------+---------+-------------------------------------
+     a      | varchar | Accumulo row ID
+     b      | bigint  | Accumulo column b:b. Indexed: true
+     c      | date    | Accumulo column c:c. Indexed: true
+
+2. Using the ZooKeeper CLI, delete the corresponding znode.  Note this uses the default ZooKeeper
+metadata root of ``/presto-accumulo``
+
+.. code-block:: bash
+
+    $ zkCli.sh
+    [zk: localhost:2181(CONNECTED) 1] delete /presto-accumulo/foo/bar
+
+3. Re-create the table using the same DDL as before, but adding the ``external=true`` property.
+Note that if you had not previously defined the column_mapping, you'll need to add the property
+to the new DDL (external tables require this property to be set).  The column mappings are in
+the output of the ``DESCRIBE`` statement.
+
+.. code-block:: sql
+
+    CREATE TABLE foo.bar (a VARCHAR, b BIGINT, c DATE)
+    WITH (
+        column_mapping = 'a:a:a,b:b:b,c:c:c',
+        index_columns = 'b,c',
+        external = true
+    );

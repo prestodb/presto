@@ -24,6 +24,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import org.apache.accumulo.core.client.Connector;
 
 import javax.inject.Inject;
 
@@ -42,29 +43,30 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final String connectorId;
     private final AccumuloConfig config;
+    private final Connector connector;
+    private final String connectorId;
 
     @Inject
     public AccumuloRecordSetProvider(
+            Connector connector,
             AccumuloConnectorId connectorId,
             AccumuloConfig config)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.config = requireNonNull(config, "config is null");
+        this.connector = requireNonNull(connector, "connector is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
 
         // Convert split
         AccumuloSplit accSplit = checkType(split, AccumuloSplit.class, "split");
-        checkArgument(accSplit.getConnectorId().equals(connectorId),
-                "split is not for this connector");
+        checkArgument(accSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         // Convert all columns handles
         ImmutableList.Builder<AccumuloColumnHandle> handles = ImmutableList.builder();
@@ -73,6 +75,6 @@ public class AccumuloRecordSetProvider
         }
 
         // Return new record set
-        return new AccumuloRecordSet(session, config, accSplit, handles.build());
+        return new AccumuloRecordSet(connector, session, config, accSplit, handles.build());
     }
 }

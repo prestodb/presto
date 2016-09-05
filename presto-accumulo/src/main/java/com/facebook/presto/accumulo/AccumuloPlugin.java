@@ -16,27 +16,14 @@ package com.facebook.presto.accumulo;
 import com.facebook.presto.accumulo.udf.AccumuloStringFunctions;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Map;
 import java.util.Set;
-
-import static java.util.Objects.requireNonNull;
 
 public class AccumuloPlugin
         implements Plugin
 {
-    private Map<String, String> optionalConfig = ImmutableMap.of();
-
-    @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
-    {
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
-
     @Override
     public Set<Class<?>> getFunctions()
     {
@@ -44,9 +31,8 @@ public class AccumuloPlugin
     }
 
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        requireNonNull(context, "context is null");
-        return ImmutableList.of(new AccumuloConnectorFactory(context.getTypeManager(), optionalConfig));
+        return ImmutableList.of(new AccumuloConnectorFactory());
     }
 }

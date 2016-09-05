@@ -44,8 +44,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -81,8 +81,8 @@ public class LexicoderRowSerializer
         LEXICODER_MAP.put(BOOLEAN, new BooleanLexicoder());
         LEXICODER_MAP.put(DATE, longLexicoder);
         LEXICODER_MAP.put(DOUBLE, doubleLexicoder);
-        LEXICODER_MAP.put(FLOAT, doubleLexicoder);
         LEXICODER_MAP.put(INTEGER, longLexicoder);
+        LEXICODER_MAP.put(REAL, doubleLexicoder);
         LEXICODER_MAP.put(SMALLINT, longLexicoder);
         LEXICODER_MAP.put(TIME, longLexicoder);
         LEXICODER_MAP.put(TIMESTAMP, longLexicoder);
@@ -216,13 +216,13 @@ public class LexicoderRowSerializer
     @Override
     public float getFloat(String name)
     {
-        return ((Double) decode(FLOAT, getFieldValue(name))).floatValue();
+        return ((Double) decode(REAL, getFieldValue(name))).floatValue();
     }
 
     @Override
     public void setFloat(Text text, Float value)
     {
-        text.set(encode(FLOAT, value));
+        text.set(encode(REAL, value));
     }
 
     @Override
@@ -342,11 +342,11 @@ public class LexicoderRowSerializer
         else if (type.equals(DATE) && value instanceof Date) {
             toEncode = ((Date) value).getTime();
         }
-        else if (type.equals(FLOAT) && value instanceof Float) {
-            toEncode = ((Float) value).doubleValue();
-        }
         else if (type.equals(INTEGER) && value instanceof Integer) {
             toEncode = ((Integer) value).longValue();
+        }
+        else if (type.equals(REAL) && value instanceof Float) {
+            toEncode = ((Float) value).doubleValue();
         }
         else if (type.equals(SMALLINT) && value instanceof Short) {
             toEncode = ((Short) value).longValue();

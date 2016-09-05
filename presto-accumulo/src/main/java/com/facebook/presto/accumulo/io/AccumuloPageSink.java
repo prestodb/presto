@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo.io;
 
-import com.facebook.presto.accumulo.AccumuloClient;
 import com.facebook.presto.accumulo.Types;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.Indexer;
@@ -55,8 +54,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -81,8 +80,10 @@ public class AccumuloPageSink
     private final Optional<Indexer> indexer;
     private final List<AccumuloColumnHandle> columns;
     private final int rowIdOrdinal;
+    private long numRows = 0L;
 
     public AccumuloPageSink(
+            Connector connector,
             AccumuloConfig config,
             AccumuloTable table)
     {
@@ -106,7 +107,6 @@ public class AccumuloPageSink
 
         try {
             // Create a BatchWriter to the Accumulo table
-            Connector connector = AccumuloClient.getAccumuloConnector(config);
             BatchWriterConfig conf = new BatchWriterConfig();
             writer = connector.createBatchWriter(table.getFullTableName(), conf);
 
@@ -197,11 +197,11 @@ public class AccumuloPageSink
             else if (type.equals(DOUBLE)) {
                 serializer.setDouble(value, field.getDouble());
             }
-            else if (type.equals(FLOAT)) {
-                serializer.setFloat(value, field.getFloat());
-            }
             else if (type.equals(INTEGER)) {
                 serializer.setInt(value, field.getInt());
+            }
+            else if (type.equals(REAL)) {
+                serializer.setFloat(value, field.getFloat());
             }
             else if (type.equals(SMALLINT)) {
                 serializer.setShort(value, field.getShort());
@@ -253,9 +253,15 @@ public class AccumuloPageSink
                     if (indexer.isPresent()) {
                         indexer.get().index(mutation);
                     }
+                    ++numRows;
                 }
                 catch (MutationsRejectedException e) {
                     throw new PrestoException(INTERNAL_ERROR, "Mutation rejected by server", e);
+                }
+
+                // TODO Fix arbitrary flush every 10k rows
+                if (numRows % 10000 == 0) {
+                    flush();
                 }
             }
             else {
@@ -291,5 +297,19 @@ public class AccumuloPageSink
     public void abort()
     {
         finish();
+    }
+
+    private void flush()
+    {
+        try {
+            if (indexer.isPresent()) {
+                indexer.get().flush();
+                // MetricsWriter is non-null if Indexer is present
+            }
+            writer.flush();
+        }
+        catch (MutationsRejectedException e) {
+            throw new PrestoException(INTERNAL_ERROR, "Mutation rejected by server on flush", e);
+        }
     }
 }

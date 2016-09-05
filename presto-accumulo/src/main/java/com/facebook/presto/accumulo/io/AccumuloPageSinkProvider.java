@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import org.apache.accumulo.core.client.Connector;
 
 import javax.inject.Inject;
 
@@ -38,21 +39,24 @@ public class AccumuloPageSinkProvider
 {
     private final AccumuloClient client;
     private final AccumuloConfig config;
+    private final Connector connector;
 
     @Inject
     public AccumuloPageSinkProvider(
+            Connector connector,
             AccumuloConfig config,
             AccumuloClient client)
     {
         this.client = requireNonNull(client, "client is null");
         this.config = requireNonNull(config, "config is null");
+        this.connector = requireNonNull(connector, "connector is null");
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         AccumuloTableHandle tableHandle = checkType(outputTableHandle, AccumuloTableHandle.class, "tableHandle");
-        return new AccumuloPageSink(config, client.getTable(tableHandle.toSchemaTableName()));
+        return new AccumuloPageSink(connector, config, client.getTable(tableHandle.toSchemaTableName()));
     }
 
     @Override

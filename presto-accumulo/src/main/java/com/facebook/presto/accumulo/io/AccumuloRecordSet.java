@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo.io;
 
-import com.facebook.presto.accumulo.AccumuloClient;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
@@ -63,6 +62,7 @@ public class AccumuloRecordSet
     private final String rowIdName;
 
     public AccumuloRecordSet(
+            Connector connector,
             ConnectorSession session,
             AccumuloConfig config,
             AccumuloSplit split,
@@ -77,7 +77,7 @@ public class AccumuloRecordSet
 
         // Factory the serializer based on the split configuration
         try {
-            this.serializer = split.getSerializerClass().newInstance();
+            this.serializer = split.getSerializerClass().getConstructor().newInstance();
         }
         catch (Exception e) {
             throw new PrestoException(VALIDATION, "Failed to factory serializer class.  Is it on the classpath?", e);
@@ -93,8 +93,7 @@ public class AccumuloRecordSet
 
         try {
             // Create the BatchScanner and set the ranges from the split
-            Connector conn = AccumuloClient.getAccumuloConnector(config);
-            scanner = conn.createBatchScanner(split.getFullTableName(), getScanAuthorizations(session, split, config, conn), 10);
+            scanner = connector.createBatchScanner(split.getFullTableName(), getScanAuthorizations(session, split, config, connector), 10);
             scanner.setRanges(split.getRanges());
         }
         catch (Exception e) {

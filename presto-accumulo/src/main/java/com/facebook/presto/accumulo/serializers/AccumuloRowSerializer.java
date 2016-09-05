@@ -378,16 +378,16 @@ public interface AccumuloRowSerializer
      * <td>Double</td>
      * </tr>
      * <tr>
-     * <td>FLOAT</td>
-     * <td>Float</td>
-     * </tr>
-     * <tr>
      * <td>INTEGER</td>
      * <td>Integer</td>
      * </tr>
      * <tr>
      * <td>Map</td>
      * <td>com.facebook.presto.spi.block.Block</td>
+     * </tr>
+     * <tr>
+     * <td>REAL</td>
+     * <td>Float</td>
      * </tr>
      * <tr>
      * <td>SMALLINT</td>
@@ -454,12 +454,12 @@ public interface AccumuloRowSerializer
      * <td>Double</td>
      * </tr>
      * <tr>
-     * <td>FLOAT</td>
-     * <td>Double</td>
-     * </tr>
-     * <tr>
      * <td>Map</td>
      * <td>Map&lt;?,?&gt;</td>
+     * </tr>
+     * <tr>
+     * <td>REAL</td>
+     * <td>Double</td>
      * </tr>
      * <tr>
      * <td>SMALLINT</td>

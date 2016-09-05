@@ -332,8 +332,6 @@ public class ColumnCardinalityCache
         public class MapDefaultZero
                 extends HashMap<Range, Long>
         {
-            private static final long serialVersionUID = -2511991250333716810L;
-
             @Override
             public Long get(Object key)
             {

@@ -44,26 +44,18 @@ import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.Scanner;
-import org.apache.accumulo.core.client.ZooKeeperInstance;
-import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.PartialKey;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
-import org.apache.accumulo.minicluster.MiniAccumuloCluster;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
 import javax.inject.Inject;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -81,125 +73,42 @@ import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VIEW_ALREADY_EXISTS;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.VIEW_IS_TABLE;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
  * This class is the main access point for the Presto connector to interact with Accumulo.
  * It is responsible for creating tables, dropping tables, retrieving table metadata, and getting the ConnectorSplits from a table.
- * <p>
- * Classes that requires an Accumulo Connector object should use the static method to retrieve it.
- * This function will create a MiniAccumuloCluster connection for testing, or a 'real' one for production use.
  */
 public class AccumuloClient
 {
     private static final Logger LOG = Logger.get(AccumuloClient.class);
-    private static final String MAC_PASSWORD = "secret";
-    private static final String MAC_USER = "root";
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
-
-    private static Connector connector = null;
 
     private final AccumuloConfig conf;
     private final AccumuloMetadataManager metaManager;
     private final Authorizations auths;
     private final AccumuloTableManager tableManager;
+    private final Connector connector;
     private final IndexLookup indexLookup;
-
-    /**
-     * Gets an Accumulo Connector based on the given configuration.
-     * Will start/stop MiniAccumuloCluster should that be true in the config.
-     *
-     * @param config Accumulo configuration
-     * @return Accumulo connector
-     */
-    public static synchronized Connector getAccumuloConnector(AccumuloConfig config)
-    {
-        if (connector != null) {
-            return connector;
-        }
-
-        requireNonNull(config, "config is null");
-
-        try {
-            if (config.isMiniAccumuloCluster()) {
-                MiniAccumuloCluster accumulo = createMiniAccumuloCluster();
-                Instance instance = new ZooKeeperInstance(accumulo.getInstanceName(), accumulo.getZooKeepers());
-                connector = instance.getConnector(MAC_USER, new PasswordToken(MAC_PASSWORD));
-                LOG.info("Connection to MAC instance %s at %s established, user %s password %s", accumulo.getInstanceName(), accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
-            }
-            else {
-                Instance inst = new ZooKeeperInstance(config.getInstance(), config.getZooKeepers());
-                connector = inst.getConnector(config.getUsername(),
-                        new PasswordToken(config.getPassword().getBytes(UTF_8)));
-                LOG.info("Connection to instance %s at %s established, user %s", config.getInstance(), config.getZooKeepers(), config.getUsername());
-            }
-        }
-        catch (AccumuloException | AccumuloSecurityException | InterruptedException | IOException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
-        }
-
-        return connector;
-    }
-
-    /**
-     * Creates and starts an instance of MiniAccumuloCluster, returning the new instance.
-     *
-     * @return New MiniAccumuloCluster
-     */
-    private static MiniAccumuloCluster createMiniAccumuloCluster()
-            throws IOException, InterruptedException
-    {
-        // Create MAC directory
-        File macDir = Files.createTempDirectory("mac-").toFile();
-        LOG.info("MAC is enabled, starting MiniAccumuloCluster at %s", macDir);
-
-        // Start MAC and connect to it
-        MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
-        accumulo.start();
-
-        // Add shutdown hook to stop MAC and cleanup temporary files
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                LOG.info("Shutting down MAC");
-                accumulo.stop();
-            }
-            catch (IOException | InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new PrestoException(MINI_ACCUMULO, "Failed to shut down MAC instance", e);
-            }
-
-            try {
-                LOG.info("Cleaning up MAC directory");
-                FileUtils.forceDelete(macDir);
-            }
-            catch (IOException e) {
-                throw new PrestoException(MINI_ACCUMULO, "Failed to clean up MAC directory", e);
-            }
-        }));
-
-        return accumulo;
-    }
 
     @Inject
     public AccumuloClient(
+            Connector connector,
             AccumuloConfig config,
             TypeManager typeManager)
             throws AccumuloException, AccumuloSecurityException
     {
         this.conf = requireNonNull(config, "config is null");
+        this.connector = requireNonNull(connector, "connector is null");
         this.metaManager = config.getMetadataManager(typeManager);
-        this.tableManager = new AccumuloTableManager(config);
-
-        // Creates and sets CONNECTOR in the event it has not yet been created
-        this.auths = getAccumuloConnector(this.conf).securityOperations().getUserAuthorizations(conf.getUsername());
+        this.tableManager = new AccumuloTableManager(connector);
+        this.auths = connector.securityOperations().getUserAuthorizations(conf.getUsername());
 
         // Create the index lookup utility
         this.indexLookup = new IndexLookup(connector, conf, this.auths);
@@ -260,7 +169,7 @@ public class AccumuloClient
         }
     }
 
-    private void validateColumns(ConnectorTableMetadata meta)
+    private static void validateColumns(ConnectorTableMetadata meta)
     {
         // Check all the column types, and throw an exception if the types of a map are complex
         // While it is a rare case, this is not supported by the Accumulo connector
@@ -306,7 +215,7 @@ public class AccumuloClient
         }
     }
 
-    private void validateLocalityGroups(ConnectorTableMetadata meta)
+    private static void validateLocalityGroups(ConnectorTableMetadata meta)
     {
         // Validate any configured locality groups
         Optional<Map<String, Set<String>>> groups = AccumuloTableProperties.getLocalityGroups(meta.getProperties());
@@ -351,12 +260,12 @@ public class AccumuloClient
         String indexTable = Indexer.getIndexTableName(meta.getTable());
         String metricsTable = Indexer.getMetricsTableName(meta.getTable());
 
-        if (connector.tableOperations().exists(table)) {
+        if (tableManager.exists(table)) {
             throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Cannot create internal table when an Accumulo table already exists");
         }
 
         if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).isPresent()) {
-            if (connector.tableOperations().exists(indexTable) || connector.tableOperations().exists(metricsTable)) {
+            if (tableManager.exists(indexTable) || tableManager.exists(metricsTable)) {
                 throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
             }
         }
@@ -368,13 +277,13 @@ public class AccumuloClient
      * @param meta ConnectorTableMetadata
      * @return Lowercase Presto column name mapped to the Accumulo row ID
      */
-    private String getRowIdColumn(ConnectorTableMetadata meta)
+    private static String getRowIdColumn(ConnectorTableMetadata meta)
     {
         Optional<String> rowIdColumn = AccumuloTableProperties.getRowId(meta.getProperties());
         return rowIdColumn.orElse(meta.getColumns().get(0).getName()).toLowerCase(Locale.ENGLISH);
     }
 
-    private List<AccumuloColumnHandle> getColumnHandles(ConnectorTableMetadata meta, String rowIdColumn)
+    private static List<AccumuloColumnHandle> getColumnHandles(ConnectorTableMetadata meta, String rowIdColumn)
     {
         // Get the column mappings from the table property or auto-generate columns if not defined
         Map<String, Pair<String, String>> mapping = AccumuloTableProperties.getColumnMapping(meta.getProperties()).orElse(autoGenerateMapping(meta.getColumns(), AccumuloTableProperties.getLocalityGroups(meta.getProperties())));
@@ -497,7 +406,7 @@ public class AccumuloClient
      * @param groups Mapping of locality groups to a set of Presto columns, or null if none
      * @return Column mappings
      */
-    private Map<String, Pair<String, String>> autoGenerateMapping(List<ColumnMetadata> columns, Optional<Map<String, Set<String>>> groups)
+    private static Map<String, Pair<String, String>> autoGenerateMapping(List<ColumnMetadata> columns, Optional<Map<String, Set<String>>> groups)
     {
         Map<String, Pair<String, String>> mapping = new HashMap<>();
         for (ColumnMetadata column : columns) {
@@ -514,7 +423,7 @@ public class AccumuloClient
      * @param groups Optional locality group configuration
      * @return Optional string containing the name of the locality group, if present
      */
-    private Optional<String> getColumnLocalityGroup(String columnName, Optional<Map<String, Set<String>>> groups)
+    private static Optional<String> getColumnLocalityGroup(String columnName, Optional<Map<String, Set<String>>> groups)
     {
         if (groups.isPresent()) {
             for (Map.Entry<String, Set<String>> group : groups.get().entrySet()) {

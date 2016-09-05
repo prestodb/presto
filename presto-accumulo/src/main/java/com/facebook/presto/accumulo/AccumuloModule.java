@@ -19,22 +19,33 @@ import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.io.AccumuloPageSinkProvider;
 import com.facebook.presto.accumulo.io.AccumuloRecordSetProvider;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+import org.apache.accumulo.core.client.AccumuloException;
+import org.apache.accumulo.core.client.AccumuloSecurityException;
+import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.Instance;
+import org.apache.accumulo.core.client.ZooKeeperInstance;
+import org.apache.accumulo.core.client.security.tokens.PasswordToken;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -72,6 +83,7 @@ public class AccumuloModule
         binder.bind(AccumuloHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(Connector.class).toProvider(ConnectorProvider.class);
 
         configBinder(binder).bindConfig(AccumuloConfig.class);
 
@@ -82,7 +94,6 @@ public class AccumuloModule
     public static final class TypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private static final long serialVersionUID = -3547534717872348558L;
         private final TypeManager typeManager;
 
         @Inject
@@ -98,6 +109,33 @@ public class AccumuloModule
             Type type = typeManager.getType(parseTypeSignature(value));
             checkArgument(type != null, "Unknown type %s", value);
             return type;
+        }
+    }
+
+    private static class ConnectorProvider
+            implements Provider<Connector>
+    {
+        private static final Logger LOG = Logger.get(ConnectorProvider.class);
+        private final AccumuloConfig config;
+
+        @Inject
+        public ConnectorProvider(AccumuloConfig config)
+        {
+            this.config = requireNonNull(config, "config is null");
+        }
+
+        @Override
+        public Connector get()
+        {
+            try {
+                Instance inst = new ZooKeeperInstance(config.getInstance(), config.getZooKeepers());
+                Connector connector = inst.getConnector(config.getUsername(), new PasswordToken(config.getPassword().getBytes(UTF_8)));
+                LOG.info("Connection to instance %s at %s established, user %s", config.getInstance(), config.getZooKeepers(), config.getUsername());
+                return connector;
+            }
+            catch (AccumuloException | AccumuloSecurityException e) {
+                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
+            }
         }
     }
 }
