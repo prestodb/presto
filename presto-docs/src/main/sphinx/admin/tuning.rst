@@ -10,11 +10,6 @@ Config Properties
 
 These configuration options may require tuning in specific situations:
 
-* ``task.info-refresh-max-wait``:
-  Controls staleness of task information, which is used in scheduling. Increasing
-  this value can reduce coordinator CPU load, but may result in suboptimal
-  split scheduling.
-
 * ``task.max-worker-threads``:
   Sets the number of threads used by workers to process splits. Increasing this number
   can improve throughput if worker CPU utilization is low and all the threads are in use,
