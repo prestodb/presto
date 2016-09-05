@@ -67,7 +67,7 @@ public final class DiscoveryNodeManager
     private static final Logger log = Logger.get(DiscoveryNodeManager.class);
     private static final Duration MAX_AGE = new Duration(5, TimeUnit.SECONDS);
 
-    private static final Splitter DATASOURCES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private static final Splitter CONNECTOR_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final NodeInfo nodeInfo;
     private final FailureDetector failureDetector;
@@ -77,7 +77,7 @@ public final class DiscoveryNodeManager
     private final ScheduledExecutorService nodeStateUpdateExecutor;
 
     @GuardedBy("this")
-    private SetMultimap<String, Node> activeNodesByDataSource;
+    private SetMultimap<String, Node> activeNodesByConnectorId;
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -169,7 +169,7 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> coordinatorsBuilder = ImmutableSet.builder();
-        ImmutableSetMultimap.Builder<String, Node> byDataSourceBuilder = ImmutableSetMultimap.builder();
+        ImmutableSetMultimap.Builder<String, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service);
@@ -192,17 +192,17 @@ public final class DiscoveryNodeManager
                             coordinatorsBuilder.add(node);
                         }
 
-                        // record available active nodes organized by data source
-                        String dataSources = service.getProperties().get("datasources");
-                        if (dataSources != null) {
-                            dataSources = dataSources.toLowerCase(ENGLISH);
-                            for (String dataSource : DATASOURCES_SPLITTER.split(dataSources)) {
-                                byDataSourceBuilder.put(dataSource, node);
+                        // record available active nodes organized by connector id
+                        String connectorIds = service.getProperties().get("connectorIds");
+                        if (connectorIds != null) {
+                            connectorIds = connectorIds.toLowerCase(ENGLISH);
+                            for (String connectorId : CONNECTOR_ID_SPLITTER.split(connectorIds)) {
+                                byConnectorIdBuilder.put(connectorId, node);
                             }
                         }
 
-                        // always add system data source
-                        byDataSourceBuilder.put(GlobalSystemConnector.NAME, node);
+                        // always add system connector
+                        byConnectorIdBuilder.put(GlobalSystemConnector.NAME, node);
                         break;
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
@@ -225,7 +225,7 @@ public final class DiscoveryNodeManager
         }
 
         allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build());
-        activeNodesByDataSource = byDataSourceBuilder.build();
+        activeNodesByConnectorId = byConnectorIdBuilder.build();
         coordinators = coordinatorsBuilder.build();
 
         checkState(currentNode != null, "INVARIANT: current node not returned from service selector");
@@ -303,10 +303,10 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<Node> getActiveDatasourceNodes(String datasourceName)
+    public synchronized Set<Node> getActiveConnectorNodes(String connectorId)
     {
         refreshIfNecessary();
-        return activeNodesByDataSource.get(datasourceName);
+        return activeNodesByConnectorId.get(connectorId);
     }
 
     @Override

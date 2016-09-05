@@ -44,19 +44,19 @@ public class InMemoryNodeManager
         localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
-    public void addCurrentNodeDatasource(String datasourceName)
+    public void addCurrentNodeConnector(String connectorId)
     {
-        addNode(datasourceName, localNode);
+        addNode(connectorId, localNode);
     }
 
-    public void addNode(String datasourceName, Node... nodes)
+    public void addNode(String connectorId, Node... nodes)
     {
-        addNode(datasourceName, ImmutableList.copyOf(nodes));
+        addNode(connectorId, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(String datasourceName, Iterable<Node> nodes)
+    public void addNode(String connectorId, Iterable<Node> nodes)
     {
-        remoteNodes.putAll(datasourceName, nodes);
+        remoteNodes.putAll(connectorId, nodes);
     }
 
     @Override
@@ -75,9 +75,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveDatasourceNodes(String datasourceName)
+    public Set<Node> getActiveConnectorNodes(String connectorId)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(datasourceName));
+        return ImmutableSet.copyOf(remoteNodes.get(connectorId));
     }
 
     @Override

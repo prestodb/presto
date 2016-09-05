@@ -308,7 +308,7 @@ public class TestNodeScheduler
         }
         Multimap<Node, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()));
         assertEquals(assignments.entries().size(), 3);
-        for (Node node : nodeManager.getActiveDatasourceNodes("foo")) {
+        for (Node node : nodeManager.getActiveConnectorNodes("foo")) {
             assertTrue(assignments.keySet().contains(node));
         }
     }
@@ -368,7 +368,7 @@ public class TestNodeScheduler
 
         List<RemoteTask> tasks = new ArrayList<>();
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
-        for (Node node : nodeManager.getActiveDatasourceNodes("foo")) {
+        for (Node node : nodeManager.getActiveConnectorNodes("foo")) {
             // Max out number of splits on node
             TaskId taskId = new TaskId("test", 1, 1);
             RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
@@ -405,7 +405,7 @@ public class TestNodeScheduler
             throws Exception
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
-        Node chosenNode = Iterables.get(nodeManager.getActiveDatasourceNodes("foo"), 0);
+        Node chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes("foo"), 0);
         TaskId taskId = new TaskId("test", 1, 1);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
@@ -427,7 +427,7 @@ public class TestNodeScheduler
             throws Exception
     {
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor);
-        Node chosenNode = Iterables.get(nodeManager.getActiveDatasourceNodes("foo"), 0);
+        Node chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes("foo"), 0);
 
         TaskId taskId1 = new TaskId("test", 1, 1);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,

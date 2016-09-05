@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 public interface SplitSource
         extends Closeable
 {
-    String getDataSourceName();
+    String getConnectorId();
 
     CompletableFuture<List<Split>> getNextBatch(int maxSize);
 

@@ -22,7 +22,7 @@ public interface InternalNodeManager
 {
     Set<Node> getNodes(NodeState state);
 
-    Set<Node> getActiveDatasourceNodes(String datasourceName);
+    Set<Node> getActiveConnectorNodes(String datasourceName);
 
     Node getCurrentNode();
 

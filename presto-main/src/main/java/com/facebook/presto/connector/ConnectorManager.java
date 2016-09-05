@@ -150,7 +150,7 @@ public class ConnectorManager
     }
 
     @Deprecated
-    public void addConnectorFactory(@SuppressWarnings("deprecation" ) com.facebook.presto.spi.ConnectorFactory connectorFactory)
+    public void addConnectorFactory(@SuppressWarnings("deprecation") com.facebook.presto.spi.ConnectorFactory connectorFactory)
     {
         addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
     }

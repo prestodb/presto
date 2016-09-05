@@ -213,11 +213,11 @@ public class SqlQueryScheduler
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
-            String dataSourceName = entry.getValue().getDataSourceName();
-            if (dataSourceName.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) || dataSourceName.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX)) {
-                dataSourceName = null;
+            String connectorId = entry.getValue().getConnectorId();
+            if (connectorId.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) || connectorId.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX)) {
+                connectorId = null;
             }
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(dataSourceName);
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
             stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, entry.getKey(), entry.getValue(), placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);
