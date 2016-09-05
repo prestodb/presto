@@ -50,7 +50,7 @@ public class CatalogManager
     {
         this(connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.<String>of()));
+                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()));
     }
 
     public CatalogManager(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)

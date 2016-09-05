@@ -144,7 +144,7 @@ public class ConnectorManager
     }
 
     @Deprecated
-    public void addConnectorFactory(com.facebook.presto.spi.ConnectorFactory connectorFactory)
+    public void addConnectorFactory(@SuppressWarnings("deprecation" ) com.facebook.presto.spi.ConnectorFactory connectorFactory)
     {
         addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
     }
@@ -246,7 +246,7 @@ public class ConnectorManager
         }
 
         if (connectorPageSinkProvider == null) {
-            ConnectorRecordSinkProvider connectorRecordSinkProvider = null;
+            ConnectorRecordSinkProvider connectorRecordSinkProvider;
             try {
                 connectorRecordSinkProvider = connector.getRecordSinkProvider();
                 requireNonNull(connectorRecordSinkProvider, format("Connector %s returned a null record sink provider", connectorId));
