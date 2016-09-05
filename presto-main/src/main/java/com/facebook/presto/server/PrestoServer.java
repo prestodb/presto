@@ -119,7 +119,7 @@ public class PrestoServer
             injector.getInstance(CatalogManager.class).loadCatalogs();
 
             // TODO: remove this huge hack
-            updateDatasources(
+            updateConnectorIds(
                     injector.getInstance(Announcer.class),
                     injector.getInstance(Metadata.class),
                     injector.getInstance(ServerConfig.class),
@@ -144,38 +144,38 @@ public class PrestoServer
         return ImmutableList.of();
     }
 
-    private static void updateDatasources(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
+    private static void updateConnectorIds(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
-        // get existing sources
-        String property = nullToEmpty(announcement.getProperties().get("datasources"));
+        // get existing connectorIds
+        String property = nullToEmpty(announcement.getProperties().get("connectorIds"));
         List<String> values = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property);
-        Set<String> datasources = new LinkedHashSet<>(values);
+        Set<String> connectorIds = new LinkedHashSet<>(values);
 
-        // automatically build sources if not configured
-        if (datasources.isEmpty()) {
+        // automatically build connectorIds if not configured
+        if (connectorIds.isEmpty()) {
             Set<String> catalogs = metadata.getCatalogNames().keySet();
             // if this is a dedicated coordinator, only add jmx
             if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
                 if (catalogs.contains("jmx")) {
-                    datasources.add("jmx");
+                    connectorIds.add("jmx");
                 }
             }
             else {
-                datasources.addAll(catalogs);
+                connectorIds.addAll(catalogs);
             }
         }
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
         for (Map.Entry<String, String> entry : announcement.getProperties().entrySet()) {
-            if (!entry.getKey().equals("datasources")) {
+            if (!entry.getKey().equals("connectorIds")) {
                 builder.addProperty(entry.getKey(), entry.getValue());
             }
         }
-        builder.addProperty("datasources", Joiner.on(',').join(datasources));
+        builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

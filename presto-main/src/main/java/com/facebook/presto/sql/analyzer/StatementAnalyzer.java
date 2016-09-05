@@ -553,7 +553,7 @@ class StatementAnalyzer
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
-        // TODO: discover columns lazily based on where they are needed (to support datasources that can't enumerate all tables)
+        // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType(), column.isHidden());

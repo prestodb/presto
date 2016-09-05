@@ -38,9 +38,9 @@ public class SampledSplitSource
 
     @Nullable
     @Override
-    public String getDataSourceName()
+    public String getConnectorId()
     {
-        return splitSource.getDataSourceName();
+        return splitSource.getConnectorId();
     }
 
     @Override

@@ -48,7 +48,7 @@ public class ConnectorAwareNodeManager
     @Override
     public Set<Node> getWorkerNodes()
     {
-        return nodeManager.getActiveDatasourceNodes(connectorId);
+        return nodeManager.getActiveConnectorNodes(connectorId);
     }
 
     @Override

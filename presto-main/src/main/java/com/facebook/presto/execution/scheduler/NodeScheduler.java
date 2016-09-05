@@ -116,7 +116,7 @@ public class NodeScheduler
         return counters.build();
     }
 
-    public NodeSelector createNodeSelector(String dataSourceName)
+    public NodeSelector createNodeSelector(String connectorId)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -126,8 +126,8 @@ public class NodeScheduler
             ImmutableSetMultimap.Builder<NetworkLocation, Node> workersByNetworkPath = ImmutableSetMultimap.builder();
 
             Set<Node> nodes;
-            if (dataSourceName != null) {
-                nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
+            if (connectorId != null) {
+                nodes = nodeManager.getActiveConnectorNodes(connectorId);
             }
             else {
                 nodes = nodeManager.getNodes(ACTIVE);

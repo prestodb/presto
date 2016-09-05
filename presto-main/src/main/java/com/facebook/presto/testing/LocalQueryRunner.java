@@ -389,7 +389,7 @@ public class LocalQueryRunner
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeDatasource(catalogName);
+        nodeManager.addCurrentNodeConnector(catalogName);
         connectorManager.addConnectorFactory(connectorFactory);
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }
@@ -397,7 +397,7 @@ public class LocalQueryRunner
     @Deprecated
     public void createCatalog(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeDatasource(catalogName);
+        nodeManager.addCurrentNodeConnector(catalogName);
         connectorManager.addConnectorFactory(connectorFactory);
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }

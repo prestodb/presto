@@ -299,7 +299,7 @@ public class TestingPrestoServer
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         connectorManager.createConnection(catalogName, connectorName, properties);
-        updateDatasourcesAnnouncement(announcer, catalogName);
+        updateConnectorIdAnnouncement(announcer, catalogName);
     }
 
     public Path getBaseDataDir()
@@ -392,24 +392,24 @@ public class TestingPrestoServer
 
     public Set<Node> getActiveNodesWithConnector(String connectorName)
     {
-        return nodeManager.getActiveDatasourceNodes(connectorName);
+        return nodeManager.getActiveConnectorNodes(connectorName);
     }
 
-    private static void updateDatasourcesAnnouncement(Announcer announcer, String connectorId)
+    private static void updateConnectorIdAnnouncement(Announcer announcer, String connectorId)
     {
         //
-        // This code was copied from PrestoServer, and is a hack that should be removed when the data source property is removed
+        // This code was copied from PrestoServer, and is a hack that should be removed when the connectorId property is removed
         //
 
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
-        // update datasources property
+        // update connectorIds property
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
-        String property = nullToEmpty(properties.get("datasources"));
-        Set<String> datasources = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
-        datasources.add(connectorId);
-        properties.put("datasources", Joiner.on(',').join(datasources));
+        String property = nullToEmpty(properties.get("connectorIds"));
+        Set<String> connectorIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
+        connectorIds.add(connectorId);
+        properties.put("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());
