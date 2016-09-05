@@ -76,7 +76,7 @@ public final class RaptorQueryRunner
         return queryRunner;
     }
 
-    private static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed)
+    public static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed)
             throws Exception
     {
         String schema = TINY_SCHEMA_NAME;
@@ -128,7 +128,7 @@ public final class RaptorQueryRunner
         return createSession("tpch_sampled");
     }
 
-    private static Session createSession(String schema)
+    public static Session createSession(String schema)
     {
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
         sessionPropertyManager.addConnectorSessionProperties("raptor", new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
