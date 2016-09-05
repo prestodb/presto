@@ -131,6 +131,7 @@ querySpecification
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy)?
       (HAVING having=booleanExpression)?
+      (WINDOW windowDefinition (',' windowDefinition)*)?
     ;
 
 groupBy
@@ -337,12 +338,20 @@ whenClause
     : WHEN condition=expression THEN result=expression
     ;
 
+windowDefinition
+    : identifier AS '(' windowSpecification ')'
+    ;
+
 over
-    : OVER '('
-        (PARTITION BY partition+=expression (',' partition+=expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)?
-        windowFrame?
-      ')'
+    : OVER identifier                   #windowName
+    | OVER '(' windowSpecification ')'  #windowInline
+    ;
+
+windowSpecification
+    : identifier?
+      (PARTITION BY partition+=expression (',' partition+=expression)*)?
+      (ORDER BY sortItem (',' sortItem)*)?
+      windowFrame?
     ;
 
 windowFrame
@@ -358,7 +367,6 @@ frameBound
     | CURRENT ROW                                   #currentRowBound
     | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame // expression should be unsignedLiteral
     ;
-
 
 explainOption
     : FORMAT value=(TEXT | GRAPHVIZ)         #explainFormat
@@ -596,6 +604,7 @@ CALL: 'CALL';
 PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
+WINDOW: 'WINDOW';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -70,6 +71,7 @@ public class Analysis
     private final IdentityHashMap<Node, List<Expression>> orderByExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<Node, List<Expression>> outputExpressions = new IdentityHashMap<>();
     private final IdentityHashMap<QuerySpecification, List<FunctionCall>> windowFunctions = new IdentityHashMap<>();
+    private final IdentityHashMap<FunctionCall, WindowSpecification> windowSpecifications = new IdentityHashMap<>();
 
     private final IdentityHashMap<Join, Expression> joins = new IdentityHashMap<>();
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
@@ -293,6 +295,16 @@ public class Analysis
     public List<FunctionCall> getWindowFunctions(QuerySpecification query)
     {
         return windowFunctions.get(query);
+    }
+
+    public void setWindowSpecification(FunctionCall node, WindowSpecification windowSpecification)
+    {
+        windowSpecifications.put(node, windowSpecification);
+    }
+
+    public WindowSpecification getWindowSpecification(FunctionCall node)
+    {
+        return windowSpecifications.get(node);
     }
 
     public void addColumnReferences(Set<Expression> columnReferences)

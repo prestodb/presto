@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableMap;
 
@@ -41,6 +42,7 @@ public class Scope
     private final boolean approximate;
     private final boolean queryBoundary;
     private final Map<String, WithQuery> namedQueries;
+    private final Map<String, WindowSpecification> windowSpecifications;
 
     public static Scope create()
     {
@@ -56,12 +58,14 @@ public class Scope
             Optional<Scope> parent,
             RelationType relation,
             Map<String, WithQuery> namedQueries,
+            Map<String, WindowSpecification> windowSpecifications,
             boolean approximate,
             boolean queryBoundary)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
+        this.windowSpecifications = ImmutableMap.copyOf(requireNonNull(windowSpecifications, "windowSpecifications is null"));
         this.approximate = approximate;
         this.queryBoundary = queryBoundary;
     }
@@ -177,6 +181,19 @@ public class Scope
         return Optional.empty();
     }
 
+    public Optional<WindowSpecification> getWindowSpecification(String name)
+    {
+        if (windowSpecifications.containsKey(name)) {
+            return Optional.of(windowSpecifications.get(name));
+        }
+
+        if (parent.isPresent()) {
+            return parent.get().getWindowSpecification(name);
+        }
+
+        return Optional.empty();
+    }
+
     public boolean isApproximate()
     {
         return approximate;
@@ -188,6 +205,7 @@ public class Scope
         private Optional<Boolean> approximate = Optional.empty();
         private boolean queryBoundary = false;
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
+        private final Map<String, WindowSpecification> windowSpecifications = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
 
         public Builder withRelationType(RelationType relationType)
@@ -226,10 +244,22 @@ public class Scope
             return namedQueries.containsKey(name);
         }
 
+        public Builder withWindowSpecification(String name, WindowSpecification windowSpecification)
+        {
+            checkArgument(!containsWindowSpecification(name), "WindowSpecification '%s' is already added", name);
+            windowSpecifications.put(name, windowSpecification);
+            return this;
+        }
+
+        public boolean containsWindowSpecification(String name)
+        {
+            return windowSpecifications.containsKey(name);
+        }
+
         public Scope build()
         {
             boolean approximate = this.approximate.orElse(parent.map(Scope::isApproximate).orElse(false));
-            return new Scope(parent, relationType, namedQueries, approximate, queryBoundary);
+            return new Scope(parent, relationType, namedQueries, windowSpecifications, approximate, queryBoundary);
         }
     }
 }

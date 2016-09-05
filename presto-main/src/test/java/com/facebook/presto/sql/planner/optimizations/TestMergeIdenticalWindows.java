@@ -24,6 +24,8 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowInline;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
@@ -67,21 +69,25 @@ public class TestMergeIdenticalWindows
                 new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
                 Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)));
 
-        windowA = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frame));
+        windowA = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("suppkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.of(frame)));
 
-        windowB = new Window(
-                ImmutableList.of(new SymbolReference("orderkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frame));
+        windowB = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("orderkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.of(frame)));
     }
 
     /**
      * There are two types of tests in here, and they answer two different
      * questions about MergeIdenticalWindows (MIW):
-     *
+     * <p>
      * 1) Is MIW working as it's supposed to be? The tests running the minimal
      * set of optimizers can tell us this.
      * 2) Has some other optimizer changed the plan in such a way that MIW no
@@ -89,7 +95,7 @@ public class TestMergeIdenticalWindows
      * that MIW sees cannot be optimized by MIW? The test running the full set
      * of optimizers answers this, though it isn't actually meaningful unless
      * we know the answer to question 1 is "yes".
-     *
+     * <p>
      * The tests that use only the minimal set of optimizers are closer to true
      * "unit" tests in that they verify the behavior of MIW with as few
      * external dependencies as possible. Those dependencies to include the
@@ -99,7 +105,7 @@ public class TestMergeIdenticalWindows
      * 1) The tests are more self-maintaining.
      * 2) They're a lot easier to read.
      * 3) It's a lot less typing.
-     *
+     * <p>
      * The test that runs with all of the optimzers acts as an integration test
      * and ensures that MIW is effective when run with the complete set of
      * optimizers.
@@ -192,15 +198,19 @@ public class TestMergeIdenticalWindows
     @Test
     public void testIdenticalWindowSpecificationsDefaultFrame()
     {
-        Window windowC = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.empty());
+        Window windowC = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("suppkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.empty()));
 
-        Window windowD = new Window(
-                ImmutableList.of(new SymbolReference("orderkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.empty());
+        Window windowD = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("orderkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.empty()));
 
         @Language("SQL") String sql = "select " +
                 "sum(quantity) over (partition by suppkey order by orderkey), " +
@@ -226,20 +236,24 @@ public class TestMergeIdenticalWindows
                 new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING),
                 Optional.of(new FrameBound(FrameBound.Type.CURRENT_ROW)));
 
-        Window windowC = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frameC));
+        Window windowC = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("suppkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.of(frameC)));
 
         WindowFrame frameD = new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.CURRENT_ROW),
                 Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)));
 
-        Window windowD = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frameD));
+        Window windowD = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("suppkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.of(frameD)));
 
         @Language("SQL") String sql = "select " +
                 "sum(quantity) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_quantity_C, " +
@@ -260,20 +274,24 @@ public class TestMergeIdenticalWindows
     @Test
     public void testNotMergeDifferentFramesWithDefault()
     {
-        Window windowC = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.empty());
+        Window windowC = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("suppkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.empty()));
 
         WindowFrame frameD = new WindowFrame(
                 WindowFrame.Type.ROWS,
                 new FrameBound(FrameBound.Type.CURRENT_ROW),
                 Optional.of(new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING)));
 
-        Window windowD = new Window(
-                ImmutableList.of(new SymbolReference("suppkey")),
-                ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
-                Optional.of(frameD));
+        Window windowD = new WindowInline(
+                new WindowSpecification(
+                        Optional.empty(),
+                        ImmutableList.of(new SymbolReference("suppkey")),
+                        ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                        Optional.of(frameD)));
 
         @Language("SQL") String sql = "select " +
                 "sum(quantity) over (partition by suppkey order by orderkey) sum_quantity_C, " +
@@ -335,10 +353,10 @@ public class TestMergeIdenticalWindows
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         Provider<List<PlanOptimizer>> optimizerProvider = () -> ImmutableList.of(
-                        new UnaliasSymbolReferences(),
-                        new PruneIdentityProjections(),
-                        new MergeIdenticalWindows(),
-                        new PruneUnreferencedOutputs());
+                new UnaliasSymbolReferences(),
+                new PruneIdentityProjections(),
+                new MergeIdenticalWindows(),
+                new PruneUnreferencedOutputs());
         return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizerProvider));
     }
 }

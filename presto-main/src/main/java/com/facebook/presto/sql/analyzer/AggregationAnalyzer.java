@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -69,6 +70,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
+import static com.facebook.presto.sql.analyzer.Windows.resolveWindowSpecification;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -311,7 +313,9 @@ class AggregationAnalyzer
         @Override
         public Boolean visitWindow(Window node, Void context)
         {
-            for (Expression expression : node.getPartitionBy()) {
+            WindowSpecification windowSpecification = resolveWindowSpecification(node, scope::getWindowSpecification);
+
+            for (Expression expression : windowSpecification.getPartitionBy()) {
                 if (!process(expression, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
                             expression,
@@ -320,7 +324,7 @@ class AggregationAnalyzer
                 }
             }
 
-            for (SortItem sortItem : node.getOrderBy()) {
+            for (SortItem sortItem : windowSpecification.getOrderBy()) {
                 Expression expression = sortItem.getSortKey();
                 if (!process(expression, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY,
@@ -330,8 +334,8 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getFrame().isPresent()) {
-                process(node.getFrame().get(), context);
+            if (windowSpecification.getFrame().isPresent()) {
+                process(windowSpecification.getFrame().get(), context);
             }
 
             return true;
