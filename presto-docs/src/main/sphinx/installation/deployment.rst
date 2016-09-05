@@ -220,7 +220,7 @@ Running Presto
 --------------
 
 The installation directory contains the launcher script in ``bin/launcher``.
-Presto can be started as a daemon by running running the following:
+Presto can be started as a daemon by running the following:
 
 .. code-block:: none
 
