@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- This is needed if this project is a subdirectory of presto.  Otherwise, if this lives as a
+         subdirectory of your own project, then you'll need to do do the following workaround:
+         1. Create a file:  src/main/resources/META-INF/services/com.facebook.presto.spi.Plugin
+         2. Put the value presto.udfs.UdfPlugin in it
+         
+         Without this file, the PluginManager will not be able to see your plugin.
+         
+         Note that the presto-root has presto-maven-plugin and takari-lifecycle-plugin, which ostensibly
+         take care of packinging up the above file.  I could not get that to work, so I just relied on
+         the Maven resource packager to explicitly copy the file instead.
+    -->
+
+    <properties>
+    <!-- Uncomment this if you're placing this as a subdirectory of presto and you want to run their style
+         checker.  Otherwise, you can get rid of it. -->
+    <!--
+        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+    -->
+        <presto.version>0.152</presto.version>
+        <slice.version>0.15</slice.version>
+        <guava.version>18.0</guava.version>
+        <javax.inject.version>1</javax.inject.version>
+        <io.airlift.log.version>0.125</io.airlift.log.version>
+        <jodatime.version>2.8.1</jodatime.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <hbase.version>1.1.2</hbase.version>
+    </properties>
+
+    <build>
+       <plugins>
+           <plugin>
+               <groupId>org.apache.maven.plugins</groupId>
+               <artifactId>maven-release-plugin</artifactId>
+               <version>2.5.1</version>
+           </plugin>
+      </plugins>
+    </build>
+  <groupId>presto-hbase</groupId>
+  <artifactId>presto-hbase</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <version>${presto.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-main</artifactId>
+            <version>${presto.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-record-decoder</artifactId>
+            <version>${presto.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <version>${slice.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+            <version>${javax.inject.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+            <version>${io.airlift.log.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <version>${jodatime.version}</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.1</version>
+        </dependency>
+
+		<dependency>
+			<groupId>org.apache.hbase</groupId>
+			<artifactId>hbase-client</artifactId>
+			<version>${hbase.version}</version>
+		</dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>2.4</version>
+                        <executions>
+                            <execution>
+                                <id>create-sources-jar</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>2.10.1</version>
+                        <executions>
+                            <execution>
+                                <id>create-javadoc-jar</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>
