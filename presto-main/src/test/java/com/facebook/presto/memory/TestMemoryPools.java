@@ -48,6 +48,8 @@ public class TestMemoryPools
             throws Exception
     {
         Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("tiny")
                 .setSystemProperty("task_default_concurrency", "1")
                 .build();
 

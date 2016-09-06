@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
@@ -401,7 +403,8 @@ public class TestQueryStateMachine
     private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, executor, ticker);
+        AccessControl accessControl = new AccessControlManager(transactionManager);
+        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setOutputFieldNames(OUTPUT_FIELD_NAMES);
@@ -427,6 +430,6 @@ public class TestQueryStateMachine
         assertEquals(actual.getUserAgent(), expected.getUserAgent());
         assertEquals(actual.getStartTime(), expected.getStartTime());
         assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
-        assertEquals(actual.getCatalogProperties(), expected.getCatalogProperties());
+        assertEquals(actual.getConnectorProperties(), expected.getConnectorProperties());
     }
 }

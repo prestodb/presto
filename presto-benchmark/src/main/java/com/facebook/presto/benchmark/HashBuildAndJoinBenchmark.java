@@ -48,7 +48,7 @@ public class HashBuildAndJoinBenchmark
 
     public HashBuildAndJoinBenchmark(Session session, LocalQueryRunner localQueryRunner)
     {
-        super(localQueryRunner, "hash_build_and_join_hash_enabled_" + isHashEnabled(session), 4, 5);
+        super(session, localQueryRunner, "hash_build_and_join_hash_enabled_" + isHashEnabled(session), 4, 5);
         this.hashEnabled = isHashEnabled(session);
     }
 

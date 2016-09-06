@@ -52,6 +52,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
@@ -127,6 +129,8 @@ public class DistributedQueryRunner
             }
         }
 
+        // copy session using property manager in coordinator
+        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager());
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
 
         long start = System.nanoTime();
@@ -143,13 +147,13 @@ public class DistributedQueryRunner
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
         for (TestingPrestoServer server : servers) {
-            // add bogus catalog for testing procedures
+            // add bogus catalog for testing procedures and session properties
             Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
             server.getCatalogManager().registerCatalog(bogusTestingCatalog);
 
             SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
-            sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
-            sessionPropertyManager.addConnectorSessionProperties("connector", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
+            sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+            sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         }
     }
 
@@ -259,7 +263,7 @@ public class DistributedQueryRunner
             connectorIds.add(server.createCatalog(catalogName, connectorName, properties));
         }
         ConnectorId connectorId = getOnlyElement(connectorIds);
-        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, succinctNanos(start));
 
         // wait for all nodes to announce the new catalog
         start = System.nanoTime();

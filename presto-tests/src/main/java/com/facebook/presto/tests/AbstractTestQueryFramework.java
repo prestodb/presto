@@ -270,7 +270,7 @@ public abstract class AbstractTestQueryFramework
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return transaction(queryRunner.getTransactionManager())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getPlan(session, sqlParser.createStatement(query), planType, emptyList());
@@ -280,7 +280,7 @@ public abstract class AbstractTestQueryFramework
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return transaction(queryRunner.getTransactionManager())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType, emptyList());

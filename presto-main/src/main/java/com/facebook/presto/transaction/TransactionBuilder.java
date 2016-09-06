@@ -14,6 +14,7 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.function.Consumer;
@@ -25,18 +26,20 @@ import static java.util.Objects.requireNonNull;
 public class TransactionBuilder
 {
     private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
     private IsolationLevel isolationLevel = TransactionManager.DEFAULT_ISOLATION;
     private boolean readOnly = TransactionManager.DEFAULT_READ_ONLY;
     private boolean singleStatement;
 
-    private TransactionBuilder(TransactionManager transactionManager)
+    private TransactionBuilder(TransactionManager transactionManager, AccessControl accessControl)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
-    public static TransactionBuilder transaction(TransactionManager transactionManager)
+    public static TransactionBuilder transaction(TransactionManager transactionManager, AccessControl accessControl)
     {
-        return new TransactionBuilder(transactionManager);
+        return new TransactionBuilder(transactionManager, accessControl);
     }
 
     public TransactionBuilder withIsolationLevel(IsolationLevel isolationLevel)
@@ -130,7 +133,7 @@ public class TransactionBuilder
         Session transactionSession;
         if (managedTransaction) {
             TransactionId transactionId = transactionManager.beginTransaction(isolationLevel, readOnly, singleStatement);
-            transactionSession = session.withTransactionId(transactionId);
+            transactionSession = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
         else {
             // Check if we can merge with the existing transaction

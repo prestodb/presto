@@ -46,6 +46,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
@@ -69,6 +70,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -5340,14 +5342,31 @@ public abstract class AbstractTestQueries
     public void testShowSession()
             throws Exception
     {
-        MaterializedResult result = computeActual(
-                Session.builder(getSession())
-                        .setSystemProperty("test_string", "foo string")
-                        .setSystemProperty("test_long", "424242")
-                        .setCatalogSessionProperty("connector", "connector_string", "bar string")
-                        .setCatalogSessionProperty("connector", "connector_long", "11")
+        Session session = new Session(
+                getSession().getQueryId(),
+                Optional.empty(),
+                getSession().isClientTransactionSupport(),
+                getSession().getIdentity(),
+                getSession().getSource(),
+                getSession().getCatalog(),
+                getSession().getSchema(),
+                getSession().getTimeZoneKey(),
+                getSession().getLocale(),
+                getSession().getRemoteUserAddress(),
+                getSession().getUserAgent(),
+                getSession().getStartTime(),
+                ImmutableMap.<String, String>builder()
+                        .put("test_string", "foo string")
+                        .put("test_long", "424242")
                         .build(),
-                "SHOW SESSION");
+                ImmutableMap.of(),
+                ImmutableMap.of(TESTING_CATALOG, ImmutableMap.<String, String>builder()
+                        .put("connector_string", "bar string")
+                        .put("connector_long", "11")
+                        .build()),
+                queryRunner.getMetadata().getSessionPropertyManager(),
+                getSession().getPreparedStatements());
+        MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
             assertEquals(input.getFieldCount(), 5);
@@ -5356,8 +5375,10 @@ public abstract class AbstractTestQueries
 
         assertEquals(properties.get("test_string"), new MaterializedRow(1, "test_string", "foo string", "test default", "varchar", "test string property"));
         assertEquals(properties.get("test_long"), new MaterializedRow(1, "test_long", "424242", "42", "bigint", "test long property"));
-        assertEquals(properties.get("connector.connector_string"), new MaterializedRow(1, "connector.connector_string", "bar string", "connector default", "varchar", "connector string property"));
-        assertEquals(properties.get("connector.connector_long"), new MaterializedRow(1, "connector.connector_long", "11", "33", "bigint", "connector long property"));
+        assertEquals(properties.get(TESTING_CATALOG + ".connector_string"),
+                new MaterializedRow(1, TESTING_CATALOG + ".connector_string", "bar string", "connector default", "varchar", "connector string property"));
+        assertEquals(properties.get(TESTING_CATALOG + ".connector_long"),
+                new MaterializedRow(1, TESTING_CATALOG + ".connector_long", "11", "33", "bigint", "connector long property"));
     }
 
     @Test

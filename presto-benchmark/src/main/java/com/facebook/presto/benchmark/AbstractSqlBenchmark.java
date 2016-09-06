@@ -41,6 +41,6 @@ public abstract class AbstractSqlBenchmark
     @Override
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
-        return localQueryRunner.createDrivers(query, new NullOutputFactory(), taskContext);
+        return localQueryRunner.createDrivers(session, query, new NullOutputFactory(), taskContext);
     }
 }

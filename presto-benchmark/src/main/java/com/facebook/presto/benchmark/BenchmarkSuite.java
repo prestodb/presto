@@ -35,6 +35,9 @@ public class BenchmarkSuite
 
     public static List<AbstractBenchmark> createBenchmarks(LocalQueryRunner localQueryRunner)
     {
+        Session optimizeHashSession = Session.builder(localQueryRunner.getDefaultSession())
+                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
+                .build();
         return ImmutableList.<AbstractBenchmark>of(
                 // hand built benchmarks
                 new CountAggregationBenchmark(localQueryRunner),
@@ -47,11 +50,7 @@ public class BenchmarkSuite
                 new HashBuildBenchmark(localQueryRunner),
                 new HashJoinBenchmark(localQueryRunner),
                 new HashBuildAndJoinBenchmark(localQueryRunner.getDefaultSession(), localQueryRunner),
-                new HashBuildAndJoinBenchmark(
-                        Session.builder(localQueryRunner.getDefaultSession())
-                                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
-                                .build(),
-                        localQueryRunner),
+                new HashBuildAndJoinBenchmark(optimizeHashSession, localQueryRunner),
                 new HandTpchQuery1(localQueryRunner),
                 new HandTpchQuery6(localQueryRunner),
 

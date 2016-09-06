@@ -18,6 +18,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -140,9 +141,17 @@ public class QueryStateMachine
     /**
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
-    public static QueryStateMachine begin(QueryId queryId, String query, Session session, URI self, boolean transactionControl, TransactionManager transactionManager, Executor executor)
+    public static QueryStateMachine begin(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            boolean transactionControl,
+            TransactionManager transactionManager,
+            AccessControl accessControl,
+            Executor executor)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, executor, Ticker.systemTicker());
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker());
     }
 
     static QueryStateMachine beginWithTicker(
@@ -152,6 +161,7 @@ public class QueryStateMachine
             URI self,
             boolean transactionControl,
             TransactionManager transactionManager,
+            AccessControl accessControl,
             Executor executor,
             Ticker ticker)
     {
@@ -162,7 +172,7 @@ public class QueryStateMachine
         if (autoCommit) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
-            querySession = session.withTransactionId(transactionId);
+            querySession = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
         else {
             querySession = session;

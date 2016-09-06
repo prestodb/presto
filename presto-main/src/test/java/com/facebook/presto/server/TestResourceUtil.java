@@ -39,6 +39,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestResourceUtil
@@ -61,7 +62,12 @@ public class TestResourceUtil
                         .build(),
                 "testRemote");
 
-        Session session = createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager(), new QueryId("test_query_id"));
+        Session session = createSessionForRequest(
+                request,
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                new SessionPropertyManager(),
+                new QueryId("test_query_id"));
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -97,6 +103,11 @@ public class TestResourceUtil
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
                 "testRemote");
-        createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager(), new QueryId("test_query_id"));
+        createSessionForRequest(
+                request,
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                new SessionPropertyManager(),
+                new QueryId("test_query_id"));
     }
 }

@@ -15,12 +15,15 @@ package com.facebook.presto;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -29,6 +32,7 @@ import java.security.Principal;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TimeZone;
 
@@ -54,7 +58,8 @@ public final class Session
     private final Optional<String> userAgent;
     private final long startTime;
     private final Map<String, String> systemProperties;
-    private final Map<String, Map<String, String>> catalogProperties;
+    private final Map<ConnectorId, Map<String, String>> connectorProperties;
+    private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
 
@@ -72,7 +77,8 @@ public final class Session
             Optional<String> userAgent,
             long startTime,
             Map<String, String> systemProperties,
-            Map<String, Map<String, String>> catalogProperties,
+            Map<ConnectorId, Map<String, String>> connectorProperties,
+            Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements)
     {
@@ -92,11 +98,18 @@ public final class Session
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
 
-        ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.<String, Map<String, String>>builder();
-        catalogProperties.entrySet().stream()
+        ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        connectorProperties.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
-        this.catalogProperties = catalogPropertiesBuilder.build();
+        this.connectorProperties = catalogPropertiesBuilder.build();
+
+        ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
+        unprocessedCatalogProperties.entrySet().stream()
+                .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
+                .forEach(unprocessedCatalogPropertiesBuilder::put);
+        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
+        checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
     }
@@ -174,17 +187,22 @@ public final class Session
 
     public <T> T getSystemProperty(String name, Class<T> type)
     {
-        return sessionPropertyManager.decodeProperty(name, systemProperties.get(name), type);
+        return sessionPropertyManager.decodeSystemPropertyValue(name, systemProperties.get(name), type);
     }
 
-    public Map<String, Map<String, String>> getCatalogProperties()
+    public Map<ConnectorId, Map<String, String>> getConnectorProperties()
     {
-        return catalogProperties;
+        return connectorProperties;
     }
 
-    public Map<String, String> getCatalogProperties(String catalog)
+    public Map<String, String> getConnectorProperties(ConnectorId connectorId)
     {
-        return catalogProperties.getOrDefault(catalog, ImmutableMap.of());
+        return connectorProperties.getOrDefault(connectorId, ImmutableMap.of());
+    }
+
+    public Map<String, Map<String, String>> getUnprocessedCatalogProperties()
+    {
+        return unprocessedCatalogProperties;
     }
 
     public Map<String, String> getSystemProperties()
@@ -209,10 +227,43 @@ public final class Session
         return sql;
     }
 
-    public Session withTransactionId(TransactionId transactionId)
+    public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
         checkArgument(!this.transactionId.isPresent(), "Session already has an active transaction");
+        requireNonNull(transactionManager, "transactionManager is null");
+        requireNonNull(accessControl, "accessControl is null");
+
+        for (Entry<String, String> property : systemProperties.entrySet()) {
+            // verify permissions
+            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
+
+            // validate session property value
+            sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
+        }
+
+        // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
+        ImmutableMap.Builder<ConnectorId, Map<String, String>> connectorProperties = ImmutableMap.builder();
+        for (Entry<String, Map<String, String>> catalogEntry : unprocessedCatalogProperties.entrySet()) {
+            String catalogName = catalogEntry.getKey();
+            Map<String, String> catalogProperties = catalogEntry.getValue();
+            if (catalogProperties.isEmpty()) {
+                continue;
+            }
+            ConnectorId connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
+                    .getConnectorId();
+
+            for (Entry<String, String> property : catalogProperties.entrySet()) {
+                // verify permissions
+                accessControl.checkCanSetCatalogSessionProperty(transactionId, identity, catalogName, property.getKey());
+
+                // validate session property value
+                sessionPropertyManager.validateCatalogSessionProperty(connectorId, catalogName, property.getKey(), property.getValue());
+            }
+            connectorProperties.put(connectorId, catalogProperties);
+        }
+
         return new Session(
                 queryId,
                 Optional.of(transactionId),
@@ -227,7 +278,8 @@ public final class Session
                 userAgent,
                 startTime,
                 systemProperties,
-                catalogProperties,
+                connectorProperties.build(),
+                ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements);
     }
@@ -246,7 +298,8 @@ public final class Session
                 timeZoneKey,
                 locale,
                 startTime,
-                catalogProperties.getOrDefault(connectorId.getCatalogName(), ImmutableMap.of()),
+                connectorProperties.getOrDefault(connectorId, ImmutableMap.of()),
+                connectorId,
                 connectorId.getCatalogName(),
                 sessionPropertyManager);
     }
@@ -268,7 +321,7 @@ public final class Session
                 userAgent,
                 startTime,
                 systemProperties,
-                catalogProperties,
+                connectorProperties,
                 preparedStatements);
     }
 
@@ -330,7 +383,7 @@ public final class Session
         private SessionBuilder(Session session)
         {
             requireNonNull(session, "session is null");
-            checkArgument(!session.getTransactionId().isPresent(), "Session builder can not be created from a session in a transaction");
+            checkArgument(!session.getTransactionId().isPresent(), "Session builder cannot be created from a session in a transaction");
             this.sessionPropertyManager = session.sessionPropertyManager;
             this.queryId = session.queryId;
             this.transactionId = session.transactionId.orElse(null);
@@ -345,7 +398,7 @@ public final class Session
             this.userAgent = session.userAgent.orElse(null);
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
-            this.catalogSessionProperties.putAll(session.catalogProperties);
+            this.catalogSessionProperties.putAll(session.unprocessedCatalogProperties);
             this.preparedStatements.putAll(session.preparedStatements);
         }
 
@@ -357,6 +410,7 @@ public final class Session
 
         public SessionBuilder setTransactionId(TransactionId transactionId)
         {
+            checkArgument(catalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
             this.transactionId = transactionId;
             return this;
         }
@@ -464,6 +518,7 @@ public final class Session
                     Optional.ofNullable(userAgent),
                     startTime,
                     systemProperties,
+                    ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements);

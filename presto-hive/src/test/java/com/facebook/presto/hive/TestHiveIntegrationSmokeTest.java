@@ -1234,7 +1234,7 @@ public class TestHiveIntegrationSmokeTest
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
 
-        return transaction(queryRunner.getTransactionManager())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
@@ -1248,7 +1248,7 @@ public class TestHiveIntegrationSmokeTest
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
 
-        return transaction(queryRunner.getTransactionManager())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
@@ -1573,7 +1573,7 @@ public class TestHiveIntegrationSmokeTest
                 .getMaterializedRows();
 
         try {
-            transaction(queryRunner.getTransactionManager())
+            transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .execute(session, transactionSession -> {
                         assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                         assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -1591,7 +1591,7 @@ public class TestHiveIntegrationSmokeTest
         MaterializedResult actualAfterRollback = computeActual(session, "SELECT * FROM tmp_delete_insert");
         assertEqualsIgnoreOrder(actualAfterRollback, expectedBefore);
 
-        transaction(queryRunner.getTransactionManager())
+        transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(transactionSession, "DELETE FROM tmp_delete_insert WHERE z >= 2");
                     assertUpdate(transactionSession, "INSERT INTO tmp_delete_insert VALUES (203, 2), (204, 2), (205, 2), (301, 2), (302, 3)", 5);
@@ -1619,7 +1619,7 @@ public class TestHiveIntegrationSmokeTest
                 .build()
                 .getMaterializedRows();
 
-        transaction(queryRunner.getTransactionManager())
+        transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .execute(session, transactionSession -> {
                     assertUpdate(
                             transactionSession,

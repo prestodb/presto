@@ -214,9 +214,6 @@ public class ConnectorManager
                 systemConnector.getConnector());
         catalogManager.registerCatalog(catalog);
 
-        // todo the following managers currently need access to catalog name, so they must be handled specially
-        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
-
         addConnectorInternal(connector);
         addConnectorInternal(informationSchemaConnector);
         addConnectorInternal(systemConnector);
@@ -248,6 +245,7 @@ public class ConnectorManager
 
         metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
         metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
+        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(connectorId, connector.getSessionProperties());
     }
 
     private Connector createConnector(ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)

@@ -87,6 +87,8 @@ public class TestMemoryManager
                 // expected
             }
             Session session = testSessionBuilder()
+                    .setCatalog("tpch")
+                    .setSchema("tiny")
                     .setSystemProperty(RESOURCE_OVERCOMMIT, "true")
                     .build();
             queryRunner.execute(session, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");

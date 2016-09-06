@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -55,33 +56,33 @@ public abstract class AbstractTestDistributedQueries
         assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
 
-        result = computeActual("SET SESSION connector.connector_long = 999");
+        result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "999"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
 
-        result = computeActual("SET SESSION connector.connector_string = 'baz'");
+        result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_string", "baz"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
 
-        result = computeActual("SET SESSION connector.connector_string = 'ban' || 'ana'");
+        result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_string", "banana"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
 
-        result = computeActual("SET SESSION connector.connector_long = 444");
+        result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "444"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
 
-        result = computeActual("SET SESSION connector.connector_long = 111 + 111");
+        result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "222"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
 
-        result = computeActual("SET SESSION connector.connector_boolean = 111 < 3");
+        result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_boolean", "false"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
 
-        result = computeActual("SET SESSION connector.connector_double = 11.1");
+        result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_double", "11.1"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
     }
 
     @Test
@@ -92,9 +93,9 @@ public abstract class AbstractTestDistributedQueries
         assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
 
-        result = computeActual(getSession(), "RESET SESSION connector.connector_string");
+        result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("connector.connector_string"));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
     @Test

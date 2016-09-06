@@ -30,6 +30,8 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -117,6 +119,7 @@ public class TestAnalyzer
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private TransactionManager transactionManager;
+    private AccessControl accessControl;
     private Metadata metadata;
 
     @Test
@@ -1024,6 +1027,7 @@ public class TestAnalyzer
         TypeManager typeManager = new TypeRegistry();
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
+        accessControl = new AccessControlManager(transactionManager);
 
         metadata = new MetadataManager(
                 new FeaturesConfig().setExperimentalSyntaxEnabled(true),
@@ -1135,7 +1139,7 @@ public class TestAnalyzer
 
     private void inSetupTransaction(Consumer<Session> consumer)
     {
-        transaction(transactionManager)
+        transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .execute(SETUP_SESSION, consumer);
@@ -1160,7 +1164,7 @@ public class TestAnalyzer
 
     private void analyze(Session clientSession, @Language("SQL") String query)
     {
-        transaction(transactionManager)
+        transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .readOnly()
@@ -1173,7 +1177,7 @@ public class TestAnalyzer
 
     private void analyzeWithoutExperimentalSyntax(@Language("SQL") String query)
     {
-        transaction(transactionManager)
+        transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .readOnly()

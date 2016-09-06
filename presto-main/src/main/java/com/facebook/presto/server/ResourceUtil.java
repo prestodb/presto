@@ -21,12 +21,12 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Splitter;
 import io.airlift.units.Duration;
 
@@ -73,7 +73,12 @@ final class ResourceUtil
     {
     }
 
-    public static Session createSessionForRequest(HttpServletRequest servletRequest, AccessControl accessControl, SessionPropertyManager sessionPropertyManager, QueryId queryId)
+    public static Session createSessionForRequest(
+            HttpServletRequest servletRequest,
+            TransactionManager transactionManager,
+            AccessControl accessControl,
+            SessionPropertyManager sessionPropertyManager,
+            QueryId queryId)
     {
         String catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
         String schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
@@ -100,12 +105,6 @@ final class ResourceUtil
                 .setRemoteUserAddress(servletRequest.getRemoteAddr())
                 .setUserAgent(servletRequest.getHeader(USER_AGENT));
 
-        String transactionId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRANSACTION_ID));
-        if (transactionId != null) {
-            sessionBuilder.setClientTransactionSupport();
-            getTransactionId(transactionId).ifPresent(sessionBuilder::setTransactionId);
-        }
-
         String timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
         if (timeZoneId != null) {
             sessionBuilder.setTimeZoneKey(getTimeZoneKey(timeZoneId));
@@ -117,51 +116,44 @@ final class ResourceUtil
         }
 
         // parse session properties
-        try {
-            for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
-                // validate session property value
-                String fullPropertyName = entry.getKey();
-                String propertyValue = entry.getValue();
-                PropertyMetadata<?> metadata = sessionPropertyManager.getSessionPropertyMetadata(fullPropertyName);
-                try {
-                    sessionPropertyManager.decodeProperty(fullPropertyName, propertyValue, metadata.getJavaType());
-                }
-                catch (RuntimeException e) {
-                    throw badRequest(format("Invalid %s header", PRESTO_SESSION));
-                }
+        for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
+            String fullPropertyName = entry.getKey();
+            String propertyValue = entry.getValue();
+            List<String> nameParts = Splitter.on('.').splitToList(fullPropertyName);
+            if (nameParts.size() == 1) {
+                String propertyName = nameParts.get(0);
 
-                List<String> nameParts = Splitter.on('.').splitToList(fullPropertyName);
-                if (nameParts.size() == 1) {
-                    String propertyName = nameParts.get(0);
+                assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
-                    assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-
-                    accessControl.checkCanSetSystemSessionProperty(identity, propertyName);
-                    sessionBuilder.setSystemProperty(propertyName, propertyValue);
-                }
-                else if (nameParts.size() == 2) {
-                    String catalogName = nameParts.get(0);
-                    String propertyName = nameParts.get(1);
-
-                    assertRequest(!catalogName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-                    assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-
-                    accessControl.checkCanSetCatalogSessionProperty(identity, catalogName, propertyName);
-                    sessionBuilder.setCatalogSessionProperty(catalogName, propertyName, propertyValue);
-                }
-                else {
-                    throw badRequest(format("Invalid %s header", PRESTO_SESSION));
-                }
+                // catalog session properties can not be validated until the transaction has stated, so we delay system property validation also
+                sessionBuilder.setSystemProperty(propertyName, propertyValue);
             }
-        }
-        catch (AccessDeniedException e) {
-            throw new WebApplicationException(e.getMessage(), Status.BAD_REQUEST);
+            else if (nameParts.size() == 2) {
+                String catalogName = nameParts.get(0);
+                String propertyName = nameParts.get(1);
+
+                assertRequest(!catalogName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+                assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+
+                // catalog session properties can not be validated until the transaction has stated
+                sessionBuilder.setCatalogSessionProperty(catalogName, propertyName, propertyValue);
+            }
+            else {
+                throw badRequest(format("Invalid %s header", PRESTO_SESSION));
+            }
         }
 
         for (Entry<String, String> preparedStatement : parsePreparedStatementsHeaders(servletRequest).entrySet()) {
             sessionBuilder.addPreparedStatement(preparedStatement.getKey(), preparedStatement.getValue());
         }
-        return sessionBuilder.build();
+
+        Session session = sessionBuilder.build();
+        Optional<TransactionId> transactionId = getTransactionId(servletRequest.getHeader(PRESTO_TRANSACTION_ID));
+        if (transactionId.isPresent()) {
+            session = session.beginTransactionId(transactionId.get(), transactionManager, accessControl);
+        }
+
+        return session;
     }
 
     public static ClientSession createClientSessionForRequest(HttpServletRequest request, URI server, Duration clientRequestTimeout)
@@ -282,7 +274,8 @@ final class ResourceUtil
 
     private static Optional<TransactionId> getTransactionId(String transactionId)
     {
-        if (transactionId.toUpperCase().equals("NONE")) {
+        transactionId = trimEmptyToNull(transactionId);
+        if (transactionId == null || transactionId.equalsIgnoreCase("none")) {
             return Optional.empty();
         }
         try {

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.Identity;
@@ -45,7 +46,7 @@ public final class SessionRepresentation
     private final Optional<String> userAgent;
     private final long startTime;
     private final Map<String, String> systemProperties;
-    private final Map<String, Map<String, String>> catalogProperties;
+    private final Map<ConnectorId, Map<String, String>> catalogProperties;
     private final Map<String, String> preparedStatements;
 
     @JsonCreator
@@ -64,7 +65,7 @@ public final class SessionRepresentation
             @JsonProperty("userAgent") Optional<String> userAgent,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Map<String, Map<String, String>> catalogProperties,
+            @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -83,8 +84,8 @@ public final class SessionRepresentation
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
 
-        ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.<String, Map<String, String>>builder();
-        for (Entry<String, Map<String, String>> entry : catalogProperties.entrySet()) {
+        ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        for (Entry<ConnectorId, Map<String, String>> entry : catalogProperties.entrySet()) {
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
         this.catalogProperties = catalogPropertiesBuilder.build();
@@ -175,7 +176,7 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<String, Map<String, String>> getCatalogProperties()
+    public Map<ConnectorId, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
     }
@@ -203,6 +204,7 @@ public final class SessionRepresentation
                 startTime,
                 systemProperties,
                 catalogProperties,
+                ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements);
     }

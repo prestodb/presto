@@ -15,6 +15,7 @@ package com.facebook.presto.event.query;
 
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.Input;
@@ -217,9 +218,9 @@ public class QueryMonitor
     {
         ImmutableMap.Builder<String, String> mergedProperties = ImmutableMap.builder();
         mergedProperties.putAll(queryInfo.getSession().getSystemProperties());
-        for (Map.Entry<String, Map<String, String>> catalogEntry : queryInfo.getSession().getCatalogProperties().entrySet()) {
+        for (Map.Entry<ConnectorId, Map<String, String>> catalogEntry : queryInfo.getSession().getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
-                mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
+                mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }
         }
         return mergedProperties.build();

@@ -14,8 +14,6 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.connector.ConnectorId;
-import com.facebook.presto.metadata.Catalog;
-import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
@@ -42,7 +40,6 @@ import java.io.FileInputStream;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,7 +63,6 @@ public class AccessControlManager
     public static final String ALLOW_ALL_ACCESS_CONTROL = "allow-all";
 
     private final TransactionManager transactionManager;
-    private final CatalogManager catalogManager;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<ConnectorId, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
@@ -79,10 +75,9 @@ public class AccessControlManager
     private final CounterStat authorizationFail = new CounterStat();
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager, CatalogManager catalogManager)
+    public AccessControlManager(TransactionManager transactionManager)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
         systemAccessControlFactories.put(ALLOW_ALL_ACCESS_CONTROL, new SystemAccessControlFactory()
         {
             @Override
@@ -428,7 +423,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogName, "catalogName is null");
@@ -436,14 +431,7 @@ public class AccessControlManager
 
         authorizationCheck(() -> systemAccessControl.get().checkCanSetCatalogSessionProperty(identity, catalogName, propertyName));
 
-        // permissions for session properties are checked when the query request is deserialized, before the transaction exists, so
-        // the permission checks are based on what ever connector is currently assigned to the catalog.
-        // todo move request deserialization permission checks to either enrollment of the connector in the transaction or on access in a transaction
-        Optional<Catalog> catalog = catalogManager.getCatalog(catalogName);
-        if (!catalog.isPresent()) {
-            return;
-        }
-        CatalogAccessControlEntry entry = connectorAccessControl.get(catalog.get().getConnectorId());
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanSetCatalogSessionProperty(identity, propertyName));
         }

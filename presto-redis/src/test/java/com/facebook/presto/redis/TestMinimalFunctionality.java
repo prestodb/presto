@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.redis.util.EmbeddedRedis;
 import com.facebook.presto.redis.util.JsonEncoder;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.testing.MaterializedResult;
@@ -112,7 +113,7 @@ public class TestMinimalFunctionality
             throws Exception
     {
         QualifiedObjectName name = new QualifiedObjectName("redis", "default", tableName);
-        transaction(queryRunner.getTransactionManager())
+        transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
                     Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);

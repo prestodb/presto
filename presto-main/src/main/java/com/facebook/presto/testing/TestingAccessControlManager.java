@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.CatalogSchemaName;
@@ -75,9 +74,9 @@ public class TestingAccessControlManager
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
 
     @Inject
-    public TestingAccessControlManager(TransactionManager transactionManager, CatalogManager catalogManager)
+    public TestingAccessControlManager(TransactionManager transactionManager)
     {
-        super(transactionManager, catalogManager);
+        super(transactionManager);
         setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.of());
     }
 
@@ -296,13 +295,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
     {
         if (shouldDenyPrivilege(identity.getUser(), catalogName + "." + propertyName, SET_SESSION)) {
             denySetCatalogSessionProperty(catalogName, propertyName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetCatalogSessionProperty(identity, catalogName, propertyName);
+            super.checkCanSetCatalogSessionProperty(transactionId, identity, catalogName, propertyName);
         }
     }
 

@@ -125,7 +125,7 @@ public abstract class AbstractTestingPrestoClient<T>
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
-        for (Entry<String, Map<String, String>> connectorProperties : session.getCatalogProperties().entrySet()) {
+        for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
             for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
                 properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
             }
@@ -148,7 +148,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return transaction(prestoServer.getTransactionManager())
+        return transaction(prestoServer.getTransactionManager(), prestoServer.getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     return prestoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
@@ -157,7 +157,7 @@ public abstract class AbstractTestingPrestoClient<T>
 
     public boolean tableExists(Session session, String table)
     {
-        return transaction(prestoServer.getTransactionManager())
+        return transaction(prestoServer.getTransactionManager(), prestoServer.getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
                     return MetadataUtil.tableExists(prestoServer.getMetadata(), transactionSession, table);
