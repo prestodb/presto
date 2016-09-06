@@ -23,7 +23,6 @@ import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 
-import java.util.Map;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -31,8 +30,6 @@ import static java.util.Collections.emptySet;
 
 public interface Plugin
 {
-    default void setOptionalConfig(Map<String, String> optionalConfig) {}
-
     default Iterable<com.facebook.presto.spi.ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
     {
         return emptyList();
