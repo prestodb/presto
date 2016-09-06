@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -157,7 +158,7 @@ public final class StandaloneQueryRunner
         while (allNodes.getActiveNodes().isEmpty());
     }
 
-    private void refreshNodes(String catalogName)
+    private void refreshNodes(ConnectorId connectorId)
     {
         Set<Node> activeNodesWithConnector;
 
@@ -169,7 +170,7 @@ public final class StandaloneQueryRunner
                 Thread.currentThread().interrupt();
                 break;
             }
-            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
+            activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
         }
         while (activeNodesWithConnector.isEmpty());
     }
@@ -186,9 +187,9 @@ public final class StandaloneQueryRunner
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        server.createCatalog(catalogName, connectorName, properties);
+        ConnectorId connectorId = server.createCatalog(catalogName, connectorName, properties);
 
-        refreshNodes(catalogName);
+        refreshNodes(connectorId);
     }
 
     @Override

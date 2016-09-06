@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
@@ -146,10 +146,10 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final String catalog;
-        private final TableMetadata tableMetadata;
+        private final ConnectorTableMetadata tableMetadata;
         private final Optional<NewTableLayout> layout;
 
-        public CreateName(String catalog, TableMetadata tableMetadata, Optional<NewTableLayout> layout)
+        public CreateName(String catalog, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
@@ -161,7 +161,7 @@ public class TableWriterNode
             return catalog;
         }
 
-        public TableMetadata getTableMetadata()
+        public ConnectorTableMetadata getTableMetadata()
         {
             return tableMetadata;
         }

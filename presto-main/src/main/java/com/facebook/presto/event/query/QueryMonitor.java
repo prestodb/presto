@@ -136,7 +136,7 @@ public class QueryMonitor
             ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
             for (Input input : queryInfo.getInputs()) {
                 inputs.add(new QueryInputMetadata(
-                        input.getConnectorId(),
+                        input.getConnectorId().getCatalogName(),
                         input.getSchema(),
                         input.getTable(),
                         input.getColumns().stream()
@@ -147,7 +147,8 @@ public class QueryMonitor
             Optional<QueryOutputMetadata> output = Optional.empty();
             if (queryInfo.getOutput().isPresent()) {
                 output = Optional.of(
-                        new QueryOutputMetadata(queryInfo.getOutput().get().getConnectorId(),
+                        new QueryOutputMetadata(
+                                queryInfo.getOutput().get().getConnectorId().getCatalogName(),
                                 queryInfo.getOutput().get().getSchema(),
                                 queryInfo.getOutput().get().getTable()));
             }

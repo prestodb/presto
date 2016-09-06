@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -47,10 +48,10 @@ import static java.util.stream.Collectors.toMap;
 public class SystemTablesMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final Map<SchemaTableName, ConnectorTableMetadata> tables;
 
-    public SystemTablesMetadata(String connectorId, Set<SystemTable> tables)
+    public SystemTablesMetadata(ConnectorId connectorId, Set<SystemTable> tables)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId");
         this.tables = tables.stream()

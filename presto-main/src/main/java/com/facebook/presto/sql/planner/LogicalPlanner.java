@@ -172,18 +172,23 @@ public class LogicalPlanner
 
         RelationPlan plan = createRelationPlan(analysis, query);
 
-        TableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), plan.getSampleWeight().isPresent(), analysis.getParameters());
+        ConnectorTableMetadata tableMetadata = createTableMetadata(destination, getOutputTableColumns(plan), analysis.getCreateTableProperties(), plan.getSampleWeight().isPresent(), analysis.getParameters());
         if (plan.getSampleWeight().isPresent() && !metadata.canCreateSampledTables(session, destination.getCatalogName())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write sampled data to a store that doesn't support sampling");
         }
 
         Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
 
+        List<String> columnNames = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
+
         return createTableWriterPlan(
                 analysis,
                 plan,
                 new CreateName(destination.getCatalogName(), tableMetadata, newTableLayout),
-                tableMetadata.getVisibleColumnNames(),
+                columnNames,
                 newTableLayout);
     }
 
@@ -193,14 +198,21 @@ public class LogicalPlanner
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, insert.getTarget());
 
-        List<String> visibleTableColumnNames = tableMetadata.getVisibleColumnNames();
-        List<ColumnMetadata> visibleTableColumns = tableMetadata.getVisibleColumns();
+        List<ColumnMetadata> visibleTableColumns = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableList());
+        List<String> visibleTableColumnNames = visibleTableColumns.stream()
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
 
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
         ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
-        for (ColumnMetadata column : tableMetadata.getVisibleColumns()) {
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (column.isHidden()) {
+                continue;
+            }
             Symbol output = symbolAllocator.newSymbol(column.getName(), column.getType());
             int index = insert.getColumns().indexOf(columns.get(column.getName()));
             if (index < 0) {
@@ -346,7 +358,7 @@ public class LogicalPlanner
                 .process(query, null);
     }
 
-    private TableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, boolean sampled, List<Expression> parameters)
+    private ConnectorTableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, boolean sampled, List<Expression> parameters)
     {
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 table.getCatalogName(),
@@ -355,9 +367,7 @@ public class LogicalPlanner
                 metadata,
                 parameters);
 
-        ConnectorTableMetadata metadata = new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, sampled);
-        // TODO: first argument should actually be connectorId
-        return new TableMetadata(table.getCatalogName(), metadata);
+        return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, sampled);
     }
 
     private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan)

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -25,7 +26,7 @@ public final class ResolvedIndex
     private final IndexHandle indexHandle;
     private final TupleDomain<ColumnHandle> undeterminedTupleDomain;
 
-    public ResolvedIndex(String connectorId, ConnectorTransactionHandle transactionHandle, ConnectorResolvedIndex index)
+    public ResolvedIndex(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorResolvedIndex index)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(index, "index is null");

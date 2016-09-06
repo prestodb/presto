@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
@@ -31,10 +32,18 @@ public class TransactionInfo
     private final boolean autoCommitContext;
     private final DateTime createTime;
     private final Duration idleTime;
-    private final List<String> connectorIds;
-    private final Optional<String> writtenConnectorId;
+    private final List<ConnectorId> connectorIds;
+    private final Optional<ConnectorId> writtenConnectorId;
 
-    public TransactionInfo(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext, DateTime createTime, Duration idleTime, List<String> connectorIds, Optional<String> writtenConnectorId)
+    public TransactionInfo(
+            TransactionId transactionId,
+            IsolationLevel isolationLevel,
+            boolean readOnly,
+            boolean autoCommitContext,
+            DateTime createTime,
+            Duration idleTime,
+            List<ConnectorId> connectorIds,
+            Optional<ConnectorId> writtenConnectorId)
     {
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
@@ -76,12 +85,12 @@ public class TransactionInfo
         return idleTime;
     }
 
-    public List<String> getConnectorIds()
+    public List<ConnectorId> getConnectorIds()
     {
         return connectorIds;
     }
 
-    public Optional<String> getWrittenConnectorId()
+    public Optional<ConnectorId> getWrittenConnectorId()
     {
         return writtenConnectorId;
     }

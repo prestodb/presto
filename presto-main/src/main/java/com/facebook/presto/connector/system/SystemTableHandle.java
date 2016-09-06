@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,13 +28,13 @@ import static java.util.Objects.requireNonNull;
 public class SystemTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
     public SystemTableHandle(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
@@ -42,14 +43,14 @@ public class SystemTableHandle
         this.tableName = checkTableName(tableName);
     }
 
-    public static SystemTableHandle fromSchemaTableName(String connectorId, SchemaTableName tableName)
+    public static SystemTableHandle fromSchemaTableName(ConnectorId connectorId, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
         return new SystemTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }

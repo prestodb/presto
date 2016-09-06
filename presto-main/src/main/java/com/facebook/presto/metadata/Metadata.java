@@ -14,8 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -122,7 +124,7 @@ public interface Metadata
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    void createTable(Session session, String catalogName, TableMetadata tableMetadata);
+    void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Rename the specified table.
@@ -146,12 +148,12 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
-    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, TableMetadata tableMetadata);
+    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata, Optional<NewTableLayout> layout);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout);
 
     /**
      * Finish a table creation with data after the data is written.
@@ -203,7 +205,7 @@ public interface Metadata
      * @return Map of catalog name to connector id
      */
     @NotNull
-    Map<String, String> getCatalogNames();
+    Map<String, ConnectorId> getCatalogNames();
 
     /**
      * Get the names that match the specified table prefix (never null).

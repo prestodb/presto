@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,13 +27,13 @@ import static java.util.Objects.requireNonNull;
 
 public class PartitioningHandle
 {
-    private final Optional<String> connectorId;
+    private final Optional<ConnectorId> connectorId;
     private final Optional<ConnectorTransactionHandle> transactionHandle;
     private final ConnectorPartitioningHandle connectorHandle;
 
     @JsonCreator
     public PartitioningHandle(
-            @JsonProperty("connectorId") Optional<String> connectorId,
+            @JsonProperty("connectorId") Optional<ConnectorId> connectorId,
             @JsonProperty("transactionHandle") Optional<ConnectorTransactionHandle> transactionHandle,
             @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle)
     {
@@ -43,7 +44,7 @@ public class PartitioningHandle
     }
 
     @JsonProperty
-    public Optional<String> getConnectorId()
+    public Optional<ConnectorId> getConnectorId()
     {
         return connectorId;
     }

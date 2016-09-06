@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.spi.Node;
@@ -77,7 +78,7 @@ public final class DiscoveryNodeManager
     private final ScheduledExecutorService nodeStateUpdateExecutor;
 
     @GuardedBy("this")
-    private SetMultimap<String, Node> activeNodesByConnectorId;
+    private SetMultimap<ConnectorId, Node> activeNodesByConnectorId;
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -169,7 +170,7 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> coordinatorsBuilder = ImmutableSet.builder();
-        ImmutableSetMultimap.Builder<String, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
+        ImmutableSetMultimap.Builder<ConnectorId, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service);
@@ -197,12 +198,12 @@ public final class DiscoveryNodeManager
                         if (connectorIds != null) {
                             connectorIds = connectorIds.toLowerCase(ENGLISH);
                             for (String connectorId : CONNECTOR_ID_SPLITTER.split(connectorIds)) {
-                                byConnectorIdBuilder.put(connectorId, node);
+                                byConnectorIdBuilder.put(new ConnectorId(connectorId), node);
                             }
                         }
 
                         // always add system connector
-                        byConnectorIdBuilder.put(GlobalSystemConnector.NAME, node);
+                        byConnectorIdBuilder.put(new ConnectorId(GlobalSystemConnector.NAME), node);
                         break;
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
@@ -303,7 +304,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<Node> getActiveConnectorNodes(String connectorId)
+    public synchronized Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
     {
         refreshIfNecessary();
         return activeNodesByConnectorId.get(connectorId);

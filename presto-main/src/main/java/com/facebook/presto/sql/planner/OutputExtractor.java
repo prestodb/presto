@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.Output;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -44,7 +45,7 @@ public class OutputExtractor
     private class Visitor
             extends PlanVisitor<Void, Void>
     {
-        private String connectorId = null;
+        private ConnectorId connectorId = null;
         private SchemaTableName schemaTableName = null;
 
         @Override
@@ -82,7 +83,7 @@ public class OutputExtractor
             return null;
         }
 
-        public String getConnectorId()
+        public ConnectorId getConnectorId()
         {
             return connectorId;
         }

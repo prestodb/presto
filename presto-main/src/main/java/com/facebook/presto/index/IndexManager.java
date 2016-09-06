@@ -14,6 +14,7 @@
 package com.facebook.presto.index;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
@@ -29,9 +30,9 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class IndexManager
 {
-    private final ConcurrentMap<String, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorIndexProvider> providers = new ConcurrentHashMap<>();
 
-    public void addIndexProvider(String connectorId, ConnectorIndexProvider provider)
+    public void addIndexProvider(ConnectorId connectorId, ConnectorIndexProvider provider)
     {
         checkState(providers.putIfAbsent(connectorId, provider) == null, "IndexProvider for connector '%s' is already registered", connectorId);
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
@@ -156,15 +157,17 @@ public class PrestoServer
 
         // automatically build connectorIds if not configured
         if (connectorIds.isEmpty()) {
-            Set<String> catalogs = metadata.getCatalogNames().keySet();
+            Map<String, ConnectorId> catalogNames = metadata.getCatalogNames();
             // if this is a dedicated coordinator, only add jmx
             if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
-                if (catalogs.contains("jmx")) {
-                    connectorIds.add("jmx");
+                if (catalogNames.containsKey("jmx")) {
+                    connectorIds.add(catalogNames.get("jmx").toString());
                 }
             }
             else {
-                connectorIds.addAll(catalogs);
+                catalogNames.values().stream()
+                        .map(Object::toString)
+                        .forEach(connectorIds::add);
             }
         }
 

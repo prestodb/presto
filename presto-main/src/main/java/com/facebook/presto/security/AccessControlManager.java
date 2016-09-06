@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
@@ -103,7 +104,7 @@ public class AccessControlManager
         }
     }
 
-    public void addCatalogAccessControl(String connectorId, String catalogName, ConnectorAccessControl accessControl)
+    public void addCatalogAccessControl(ConnectorId connectorId, String catalogName, ConnectorAccessControl accessControl)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(catalogName, "catalogName is null");
@@ -461,10 +462,10 @@ public class AccessControlManager
 
     private class CatalogAccessControlEntry
     {
-        private final String connectorId;
+        private final ConnectorId connectorId;
         private final ConnectorAccessControl accessControl;
 
-        public CatalogAccessControlEntry(String connectorId, ConnectorAccessControl accessControl)
+        public CatalogAccessControlEntry(ConnectorId connectorId, ConnectorAccessControl accessControl)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");

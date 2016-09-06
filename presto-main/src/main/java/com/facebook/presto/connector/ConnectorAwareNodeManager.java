@@ -27,9 +27,9 @@ public class ConnectorAwareNodeManager
 {
     private final InternalNodeManager nodeManager;
     private final String environment;
-    private final String connectorId;
+    private final ConnectorId connectorId;
 
-    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, String connectorId)
+    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, ConnectorId connectorId)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.environment = requireNonNull(environment, "environment is null");

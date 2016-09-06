@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
+import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -44,7 +45,7 @@ public class HandleResolver
     @Inject
     public HandleResolver()
     {
-        handleResolvers.put("remote", new RemoteHandleResolver());
+        handleResolvers.put(REMOTE_CONNECTOR_ID.toString(), new RemoteHandleResolver());
         handleResolvers.put("$system", new SystemHandleResolver());
         handleResolvers.put("$info_schema", new InformationSchemaHandleResolver());
     }

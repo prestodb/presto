@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
@@ -181,7 +182,7 @@ public class TestPhasedExecutionSchedule
         Symbol symbol = new Symbol("column");
         PlanNode tableScan = new TableScanNode(
                 new PlanNodeId(name),
-                new TableHandle("test", new TestingTableHandle()),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                 Optional.empty(),
@@ -221,7 +222,7 @@ public class TestPhasedExecutionSchedule
         Symbol symbol = new Symbol("column");
         PlanNode planNode = new TableScanNode(
                 new PlanNodeId(name),
-                new TableHandle("test", new TestingTableHandle()),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
                 Optional.empty(),

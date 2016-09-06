@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -43,6 +44,7 @@ import org.intellij.lang.annotations.Language;
 import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,7 +52,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -248,15 +252,17 @@ public class DistributedQueryRunner
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         long start = System.nanoTime();
+        Set<ConnectorId> connectorIds = new HashSet<>();
         for (TestingPrestoServer server : servers) {
-            server.createCatalog(catalogName, connectorName, properties);
+            connectorIds.add(server.createCatalog(catalogName, connectorName, properties));
         }
-        log.info("Created catalog %s in %s", catalogName, nanosSince(start).convertToMostSuccinctTimeUnit());
+        ConnectorId connectorId = getOnlyElement(connectorIds);
+        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start).convertToMostSuccinctTimeUnit());
 
         // wait for all nodes to announce the new catalog
         start = System.nanoTime();
-        while (!isConnectionVisibleToAllNodes(catalogName)) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting form connector " + connectorName + " to be initialized in every node");
+        while (!isConnectionVisibleToAllNodes(connectorId)) {
+            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for connector " + connectorId + " to be initialized in every node");
             try {
                 MILLISECONDS.sleep(10);
             }
@@ -265,10 +271,10 @@ public class DistributedQueryRunner
                 throw Throwables.propagate(e);
             }
         }
-        log.info("Announced catalog %s in %s", catalogName, nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, succinctNanos(start));
     }
 
-    private boolean isConnectionVisibleToAllNodes(String connectorId)
+    private boolean isConnectionVisibleToAllNodes(ConnectorId connectorId)
     {
         for (TestingPrestoServer server : servers) {
             server.refreshNodes();

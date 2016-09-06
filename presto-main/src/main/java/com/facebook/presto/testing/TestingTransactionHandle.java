@@ -26,27 +26,18 @@ import static java.util.Objects.requireNonNull;
 public class TestingTransactionHandle
         implements ConnectorTransactionHandle
 {
-    private final String connectorId;
     private final UUID uuid;
 
     @JsonCreator
     public TestingTransactionHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("uuid") UUID uuid)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.uuid = requireNonNull(uuid, "uuid is null");
     }
 
-    public static TestingTransactionHandle create(String connectorId)
+    public static TestingTransactionHandle create()
     {
-        return new TestingTransactionHandle(connectorId, UUID.randomUUID());
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
+        return new TestingTransactionHandle(UUID.randomUUID());
     }
 
     @JsonProperty
@@ -58,7 +49,7 @@ public class TestingTransactionHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, uuid);
+        return Objects.hash(uuid);
     }
 
     @Override
@@ -71,15 +62,13 @@ public class TestingTransactionHandle
             return false;
         }
         final TestingTransactionHandle other = (TestingTransactionHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId)
-                && Objects.equals(this.uuid, other.uuid);
+        return Objects.equals(this.uuid, other.uuid);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("uuid", uuid)
                 .toString();
     }
