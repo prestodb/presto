@@ -26,6 +26,8 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -51,10 +53,6 @@ public class TestHiveConnectorFactory
     {
         HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
                 "hive-test",
-                ImmutableMap.<String, String>builder()
-                        .put("node.environment", "test")
-                        .put("hive.metastore.uri", metastoreUri)
-                        .build(),
                 HiveConnector.class.getClassLoader(),
                 null,
                 new TypeRegistry(),
@@ -62,7 +60,11 @@ public class TestHiveConnectorFactory
                 new InMemoryNodeManager(),
                 new ServerInfo("test_id", "test_environment", "test_version"));
 
-        Connector connector = connectorFactory.create("hive-test", ImmutableMap.of(), new ConnectorContext() {});
+        Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("hive.metastore.uri", metastoreUri)
+                .build();
+
+        Connector connector = connectorFactory.create("hive-test", config, new ConnectorContext() {});
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true);
         assertInstanceOf(connector.getMetadata(transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);

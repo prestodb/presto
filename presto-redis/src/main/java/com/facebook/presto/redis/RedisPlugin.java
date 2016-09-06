@@ -20,7 +20,6 @@ import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
@@ -34,13 +33,6 @@ public class RedisPlugin
         implements Plugin
 {
     private Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier = Optional.empty();
-    private Map<String, String> optionalConfig = ImmutableMap.of();
-
-    @Override
-    public synchronized void setOptionalConfig(Map<String, String> optionalConfig)
-    {
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
 
     @VisibleForTesting
     public synchronized void setTableDescriptionSupplier(Supplier<Map<SchemaTableName, RedisTableDescription>> tableDescriptionSupplier)
@@ -54,7 +46,6 @@ public class RedisPlugin
         return ImmutableList.of(new RedisConnectorFactory(
                 context.getTypeManager(),
                 context.getNodeManager(),
-                tableDescriptionSupplier,
-                optionalConfig));
+                tableDescriptionSupplier));
     }
 }

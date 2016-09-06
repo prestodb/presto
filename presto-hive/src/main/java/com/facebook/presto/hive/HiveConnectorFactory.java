@@ -40,7 +40,6 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.airlift.node.NodeModule;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -64,7 +63,6 @@ public class HiveConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
     private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
@@ -74,7 +72,6 @@ public class HiveConnectorFactory
 
     public HiveConnectorFactory(
             String name,
-            Map<String, String> optionalConfig,
             ClassLoader classLoader,
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
@@ -84,7 +81,6 @@ public class HiveConnectorFactory
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.metastore = metastore;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -112,7 +108,6 @@ public class HiveConnectorFactory
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
-                    new NodeModule(),
                     new MBeanModule(),
                     new JsonModule(),
                     new HiveClientModule(connectorId, metastore, typeManager, pageIndexerFactory, nodeManager),
@@ -171,7 +166,6 @@ public class HiveConnectorFactory
                     .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);

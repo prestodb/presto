@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.connector.ConnectorContext;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 public class TestJdbcConnectorFactory
@@ -26,7 +25,6 @@ public class TestJdbcConnectorFactory
         JdbcConnectorFactory connectorFactory = new JdbcConnectorFactory(
                 "test",
                 new TestingH2JdbcModule(),
-                ImmutableMap.<String, String>of(),
                 getClass().getClassLoader());
 
         connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new ConnectorContext() {});

@@ -63,8 +63,9 @@ public final class RaptorBenchmarkQueryRunner
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
 
         // add raptor
-        ConnectorFactory raptorConnectorFactory = createRaptorConnectorFactory(TPCH_CACHE_DIR, nodeManager);
-        localQueryRunner.createCatalog("raptor", raptorConnectorFactory, ImmutableMap.of());
+        ConnectorFactory raptorConnectorFactory = createRaptorConnectorFactory(nodeManager);
+        Map<String, String> config = createRaptorConfig(TPCH_CACHE_DIR);
+        localQueryRunner.createCatalog("raptor", raptorConnectorFactory, config);
 
         if (!localQueryRunner.tableExists(session, "orders")) {
             localQueryRunner.execute("CREATE TABLE orders AS SELECT * FROM tpch.sf1.orders");
@@ -75,22 +76,23 @@ public final class RaptorBenchmarkQueryRunner
         return localQueryRunner;
     }
 
-    private static ConnectorFactory createRaptorConnectorFactory(String cacheDir, NodeManager nodeManager)
+    private static Map<String, String> createRaptorConfig(String cacheDir)
+    {
+        File dataDir = new File(cacheDir);
+        File databaseDir = new File(dataDir, "db");
+
+        return ImmutableMap.<String, String>builder()
+                .put("metadata.db.type", "h2")
+                .put("metadata.db.filename", databaseDir.getAbsolutePath())
+                .put("storage.data-directory", dataDir.getAbsolutePath())
+                .put("storage.compress", "false")
+                .build();
+    }
+
+    private static ConnectorFactory createRaptorConnectorFactory(NodeManager nodeManager)
     {
         try {
-            File dataDir = new File(cacheDir);
-            File databaseDir = new File(dataDir, "db");
-
-            Map<String, String> config = ImmutableMap.<String, String>builder()
-                    .put("metadata.db.type", "h2")
-                    .put("metadata.db.filename", databaseDir.getAbsolutePath())
-                    .put("storage.data-directory", dataDir.getAbsolutePath())
-                    .put("storage.compress", "false")
-                    .build();
-
             RaptorPlugin plugin = new RaptorPlugin();
-
-            plugin.setOptionalConfig(config);
 
             ConnectorFactoryContext context = new TestingConnectorFactoryContext()
             {

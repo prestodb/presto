@@ -38,13 +38,11 @@ public class CassandraConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Map<String, String> optionalConfig;
 
-    public CassandraConnectorFactory(String name, Map<String, String> optionalConfig)
+    public CassandraConnectorFactory(String name)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
     }
 
     @Override
@@ -81,7 +79,7 @@ public class CassandraConnectorFactory
 
             Injector injector = app.strictConfig().doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig).initialize();
+                    .initialize();
 
             return injector.getInstance(CassandraConnector.class);
         }

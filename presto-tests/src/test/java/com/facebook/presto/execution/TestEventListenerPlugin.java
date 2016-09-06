@@ -40,11 +40,6 @@ public class TestEventListenerPlugin
         }
 
         @Override
-        public void setOptionalConfig(Map<String, String> optionalConfig)
-        {
-        }
-
-        @Override
         public Iterable<EventListenerFactory> getEventListenerFactories()
         {
             return ImmutableList.of(new TestingEventListenerFactory(eventsBuilder));

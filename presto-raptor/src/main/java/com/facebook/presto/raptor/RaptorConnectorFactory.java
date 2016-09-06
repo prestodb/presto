@@ -47,7 +47,6 @@ public class RaptorConnectorFactory
     private final String name;
     private final Module metadataModule;
     private final Map<String, Module> backupProviders;
-    private final Map<String, String> optionalConfig;
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
@@ -56,7 +55,6 @@ public class RaptorConnectorFactory
             String name,
             Module metadataModule,
             Map<String, Module> backupProviders,
-            Map<String, String> optionalConfig,
             NodeManager nodeManager,
             PageSorter pageSorter,
             TypeManager typeManager)
@@ -65,7 +63,6 @@ public class RaptorConnectorFactory
         this.name = name;
         this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
         this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
-        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -109,7 +106,6 @@ public class RaptorConnectorFactory
                     .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(RaptorConnector.class);
