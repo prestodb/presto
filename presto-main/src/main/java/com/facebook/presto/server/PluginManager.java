@@ -31,7 +31,6 @@ import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.http.server.HttpServerInfo;
@@ -52,10 +51,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
@@ -87,7 +84,6 @@ public class PluginManager
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
-    private final Map<String, String> optionalConfig;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
@@ -119,12 +115,6 @@ public class PluginManager
             this.plugins = ImmutableList.copyOf(config.getPlugins());
         }
         this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
-
-        Map<String, String> optionalConfig = new TreeMap<>(configurationFactory.getProperties());
-        optionalConfig.put("node.id", nodeInfo.getNodeId());
-        // TODO: make this work with and without HTTP and HTTPS
-        optionalConfig.put("http-server.http.port", Integer.toString(httpServerInfo.getHttpUri().getPort()));
-        this.optionalConfig = ImmutableMap.copyOf(optionalConfig);
 
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -192,8 +182,6 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
-        plugin.setOptionalConfig(optionalConfig);
-
         for (BlockEncodingFactory<?> blockEncodingFactory : plugin.getBlockEncodingFactories(blockEncodingManager)) {
             log.info("Registering block encoding %s", blockEncodingFactory.getName());
             blockEncodingManager.addBlockEncodingFactory(blockEncodingFactory);
