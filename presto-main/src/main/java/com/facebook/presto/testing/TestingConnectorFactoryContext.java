@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -30,6 +31,7 @@ public class TestingConnectorFactoryContext
     private final NodeManager nodeManager = new InMemoryNodeManager();
     private final PageSorter pageSorter = new PagesIndexPageSorter();
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory();
+    private final ServerInfo serverInfo = new ServerInfo("testnode", "testenv", "testversion");
 
     @Override
     public TypeManager getTypeManager()
@@ -53,5 +55,11 @@ public class TestingConnectorFactoryContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public ServerInfo getServerInfo()
+    {
+        return serverInfo;
     }
 }
