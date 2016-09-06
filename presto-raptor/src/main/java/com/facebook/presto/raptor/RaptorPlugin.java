@@ -36,8 +36,6 @@ public class RaptorPlugin
     private final Module metadataModule;
     private final Map<String, Module> backupProviders;
 
-    private Map<String, String> optionalConfig = ImmutableMap.of();
-
     public RaptorPlugin()
     {
         this(getPluginInfo());
@@ -57,19 +55,12 @@ public class RaptorPlugin
     }
 
     @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
-    {
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
-
-    @Override
     public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
         return ImmutableList.of(new RaptorConnectorFactory(
                 name,
                 metadataModule,
                 backupProviders,
-                optionalConfig,
                 context.getNodeManager(),
                 context.getPageSorter(),
                 context.getTypeManager()));

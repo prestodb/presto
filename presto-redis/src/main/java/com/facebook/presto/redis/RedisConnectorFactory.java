@@ -42,17 +42,14 @@ public class RedisConnectorFactory
     private final TypeManager typeManager;
     private final NodeManager nodeManager;
     private final Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier;
-    private final Map<String, String> optionalConfig;
 
     RedisConnectorFactory(
             TypeManager typeManager,
             NodeManager nodeManager,
-            Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier,
-            Map<String, String> optionalConfig)
+            Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
@@ -97,7 +94,6 @@ public class RedisConnectorFactory
             Injector injector = app.strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(RedisConnector.class);

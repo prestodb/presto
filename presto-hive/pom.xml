@@ -91,11 +91,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>node</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 

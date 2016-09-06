@@ -18,26 +18,15 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
-import static java.util.Objects.requireNonNull;
 
 public class MongoPlugin
         implements Plugin
 {
-    private Map<String, String> optionalConfig = ImmutableMap.of();
-
-    @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
-    {
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
-
     @Override
     public Iterable<Type> getTypes()
     {
@@ -53,6 +42,6 @@ public class MongoPlugin
     @Override
     public Iterable<ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
     {
-        return ImmutableList.of(new MongoConnectorFactory("mongodb", context.getTypeManager(), optionalConfig));
+        return ImmutableList.of(new MongoConnectorFactory("mongodb", context.getTypeManager()));
     }
 }

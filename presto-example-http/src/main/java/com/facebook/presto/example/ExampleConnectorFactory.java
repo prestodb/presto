@@ -19,7 +19,6 @@ import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
@@ -32,12 +31,10 @@ public class ExampleConnectorFactory
         implements ConnectorFactory
 {
     private final TypeManager typeManager;
-    private final Map<String, String> optionalConfig;
 
-    public ExampleConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig)
+    public ExampleConnectorFactory(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
     }
 
     @Override
@@ -66,7 +63,6 @@ public class ExampleConnectorFactory
                     .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(ExampleConnector.class);

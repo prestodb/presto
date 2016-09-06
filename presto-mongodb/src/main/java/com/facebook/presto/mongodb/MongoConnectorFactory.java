@@ -33,15 +33,13 @@ public class MongoConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Map<String, String> optionalConfig;
     private final TypeManager typeManager;
 
-    public MongoConnectorFactory(String name, TypeManager typeManager, Map<String, String> optionalConfig)
+    public MongoConnectorFactory(String name, TypeManager typeManager)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.optionalConfig = requireNonNull(optionalConfig, "optionalConfig is null");
     }
 
     @Override
@@ -72,7 +70,6 @@ public class MongoConnectorFactory
 
             Injector injector = app.strictConfig().doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(MongoConnector.class);

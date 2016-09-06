@@ -75,7 +75,6 @@ public final class HiveBenchmarkQueryRunner
 
         HiveConnectorFactory hiveConnectorFactory = new HiveConnectorFactory(
                 "hive",
-                ImmutableMap.of("node.environment", "test"),
                 HiveBenchmarkQueryRunner.class.getClassLoader(),
                 new BridgingHiveMetastore(metastore),
                 new TypeRegistry(),
