@@ -17,36 +17,21 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.node.NodeConfig;
-
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.util.Objects.requireNonNull;
 
 public class AtopPlugin
         implements Plugin
 {
-    private Map<String, String> optionalConfig = ImmutableMap.of();
-
-    @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
-    {
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
         return ImmutableList.of(new AtopConnectorFactory(
                 AtopProcessFactory.class,
-                optionalConfig,
                 getClassLoader(),
                 context.getTypeManager(),
                 context.getNodeManager(),
-                new ConfigurationFactory(optionalConfig).build(NodeConfig.class)));
+                context.getServerInfo()));
     }
 
     private static ClassLoader getClassLoader()

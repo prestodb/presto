@@ -14,11 +14,11 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.node.NodeConfig;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -29,24 +29,24 @@ public class AtopModule
     private final Class<? extends AtopFactory> atopFactoryClass;
     private final TypeManager typeManager;
     private final NodeManager nodeManager;
-    private final NodeConfig nodeConfig;
+    private final ServerInfo serverInfo;
     private final String connectorId;
 
-    public AtopModule(Class<? extends AtopFactory> atopFactoryClass, TypeManager typeManager, NodeManager nodeManager, NodeConfig nodeConfig, String connectorId)
+    public AtopModule(Class<? extends AtopFactory> atopFactoryClass, TypeManager typeManager, NodeManager nodeManager, ServerInfo serverInfo, String connectorId)
     {
         this.atopFactoryClass = requireNonNull(atopFactoryClass, "atopFactoryClass is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.nodeConfig = requireNonNull(nodeConfig, "nodeConfig is null");
+        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(NodeConfig.class).toInstance(nodeConfig);
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
+        binder.bind(ServerInfo.class).toInstance(serverInfo);
         binder.bind(AtopConnectorId.class).toInstance(new AtopConnectorId(connectorId));
         binder.bind(AtopConnector.class).in(Scopes.SINGLETON);
         binder.bind(AtopMetadata.class).in(Scopes.SINGLETON);
