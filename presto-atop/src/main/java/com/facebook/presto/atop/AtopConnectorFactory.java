@@ -17,17 +17,16 @@ import com.facebook.presto.plugin.base.security.AllowAllAccessControlModule;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.airlift.node.NodeConfig;
 
 import java.util.Map;
 
@@ -40,20 +39,18 @@ public class AtopConnectorFactory
         implements ConnectorFactory
 {
     private final Class<? extends AtopFactory> atopFactoryClass;
-    private final Map<String, String> optionalConfig;
     private final TypeManager typeManager;
     private final NodeManager nodeManager;
     private final ClassLoader classLoader;
-    private final NodeConfig nodeConfig;
+    private final ServerInfo serverInfo;
 
-    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, Map<String, String> optionalConfig, ClassLoader classLoader, TypeManager typeManager, NodeManager nodeManager, NodeConfig nodeConfig)
+    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, ClassLoader classLoader, TypeManager typeManager, NodeManager nodeManager, ServerInfo serverInfo)
     {
         this.atopFactoryClass = requireNonNull(atopFactoryClass, "atopFactoryClass is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
-        this.nodeConfig = nodeConfig;
+        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
     }
 
     @Override
@@ -75,7 +72,7 @@ public class AtopConnectorFactory
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
-                    new AtopModule(atopFactoryClass, typeManager, nodeManager, nodeConfig, connectorId),
+                    new AtopModule(atopFactoryClass, typeManager, nodeManager, serverInfo, connectorId),
                     installModuleIf(
                         AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),
@@ -94,7 +91,6 @@ public class AtopConnectorFactory
                     .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
-                    .setOptionalConfigurationProperties(optionalConfig)
                     .initialize();
 
             return injector.getInstance(AtopConnector.class);

@@ -15,7 +15,6 @@ package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.testing.TestingConnectorFactoryContext;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -28,10 +27,6 @@ public class TestAtopPlugin
             throws Exception
     {
         AtopPlugin plugin = new AtopPlugin();
-        plugin.setOptionalConfig(ImmutableMap.<String, String>builder()
-                .put("node.environment", "test")
-                .build());
-
         ConnectorFactoryContext context = new TestingConnectorFactoryContext();
         assertInstanceOf(getOnlyElement(plugin.getConnectorFactories(context)), AtopConnectorFactory.class);
     }
