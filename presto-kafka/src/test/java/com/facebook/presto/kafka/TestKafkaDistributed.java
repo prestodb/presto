@@ -103,6 +103,13 @@ public class TestKafkaDistributed
     {
     }
 
+    @Test
+    public void testViewCaseSensitivity()
+            throws Exception
+    {
+        // Kafka connector currently does not support views
+    }
+
     //
     // Kafka connector does not insert.
     //

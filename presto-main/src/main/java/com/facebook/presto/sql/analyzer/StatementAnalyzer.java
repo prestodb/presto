@@ -1498,7 +1498,7 @@ class StatementAnalyzer
         for (int i = 0; i < columns.size(); i++) {
             ViewDefinition.ViewColumn column = columns.get(i);
             Field field = fieldList.get(i);
-            if (!column.getName().equals(field.getName().orElse(null)) ||
+            if (!column.getName().equalsIgnoreCase(field.getName().orElse(null)) ||
                     !metadata.getTypeManager().canCoerce(field.getType(), column.getType())) {
                 return true;
             }

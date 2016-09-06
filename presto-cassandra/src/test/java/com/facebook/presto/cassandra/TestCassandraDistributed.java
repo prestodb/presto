@@ -99,6 +99,13 @@ public class TestCassandraDistributed
         // Cassandra connector currently does not support views
     }
 
+    @Test
+    public void testViewCaseSensitivity()
+            throws Exception
+    {
+        // Cassandra connector currently does not support views
+    }
+
     @Override
     public void testInsert()
             throws Exception

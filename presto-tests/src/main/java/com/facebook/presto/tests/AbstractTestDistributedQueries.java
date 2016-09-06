@@ -568,6 +568,16 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testViewCaseSensitivity()
+            throws Exception
+    {
+        computeActual("CREATE VIEW test_view_uppercase AS SELECT X FROM (SELECT 123 X)");
+        computeActual("CREATE VIEW test_view_mixedcase AS SELECT XyZ FROM (SELECT 456 XyZ)");
+        assertQuery("SELECT * FROM test_view_uppercase", "SELECT X FROM (SELECT 123 X)");
+        assertQuery("SELECT * FROM test_view_mixedcase", "SELECT XyZ FROM (SELECT 456 XyZ)");
+    }
+
+    @Test
     public void testCompatibleTypeChangeForView()
             throws Exception
     {
