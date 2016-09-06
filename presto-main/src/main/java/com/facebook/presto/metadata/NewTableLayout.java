@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -28,13 +29,13 @@ import static java.util.Objects.requireNonNull;
 
 public class NewTableLayout
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorNewTableLayout layout;
 
     @JsonCreator
     public NewTableLayout(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("layout") ConnectorNewTableLayout layout)
     {
@@ -44,7 +45,7 @@ public class NewTableLayout
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }

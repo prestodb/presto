@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 
 import javax.annotation.Nullable;
@@ -38,7 +39,7 @@ public class SampledSplitSource
 
     @Nullable
     @Override
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return splitSource.getConnectorId();
     }

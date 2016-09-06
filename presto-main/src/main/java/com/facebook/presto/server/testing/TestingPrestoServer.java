@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.testing;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
@@ -291,15 +292,16 @@ public class TestingPrestoServer
         return queryManager;
     }
 
-    public void createCatalog(String catalogName, String connectorName)
+    public ConnectorId createCatalog(String catalogName, String connectorName)
     {
-        createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
+        return createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
-    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public ConnectorId createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        connectorManager.createConnection(catalogName, connectorName, properties);
-        updateConnectorIdAnnouncement(announcer, catalogName);
+        ConnectorId connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
+        updateConnectorIdAnnouncement(announcer, connectorId);
+        return connectorId;
     }
 
     public Path getBaseDataDir()
@@ -390,12 +392,12 @@ public class TestingPrestoServer
         return nodeManager.getAllNodes();
     }
 
-    public Set<Node> getActiveNodesWithConnector(String connectorName)
+    public Set<Node> getActiveNodesWithConnector(ConnectorId connectorId)
     {
-        return nodeManager.getActiveConnectorNodes(connectorName);
+        return nodeManager.getActiveConnectorNodes(connectorId);
     }
 
-    private static void updateConnectorIdAnnouncement(Announcer announcer, String connectorId)
+    private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId)
     {
         //
         // This code was copied from PrestoServer, and is a hack that should be removed when the connectorId property is removed
@@ -408,7 +410,7 @@ public class TestingPrestoServer
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
         String property = nullToEmpty(properties.get("connectorIds"));
         Set<String> connectorIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
-        connectorIds.add(connectorId);
+        connectorIds.add(connectorId.toString());
         properties.put("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement

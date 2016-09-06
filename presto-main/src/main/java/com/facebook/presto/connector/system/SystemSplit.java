@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -30,19 +31,19 @@ import static java.util.Objects.requireNonNull;
 public class SystemSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final SystemTableHandle tableHandle;
     private final List<HostAddress> addresses;
     private final TupleDomain<ColumnHandle> constraint;
 
-    public SystemSplit(String connectorId, SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
+    public SystemSplit(ConnectorId connectorId, SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
     {
         this(connectorId, tableHandle, ImmutableList.of(requireNonNull(address, "address is null")), constraint);
     }
 
     @JsonCreator
     public SystemSplit(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("tableHandle") SystemTableHandle tableHandle,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
@@ -57,7 +58,7 @@ public class SystemSplit
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }

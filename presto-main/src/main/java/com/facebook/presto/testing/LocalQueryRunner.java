@@ -20,6 +20,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorAwareNodeManager;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
@@ -350,7 +351,7 @@ public class LocalQueryRunner
 
     public NodeManager getNodeManager()
     {
-        return new ConnectorAwareNodeManager(nodeManager, "testenv", "test");
+        return new ConnectorAwareNodeManager(nodeManager, "testenv", new ConnectorId("test"));
     }
 
     public TypeRegistry getTypeManager()
@@ -389,7 +390,7 @@ public class LocalQueryRunner
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(catalogName);
+        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
         connectorManager.addConnectorFactory(connectorFactory);
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }
@@ -397,7 +398,7 @@ public class LocalQueryRunner
     @Deprecated
     public void createCatalog(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(catalogName);
+        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
         connectorManager.addConnectorFactory(connectorFactory);
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }

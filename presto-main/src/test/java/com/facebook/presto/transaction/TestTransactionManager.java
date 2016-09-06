@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -42,6 +43,8 @@ import static org.testng.Assert.fail;
 
 public class TestTransactionManager
 {
+    private static final String CATALOG_NAME = "test_catalog";
+    private static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_NAME);
     private final ExecutorService finishingExecutor = newCachedThreadPool(daemonThreadsNamed("transaction-%s"));
 
     @AfterClass
@@ -58,8 +61,8 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory().create("c1", ImmutableMap.of(), new TestingConnectorContext());
-            transactionManager.addConnector("c1", c1);
+            Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
+            transactionManager.addConnector(CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -69,10 +72,10 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, "c1");
-            metadata.listSchemaNames(TEST_SESSION.toConnectorSession("c1"));
+            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, CONNECTOR_ID);
+            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of("c1"));
+            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
             transactionManager.asyncCommit(transactionId).join();
@@ -88,8 +91,8 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory().create("c1", ImmutableMap.of(), new TestingConnectorContext());
-            transactionManager.addConnector("c1", c1);
+            Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
+            transactionManager.addConnector(CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -99,10 +102,10 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, "c1");
-            metadata.listSchemaNames(TEST_SESSION.toConnectorSession("c1"));
+            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, CONNECTOR_ID);
+            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of("c1"));
+            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
             transactionManager.asyncAbort(transactionId).join();
@@ -118,8 +121,8 @@ public class TestTransactionManager
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
 
-            Connector c1 = new TpchConnectorFactory().create("c1", ImmutableMap.of(), new TestingConnectorContext());
-            transactionManager.addConnector("c1", c1);
+            Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
+            transactionManager.addConnector(CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -129,17 +132,17 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, "c1");
-            metadata.listSchemaNames(TEST_SESSION.toConnectorSession("c1"));
+            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, CONNECTOR_ID);
+            metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of("c1"));
+            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
             transactionManager.fail(transactionId);
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
             try {
-                transactionManager.getMetadata(transactionId, "c1");
+                transactionManager.getMetadata(transactionId, CONNECTOR_ID);
                 fail();
             }
             catch (PrestoException e) {

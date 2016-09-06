@@ -14,6 +14,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -27,19 +28,18 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class SplitManager
 {
-    private final ConcurrentMap<String, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
 
-    public void addConnectorSplitManager(String connectorId, ConnectorSplitManager connectorSplitManager)
+    public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
     {
         checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
     }
 
     public SplitSource getSplits(Session session, TableLayoutHandle layout)
     {
-        String connectorId = layout.getConnectorId();
+        ConnectorId connectorId = layout.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
 
-        // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
         ConnectorSplitSource source = splitManager.getSplits(layout.getTransactionHandle(), connectorSession, layout.getConnectorHandle());
@@ -47,7 +47,7 @@ public class SplitManager
         return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
     }
 
-    private ConnectorSplitManager getConnectorSplitManager(String connectorId)
+    private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)
     {
         ConnectorSplitManager result = splitManagers.get(connectorId);
         checkArgument(result != null, "No split manager for connector '%s'", connectorId);

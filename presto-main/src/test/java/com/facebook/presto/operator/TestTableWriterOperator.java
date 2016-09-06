@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -48,7 +49,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestTableWriterOperator
 {
-    private static final String CONNECTOR_ID = "testConnectorId";
+    private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
     private ExecutorService executor;
 
     @BeforeClass

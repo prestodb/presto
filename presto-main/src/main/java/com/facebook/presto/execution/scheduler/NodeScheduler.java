@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -116,7 +117,7 @@ public class NodeScheduler
         return counters.build();
     }
 
-    public NodeSelector createNodeSelector(String connectorId)
+    public NodeSelector createNodeSelector(ConnectorId connectorId)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.spi.BucketFunction;
@@ -40,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
-    private final ConcurrentMap<String, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
 
     @Inject
     public NodePartitioningManager(NodeScheduler nodeScheduler)
@@ -48,7 +49,7 @@ public class NodePartitioningManager
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
     }
 
-    public void addPartitioningProvider(String connectorId, ConnectorNodePartitioningProvider partitioningProvider)
+    public void addPartitioningProvider(ConnectorId connectorId, ConnectorNodePartitioningProvider partitioningProvider)
     {
         checkArgument(partitioningProviders.putIfAbsent(connectorId, partitioningProvider) == null, "NodePartitioningProvider for connector '%s' is already registered", connectorId);
     }

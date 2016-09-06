@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.transaction;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -71,7 +72,7 @@ public class TransactionManager
     private final Duration idleTimeout;
     private final int maxFinishingConcurrency;
 
-    private final ConcurrentMap<String, Connector> connectorsById = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, Connector> connectorsById = new ConcurrentHashMap<>();
     private final ConcurrentMap<TransactionId, TransactionMetadata> transactions = new ConcurrentHashMap<>();
     private final Executor finishingExecutor;
 
@@ -127,7 +128,7 @@ public class TransactionManager
         }
     }
 
-    public void addConnector(String connectorId, Connector connector)
+    public void addConnector(ConnectorId connectorId, Connector connector)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(connector, "connector is null");
@@ -160,21 +161,21 @@ public class TransactionManager
         return transactionId;
     }
 
-    public ConnectorMetadata getMetadata(TransactionId transactionId, String connectorId)
+    public ConnectorMetadata getMetadata(TransactionId transactionId, ConnectorId connectorId)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         Connector connector = getConnector(connectorId);
         return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getConnectorMetadata();
     }
 
-    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, String connectorId)
+    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         Connector connector = getConnector(connectorId);
         return transactionMetadata.getConnectorTransactionMetadata(connectorId, connector).getTransactionHandle();
     }
 
-    public void checkConnectorWrite(TransactionId transactionId, String connectorId)
+    public void checkConnectorWrite(TransactionId transactionId, ConnectorId connectorId)
     {
         getTransactionMetadata(transactionId).checkConnectorWrite(connectorId);
     }
@@ -196,7 +197,7 @@ public class TransactionManager
         tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::setInActive);
     }
 
-    private Connector getConnector(String connectorId)
+    private Connector getConnector(ConnectorId connectorId)
     {
         Connector connector = connectorsById.get(connectorId);
         checkArgument(connector != null, "Unknown connector ID: %s", connectorId);
@@ -257,8 +258,8 @@ public class TransactionManager
         private final IsolationLevel isolationLevel;
         private final boolean readOnly;
         private final boolean autoCommitContext;
-        private final Map<String, ConnectorTransactionMetadata> connectorIdToMetadata = new ConcurrentHashMap<>();
-        private final AtomicReference<String> writtenConnectorId = new AtomicReference<>();
+        private final Map<ConnectorId, ConnectorTransactionMetadata> connectorIdToMetadata = new ConcurrentHashMap<>();
+        private final AtomicReference<ConnectorId> writtenConnectorId = new AtomicReference<>();
         private final Executor finishingExecutor;
         private final AtomicReference<Boolean> completedSuccessfully = new AtomicReference<>();
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
@@ -302,7 +303,7 @@ public class TransactionManager
             }
         }
 
-        public synchronized ConnectorTransactionMetadata getConnectorTransactionMetadata(String connectorId, Connector connector)
+        public synchronized ConnectorTransactionMetadata getConnectorTransactionMetadata(ConnectorId connectorId, Connector connector)
         {
             checkOpenTransaction();
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(connectorId);
@@ -324,7 +325,7 @@ public class TransactionManager
             }
         }
 
-        public synchronized void checkConnectorWrite(String connectorId)
+        public synchronized void checkConnectorWrite(ConnectorId connectorId)
         {
             checkOpenTransaction();
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(connectorId);
@@ -351,7 +352,7 @@ public class TransactionManager
                 return failedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
             }
 
-            String writeConnectorId = this.writtenConnectorId.get();
+            ConnectorId writeConnectorId = this.writtenConnectorId.get();
             if (writeConnectorId == null) {
                 List<CompletableFuture<?>> futures = connectorIdToMetadata.values().stream()
                         .map(transactionMetadata -> runAsync(transactionMetadata::commit, finishingExecutor))
@@ -422,8 +423,8 @@ public class TransactionManager
             Duration idleTime = Optional.ofNullable(idleStartTime.get())
                     .map(Duration::nanosSince)
                     .orElse(new Duration(0, MILLISECONDS));
-            Optional<String> writtenConnectorId = Optional.ofNullable(this.writtenConnectorId.get());
-            List<String> connectorIds = ImmutableList.copyOf(connectorIdToMetadata.keySet());
+            Optional<ConnectorId> writtenConnectorId = Optional.ofNullable(this.writtenConnectorId.get());
+            List<ConnectorId> connectorIds = ImmutableList.copyOf(connectorIdToMetadata.keySet());
             return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTime, idleTime, connectorIds, writtenConnectorId);
         }
 

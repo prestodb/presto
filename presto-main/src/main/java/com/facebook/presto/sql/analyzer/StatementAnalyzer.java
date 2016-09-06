@@ -210,7 +210,10 @@ class StatementAnalyzer
         accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-        List<String> tableColumns = tableMetadata.getVisibleColumnNames();
+        List<String> tableColumns = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableList());
 
         List<String> insertColumns;
         if (insert.getColumns().isPresent()) {

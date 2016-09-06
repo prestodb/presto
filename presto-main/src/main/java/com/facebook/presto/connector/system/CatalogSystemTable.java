@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -66,8 +67,8 @@ public class CatalogSystemTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, String> entry : metadata.getCatalogNames().entrySet()) {
-            table.addRow(entry.getKey(), entry.getValue());
+        for (Map.Entry<String, ConnectorId> entry : metadata.getCatalogNames().entrySet()) {
+            table.addRow(entry.getKey(), entry.getValue().toString());
         }
         return table.build().cursor();
     }

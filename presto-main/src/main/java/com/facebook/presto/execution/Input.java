@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class Input
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final String schema;
     private final String table;
     private final List<Column> columns;
@@ -37,7 +38,7 @@ public final class Input
 
     @JsonCreator
     public Input(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
@@ -57,7 +58,7 @@ public final class Input
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }

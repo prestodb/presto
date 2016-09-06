@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
@@ -730,12 +731,12 @@ public final class FunctionAssertions
     {
         static Split createRecordSetSplit()
         {
-            return new Split("test", TestingTransactionHandle.create("test"), new TestSplit(true));
+            return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(true));
         }
 
         static Split createNormalSplit()
         {
-            return new Split("test", TestingTransactionHandle.create("test"), new TestSplit(false));
+            return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(false));
         }
 
         private final boolean recordSet;
