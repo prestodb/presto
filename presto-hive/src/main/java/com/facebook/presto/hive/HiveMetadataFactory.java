@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.ServerInfo;
@@ -147,7 +148,11 @@ public class HiveMetadataFactory
     {
         return new HiveMetadata(
                 connectorId,
-                new SemiTransactionalHiveMetastore(hdfsEnvironment, metastore, renameExecution, skipDeletionForAlter),
+                new SemiTransactionalHiveMetastore(
+                        hdfsEnvironment,
+                        CachingHiveMetastore.memoizeMetastore(metastore), // per-transaction cache
+                        renameExecution,
+                        skipDeletionForAlter),
                 hdfsEnvironment,
                 partitionManager,
                 timeZone,
