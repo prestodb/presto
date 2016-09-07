@@ -91,6 +91,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -548,6 +549,18 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         return metadata.getNewTableLayout(connectorSession, tableMetadata)
                 .map(layout -> new NewTableLayout(connectorId, transactionHandle, layout));
+    }
+
+    @Override
+    public void beginQuery(Session session, Collection<TableHandle> tableHandles)
+    {
+        Set<ConnectorId> distinctConnectors = tableHandles.stream().map(TableHandle::getConnectorId).collect(toImmutableSet());
+
+        for (ConnectorId connectorId : distinctConnectors) {
+            ConnectorMetadata metadata = getMetadata(session, connectorId);
+            ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+            metadata.beginQuery(connectorSession);
+        }
     }
 
     @Override
