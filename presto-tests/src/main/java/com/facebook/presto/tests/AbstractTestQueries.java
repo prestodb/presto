@@ -2120,6 +2120,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNonEqualityJoinWithTryInFilter()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
+                "             ON a=c AND TRY(1 / (b-a) != 1000)",
+                "VALUES (1, 1, NULL, NULL), (1, 2, 1, 1), (1, 2, 1, 2)");
+
+        // use of scalar requiring session parameter within try
+        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) " +
+                        "             ON a=c AND TRY(1 / (b-a) != 1000 OR from_unixtime(b) > current_timestamp)",
+                "VALUES (1, 1, NULL, NULL), (1, 2, 1, 1), (1, 2, 1, 2)");
+    }
+
+    @Test
     public void testLeftJoinWithEmptyInnerTable()
             throws Exception
     {

@@ -42,6 +42,7 @@ import com.google.common.primitives.Primitives;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -56,6 +57,7 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -147,8 +149,7 @@ public class JoinFilterFunctionCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter, int leftBlocksSize, FieldDefinition sessionField)
     {
-        // todo handle TRY expression
-        Map<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.of();
+        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
 
         // int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks
         Parameter leftPosition = arg("leftPosition", int.class);
@@ -192,6 +193,60 @@ public class JoinFilterFunctionCompiler
                         .ifFalse(result.ret()));
     }
 
+    private Map<CallExpression, MethodDefinition> generateTryMethods(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            int leftBlocksSize,
+            RowExpression filter)
+    {
+        TryExpressionExtractor tryExtractor = new TryExpressionExtractor();
+        filter.accept(tryExtractor, null);
+        List<CallExpression> tryExpressions = tryExtractor.getTryExpressionsPreOrder();
+
+        ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+
+        int methodId = 0;
+        for (CallExpression tryExpression : tryExpressions) {
+            Parameter session = arg("session", ConnectorSession.class);
+            Parameter leftPosition = arg("leftPosition", int.class);
+            Parameter leftBlocks = arg("leftBlocks", Block[].class);
+            Parameter rightPosition = arg("rightPosition", int.class);
+            Parameter rightBlocks = arg("rightBlocks", Block[].class);
+            Parameter wasNullVariable = arg("wasNull", boolean.class);
+
+            BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize, wasNullVariable),
+                    metadata.getFunctionRegistry(),
+                    tryMethodMap.build());
+
+            List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
+                    .add(session)
+                    .add(leftPosition)
+                    .add(leftBlocks)
+                    .add(rightPosition)
+                    .add(rightBlocks)
+                    .add(wasNullVariable)
+                    .build();
+
+            MethodDefinition tryMethod = defineTryMethod(
+                    innerExpressionVisitor,
+                    containerClassDefinition,
+                    "try_" + methodId,
+                    inputParameters,
+                    Primitives.wrap(tryExpression.getType().getJavaType()),
+                    tryExpression,
+                    callSiteBinder);
+
+            tryMethodMap.put(tryExpression, tryMethod);
+            methodId++;
+        }
+
+        return tryMethodMap.build();
+    }
+
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
     {
         // bind constant via invokedynamic to avoid constant pool issues due to large strings
@@ -202,7 +257,8 @@ public class JoinFilterFunctionCompiler
     }
 
     @FunctionalInterface
-    public interface JoinFilterFunctionFactory {
+    public interface JoinFilterFunctionFactory
+    {
         JoinFilterFunction create(ConnectorSession session);
     }
 
