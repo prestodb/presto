@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.Scope;
@@ -23,6 +24,7 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.JoinFilterFunction;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -42,9 +44,9 @@ import io.airlift.slice.Slice;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
+import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
@@ -79,12 +81,12 @@ public class JoinFilterFunctionCompiler
                 }
             });
 
-    public Supplier<JoinFilterFunction> compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
     {
         Class<? extends JoinFilterFunction> joinFilterFunction = joinFilterFunctions.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
-        return () -> {
+        return (session) -> {
             try {
-                return joinFilterFunction.newInstance();
+                return joinFilterFunction.getConstructor(ConnectorSession.class).newInstance(session);
             }
             catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);
@@ -121,11 +123,29 @@ public class JoinFilterFunctionCompiler
     private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
-        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter, leftBlocksSize);
-        classDefinition.declareDefaultConstructor(a(PUBLIC));
+
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
+        generateConstructor(classDefinition, sessionField);
+        generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter, leftBlocksSize, sessionField);
     }
 
-    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter, int leftBlocksSize)
+    private void generateConstructor(ClassDefinition classDefinition, FieldDefinition sessionField)
+    {
+        Parameter sessionParameter = arg("session", ConnectorSession.class);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
+
+        BytecodeBlock body = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+
+        body.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+
+        body.append(thisVariable.setField(sessionField, sessionParameter));
+        body.ret();
+    }
+
+    private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter, int leftBlocksSize, FieldDefinition sessionField)
     {
         // todo handle TRY expression
         Map<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.of();
@@ -152,6 +172,7 @@ public class JoinFilterFunctionCompiler
 
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
+        scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
@@ -178,6 +199,11 @@ public class JoinFilterFunctionCompiler
                 .getBody()
                 .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
                 .retObject();
+    }
+
+    @FunctionalInterface
+    public interface JoinFilterFunctionFactory {
+        JoinFilterFunction create(ConnectorSession session);
     }
 
     private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(

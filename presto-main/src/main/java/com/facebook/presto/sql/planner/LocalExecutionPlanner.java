@@ -1571,7 +1571,7 @@ public class LocalExecutionPlanner
                     emptyList() /* parameters have already been replaced */);
 
             RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size()).get();
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size()).create(session.toConnectorSession());
         }
 
         private OperatorFactory createLookupJoin(
