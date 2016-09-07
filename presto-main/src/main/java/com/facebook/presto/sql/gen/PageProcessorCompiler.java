@@ -81,7 +81,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
@@ -907,54 +906,11 @@ public class PageProcessorCompiler
 
     private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
     {
-        return new RowExpressionVisitor<Scope, BytecodeNode>()
-        {
-            @Override
-            public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
-            {
-                int field = node.getField();
-                Type type = node.getType();
-                Variable block = scope.getVariable("block_" + field);
-
-                Class<?> javaType = type.getJavaType();
-                if (!javaType.isPrimitive() && javaType != Slice.class) {
-                    javaType = Object.class;
-                }
-
-                IfStatement ifStatement = new IfStatement();
-                ifStatement.condition()
-                        .setDescription(format("block_%d.get%s()", field, type))
-                        .append(block)
-                        .getVariable(positionVariable)
-                        .invokeInterface(Block.class, "isNull", boolean.class, int.class);
-
-                ifStatement.ifTrue()
-                        .putVariable(wasNullVariable, true)
-                        .pushJavaDefault(javaType);
-
-                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-
-                ifStatement.ifFalse()
-                        .append(loadConstant(callSiteBinder.bind(type, Type.class)))
-                        .append(block)
-                        .getVariable(positionVariable)
-                        .invokeInterface(Type.class, methodName, javaType, Block.class, int.class);
-
-                return ifStatement;
-            }
-
-            @Override
-            public BytecodeNode visitCall(CallExpression call, Scope scope)
-            {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
-
-            @Override
-            public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
-            {
-                throw new UnsupportedOperationException("not yet implemented");
-            }
-        };
+        return new InputReferenceCompiler(
+                (scope, field) -> scope.getVariable("block_" + field),
+                (scope, field) -> positionVariable,
+                wasNullVariable,
+                callSiteBinder);
     }
 
     private static Map<RowExpression, List<Variable>> getExpressionInputBlocks(List<RowExpression> projections, RowExpression filter, Map<Integer, Variable> channelBlock)
