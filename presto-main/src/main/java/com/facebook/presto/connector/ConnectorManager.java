@@ -148,12 +148,6 @@ public class ConnectorManager
         }
     }
 
-    @Deprecated
-    public void addConnectorFactory(@SuppressWarnings("deprecation") com.facebook.presto.spi.ConnectorFactory connectorFactory)
-    {
-        addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
-    }
-
     public synchronized void addConnectorFactory(ConnectorFactory connectorFactory)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
