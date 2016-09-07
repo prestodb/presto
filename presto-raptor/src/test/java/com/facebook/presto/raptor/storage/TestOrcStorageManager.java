@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcRecordReader;
 import com.facebook.presto.raptor.RaptorColumnHandle;
@@ -37,6 +36,7 @@ import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -115,7 +115,7 @@ public class TestOrcStorageManager
     private static final Duration MISSING_SHARD_DISCOVERY = new Duration(5, TimeUnit.MINUTES);
     private static final ReaderAttributes READER_ATTRIBUTES = new ReaderAttributes(new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE));
 
-    private final NodeManager nodeManager = new InMemoryNodeManager();
+    private final NodeManager nodeManager = new TestingNodeManager();
     private Handle dummyHandle;
     private File temporary;
     private StorageService storageService;
@@ -571,7 +571,7 @@ public class TestOrcStorageManager
         ShardRecoveryManager recoveryManager = new ShardRecoveryManager(
                 storageService,
                 backupStore,
-                new InMemoryNodeManager(),
+                new TestingNodeManager(),
                 shardManager,
                 MISSING_SHARD_DISCOVERY,
                 10);

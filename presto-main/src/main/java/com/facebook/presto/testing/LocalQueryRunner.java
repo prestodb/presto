@@ -17,6 +17,7 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
@@ -77,6 +78,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -330,9 +332,9 @@ public class LocalQueryRunner
         return 1;
     }
 
-    public InMemoryNodeManager getNodeManager()
+    public NodeManager getNodeManager()
     {
-        return nodeManager;
+        return new ConnectorAwareNodeManager(nodeManager);
     }
 
     public TypeRegistry getTypeManager()

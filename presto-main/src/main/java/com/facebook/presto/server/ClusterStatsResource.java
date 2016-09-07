@@ -16,7 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.NodeState;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,11 +33,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @Path("/v1/cluster")
 public class ClusterStatsResource
 {
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final QueryManager queryManager;
 
     @Inject
-    public ClusterStatsResource(NodeManager nodeManager, QueryManager queryManager)
+    public ClusterStatsResource(InternalNodeManager nodeManager, QueryManager queryManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");

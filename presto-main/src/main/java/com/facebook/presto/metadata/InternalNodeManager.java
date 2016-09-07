@@ -13,11 +13,21 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeState;
+
+import java.util.Set;
 
 public interface InternalNodeManager
-        extends NodeManager
 {
+    Set<Node> getNodes(NodeState state);
+
+    Set<Node> getActiveDatasourceNodes(String datasourceName);
+
+    Node getCurrentNode();
+
+    Set<Node> getCoordinators();
+
     AllNodes getAllNodes();
 
     void refreshNodes();

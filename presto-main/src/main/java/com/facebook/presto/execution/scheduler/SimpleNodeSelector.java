@@ -15,9 +15,9 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
@@ -43,7 +43,7 @@ public class SimpleNodeSelector
 {
     private static final Logger log = Logger.get(SimpleNodeSelector.class);
 
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
     private final boolean doubleScheduling;
@@ -53,7 +53,7 @@ public class SimpleNodeSelector
     private final int maxPendingSplitsPerNodePerStageWhenFull;
 
     public SimpleNodeSelector(
-            NodeManager nodeManager,
+            InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
             boolean doubleScheduling,

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -20,7 +21,6 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
@@ -39,9 +39,9 @@ import static java.util.stream.Collectors.toMap;
 public class InformationSchemaSplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
 
-    public InformationSchemaSplitManager(NodeManager nodeManager)
+    public InformationSchemaSplitManager(InternalNodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }

@@ -18,7 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
 import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
-import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -64,7 +64,7 @@ public final class HiveBenchmarkQueryRunner
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
-        InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
+        NodeManager nodeManager = localQueryRunner.getNodeManager();
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
 
         // add hive

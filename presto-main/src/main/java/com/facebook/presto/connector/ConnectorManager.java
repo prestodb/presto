@@ -17,9 +17,9 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaConnecto
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -75,7 +75,7 @@ public class ConnectorManager
 
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final TransactionManager transactionManager;
 
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -94,7 +94,7 @@ public class ConnectorManager
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
-            NodeManager nodeManager,
+            InternalNodeManager nodeManager,
             TransactionManager transactionManager)
     {
         this.metadataManager = metadataManager;

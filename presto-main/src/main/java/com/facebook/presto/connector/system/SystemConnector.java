@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -39,7 +39,7 @@ public class SystemConnector
 
     public SystemConnector(
             String connectorId,
-            NodeManager nodeManager,
+            InternalNodeManager nodeManager,
             Set<SystemTable> tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {

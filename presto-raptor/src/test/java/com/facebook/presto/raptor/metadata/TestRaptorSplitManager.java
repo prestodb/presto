@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.raptor.NodeSupplier;
@@ -36,6 +35,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -101,11 +101,11 @@ public class TestRaptorSplitManager
         temporary = createTempDir();
         AssignmentLimiter assignmentLimiter = new AssignmentLimiter(ImmutableSet::of, systemTicker(), new MetadataConfig());
         shardManager = new DatabaseShardManager(dbi, new DaoSupplier<>(dbi, ShardDao.class), ImmutableSet::of, assignmentLimiter, systemTicker(), new Duration(0, MINUTES));
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        TestingNodeManager nodeManager = new TestingNodeManager();
         RaptorNodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, new RaptorConnectorId("raptor"));
 
         String nodeName = UUID.randomUUID().toString();
-        nodeManager.addNode("raptor", new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
+        nodeManager.addNode(new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
@@ -172,11 +172,11 @@ public class TestRaptorSplitManager
     public void testAssignRandomNodeWhenBackupAvailable()
             throws InterruptedException, URISyntaxException
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        TestingNodeManager nodeManager = new TestingNodeManager();
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
         PrestoNode node = new PrestoNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN);
-        nodeManager.addNode(connectorId.toString(), node);
+        nodeManager.addNode(node);
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
 
         deleteShardNodes();

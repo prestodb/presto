@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
@@ -22,6 +21,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -57,7 +57,7 @@ public class TestHiveConnectorFactory
                 null,
                 new TypeRegistry(),
                 new GroupByHashPageIndexerFactory(),
-                new InMemoryNodeManager(),
+                new TestingNodeManager(),
                 new ServerInfo("test_id", "test_environment", "test_version"));
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
