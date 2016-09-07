@@ -109,9 +109,13 @@ public class AccessControlManager
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(accessControl, "accessControl is null");
-
         checkState(connectorAccessControl.putIfAbsent(connectorId, new CatalogAccessControlEntry(connectorId, accessControl)) == null,
                 "Access control for connector '%s' is already registered", connectorId);
+    }
+
+    public void removeCatalogAccessControl(ConnectorId connectorId)
+    {
+        connectorAccessControl.remove(connectorId);
     }
 
     public void loadSystemAccessControl()

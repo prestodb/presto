@@ -64,6 +64,11 @@ abstract class AbstractPropertyManager
         checkState(connectorProperties.putIfAbsent(connectorId, propertiesByName) == null, "Properties for connector '%s' are already registered", connectorId);
     }
 
+    public final void removeProperties(ConnectorId connectorId)
+    {
+        connectorProperties.remove(connectorId);
+    }
+
     public final Map<String, Object> getProperties(
             ConnectorId connectorId,
             String catalog, // only use this for error messages

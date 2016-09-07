@@ -212,11 +212,20 @@ public class ConnectorManager
                 informationSchemaConnector.getConnector(),
                 systemConnector.getConnectorId(),
                 systemConnector.getConnector());
-        catalogManager.registerCatalog(catalog);
 
-        addConnectorInternal(connector);
-        addConnectorInternal(informationSchemaConnector);
-        addConnectorInternal(systemConnector);
+        try {
+            addConnectorInternal(connector);
+            addConnectorInternal(informationSchemaConnector);
+            addConnectorInternal(systemConnector);
+            catalogManager.registerCatalog(catalog);
+        }
+        catch (Throwable e) {
+            catalogManager.removeCatalog(catalog.getCatalogName());
+            removeConnectorInternal(systemConnector.getConnectorId());
+            removeConnectorInternal(informationSchemaConnector.getConnectorId());
+            removeConnectorInternal(connector.getConnectorId());
+            throw e;
+        }
     }
 
     private synchronized void addConnectorInternal(MaterializedConnector connector)
@@ -246,6 +255,42 @@ public class ConnectorManager
         metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
         metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(connectorId, connector.getSessionProperties());
+    }
+
+    public synchronized void dropConnection(String catalogName)
+    {
+        requireNonNull(catalogName, "catalogName is null");
+
+        catalogManager.removeCatalog(catalogName).ifPresent(connectorId -> {
+            // todo wait for all running transactions using the connector to complete before removing the services
+            removeConnectorInternal(connectorId);
+            removeConnectorInternal(createInformationSchemaConnectorId(connectorId));
+            removeConnectorInternal(createSystemTablesConnectorId(connectorId));
+        });
+    }
+
+    private synchronized void removeConnectorInternal(ConnectorId connectorId)
+    {
+        splitManager.removeConnectorSplitManager(connectorId);
+        pageSourceManager.removeConnectorPageSourceProvider(connectorId);
+        pageSinkManager.removeConnectorPageSinkProvider(connectorId);
+        indexManager.removeIndexProvider(connectorId);
+        nodePartitioningManager.removePartitioningProvider(connectorId);
+        metadataManager.getProcedureRegistry().removeProcedures(connectorId);
+        accessControlManager.removeCatalogAccessControl(connectorId);
+        metadataManager.getTablePropertyManager().removeProperties(connectorId);
+        metadataManager.getSchemaPropertyManager().removeProperties(connectorId);
+        metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(connectorId);
+
+        Connector connector = connectors.remove(connectorId).getConnector();
+        if (connector != null) {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connector.getClass().getClassLoader())) {
+                connector.shutdown();
+            }
+            catch (Throwable t) {
+                log.error(t, "Error shutting down connector: %s", connectorId);
+            }
+        }
     }
 
     private Connector createConnector(ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)

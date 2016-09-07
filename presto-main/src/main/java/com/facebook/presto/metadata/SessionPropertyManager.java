@@ -98,6 +98,11 @@ public final class SessionPropertyManager
         checkState(connectorSessionProperties.putIfAbsent(connectorId, propertiesByName) == null, "Session properties for connectorId '%s' are already registered", connectorId);
     }
 
+    public void removeConnectorSessionProperties(ConnectorId connectorId)
+    {
+        connectorSessionProperties.remove(connectorId);
+    }
+
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");

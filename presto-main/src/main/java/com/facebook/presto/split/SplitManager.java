@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class SplitManager
 {
@@ -32,7 +33,14 @@ public class SplitManager
 
     public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
     {
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(connectorSplitManager, "connectorSplitManager is null");
         checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
+    }
+
+    public void removeConnectorSplitManager(ConnectorId connectorId)
+    {
+        splitManagers.remove(connectorId);
     }
 
     public SplitSource getSplits(Session session, TableLayoutHandle layout)

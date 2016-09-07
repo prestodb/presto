@@ -61,6 +61,11 @@ public class ProcedureRegistry
         checkState(connectorProcedures.putIfAbsent(connectorId, proceduresByName) == null, "Procedures already registered for connector: %s", connectorId);
     }
 
+    public void removeProcedures(ConnectorId connectorId)
+    {
+        connectorProcedures.remove(connectorId);
+    }
+
     public Procedure resolve(ConnectorId connectorId, SchemaTableName name)
     {
         Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);

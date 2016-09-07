@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -37,9 +38,10 @@ public class CatalogManager
         checkState(catalogs.put(catalog.getCatalogName(), catalog) == null, "Catalog '%s' is already registered", catalog.getCatalogName());
     }
 
-    public void removeCatalog(String catalogName)
+    public Optional<ConnectorId> removeCatalog(String catalogName)
     {
-        catalogs.remove(catalogName);
+        return Optional.ofNullable(catalogs.remove(catalogName))
+                .map(Catalog::getConnectorId);
     }
 
     public List<Catalog> getCatalogs()

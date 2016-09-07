@@ -49,9 +49,17 @@ public class NodePartitioningManager
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
     }
 
-    public void addPartitioningProvider(ConnectorId connectorId, ConnectorNodePartitioningProvider partitioningProvider)
+    public void addPartitioningProvider(ConnectorId connectorId, ConnectorNodePartitioningProvider nodePartitioningProvider)
     {
-        checkArgument(partitioningProviders.putIfAbsent(connectorId, partitioningProvider) == null, "NodePartitioningProvider for connector '%s' is already registered", connectorId);
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
+        checkArgument(partitioningProviders.putIfAbsent(connectorId, nodePartitioningProvider) == null,
+                "NodePartitioningProvider for connector '%s' is already registered", connectorId);
+    }
+
+    public void removePartitioningProvider(ConnectorId connectorId)
+    {
+        partitioningProviders.remove(connectorId);
     }
 
     public PartitionFunction getPartitionFunction(
