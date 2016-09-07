@@ -3,4 +3,4 @@ services:
 
   presto-master:
     volumes:
-      - ../../../../presto-product-tests/conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation/hive.properties:/docker/volumes/presto/presto-product-tests/conf/presto/etc/catalog/hive.properties
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
