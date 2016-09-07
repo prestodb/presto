@@ -18,16 +18,23 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 public class TransformUncorrelatedScalarToJoin
@@ -53,7 +60,7 @@ public class TransformUncorrelatedScalarToJoin
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.getSubquery() instanceof EnforceSingleRowNode) {
+            if (rewrittenNode.getCorrelation().isEmpty() && isScalarSubquery(rewrittenNode.getSubquery())) {
                 return new JoinNode(
                         idAllocator.getNextId(),
                         JoinNode.Type.INNER,
@@ -65,6 +72,35 @@ public class TransformUncorrelatedScalarToJoin
                         Optional.empty());
             }
             return rewrittenNode;
+        }
+
+        private boolean isScalarSubquery(PlanNode node)
+        {
+            if (node instanceof EnforceSingleRowNode) {
+                return true;
+            }
+
+            if (isScalarAggregation(node)) {
+                return true;
+            }
+
+            if (node instanceof ValuesNode) {
+                return ((ValuesNode) node).getRows().size() == 1;
+            }
+
+            return false;
+        }
+
+        private Boolean isScalarAggregation(PlanNode node)
+        {
+            return searchFrom(node)
+                    .where(AggregationNode.class::isInstance)
+                    .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, LimitNode.class))
+                    .findFirst()
+                    .map(AggregationNode.class::cast)
+                    .map(AggregationNode::getGroupBy)
+                    .map(List::isEmpty)
+                    .orElse(false);
         }
     }
 }

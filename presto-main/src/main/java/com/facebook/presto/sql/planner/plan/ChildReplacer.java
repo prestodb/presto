@@ -262,4 +262,11 @@ public class ChildReplacer
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new ApplyNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getCorrelation());
     }
+
+    @Override
+    public PlanNode visitAssignUniqueId(AssignUniqueId node, List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
+        return new AssignUniqueId(node.getId(), Iterables.getOnlyElement(newChildren), node.getUnique());
+    }
 }

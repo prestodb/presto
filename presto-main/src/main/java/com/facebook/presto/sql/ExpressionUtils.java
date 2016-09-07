@@ -264,4 +264,14 @@ public final class ExpressionUtils
             }
         }, expression);
     }
+
+    public static Expression andOrTrue(List<Expression> expressions)
+    {
+        if (expressions.isEmpty()) {
+            return TRUE_LITERAL;
+        }
+        else {
+            return ExpressionUtils.and(expressions);
+        }
+    }
 }
