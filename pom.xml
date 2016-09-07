@@ -630,7 +630,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.26</version>
+                <version>1.27</version>
             </dependency>
 
             <dependency>
