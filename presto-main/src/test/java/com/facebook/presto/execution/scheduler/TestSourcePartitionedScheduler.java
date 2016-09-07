@@ -24,13 +24,13 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TestSqlTaskManager.MockLocationFactory;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -402,7 +402,9 @@ public class TestSourcePartitionedScheduler
 
     private static SourcePartitionedScheduler getSourcePartitionedScheduler(
             StageExecutionPlan plan,
-            SqlStageExecution stage, NodeManager nodeManager, NodeTaskMap nodeTaskMap,
+            SqlStageExecution stage,
+            InternalNodeManager nodeManager,
+            NodeTaskMap nodeTaskMap,
             int splitBatchSize)
     {
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()

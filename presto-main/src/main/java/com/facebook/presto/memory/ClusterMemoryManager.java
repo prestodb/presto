@@ -18,9 +18,9 @@ import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -78,7 +78,7 @@ public class ClusterMemoryManager
 {
     private static final Logger log = Logger.get(ClusterMemoryManager.class);
     private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor();
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final LocationFactory locationFactory;
     private final HttpClient httpClient;
     private final MBeanExporter exporter;
@@ -111,7 +111,7 @@ public class ClusterMemoryManager
     @Inject
     public ClusterMemoryManager(
             @ForMemoryManager HttpClient httpClient,
-            NodeManager nodeManager,
+            InternalNodeManager nodeManager,
             LocationFactory locationFactory,
             MBeanExporter exporter,
             JsonCodec<MemoryInfo> memoryInfoCodec,

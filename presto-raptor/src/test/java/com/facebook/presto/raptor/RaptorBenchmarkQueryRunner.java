@@ -15,7 +15,6 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
@@ -59,7 +58,7 @@ public final class RaptorBenchmarkQueryRunner
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
-        InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
+        NodeManager nodeManager = localQueryRunner.getNodeManager();
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
 
         // add raptor

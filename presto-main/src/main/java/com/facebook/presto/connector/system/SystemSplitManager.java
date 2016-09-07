@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.SystemTable.Distribution;
@@ -45,10 +45,10 @@ import static java.util.Objects.requireNonNull;
 public class SystemSplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final Map<SchemaTableName, SystemTable> tables;
 
-    public SystemSplitManager(NodeManager nodeManager, Set<SystemTable> tables)
+    public SystemSplitManager(InternalNodeManager nodeManager, Set<SystemTable> tables)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tables = uniqueIndex(tables, table -> table.getTableMetadata().getTable());

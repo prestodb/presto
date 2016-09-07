@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.server.NoOpFailureDetector;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -135,7 +134,7 @@ public class TestDiscoveryNodeManager
     public void testGetCoordinators()
             throws Exception
     {
-        NodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient);
+        InternalNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient);
         assertEquals(manager.getCoordinators(), ImmutableSet.of(coordinator));
     }
 

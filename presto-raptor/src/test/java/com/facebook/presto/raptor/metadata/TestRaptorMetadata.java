@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
@@ -33,10 +32,12 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.testing.TestingConnectorSession;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -108,8 +109,7 @@ public class TestRaptorMetadata
         createTablesWithRetry(dbi);
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addCurrentNodeDatasource(connectorId.toString());
+        NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);

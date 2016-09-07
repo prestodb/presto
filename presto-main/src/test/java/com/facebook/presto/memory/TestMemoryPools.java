@@ -14,11 +14,11 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -53,7 +53,7 @@ public class TestMemoryPools
         LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
         // add tpch
-        InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
+        NodeManager nodeManager = localQueryRunner.getNodeManager();
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
 
         // reserve all the memory in the pool
