@@ -46,6 +46,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -420,6 +421,11 @@ public class Analysis
     public TableHandle getTableHandle(Table table)
     {
         return tables.get(table);
+    }
+
+    public Collection<TableHandle> getTables()
+    {
+        return tables.values();
     }
 
     public void registerTable(Table table, TableHandle handle)
