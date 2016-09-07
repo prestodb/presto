@@ -24,6 +24,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -242,6 +243,36 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToCanceled());
         assertFinalState(stateMachine, FAILED, new PrestoException(USER_CANCELED, "canceled"));
+    }
+
+    @Test
+    public void testPlanningTimeDuration()
+            throws InterruptedException
+    {
+        TestingTicker mockTicker = new TestingTicker();
+        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(mockTicker);
+        assertState(stateMachine, QUEUED);
+
+        mockTicker.increment(100, TimeUnit.MILLISECONDS);
+        assertTrue(stateMachine.transitionToPlanning());
+        assertState(stateMachine, PLANNING);
+
+        mockTicker.increment(500, TimeUnit.MILLISECONDS);
+        assertTrue(stateMachine.transitionToStarting());
+        assertState(stateMachine, STARTING);
+
+        mockTicker.increment(300, TimeUnit.MILLISECONDS);
+        assertTrue(stateMachine.transitionToRunning());
+        assertState(stateMachine, RUNNING);
+
+        mockTicker.increment(200, TimeUnit.MILLISECONDS);
+        assertTrue(stateMachine.transitionToFinishing());
+        stateMachine.waitForStateChange(FINISHING, new Duration(2, TimeUnit.SECONDS));
+        assertState(stateMachine, FINISHED);
+
+        QueryStats queryStats = stateMachine.getQueryInfo(Optional.empty()).getQueryStats();
+        assertTrue(queryStats.getQueuedTime().toMillis() == 100);
+        assertTrue(queryStats.getTotalPlanningTime().toMillis() == 500);
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)
