@@ -709,7 +709,7 @@ public class LocalExecutionPlanner
                 Symbol symbol = entry.getKey();
                 WindowFunctionSupplier windowFunctionSupplier = metadata.getFunctionRegistry().getWindowFunctionImplementation(signature);
                 Type type = metadata.getType(signature.getReturnType());
-                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, frameInfo, arguments.build()));
+                windowFunctionsBuilder.add(window(windowFunctionSupplier, type, functionCall.isIgnoreNulls(), arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
             }
 

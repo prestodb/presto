@@ -43,6 +43,7 @@ public class FunctionListBuilder
     {
         WindowFunctionSupplier windowFunctionSupplier = new ReflectionWindowFunctionSupplier<>(
                 new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(ImmutableList.copyOf(argumentTypes), Type::getTypeSignature)),
+                false,
                 functionClass);
 
         functions.add(new SqlWindowFunction(windowFunctionSupplier));
@@ -59,7 +60,8 @@ public class FunctionListBuilder
                 parseTypeSignature(typeVariable),
                 Arrays.asList(argumentTypes).stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
                 false);
-        functions.add(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz)));
+        boolean canIgnoreNulls = name.equalsIgnoreCase("lag") || name.equalsIgnoreCase("lead");
+        functions.add(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, canIgnoreNulls, clazz)));
         return this;
     }
 

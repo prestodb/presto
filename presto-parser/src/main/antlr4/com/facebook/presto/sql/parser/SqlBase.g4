@@ -306,6 +306,11 @@ primaryExpression
     | '(' expression ')'                                                                  #parenthesizedExpression
     ;
 
+nullTreatment
+    : IGNORE NULLS
+    | RESPECT NULLS
+    ;
+
 timeZoneSpecifier
     : TIME ZONE interval  #timeZoneInterval
     | TIME ZONE STRING    #timeZoneString
@@ -612,6 +617,8 @@ CALL: 'CALL';
 PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
+IGNORE: 'IGNORE';
+RESPECT: 'RESPECT';
 INPUT: 'INPUT';
 CASCADE: 'CASCADE';
 RESTRICT: 'RESTRICT';

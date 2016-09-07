@@ -24,5 +24,5 @@ public interface WindowFunctionSupplier
 
     String getDescription();
 
-    WindowFunction createWindowFunction(List<Integer> argumentChannels);
+    WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls);
 }

@@ -32,22 +32,33 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
         extends AbstractWindowFunctionSupplier
 {
     private final Constructor<T> constructor;
+    private final boolean canIgnoreNulls;
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
+        this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), false, type);
     }
 
-    public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)
+    public ReflectionWindowFunctionSupplier(String name, Type returnType, boolean canIgnoreNulls, List<? extends Type> argumentTypes, Class<T> type)
+    {
+        this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), canIgnoreNulls, type);
+    }
+
+    public ReflectionWindowFunctionSupplier(Signature signature, boolean canIgnoreNulls, Class<T> type)
     {
         super(signature, getDescription(requireNonNull(type, "type is null")));
         try {
             if (signature.getArgumentTypes().isEmpty()) {
                 constructor = type.getConstructor();
             }
+            else if (canIgnoreNulls) {
+                constructor = type.getConstructor(List.class, boolean.class);
+            }
             else {
                 constructor = type.getConstructor(List.class);
             }
+
+            this.canIgnoreNulls = canIgnoreNulls;
         }
         catch (NoSuchMethodException e) {
             throw Throwables.propagate(e);
@@ -55,11 +66,14 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     }
 
     @Override
-    protected T newWindowFunction(List<Integer> inputs)
+    protected T newWindowFunction(List<Integer> inputs, boolean ignoreNulls)
     {
         try {
             if (getSignature().getArgumentTypes().isEmpty()) {
                 return constructor.newInstance();
+            }
+            else if (canIgnoreNulls) {
+                return constructor.newInstance(inputs, ignoreNulls);
             }
             else {
                 return constructor.newInstance(inputs);

@@ -1165,6 +1165,14 @@ class AstBuilder
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
 
+        boolean ignoreNulls = false;
+        if (context.nullTreatment() != null) {
+            String functionName = name.toString();
+            check(functionName.equalsIgnoreCase("lag") || functionName.equalsIgnoreCase("lead"),
+                    "IGNORE NULLS clause not valid for '" + functionName + "' function", context);
+            ignoreNulls = context.nullTreatment().getText().equalsIgnoreCase("ignorenulls");
+        }
+
         boolean distinct = isDistinct(context.setQuantifier());
 
         if (name.toString().equalsIgnoreCase("if")) {
@@ -1213,6 +1221,7 @@ class AstBuilder
                 window,
                 filter,
                 distinct,
+                ignoreNulls,
                 visit(context.expression(), Expression.class));
     }
 

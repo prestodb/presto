@@ -32,12 +32,14 @@ public class LeadFunction
     private final int valueChannel;
     private final int offsetChannel;
     private final int defaultChannel;
+    private final boolean ignoreNulls;
 
-    public LeadFunction(List<Integer> argumentChannels)
+    public LeadFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
+        this.ignoreNulls = ignoreNulls;
     }
 
     @Override
@@ -52,14 +54,22 @@ public class LeadFunction
 
             long valuePosition = currentPosition + offset;
 
-            if ((valuePosition >= 0) && (valuePosition < windowIndex.size())) {
-                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
-            }
-            else if (defaultChannel >= 0) {
-                windowIndex.appendTo(defaultChannel, currentPosition, output);
-            }
-            else {
-                output.appendNull();
+            while (true) {
+                if ((valuePosition >= 0) && (valuePosition < windowIndex.size())) {
+                    if (ignoreNulls && windowIndex.isNull(valueChannel, Ints.checkedCast(valuePosition))) {
+                        ++valuePosition;
+                        continue;
+                    }
+
+                    windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+                }
+                else if (defaultChannel >= 0) {
+                    windowIndex.appendTo(defaultChannel, currentPosition, output);
+                }
+                else {
+                    output.appendNull();
+                }
+                break;
             }
         }
     }

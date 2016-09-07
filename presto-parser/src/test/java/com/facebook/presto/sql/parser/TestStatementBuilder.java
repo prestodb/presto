@@ -95,6 +95,11 @@ public class TestStatementBuilder
                 "from emp");
 
         printStatement("" +
+                "select depname, empno, salary\n" +
+                ", lag(salary, 1) ignore nulls over (partition by depname)\n" +
+                "from emp");
+
+        printStatement("" +
                 "with a (id) as (with x as (select 123 from z) select * from x) " +
                 "   , b (id) as (select 999 from z) " +
                 "select * from a join b using (id)");

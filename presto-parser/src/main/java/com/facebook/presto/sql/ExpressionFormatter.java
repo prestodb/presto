@@ -328,12 +328,17 @@ public final class ExpressionFormatter
             if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
                 arguments = "*";
             }
+
             if (node.isDistinct()) {
                 arguments = "DISTINCT " + arguments;
             }
 
             builder.append(formatQualifiedName(node.getName()))
                     .append('(').append(arguments).append(')');
+
+            if (node.isIgnoreNulls()) {
+                builder.append(" IGNORE NULLS");
+            }
 
             if (node.getFilter().isPresent()) {
                 builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), unmangleNames));

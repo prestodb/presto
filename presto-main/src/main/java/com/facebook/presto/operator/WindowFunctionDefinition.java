@@ -30,10 +30,11 @@ public class WindowFunctionDefinition
     private final Type type;
     private final FrameInfo frameInfo;
     private final List<Integer> argumentChannels;
+    private final boolean ignoreNulls;
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, List<Integer> inputs)
     {
-        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, inputs);
+        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, false, inputs);
     }
 
     public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, Integer... inputs)
@@ -41,7 +42,17 @@ public class WindowFunctionDefinition
         return window(functionSupplier, type, frameInfo, Arrays.asList(inputs));
     }
 
-    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, List<Integer> argumentChannels)
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<Integer> inputs)
+    {
+        return new WindowFunctionDefinition(functionSupplier, type, frameInfo, ignoreNulls, inputs);
+    }
+
+    public static WindowFunctionDefinition window(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, Integer... inputs)
+    {
+        return window(functionSupplier, type, frameInfo, ignoreNulls, Arrays.asList(inputs));
+    }
+
+    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, FrameInfo frameInfo, boolean ignoreNulls, List<Integer> argumentChannels)
     {
         requireNonNull(functionSupplier, "functionSupplier is null");
         requireNonNull(type, "type is null");
@@ -51,6 +62,7 @@ public class WindowFunctionDefinition
         this.functionSupplier = functionSupplier;
         this.type = type;
         this.frameInfo = frameInfo;
+        this.ignoreNulls = ignoreNulls;
         this.argumentChannels = ImmutableList.copyOf(argumentChannels);
     }
 
@@ -66,6 +78,6 @@ public class WindowFunctionDefinition
 
     public WindowFunction createWindowFunction()
     {
-        return functionSupplier.createWindowFunction(argumentChannels);
+        return functionSupplier.createWindowFunction(argumentChannels, ignoreNulls);
     }
 }

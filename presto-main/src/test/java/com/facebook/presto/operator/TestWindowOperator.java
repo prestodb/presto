@@ -80,11 +80,11 @@ public class TestWindowOperator
     );
 
     private static final List<WindowFunctionDefinition> LAG = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LagFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
+            window(new ReflectionWindowFunctionSupplier<>("lag", VARCHAR, true, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LagFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
     );
 
     private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
+            window(new ReflectionWindowFunctionSupplier<>("lead", VARCHAR, true, ImmutableList.of(VARCHAR, BIGINT, VARCHAR), LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, 1, 3, 4)
     );
 
     private ExecutorService executor;
