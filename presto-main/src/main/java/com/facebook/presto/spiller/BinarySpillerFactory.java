@@ -71,4 +71,10 @@ public class BinarySpillerFactory
     {
         return new BinaryFileSpiller(serde.createPagesSerde(), executor, spillPath, spilledBytes);
     }
+
+    @Override
+    public SingleStreamSpiller createSingleStreamSpiller(List<Type> types)
+    {
+        return new BinaryFileSingleStreamSpiller(serde.createPagesSerde(), executor, spillPath, spilledBytes);
+    }
 }
