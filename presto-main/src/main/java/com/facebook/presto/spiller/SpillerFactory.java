@@ -38,6 +38,6 @@ public interface SpillerFactory
 
     default PartitioningSpiller createPartitioningSpiller(List<Type> types, LocalPartitionGenerator partitionGenerator, int partitionsCount, Set<Integer> ignorePartitions)
     {
-        throw new UnsupportedOperationException();
+        return new GenericPartitioningSpiller(types, partitionGenerator, partitionsCount, ignorePartitions, this);
     }
 }
