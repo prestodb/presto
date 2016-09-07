@@ -32,6 +32,7 @@ import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -397,5 +398,30 @@ public class PagesIndex
                 .add("types", types)
                 .add("estimatedSize", estimatedSize)
                 .toString();
+    }
+
+    public Iterator<Page> getPages()
+    {
+        return new Iterator<Page>()
+        {
+            private int pageCounter;
+
+            @Override
+            public boolean hasNext()
+            {
+                return pageCounter < channels[0].size();
+            }
+
+            @Override
+            public Page next()
+            {
+                Block[] blocks = new Block[channels.length];
+                for (int channel = 0; channel < channels.length; channel++) {
+                    blocks[channel] = channels[channel].get(pageCounter);
+                }
+                pageCounter++;
+                return new Page(blocks);
+            }
+        };
     }
 }
