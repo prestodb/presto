@@ -97,7 +97,7 @@ public class HiveFileIterator
             throw new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to list directory: " + path, e);
         }
     }
 
