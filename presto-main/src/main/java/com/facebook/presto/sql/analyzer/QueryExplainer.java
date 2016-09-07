@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -49,14 +50,14 @@ public class QueryExplainer
 
     @Inject
     public QueryExplainer(
-            List<PlanOptimizer> planOptimizers,
+            PlanOptimizers planOptimizers,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
             FeaturesConfig featuresConfig)
     {
-        this(planOptimizers,
+        this(planOptimizers.get(),
                 metadata,
                 accessControl,
                 sqlParser,

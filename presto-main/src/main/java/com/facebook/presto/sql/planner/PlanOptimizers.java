@@ -50,22 +50,19 @@ import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
-import javax.inject.Provider;
-
 import java.util.List;
 
-public class PlanOptimizersFactory
-        implements Provider<List<PlanOptimizer>>
+public class PlanOptimizers
 {
     private final List<PlanOptimizer> optimizers;
 
     @Inject
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, FeaturesConfig featuresConfig)
+    public PlanOptimizers(Metadata metadata, SqlParser sqlParser, FeaturesConfig featuresConfig)
     {
         this(metadata, sqlParser, featuresConfig, false);
     }
 
-    public PlanOptimizersFactory(Metadata metadata, SqlParser sqlParser, FeaturesConfig featuresConfig, boolean forceSingleNode)
+    public PlanOptimizers(Metadata metadata, SqlParser sqlParser, FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
@@ -137,8 +134,7 @@ public class PlanOptimizersFactory
         this.optimizers = builder.build();
     }
 
-    @Override
-    public synchronized List<PlanOptimizer> get()
+    public List<PlanOptimizer> get()
     {
         return optimizers;
     }

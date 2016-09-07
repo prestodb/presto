@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -501,7 +502,7 @@ public final class SqlQueryExecution
                 SplitManager splitManager,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
-                List<PlanOptimizer> planOptimizers,
+                PlanOptimizers planOptimizers,
                 RemoteTaskFactory remoteTaskFactory,
                 TransactionManager transactionManager,
                 @ForQueryExecution ExecutorService executor,
@@ -518,7 +519,7 @@ public final class SqlQueryExecution
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
-            this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+            requireNonNull(planOptimizers, "planOptimizers is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             requireNonNull(featuresConfig, "featuresConfig is null");
@@ -528,6 +529,8 @@ public final class SqlQueryExecution
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
 
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
+
+            this.planOptimizers = planOptimizers.get();
         }
 
         @Override
