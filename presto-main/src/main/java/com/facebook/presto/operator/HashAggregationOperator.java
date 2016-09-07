@@ -26,6 +26,7 @@ import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -43,6 +44,8 @@ import static java.util.Objects.requireNonNull;
 public class HashAggregationOperator
         implements Operator
 {
+    private static final double MERGE_WITH_MEMORY_RATIO = 0.9;
+
     public static class HashAggregationOperatorFactory
             implements OperatorFactory
     {
@@ -61,6 +64,7 @@ public class HashAggregationOperator
         private final long maxPartialMemory;
         private final boolean spillEnabled;
         private final DataSize memoryLimitBeforeSpill;
+        private final DataSize memoryLimitForMergeWithMemory;
         private final SpillerFactory spillerFactory;
 
         private boolean closed;
@@ -91,6 +95,7 @@ public class HashAggregationOperator
                     maxPartialMemory,
                     false,
                     new DataSize(0, MEGABYTE),
+                    new DataSize(0, MEGABYTE),
                     new SpillerFactory() {
                         @Override
                         public Spiller create(List<Type> types)
@@ -116,6 +121,41 @@ public class HashAggregationOperator
                 DataSize memoryLimitBeforeSpill,
                 SpillerFactory spillerFactory)
         {
+            this(operatorId,
+                    planNodeId,
+                    groupByTypes,
+                    groupByChannels,
+                    globalAggregationGroupIds,
+                    step,
+                    accumulatorFactories,
+                    hashChannel,
+                    groupIdChannel,
+                    expectedGroups,
+                    maxPartialMemory,
+                    spillEnabled,
+                    memoryLimitBeforeSpill,
+                    DataSize.succinctBytes((long) (memoryLimitBeforeSpill.toBytes() * MERGE_WITH_MEMORY_RATIO)),
+                    spillerFactory);
+        }
+
+        @VisibleForTesting
+        HashAggregationOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                List<? extends Type> groupByTypes,
+                List<Integer> groupByChannels,
+                List<Integer> globalAggregationGroupIds,
+                Step step,
+                List<AccumulatorFactory> accumulatorFactories,
+                Optional<Integer> hashChannel,
+                Optional<Integer> groupIdChannel,
+                int expectedGroups,
+                DataSize maxPartialMemory,
+                boolean spillEnabled,
+                DataSize memoryLimitBeforeSpill,
+                DataSize memoryLimitForMergeWithMemory,
+                SpillerFactory spillerFactory)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
@@ -129,6 +169,7 @@ public class HashAggregationOperator
             this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null").toBytes();
             this.spillEnabled = spillEnabled;
             this.memoryLimitBeforeSpill = requireNonNull(memoryLimitBeforeSpill, "memoryLimitBeforeSpill is null");
+            this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
 
             this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
@@ -164,6 +205,7 @@ public class HashAggregationOperator
                     expectedGroups,
                     spillEnabled,
                     memoryLimitBeforeSpill,
+                    memoryLimitForMergeWithMemory,
                     spillerFactory);
             return hashAggregationOperator;
         }
@@ -191,6 +233,7 @@ public class HashAggregationOperator
                     new DataSize(maxPartialMemory, Unit.BYTE),
                     spillEnabled,
                     memoryLimitBeforeSpill,
+                    memoryLimitForMergeWithMemory,
                     spillerFactory);
         }
     }
@@ -206,6 +249,7 @@ public class HashAggregationOperator
     private final int expectedGroups;
     private final boolean spillEnabled;
     private final DataSize memoryLimitBeforeSpill;
+    private final DataSize memoryLimitForMergeWithMemory;
     private final SpillerFactory spillerFactory;
 
     private final List<Type> types;
@@ -228,6 +272,7 @@ public class HashAggregationOperator
             int expectedGroups,
             boolean spillEnabled,
             DataSize memoryLimitBeforeSpill,
+            DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -246,6 +291,7 @@ public class HashAggregationOperator
         this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
         this.spillEnabled = spillEnabled;
         this.memoryLimitBeforeSpill = requireNonNull(memoryLimitBeforeSpill, "memoryLimitBeforeSpill is null");
+        this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
     }
 
@@ -315,6 +361,7 @@ public class HashAggregationOperator
                         hashChannel,
                         operatorContext,
                         memoryLimitBeforeSpill,
+                        memoryLimitForMergeWithMemory,
                         spillerFactory);
             }
 

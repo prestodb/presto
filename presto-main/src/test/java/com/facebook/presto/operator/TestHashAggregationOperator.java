@@ -102,17 +102,17 @@ public class TestHashAggregationOperator
     @DataProvider(name = "hashEnabled")
     public static Object[][] hashEnabled()
     {
-        return new Object[][] {{ true }, { false }};
+        return new Object[][] {{true}, {false}};
     }
 
     @DataProvider(name = "hashEnabledAndMemoryLimitBeforeSpillValues")
     public static Object[][] hashEnabledAndMemoryLimitBeforeSpillValuesProvider()
     {
         return new Object[][] {
-                { true, 0 },
-                { true, 8 },
-                { false, 0 },
-                { false, 8 }};
+                {true, 8, Integer.MAX_VALUE},
+                {false, 0, 0},
+                {false, 8, 0},
+                {false, 8, Integer.MAX_VALUE}};
     }
 
     @AfterMethod
@@ -122,7 +122,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public void testHashAggregation(boolean hashEnabled, long memoryLimitBeforeSpill)
+    public void testHashAggregation(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
             throws Exception
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -159,6 +159,7 @@ public class TestHashAggregationOperator
                 new DataSize(16, MEGABYTE),
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
+                succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
@@ -260,7 +261,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public void testHashBuilderResize(boolean hashEnabled, long memoryLimitBeforeSpill)
+    public void testHashBuilderResize(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, DEFAULT_MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than DEFAULT_MAX_BLOCK_SIZE, 64K
@@ -292,6 +293,7 @@ public class TestHashAggregationOperator
                 new DataSize(16, MEGABYTE),
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
+                succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory);
 
         toPages(operatorFactory, driverContext, input);
@@ -364,7 +366,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public void testMultiplePartialFlushes(boolean hashEnabled, long memoryLimitBeforeSpill)
+    public void testMultiplePartialFlushes(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
             throws Exception
     {
         List<Integer> hashChannels = Ints.asList(0);
@@ -390,6 +392,7 @@ public class TestHashAggregationOperator
                 new DataSize(16, MEGABYTE),
                 memoryLimitBeforeSpill > 0,
                 succinctBytes(memoryLimitBeforeSpill),
+                succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE))
@@ -445,7 +448,50 @@ public class TestHashAggregationOperator
         }
     }
 
-    private static class DummySpillerFactory implements SpillerFactory
+    @Test
+    public void testMergeWithMemorySpill()
+    {
+        List<Integer> hashChannels = Ints.asList(0);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
+
+        int smallPagesSpillThresholdSize = 150000;
+
+        List<Page> input = rowPagesBuilder
+                .addSequencePage(smallPagesSpillThresholdSize, 0)
+                .addSequencePage(10, smallPagesSpillThresholdSize)
+                .build();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                hashChannels,
+                ImmutableList.of(),
+                Step.SINGLE,
+                ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)),
+                rowPagesBuilder.getHashChannel(),
+                Optional.empty(),
+                1,
+                new DataSize(16, MEGABYTE),
+                true,
+                new DataSize(smallPagesSpillThresholdSize, Unit.BYTE),
+                succinctBytes(Integer.MAX_VALUE),
+                spillerFactory);
+
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE), new DataSize(0, Unit.KILOBYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT);
+        for (int i = 0; i < smallPagesSpillThresholdSize + 10; ++i) {
+            resultBuilder.row((long) i, (long) i);
+        }
+
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build(), false, Optional.of(hashChannels.size()));
+    }
+
+    private static class DummySpillerFactory
+            implements SpillerFactory
     {
         @Override
         public Spiller create(List<Type> types)

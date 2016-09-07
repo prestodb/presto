@@ -24,6 +24,7 @@ import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
 import java.util.Iterator;
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
 
 public class SpillableHashAggregationBuilder
     implements HashAggregationBuilder
@@ -47,6 +49,7 @@ public class SpillableHashAggregationBuilder
     private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
     private final long memorySizeBeforeSpill;
+    private final long memoryLimitForMergeWithMemory;
     private Optional<Spiller> spiller = Optional.empty();
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
     private CompletableFuture<?> spillInProgress = CompletableFuture.completedFuture(null);
@@ -62,6 +65,7 @@ public class SpillableHashAggregationBuilder
             Optional<Integer> hashChannel,
             OperatorContext operatorContext,
             DataSize memoryLimitBeforeSpill,
+            DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory)
     {
         this.accumulatorFactories = accumulatorFactories;
@@ -72,6 +76,7 @@ public class SpillableHashAggregationBuilder
         this.hashChannel = hashChannel;
         this.operatorContext = operatorContext;
         this.memorySizeBeforeSpill = memoryLimitBeforeSpill.toBytes();
+        this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
 
         AbstractAggregatedMemoryContext systemMemoryContext = operatorContext.getSystemMemoryContext();
@@ -120,6 +125,11 @@ public class SpillableHashAggregationBuilder
         return (memorySizeBeforeSpill > 0 && memorySize > memorySizeBeforeSpill);
     }
 
+    private boolean shouldMergeWithMemory(long memorySize)
+    {
+        return memorySize < memoryLimitForMergeWithMemory;
+    }
+
     public Iterator<Page> buildResult()
     {
         checkState(!isBusy(), "Previous spill hasn't yet finished");
@@ -129,9 +139,13 @@ public class SpillableHashAggregationBuilder
         }
 
         try {
-            // TODO: don't spill here to disk, instead merge disk content with memory content
-            spillToDisk().get();
-            return mergeFromDisk();
+            if (shouldMergeWithMemory(hashAggregationBuilder.getSizeInMemory())) {
+                return mergeFromDiskAndMemory();
+            }
+            else {
+                spillToDisk().get();
+                return mergeFromDisk();
+            }
         }
         catch (InterruptedException | ExecutionException e) {
             Thread.currentThread().interrupt();
@@ -174,6 +188,23 @@ public class SpillableHashAggregationBuilder
         return spillInProgress;
     }
 
+    private Iterator<Page> mergeFromDiskAndMemory()
+    {
+        checkState(spiller.isPresent());
+
+        hashAggregationBuilder.setOutputPartial();
+
+        Iterator<Page> mergedSpilledPages = MergeHashSort.merge(
+                groupByTypes,
+                hashAggregationBuilder.buildIntermediateTypes(),
+                ImmutableList.<Iterator<Page>>builder()
+                        .addAll(spiller.get().getSpills())
+                        .add(hashAggregationBuilder.buildHashSortedResult())
+                        .build());
+
+        return mergeSortedPages(mergedSpilledPages, max(memorySizeBeforeSpill - memoryLimitForMergeWithMemory, 1L));
+    }
+
     private Iterator<Page> mergeFromDisk()
     {
         checkState(spiller.isPresent());
@@ -183,6 +214,11 @@ public class SpillableHashAggregationBuilder
                 hashAggregationBuilder.buildIntermediateTypes(),
                 spiller.get().getSpills());
 
+        return mergeSortedPages(mergedSpilledPages, memorySizeBeforeSpill);
+    }
+
+    private Iterator<Page> mergeSortedPages(Iterator<Page> sortedPages, long memorySizeBeforeSpill)
+    {
         merger = Optional.of(new MergingHashAggregationBuilder(
                 accumulatorFactories,
                 step,
@@ -190,7 +226,7 @@ public class SpillableHashAggregationBuilder
                 groupByTypes,
                 hashChannel,
                 operatorContext,
-                mergedSpilledPages,
+                sortedPages,
                 operatorContext.getSystemMemoryContext().newLocalMemoryContext(),
                 memorySizeBeforeSpill,
                 hashAggregationBuilder.getKeyChannels()));
