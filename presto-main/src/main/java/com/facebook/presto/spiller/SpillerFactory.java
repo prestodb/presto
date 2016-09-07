@@ -21,8 +21,16 @@ import java.util.List;
 
 public interface SpillerFactory
 {
-    Spiller create(List<Type> types);
-
     @Managed
     long getSpilledBytes();
+
+    default Spiller create(List<Type> types)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default SingleStreamSpiller createSingleStreamSpiller(List<Type> types)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
