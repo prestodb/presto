@@ -244,8 +244,8 @@ public class TestLogicalPlanner
 
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
-        Plan actualPlan = plan(sql, stage);
         queryRunner.inTransaction(transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });

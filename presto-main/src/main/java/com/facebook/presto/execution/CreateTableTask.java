@@ -97,7 +97,7 @@ public class CreateTableTask
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
                 QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (!metadata.getCatalogNames().containsKey(likeTableName.getCatalogName())) {
+                if (!metadata.getCatalogNames(session).containsKey(likeTableName.getCatalogName())) {
                     throw new SemanticException(MISSING_CATALOG, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
                 }
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {

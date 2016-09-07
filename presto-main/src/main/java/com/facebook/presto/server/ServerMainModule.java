@@ -55,6 +55,7 @@ import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.MemoryResource;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.ReservedSystemMemoryConfig;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForNodeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -375,6 +376,8 @@ public class ServerMainModule
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PluginManagerConfig.class);
 
+        binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
+
         // optimizers
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
 
@@ -460,10 +463,11 @@ public class ServerMainModule
     @Singleton
     public static TransactionManager createTransactionManager(
             TransactionManagerConfig config,
+            CatalogManager catalogManager,
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return TransactionManager.create(config, idleCheckExecutor, finishingExecutor);
+        return TransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
     }
 
     private static void bindFailureDetector(Binder binder, boolean coordinator)

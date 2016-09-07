@@ -15,6 +15,7 @@ package com.facebook.presto.transaction;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -30,6 +32,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -46,12 +49,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
 import static com.facebook.presto.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.concurrent.MoreFutures.failedFuture;
@@ -73,12 +78,13 @@ public class TransactionManager
     private final Duration idleTimeout;
     private final int maxFinishingConcurrency;
 
-    private final ConcurrentMap<ConnectorId, Catalog> catalogsById = new ConcurrentHashMap<>();
     private final ConcurrentMap<TransactionId, TransactionMetadata> transactions = new ConcurrentHashMap<>();
+    private final CatalogManager catalogManager;
     private final Executor finishingExecutor;
 
-    private TransactionManager(Duration idleTimeout, int maxFinishingConcurrency, Executor finishingExecutor)
+    private TransactionManager(Duration idleTimeout, int maxFinishingConcurrency, CatalogManager catalogManager, Executor finishingExecutor)
     {
+        this.catalogManager = catalogManager;
         requireNonNull(idleTimeout, "idleTimeout is null");
         checkArgument(maxFinishingConcurrency > 0, "maxFinishingConcurrency must be at least 1");
         requireNonNull(finishingExecutor, "finishingExecutor is null");
@@ -91,17 +97,23 @@ public class TransactionManager
     public static TransactionManager create(
             TransactionManagerConfig config,
             ScheduledExecutorService idleCheckExecutor,
+            CatalogManager catalogManager,
             ExecutorService finishingExecutor)
     {
-        TransactionManager transactionManager = new TransactionManager(config.getIdleTimeout(), config.getMaxFinishingConcurrency(), finishingExecutor);
+        TransactionManager transactionManager = new TransactionManager(config.getIdleTimeout(), config.getMaxFinishingConcurrency(), catalogManager, finishingExecutor);
         transactionManager.scheduleIdleChecks(config.getIdleCheckInterval(), idleCheckExecutor);
         return transactionManager;
     }
 
     public static TransactionManager createTestTransactionManager()
     {
+        return createTestTransactionManager(new CatalogManager());
+    }
+
+    public static TransactionManager createTestTransactionManager(CatalogManager catalogManager)
+    {
         // No idle checks needed
-        return new TransactionManager(new Duration(1, TimeUnit.DAYS), 1, directExecutor());
+        return new TransactionManager(new Duration(1, TimeUnit.DAYS), 1, catalogManager, directExecutor());
     }
 
     private void scheduleIdleChecks(Duration idleCheckInterval, ScheduledExecutorService idleCheckExecutor)
@@ -129,14 +141,6 @@ public class TransactionManager
         }
     }
 
-    public void registerCatalog(Catalog catalog)
-    {
-        requireNonNull(catalog, "catalog is null");
-        checkArgument(catalogsById.put(catalog.getConnectorId(), catalog) == null, "Catalog '%s' is already registered", catalog.getCatalogName());
-        catalogsById.put(catalog.getInformationSchemaId(), catalog);
-        catalogsById.put(catalog.getSystemTablesId(), catalog);
-    }
-
     public TransactionInfo getTransactionInfo(TransactionId transactionId)
     {
         return getTransactionMetadata(transactionId).getTransactionInfo();
@@ -158,16 +162,26 @@ public class TransactionManager
     {
         TransactionId transactionId = TransactionId.create();
         BoundedExecutor executor = new BoundedExecutor(finishingExecutor, maxFinishingConcurrency);
-        TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId, isolationLevel, readOnly, autoCommitContext, executor);
+        TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId, isolationLevel, readOnly, autoCommitContext, catalogManager, executor);
         checkState(transactions.put(transactionId, transactionMetadata) == null, "Duplicate transaction ID: %s", transactionId);
         return transactionId;
     }
 
-    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
+    public Map<String, ConnectorId> getCatalogNames(TransactionId transactionId)
+    {
+        return getTransactionMetadata(transactionId).getCatalogNames();
+    }
+
+    public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
-        Catalog catalog = getCatalog(connectorId);
-        return transactionMetadata.getTransactionCatalogMetadata(connectorId, catalog);
+        return transactionMetadata.getConnectorId(catalogName)
+                .map(transactionMetadata::getTransactionCatalogMetadata);
+    }
+
+    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
+    {
+        return getTransactionMetadata(transactionId).getTransactionCatalogMetadata(connectorId);
     }
 
     public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, ConnectorId connectorId)
@@ -175,6 +189,17 @@ public class TransactionManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(transactionId, connectorId);
         checkConnectorWrite(transactionId, connectorId);
         return catalogMetadata;
+    }
+
+    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName)
+    {
+        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
+
+        // there is no need to ask for a connector specific id since the overlay connectors are read only
+        ConnectorId connectorId = transactionMetadata.getConnectorId(catalogName)
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+
+        return getCatalogMetadataForWrite(transactionId, connectorId);
     }
 
     public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId)
@@ -202,13 +227,6 @@ public class TransactionManager
     public void trySetInactive(TransactionId transactionId)
     {
         tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::setInActive);
-    }
-
-    private Catalog getCatalog(ConnectorId connectorId)
-    {
-        Catalog catalog = catalogsById.get(connectorId);
-        checkArgument(catalog != null, "Unknown catalog ID: %s", connectorId);
-        return catalog;
     }
 
     private TransactionMetadata getTransactionMetadata(TransactionId transactionId)
@@ -261,6 +279,7 @@ public class TransactionManager
     private static class TransactionMetadata
     {
         private final DateTime createTime = DateTime.now();
+        private final CatalogManager catalogManager;
         private final TransactionId transactionId;
         private final IsolationLevel isolationLevel;
         private final boolean readOnly;
@@ -271,14 +290,23 @@ public class TransactionManager
         private final AtomicReference<Boolean> completedSuccessfully = new AtomicReference<>();
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
 
+        private final Map<String, Optional<Catalog>> catalogByName = new ConcurrentHashMap<>();
+        private final Map<ConnectorId, Catalog> catalogsByConnectorId = new ConcurrentHashMap<>();
         private final Map<ConnectorId, CatalogMetadata> catalogMetadata = new ConcurrentHashMap<>();
 
-        public TransactionMetadata(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext, Executor finishingExecutor)
+        public TransactionMetadata(
+                TransactionId transactionId,
+                IsolationLevel isolationLevel,
+                boolean readOnly,
+                boolean autoCommitContext,
+                CatalogManager catalogManager,
+                Executor finishingExecutor)
         {
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
             this.readOnly = readOnly;
             this.autoCommitContext = autoCommitContext;
+            this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
             this.finishingExecutor = requireNonNull(finishingExecutor, "finishingExecutor is null");
         }
 
@@ -312,11 +340,50 @@ public class TransactionManager
             }
         }
 
-        private synchronized CatalogMetadata getTransactionCatalogMetadata(ConnectorId connectorId, Catalog catalog)
+        private Map<String, ConnectorId> getCatalogNames()
+        {
+            // todo if repeatable read, this must be recorded
+            Map<String, ConnectorId> catalogNames = new HashMap<>();
+            catalogByName.values().stream()
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .forEach(catalog -> catalogNames.put(catalog.getCatalogName(), catalog.getConnectorId()));
+
+            catalogManager.getCatalogs().stream()
+                    .forEach(catalog -> catalogNames.putIfAbsent(catalog.getCatalogName(), catalog.getConnectorId()));
+
+            return ImmutableMap.copyOf(catalogNames);
+        }
+
+        private Optional<ConnectorId> getConnectorId(String catalogName)
+        {
+            Optional<Catalog> catalog = catalogByName.get(catalogName);
+            if (catalog == null) {
+                catalog = catalogManager.getCatalog(catalogName);
+                catalogByName.put(catalogName, catalog);
+                if (catalog.isPresent()) {
+                    registerCatalog(catalog.get());
+                }
+            }
+            return catalog.map(Catalog::getConnectorId);
+        }
+
+        private void registerCatalog(Catalog catalog)
+        {
+            catalogsByConnectorId.put(catalog.getConnectorId(), catalog);
+            catalogsByConnectorId.put(catalog.getInformationSchemaId(), catalog);
+            catalogsByConnectorId.put(catalog.getSystemTablesId(), catalog);
+        }
+
+        private CatalogMetadata getTransactionCatalogMetadata(ConnectorId connectorId)
         {
             checkOpenTransaction();
+
             CatalogMetadata catalogMetadata = this.catalogMetadata.get(connectorId);
             if (catalogMetadata == null) {
+                Catalog catalog = catalogsByConnectorId.get(connectorId);
+                verify(catalog != null, "Unknown connectorId: %s", connectorId);
+
                 ConnectorTransactionMetadata metadata = createConnectorTransactionMetadata(catalog.getConnectorId(), catalog);
                 ConnectorTransactionMetadata informationSchema = createConnectorTransactionMetadata(catalog.getInformationSchemaId(), catalog);
                 ConnectorTransactionMetadata systemTables = createConnectorTransactionMetadata(catalog.getSystemTablesId(), catalog);
@@ -338,7 +405,7 @@ public class TransactionManager
         {
             Connector connector = catalog.getConnector(connectorId);
             ConnectorTransactionMetadata transactionMetadata = new ConnectorTransactionMetadata(connectorId, connector, beginTransaction(connector));
-            checkState(connectorIdToMetadata.put(connectorId, transactionMetadata) == null, "Connector %s already registered with transaction", connectorId);
+            checkState(connectorIdToMetadata.put(connectorId, transactionMetadata) == null);
             return transactionMetadata;
         }
 

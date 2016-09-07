@@ -120,7 +120,7 @@ public class ColumnJdbcTable
         Optional<String> tableFilter = stringFilter(constraint, 2);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(metadata.getCatalogNames().keySet(), catalogFilter)) {
+        for (String catalog : filter(metadata.getCatalogNames(session).keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = FilterUtil.tablePrefix(catalog, schemaFilter, tableFilter);
             for (Entry<QualifiedObjectName, List<ColumnMetadata>> entry : metadata.listTableColumns(session, prefix).entrySet()) {
                 addColumnRows(table, entry.getKey(), entry.getValue());

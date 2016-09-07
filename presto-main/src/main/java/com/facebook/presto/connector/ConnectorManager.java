@@ -17,6 +17,7 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaConnecto
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -69,7 +70,6 @@ import static com.facebook.presto.connector.ConnectorId.createInformationSchemaC
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -79,6 +79,7 @@ public class ConnectorManager
     private static final Logger log = Logger.get(ConnectorManager.class);
 
     private final MetadataManager metadataManager;
+    private final CatalogManager catalogManager;
     private final AccessControlManager accessControlManager;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
@@ -98,9 +99,6 @@ public class ConnectorManager
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private final Set<String> catalogs = newConcurrentHashSet();
-
-    @GuardedBy("this")
     private final ConcurrentMap<ConnectorId, MaterializedConnector> connectors = new ConcurrentHashMap<>();
 
     private final AtomicBoolean stopped = new AtomicBoolean();
@@ -108,6 +106,7 @@ public class ConnectorManager
     @Inject
     public ConnectorManager(
             MetadataManager metadataManager,
+            CatalogManager catalogManager,
             AccessControlManager accessControlManager,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
@@ -123,6 +122,7 @@ public class ConnectorManager
             TransactionManager transactionManager)
     {
         this.metadataManager = metadataManager;
+        this.catalogManager = catalogManager;
         this.accessControlManager = accessControlManager;
         this.splitManager = splitManager;
         this.pageSourceManager = pageSourceManager;
@@ -178,7 +178,7 @@ public class ConnectorManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
         requireNonNull(connectorFactory, "connectorFactory is null");
-        checkArgument(!catalogs.contains(catalogName), "A catalog already exists for %s", catalogName);
+        checkArgument(!catalogManager.getCatalog(catalogName).isPresent(), "A catalog already exists for %s", catalogName);
 
         ConnectorId connectorId = new ConnectorId(catalogName);
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
@@ -212,8 +212,7 @@ public class ConnectorManager
                 informationSchemaConnector.getConnector(),
                 systemConnector.getConnectorId(),
                 systemConnector.getConnector());
-        transactionManager.registerCatalog(catalog);
-        metadataManager.registerConnectorCatalog(connectorId, catalogName);
+        catalogManager.registerCatalog(catalog);
 
         // todo the following managers currently need access to catalog name, so they must be handled specially
         for (Procedure procedure : connector.getProcedures()) {

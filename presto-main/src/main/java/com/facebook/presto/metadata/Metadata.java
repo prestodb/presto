@@ -227,7 +227,7 @@ public interface Metadata
      * @return Map of catalog name to connector id
      */
     @NotNull
-    Map<String, ConnectorId> getCatalogNames();
+    Map<String, ConnectorId> getCatalogNames(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).

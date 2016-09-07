@@ -49,6 +49,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -253,9 +254,11 @@ public class LocalQueryRunner
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
         this.pageSinkManager = new PageSinkManager();
+        CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = TransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 transactionCheckExecutor,
+                catalogManager,
                 executor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
@@ -278,6 +281,7 @@ public class LocalQueryRunner
 
         this.connectorManager = new ConnectorManager(
                 metadata,
+                catalogManager,
                 accessControl,
                 splitManager,
                 pageSourceManager,
@@ -294,7 +298,7 @@ public class LocalQueryRunner
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
-                new CatalogSystemTable(metadata),
+                new CatalogSystemTable(transactionManager),
                 new SchemaPropertiesSystemTable(metadata),
                 new TablePropertiesSystemTable(metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),

@@ -14,6 +14,7 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
@@ -111,7 +112,7 @@ public class AccessControlManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(accessControl, "accessControl is null");
 
-        if (catalogAccessControl.putIfAbsent(catalogName, new CatalogAccessControlEntry(connectorId, accessControl)) != null) {
+        if (catalogAccessControl.putIfAbsent(catalogName, new CatalogAccessControlEntry(catalogName, connectorId, accessControl)) != null) {
             throw new IllegalArgumentException(format("Access control for catalog '%s' is already registered", catalogName));
         }
     }
@@ -505,13 +506,20 @@ public class AccessControlManager
 
     private class CatalogAccessControlEntry
     {
+        private final String catalogName;
         private final ConnectorId connectorId;
         private final ConnectorAccessControl accessControl;
 
-        public CatalogAccessControlEntry(ConnectorId connectorId, ConnectorAccessControl accessControl)
+        public CatalogAccessControlEntry(String catalogName, ConnectorId connectorId, ConnectorAccessControl accessControl)
         {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        }
+
+        public ConnectorId getConnectorId()
+        {
+            return connectorId;
         }
 
         public ConnectorAccessControl getAccessControl()
@@ -521,7 +529,8 @@ public class AccessControlManager
 
         public ConnectorTransactionHandle getTransactionHandle(TransactionId transactionId)
         {
-            return transactionManager.getConnectorTransaction(transactionId, connectorId);
+            CatalogMetadata catalogMetadata = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName).get();
+            return catalogMetadata.getTransactionHandleFor(catalogMetadata.getConnectorId());
         }
     }
 

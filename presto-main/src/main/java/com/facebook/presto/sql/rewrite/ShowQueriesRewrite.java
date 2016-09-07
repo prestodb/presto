@@ -215,7 +215,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = metadata.getCatalogNames().keySet().stream()
+            List<Expression> rows = metadata.getCatalogNames(session).keySet().stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toList());
 

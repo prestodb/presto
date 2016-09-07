@@ -17,6 +17,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -69,10 +70,11 @@ public class TestTransactionManager
             throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
+            CatalogManager catalogManager = new CatalogManager();
+            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
-            registerConnector(transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
+            registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -82,7 +84,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getCatalogMetadata(transactionId, CONNECTOR_ID).getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -99,10 +101,11 @@ public class TestTransactionManager
             throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
+            CatalogManager catalogManager = new CatalogManager();
+            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
-            registerConnector(transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
+            registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -112,7 +115,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getCatalogMetadata(transactionId, CONNECTOR_ID).getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -129,10 +132,11 @@ public class TestTransactionManager
             throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
+            CatalogManager catalogManager = new CatalogManager();
+            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
-            registerConnector(transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
+            registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -142,7 +146,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getCatalogMetadata(transactionId, CONNECTOR_ID).getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -176,6 +180,7 @@ public class TestTransactionManager
                             .setIdleTimeout(new Duration(1, TimeUnit.MILLISECONDS))
                             .setIdleCheckInterval(new Duration(5, TimeUnit.MILLISECONDS)),
                     executor.getExecutor(),
+                    new CatalogManager(),
                     finishingExecutor);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -194,6 +199,7 @@ public class TestTransactionManager
     }
 
     private static void registerConnector(
+            CatalogManager catalogManager,
             TransactionManager transactionManager,
             String catalogName,
             ConnectorId connectorId,
@@ -201,10 +207,9 @@ public class TestTransactionManager
     {
         ConnectorId systemId = createSystemTablesConnectorId(connectorId);
         InternalNodeManager nodeManager = new InMemoryNodeManager();
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        metadata.registerConnectorCatalog(connectorId, catalogName);
+        MetadataManager metadata = MetadataManager.createTestMetadataManager(catalogManager);
 
-        transactionManager.registerCatalog(new Catalog(
+        catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 connectorId,
                 connector,

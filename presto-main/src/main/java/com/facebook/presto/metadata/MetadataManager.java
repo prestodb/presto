@@ -72,15 +72,12 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
@@ -94,7 +91,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -102,8 +98,6 @@ import static java.util.Objects.requireNonNull;
 public class MetadataManager
         implements Metadata
 {
-    private final ConcurrentMap<String, ConnectorId> connectorsByCatalog = new ConcurrentHashMap<>();
-
     private final FunctionRegistry functions;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
@@ -157,6 +151,11 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager()
     {
+        return createTestMetadataManager(new CatalogManager());
+    }
+
+    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager)
+    {
         TypeManager typeManager = new TypeRegistry();
         return new MetadataManager(
                 new FeaturesConfig(),
@@ -165,14 +164,7 @@ public class MetadataManager
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
-                createTestTransactionManager());
-    }
-
-    public synchronized void registerConnectorCatalog(ConnectorId connectorId, String catalogName)
-    {
-        requireNonNull(connectorId, "connectorId is null");
-        requireNonNull(catalogName, "catalogName is null");
-        checkArgument(connectorsByCatalog.putIfAbsent(catalogName, connectorId) == null, "Catalog '%s' is already registered", catalogName);
+                createTestTransactionManager(catalogManager));
     }
 
     @Override
@@ -639,13 +631,13 @@ public class MetadataManager
     @Override
     public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
     {
-        return Optional.ofNullable(connectorsByCatalog.get(catalogName));
+        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName).map(CatalogMetadata::getConnectorId);
     }
 
     @Override
-    public Map<String, ConnectorId> getCatalogNames()
+    public Map<String, ConnectorId> getCatalogNames(Session session)
     {
-        return ImmutableMap.copyOf(connectorsByCatalog);
+        return transactionManager.getCatalogNames(session.getRequiredTransactionId());
     }
 
     @Override
@@ -826,8 +818,7 @@ public class MetadataManager
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
     {
-        return Optional.ofNullable(connectorsByCatalog.get(catalogName))
-                .map(connectorId -> getCatalogMetadata(session, connectorId));
+        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
     }
 
     private CatalogMetadata getCatalogMetadata(Session session, ConnectorId connectorId)
@@ -837,11 +828,7 @@ public class MetadataManager
 
     private CatalogMetadata getCatalogMetadataForWrite(Session session, String catalogName)
     {
-        ConnectorId connectorId = connectorsByCatalog.get(catalogName);
-        if (connectorId == null) {
-            throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName);
-        }
-        return getCatalogMetadataForWrite(session, connectorId);
+        return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
     }
 
     private CatalogMetadata getCatalogMetadataForWrite(Session session, ConnectorId connectorId)

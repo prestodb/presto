@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -256,6 +257,7 @@ public class TestStartTransactionTask
                         .setIdleTimeout(new Duration(1, TimeUnit.MICROSECONDS)) // Fast idle timeout
                         .setIdleCheckInterval(new Duration(10, TimeUnit.MILLISECONDS)),
                 scheduledExecutor,
+                new CatalogManager(),
                 executor);
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "START TRANSACTION", session, URI.create("fake://uri"), true, transactionManager, executor);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());

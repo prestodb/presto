@@ -19,6 +19,7 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -1021,10 +1022,10 @@ public class TestAnalyzer
             throws Exception
     {
         TypeManager typeManager = new TypeRegistry();
+        CatalogManager catalogManager = new CatalogManager();
+        transactionManager = createTestTransactionManager(catalogManager);
 
-        transactionManager = createTestTransactionManager();
-
-        MetadataManager metadata = new MetadataManager(
+        metadata = new MetadataManager(
                 new FeaturesConfig().setExperimentalSyntaxEnabled(true),
                 typeManager,
                 new BlockEncodingManager(typeManager),
@@ -1032,14 +1033,10 @@ public class TestAnalyzer
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        this.metadata = metadata;
-        metadata.registerConnectorCatalog(TPCH_CONNECTOR_ID, TPCH_CATALOG);
-        metadata.registerConnectorCatalog(SECOND_CONNECTOR_ID, SECOND_CATALOG);
-        metadata.registerConnectorCatalog(THIRD_CONNECTOR_ID, THIRD_CATALOG);
 
-        transactionManager.registerCatalog(createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID));
-        transactionManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CONNECTOR_ID));
-        transactionManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CONNECTOR_ID));
+        catalogManager.registerCatalog(createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID));
+        catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CONNECTOR_ID));
+        catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CONNECTOR_ID));
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table1,
