@@ -26,10 +26,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
-import com.facebook.presto.sql.relational.ConstantExpression;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.google.common.base.Throwables;
@@ -40,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import com.google.inject.Inject;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 import java.util.Map;
@@ -56,10 +52,8 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
-import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler
@@ -271,65 +265,11 @@ public class JoinFilterFunctionCompiler
             final int leftBlocksSize,
             final Variable wasNullVariable)
     {
-        return new RowExpressionVisitor<Scope, BytecodeNode>()
-        {
-            @Override
-            public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
-            {
-                int field = node.getField();
-                Type type = node.getType();
-
-                Class<?> javaType = type.getJavaType();
-                if (!javaType.isPrimitive() && javaType != Slice.class) {
-                    javaType = Object.class;
-                }
-
-                Variable blocksVariable;
-                Variable positionVariable;
-                if (field < leftBlocksSize) {
-                    blocksVariable = leftBlocks;
-                    positionVariable = leftPosition;
-                }
-                else {
-                    blocksVariable = rightBlocks;
-                    positionVariable = rightPosition;
-                    field -= leftBlocksSize;
-                }
-
-                IfStatement ifStatement = new IfStatement();
-                ifStatement.condition()
-                        .setDescription(format("block_%d.get%s()", field, type))
-                        .append(blocksVariable.getElement(field))
-                        .append(positionVariable)
-                        .invokeInterface(Block.class, "isNull", boolean.class, int.class);
-
-                ifStatement.ifTrue()
-                        .putVariable(wasNullVariable, true)
-                        .pushJavaDefault(javaType);
-
-                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-
-                ifStatement.ifFalse()
-                        .append(loadConstant(callSiteBinder.bind(type, Type.class)))
-                        .append(blocksVariable.getElement(field))
-                        .append(positionVariable)
-                        .invokeInterface(Type.class, methodName, javaType, Block.class, int.class);
-
-                return ifStatement;
-            }
-
-            @Override
-            public BytecodeNode visitCall(CallExpression call, Scope scope)
-            {
-                throw new UnsupportedOperationException("only input references are supported");
-            }
-
-            @Override
-            public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
-            {
-                throw new UnsupportedOperationException("only input references are supported");
-            }
-        };
+        return new InputReferenceCompiler(
+                (scope, field) -> field < leftBlocksSize ? leftBlocks.getElement(field) : rightBlocks.getElement(field - leftBlocksSize),
+                (scope, field) -> field < leftBlocksSize ? leftPosition : rightPosition,
+                wasNullVariable,
+                callSiteBinder);
     }
 
     private static final class JoinFilterCacheKey
