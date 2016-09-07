@@ -14,10 +14,12 @@
 
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.spi.type.Type;
 import org.weakref.jmx.Managed;
 
 import java.util.List;
+import java.util.Set;
 
 public interface SpillerFactory
 {
@@ -30,6 +32,11 @@ public interface SpillerFactory
     }
 
     default SingleStreamSpiller createSingleStreamSpiller(List<Type> types)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default PartitioningSpiller createPartitioningSpiller(List<Type> types, LocalPartitionGenerator partitionGenerator, int partitionsCount, Set<Integer> ignorePartitions)
     {
         throw new UnsupportedOperationException();
     }
