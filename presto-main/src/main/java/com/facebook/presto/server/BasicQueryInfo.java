@@ -20,6 +20,7 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -42,6 +43,7 @@ public class BasicQueryInfo
     private final QueryId queryId;
     private final SessionRepresentation session;
     private final QueryState state;
+    private final MemoryPoolId memoryPool;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final boolean scheduled;
@@ -66,6 +68,7 @@ public class BasicQueryInfo
             QueryId queryId,
             SessionRepresentation session,
             QueryState state,
+            MemoryPoolId memoryPool,
             ErrorType errorType,
             ErrorCode errorCode,
             boolean scheduled,
@@ -89,6 +92,7 @@ public class BasicQueryInfo
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
         this.state = requireNonNull(state, "state is null");
+        this.memoryPool = memoryPool;
         this.errorType = errorType;
         this.errorCode = errorCode;
         this.scheduled = scheduled;
@@ -120,6 +124,7 @@ public class BasicQueryInfo
         this(queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
+                queryInfo.getMemoryPool(),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode(),
                 queryInfo.isScheduled(),
@@ -157,6 +162,12 @@ public class BasicQueryInfo
     public QueryState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public MemoryPoolId getMemoryPool()
+    {
+        return memoryPool;
     }
 
     @Nullable
