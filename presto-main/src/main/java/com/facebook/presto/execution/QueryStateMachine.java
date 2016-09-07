@@ -98,6 +98,7 @@ public class QueryStateMachine
     private final AtomicReference<Long> finishingStartNanos = new AtomicReference<>();
     private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
 
+    private final AtomicReference<Long> totalPlanningStartNanos = new AtomicReference<>();
     private final AtomicReference<Duration> totalPlanningTime = new AtomicReference<>();
 
     private final StateMachine<QueryState> queryState;
@@ -144,7 +145,7 @@ public class QueryStateMachine
         return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, executor, Ticker.systemTicker());
     }
 
-    public static QueryStateMachine beginWithTicker(
+    static QueryStateMachine beginWithTicker(
             QueryId queryId,
             String query,
             Session session,
@@ -186,7 +187,7 @@ public class QueryStateMachine
         return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), throwable);
     }
 
-    public static QueryStateMachine failedWithTicker(
+    static QueryStateMachine failedWithTicker(
             QueryId queryId,
             String query,
             Session session,
@@ -502,14 +503,15 @@ public class QueryStateMachine
     public boolean transitionToPlanning()
     {
         queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
         return queryState.compareAndSet(QUEUED, PLANNING);
     }
 
     public boolean transitionToStarting()
     {
-        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
-        queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
 
         return queryState.setIf(STARTING, currentState -> currentState == QUEUED || currentState == PLANNING);
     }
@@ -518,7 +520,8 @@ public class QueryStateMachine
     {
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
         executionStartTime.compareAndSet(null, DateTime.now());
 
         return queryState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FINISHING && !currentState.isDone());
@@ -528,7 +531,8 @@ public class QueryStateMachine
     {
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
         finishingStartNanos.compareAndSet(null, tickerNanos());
@@ -605,7 +609,8 @@ public class QueryStateMachine
     {
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
         finishingStartNanos.compareAndSet(null, tickerNanos());
