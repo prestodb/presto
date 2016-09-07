@@ -174,6 +174,11 @@ public interface Metadata
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
 
     /**
+     * Start a SELECT/UPDATE/INSERT/DELETE query
+     */
+    void beginQuery(Session session, Set<ConnectorId> connectors);
+
+    /**
      * Begin insert query
      */
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
