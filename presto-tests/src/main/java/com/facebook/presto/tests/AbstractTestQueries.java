@@ -2112,6 +2112,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNonEqalityJoinWithScalarRequiringSessionParameter()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM (VALUES (1,1), (1,2)) t1(a,b) LEFT OUTER JOIN (VALUES (1,1), (1,2)) t2(c,d) ON a=c AND from_unixtime(b) > current_timestamp",
+                "VALUES (1, 1, NULL, NULL), (1, 2, NULL, NULL)");
+    }
+
+    @Test
     public void testLeftJoinWithEmptyInnerTable()
             throws Exception
     {
