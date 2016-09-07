@@ -72,6 +72,7 @@ import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -165,6 +166,28 @@ public class TestEffectivePredicateExtractor
                         lessThan(BE, AE),
                         greaterThan(AE, bigintLiteral(2)),
                         equals(BE, CE)));
+    }
+
+    @Test
+    public void testGroupByEmpty()
+            throws Exception
+    {
+        PlanNode node = new AggregationNode(
+                newId(),
+                filter(baseTableScan, FALSE_LITERAL),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                AggregationNode.Step.FINAL,
+                Optional.empty(),
+                1.0,
+                Optional.empty());
+
+        Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
+
+        assertEquals(effectivePredicate, TRUE_LITERAL);
     }
 
     @Test
