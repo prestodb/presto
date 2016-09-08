@@ -60,6 +60,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
@@ -119,7 +120,8 @@ public class OrcPageSourceFactory
                 typeManager,
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session)));
+                getOrcStreamBufferSize(session),
+                isOrcBloomFiltersEnabled(session)));
     }
 
     public static OrcPageSource createOrcPageSource(
@@ -138,7 +140,8 @@ public class OrcPageSourceFactory
             TypeManager typeManager,
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
-            DataSize streamBufferSize)
+            DataSize streamBufferSize,
+            boolean orcBloomFiltersEnabled)
     {
         OrcDataSource orcDataSource;
         try {
@@ -170,7 +173,7 @@ public class OrcPageSourceFactory
                 }
             }
 
-            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),

@@ -22,6 +22,7 @@ public class ColumnStatistics
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
     private final DecimalStatistics decimalStatistics;
+    private final HiveBloomFilter bloomFilter;
 
     public ColumnStatistics(
             Long numberOfValues,
@@ -30,7 +31,8 @@ public class ColumnStatistics
             DoubleStatistics doubleStatistics,
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
-            DecimalStatistics decimalStatistics)
+            DecimalStatistics decimalStatistics,
+            HiveBloomFilter bloomFilter)
     {
         this.numberOfValues = numberOfValues;
         this.booleanStatistics = booleanStatistics;
@@ -39,6 +41,7 @@ public class ColumnStatistics
         this.stringStatistics = stringStatistics;
         this.dateStatistics = dateStatistics;
         this.decimalStatistics = decimalStatistics;
+        this.bloomFilter = bloomFilter;
     }
 
     public boolean hasNumberOfValues()
@@ -79,5 +82,23 @@ public class ColumnStatistics
     public DecimalStatistics getDecimalStatistics()
     {
         return decimalStatistics;
+    }
+
+    public HiveBloomFilter getBloomFilter()
+    {
+        return bloomFilter;
+    }
+
+    public ColumnStatistics withBloomFilter(HiveBloomFilter bloomFilter)
+    {
+        return new ColumnStatistics(
+                numberOfValues,
+                booleanStatistics,
+                integerStatistics,
+                doubleStatistics,
+                stringStatistics,
+                dateStatistics,
+                decimalStatistics,
+                bloomFilter);
     }
 }
