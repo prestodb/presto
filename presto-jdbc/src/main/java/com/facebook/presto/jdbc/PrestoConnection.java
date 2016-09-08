@@ -16,10 +16,7 @@ package com.facebook.presto.jdbc;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.client.StatementClient;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -41,7 +38,6 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -53,9 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Maps.fromProperties;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -68,27 +62,28 @@ public class PrestoConnection
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
-    private final URI uri;
-    private final HostAndPort address;
+
+    private final URI jdbcUri;
+    private final URI httpUri;
     private final String user;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
-    PrestoConnection(URI uri, String user, QueryExecutor queryExecutor)
+    PrestoConnection(PrestoDriverUri uri, String user, QueryExecutor queryExecutor)
             throws SQLException
     {
-        this.uri = requireNonNull(uri, "uri is null");
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        requireNonNull(uri, "uri is null");
+        this.jdbcUri = uri.getJdbcUri();
+        this.httpUri = uri.getHttpUri();
+        this.schema.set(uri.getSchema());
+        this.catalog.set(uri.getCatalog());
+
         this.user = requireNonNull(user, "user is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
-
-        if (!isNullOrEmpty(uri.getPath())) {
-            setCatalogAndSchema();
-        }
     }
 
     @Override
@@ -562,7 +557,7 @@ public class PrestoConnection
 
     URI getURI()
     {
-        return uri;
+        return jdbcUri;
     }
 
     String getUser()
@@ -572,17 +567,15 @@ public class PrestoConnection
 
     ServerInfo getServerInfo()
     {
-        return queryExecutor.getServerInfo(getHttpUri());
+        return queryExecutor.getServerInfo(httpUri);
     }
 
     StatementClient startQuery(String sql)
     {
-        URI uri = getHttpUri();
-
         String source = firstNonNull(clientInfo.get("ApplicationName"), "presto-jdbc");
 
         ClientSession session = new ClientSession(
-                uri,
+                httpUri,
                 user,
                 source,
                 catalog.get(),
@@ -603,59 +596,6 @@ public class PrestoConnection
         if (isClosed()) {
             throw new SQLException("Connection is closed");
         }
-    }
-
-    private void setCatalogAndSchema()
-            throws SQLException
-    {
-        String path = uri.getPath();
-        if (path.equals("/")) {
-            return;
-        }
-
-        // remove first slash
-        if (!path.startsWith("/")) {
-            throw new SQLException("Path does not start with a slash: " + uri);
-        }
-        path = path.substring(1);
-
-        List<String> parts = Splitter.on("/").splitToList(path);
-
-        // remove last item due to a trailing slash
-        if (parts.get(parts.size() - 1).isEmpty()) {
-            parts = parts.subList(0, parts.size() - 1);
-        }
-
-        if (parts.size() > 2) {
-            throw new SQLException("Invalid path segments in URL: " + uri);
-        }
-
-        if (parts.get(0).isEmpty()) {
-            throw new SQLException("Catalog name is empty: " + uri);
-        }
-        catalog.set(parts.get(0));
-
-        if (parts.size() > 1) {
-            if (parts.get(1).isEmpty()) {
-                throw new SQLException("Schema name is empty: " + uri);
-            }
-            schema.set(parts.get(1));
-        }
-    }
-
-    @VisibleForTesting
-    URI getHttpUri()
-    {
-        return createHttpUri(address);
-    }
-
-    private static URI createHttpUri(HostAndPort address)
-    {
-        return uriBuilder()
-                .scheme((address.getPort() == 443) ? "https" : "http")
-                .host(address.getHostText())
-                .port(address.getPort())
-                .build();
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)

@@ -16,8 +16,6 @@ package com.facebook.presto.jdbc;
 import com.google.common.base.Throwables;
 
 import java.io.Closeable;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -44,7 +42,6 @@ public class PrestoDriver
 
     private static final DriverPropertyInfo[] DRIVER_PROPERTY_INFOS = {};
 
-    private static final String JDBC_URL_START = "jdbc:";
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
     private static final String USER_PROPERTY = "user";
@@ -84,7 +81,7 @@ public class PrestoDriver
             throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
         }
 
-        return new PrestoConnection(parseDriverUrl(url), user, queryExecutor);
+        return new PrestoConnection(new PrestoDriverUri(url), user, queryExecutor);
     }
 
     @Override
@@ -126,27 +123,5 @@ public class PrestoDriver
     {
         // TODO: support java.util.Logging
         throw new SQLFeatureNotSupportedException();
-    }
-
-    private static URI parseDriverUrl(String url)
-            throws SQLException
-    {
-        URI uri;
-        try {
-            uri = new URI(url.substring(JDBC_URL_START.length()));
-        }
-        catch (URISyntaxException e) {
-            throw new SQLException("Invalid JDBC URL: " + url, e);
-        }
-        if (isNullOrEmpty(uri.getHost())) {
-            throw new SQLException("No host specified: " + url);
-        }
-        if (uri.getPort() == -1) {
-            throw new SQLException("No port number specified: " + url);
-        }
-        if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
-            throw new SQLException("Invalid port number: " + url);
-        }
-        return uri;
     }
 }
