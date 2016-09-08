@@ -200,6 +200,17 @@ public final class OperatorAssertion
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, false, Optional.empty());
     }
 
+    public static void assertOperatorEqualsIgnoreOrder(OperatorFactory operatorFactory, TaskContext taskContext, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
+    {
+        assertOperatorEqualsIgnoreOrder(
+                operatorFactory,
+                taskContext.addPipelineContext(true, true).addDriverContext(),
+                input,
+                expected,
+                hashEnabled,
+                hashChannels);
+    }
+
     public static void assertOperatorEqualsIgnoreOrder(
             OperatorFactory operatorFactory,
             DriverContext driverContext,
@@ -208,19 +219,41 @@ public final class OperatorAssertion
             boolean hashEnabled,
             Optional<Integer> hashChannel)
     {
-        List<Page> pages = toPages(operatorFactory, driverContext, input);
-        MaterializedResult actual;
-        if (hashEnabled && hashChannel.isPresent()) {
-            // Drop the hashChannel for all pages
-            List<Page> actualPages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
-            List<Type> expectedTypes = without(operatorFactory.getTypes(), ImmutableList.of(hashChannel.get()));
-            actual = toMaterializedResult(driverContext.getSession(), expectedTypes, actualPages);
-        }
-        else {
-            actual = toMaterializedResult(driverContext.getSession(), operatorFactory.getTypes(), pages);
-        }
+        assertOperatorEqualsIgnoreOrder(
+                operatorFactory,
+                driverContext,
+                input,
+                expected,
+                hashEnabled,
+                hashChannel.isPresent() ? ImmutableList.of(hashChannel.get()) : ImmutableList.<Integer>of());
+    }
 
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    public static void assertOperatorEqualsIgnoreOrder(
+            OperatorFactory operatorFactory,
+            DriverContext driverContext,
+            List<Page> input,
+            MaterializedResult expected,
+            boolean hashEnabled,
+            List<Integer> hashChannels)
+    {
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            List<Page> pages = toPages(operator, input);
+            MaterializedResult actual;
+            if (hashEnabled && !hashChannels.isEmpty()) {
+                // Drop the hashChannel for all pages
+                List<Page> actualPages = dropChannel(pages, hashChannels);
+                List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
+            }
+            else {
+                actual = toMaterializedResult(operator.getOperatorContext().getSession(), operator.getTypes(), pages);
+            }
+
+            assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     static <T> List<T> without(List<T> types, List<Integer> channels)
