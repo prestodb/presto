@@ -41,7 +41,7 @@ public class DropTable
         this.exists = exists;
     }
 
-    public QualifiedName getTableName()
+    public QualifiedName getQualifiedName()
     {
         return tableName;
     }

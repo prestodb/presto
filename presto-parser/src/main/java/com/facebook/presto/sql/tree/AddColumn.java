@@ -42,7 +42,7 @@ public class AddColumn
         this.column = requireNonNull(column, "column is null");
     }
 
-    public QualifiedName getName()
+    public QualifiedName getQualifiedName()
     {
         return name;
     }

@@ -51,7 +51,7 @@ public class CreateTable
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
-    public QualifiedName getName()
+    public QualifiedName getQualifiedName()
     {
         return name;
     }

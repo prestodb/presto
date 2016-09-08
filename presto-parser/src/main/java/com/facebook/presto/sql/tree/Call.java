@@ -45,7 +45,7 @@ public final class Call
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
     }
 
-    public QualifiedName getName()
+    public QualifiedName getQualifiedName()
     {
         return name;
     }

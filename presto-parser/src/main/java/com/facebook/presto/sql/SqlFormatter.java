@@ -513,7 +513,7 @@ public final class SqlFormatter
                 builder.append("OR REPLACE ");
             }
             builder.append("VIEW ")
-                    .append(node.getName())
+                    .append(node.getQualifiedName())
                     .append(" AS\n");
 
             process(node.getQuery(), indent);
@@ -528,7 +528,7 @@ public final class SqlFormatter
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(node.getName());
+            builder.append(node.getQualifiedName());
 
             return null;
         }
@@ -758,7 +758,7 @@ public final class SqlFormatter
             if (node.isNotExists()) {
                 builder.append("IF NOT EXISTS ");
             }
-            String tableName = formatName(node.getName());
+            String tableName = formatName(node.getQualifiedName());
             builder.append(tableName).append(" (\n");
 
             String elementIndent = indentString(indent + 1);
@@ -826,7 +826,7 @@ public final class SqlFormatter
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(node.getTableName());
+            builder.append(node.getQualifiedName());
 
             return null;
         }
@@ -846,7 +846,7 @@ public final class SqlFormatter
         protected Void visitRenameColumn(RenameColumn node, Integer context)
         {
             builder.append("ALTER TABLE ")
-                    .append(node.getTable())
+                    .append(node.getQualifiedName())
                     .append(" RENAME COLUMN ")
                     .append(node.getSource())
                     .append(" TO ")
@@ -859,7 +859,7 @@ public final class SqlFormatter
         protected Void visitAddColumn(AddColumn node, Integer indent)
         {
             builder.append("ALTER TABLE ")
-                    .append(node.getName())
+                    .append(node.getQualifiedName())
                     .append(" ADD COLUMN ")
                     .append(node.getColumn().getName())
                     .append(" ")
@@ -922,7 +922,7 @@ public final class SqlFormatter
         protected Void visitCall(Call node, Integer indent)
         {
             builder.append("CALL ")
-                    .append(node.getName())
+                    .append(node.getQualifiedName())
                     .append("(");
 
             Iterator<CallArgument> arguments = node.getArguments().iterator();
@@ -1015,7 +1015,7 @@ public final class SqlFormatter
             if (node.isTable()) {
                 builder.append("TABLE ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getQualifiedName())
                     .append(" TO ")
                     .append(node.getGrantee());
             if (node.isWithGrantOption()) {
@@ -1046,7 +1046,7 @@ public final class SqlFormatter
             if (node.isTable()) {
                 builder.append("TABLE ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getQualifiedName())
                     .append(" FROM ")
                     .append(node.getGrantee());
 

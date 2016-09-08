@@ -44,7 +44,7 @@ public class CreateView
         this.replace = replace;
     }
 
-    public QualifiedName getName()
+    public QualifiedName getQualifiedName()
     {
         return name;
     }
