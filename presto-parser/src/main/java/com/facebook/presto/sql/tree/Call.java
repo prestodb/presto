@@ -24,6 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class Call
         extends DataDefinitionStatement
+        implements CatalogRelatedStatement
 {
     private final QualifiedName name;
     private final List<CallArgument> arguments;
@@ -45,6 +46,7 @@ public final class Call
         this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
     }
 
+    @Override
     public QualifiedName getQualifiedName()
     {
         return name;

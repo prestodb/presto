@@ -24,6 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Revoke
         extends DataDefinitionStatement
+        implements CatalogRelatedStatement
 {
     private final boolean grantOptionFor;
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
@@ -66,6 +67,7 @@ public class Revoke
         return table;
     }
 
+    @Override
     public QualifiedName getQualifiedName()
     {
         return tableName;

@@ -20,6 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class DropTable
         extends DataDefinitionStatement
+        implements CatalogRelatedStatement
 {
     private final QualifiedName tableName;
     private final boolean exists;
@@ -41,6 +42,7 @@ public class DropTable
         this.exists = exists;
     }
 
+    @Override
     public QualifiedName getQualifiedName()
     {
         return tableName;
