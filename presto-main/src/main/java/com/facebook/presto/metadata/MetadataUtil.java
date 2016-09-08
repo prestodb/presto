@@ -75,7 +75,7 @@ public final class MetadataUtil
         if (value == null) {
             throw new NullPointerException(format("%s is null", name));
         }
-        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase", name);
+        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase: %s", name, value);
         return value;
     }
 
