@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -28,6 +29,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
@@ -120,7 +122,9 @@ public final class MetadataUtil
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
-        checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
+        if (name.getParts().size() > 3) {
+            throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
+        }
 
         List<String> parts = Lists.reverse(name.getParts());
         String objectName = parts.get(0);
