@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
+import com.facebook.presto.orc.metadata.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.RangeStatistics;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
@@ -23,15 +24,21 @@ import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import org.apache.hive.common.util.BloomFilter;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
@@ -39,7 +46,11 @@ import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.floatToRawIntBits;
@@ -51,33 +62,120 @@ public class TupleDomainOrcPredicate<C>
     private final TupleDomain<C> effectivePredicate;
     private final List<ColumnReference<C>> columnReferences;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
+    private final boolean orcBloomFiltersEnabled;
+
+    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean orcBloomFiltersEnabled)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
+        this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
     }
 
     @Override
     public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
     {
-        ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
+        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
+        if (!optionalEffectivePredicateDomains.isPresent()) {
+            // effective predicate is none, so skip this section
+            return false;
+        }
+        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
 
         for (ColumnReference<C> columnReference : columnReferences) {
+            Domain predicateDomain = effectivePredicateDomains.get(columnReference.getColumn());
+            if (predicateDomain == null) {
+                // no predicate on this column, so we can't exclude this section
+                continue;
+            }
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
-
-            Domain domain;
             if (columnStatistics == null) {
-                // no stats for column
-                domain = Domain.all(columnReference.getType());
+                // no statistics for this column, so we can't exclude this section
+                continue;
             }
-            else {
-                domain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
-            }
-            domains.put(columnReference.getColumn(), domain);
-        }
-        TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
-        return effectivePredicate.overlaps(stripeDomain);
+            if (!columnOverlaps(columnReference, predicateDomain, numberOfRows, columnStatistics)) {
+                return false;
+            }
+        }
+
+        // this section was not excluded
+        return true;
+    }
+
+    private boolean columnOverlaps(ColumnReference<C> columnReference, Domain predicateDomain, long numberOfRows, ColumnStatistics columnStatistics)
+    {
+        Domain stripeDomain = getDomain(columnReference.getType(), numberOfRows, columnStatistics);
+        if (!stripeDomain.overlaps(predicateDomain)) {
+            // there is no overlap between the predicate and this column
+            return false;
+        }
+
+        // if bloom filters are not enabled, we can not restrict the range overlap
+        if (!orcBloomFiltersEnabled) {
+            return true;
+        }
+
+        // if there an overlap in null values, the bloom filter can not eliminate the overlap
+        if (predicateDomain.isNullAllowed() && stripeDomain.isNullAllowed()) {
+            return true;
+        }
+
+        // extract the discrete values from the predicate
+        Optional<Collection<Object>> discreteValues = extractDiscreteValues(predicateDomain.getValues());
+        if (!discreteValues.isPresent()) {
+            // values are not discrete, so we can't exclude this section
+            return true;
+        }
+
+        HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
+        if (bloomFilter == null) {
+            // no bloom filter so we can't exclude this section
+            return true;
+        }
+
+        // if none of the discrete predicate values are found in the bloom filter, there is no overlap and the section should be skipped
+        if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()))) {
+            return false;
+        }
+        return true;
+    }
+
+    @VisibleForTesting
+    public static Optional<Collection<Object>> extractDiscreteValues(ValueSet valueSet)
+    {
+        return valueSet.getValuesProcessor().transform(
+                ranges -> {
+                    ImmutableList.Builder<Object> discreteValues = ImmutableList.builder();
+                    for (Range range : ranges.getOrderedRanges()) {
+                        if (!range.isSingleValue()) {
+                            return Optional.empty();
+                        }
+                        discreteValues.add(range.getSingleValue());
+                    }
+                    return Optional.of(discreteValues.build());
+                },
+                discreteValues -> Optional.of(discreteValues.getValues()),
+                allOrNone -> allOrNone.isAll() ? Optional.empty() : Optional.of(ImmutableList.of()));
+    }
+
+    // checks whether a value part of the effective predicate is likely to be part of this bloom filter
+    @VisibleForTesting
+    public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
+    {
+        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT) {
+            return bloomFilter.testLong(((Number) predicateValue).longValue());
+        }
+
+        if (sqlType == DOUBLE) {
+            return bloomFilter.testDouble((Double) predicateValue);
+        }
+
+        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
+            return bloomFilter.test(((Slice) predicateValue).getBytes());
+        }
+
+        // todo support DECIMAL, FLOAT, DATE, TIMESTAMP, and CHAR
+        return true;
     }
 
     @VisibleForTesting

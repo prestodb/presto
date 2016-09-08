@@ -33,4 +33,7 @@ public interface MetadataReader
 
     List<RowGroupIndex> readRowIndexes(InputStream inputStream)
             throws IOException;
+
+    List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
+            throws IOException;
 }

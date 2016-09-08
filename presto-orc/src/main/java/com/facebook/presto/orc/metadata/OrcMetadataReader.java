@@ -149,6 +149,20 @@ public class OrcMetadataReader
         return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), OrcMetadataReader::toRowGroupIndex));
     }
 
+    @Override
+    public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
+            throws IOException
+    {
+        CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        OrcProto.BloomFilterIndex bloomFilter = OrcProto.BloomFilterIndex.parseFrom(input);
+        List<OrcProto.BloomFilter> bloomFilterList = bloomFilter.getBloomFilterList();
+        ImmutableList.Builder<HiveBloomFilter> builder = ImmutableList.builder();
+        for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
+            builder.add(new HiveBloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getBitsetCount() * 64, orcBloomFilter.getNumHashFunctions()));
+        }
+        return builder.build();
+    }
+
     private static RowGroupIndex toRowGroupIndex(RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
@@ -173,7 +187,8 @@ public class OrcMetadataReader
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(statistics.getStringStatistics(), isRowGroup),
                 toDateStatistics(statistics.getDateStatistics(), isRowGroup),
-                toDecimalStatistics(statistics.getDecimalStatistics()));
+                toDecimalStatistics(statistics.getDecimalStatistics()),
+                null);
     }
 
     private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)

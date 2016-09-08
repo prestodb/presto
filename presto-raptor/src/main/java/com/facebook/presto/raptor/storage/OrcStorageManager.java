@@ -504,7 +504,7 @@ public class OrcStorageManager
                 columns.add(new ColumnReference<>(column, index, column.getColumnType()));
             }
         }
-        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build());
+        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build(), false);
     }
 
     private static Map<Long, Integer> columnIdIndex(List<String> columnNames)
