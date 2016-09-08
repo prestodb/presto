@@ -21,7 +21,6 @@ import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.OpCode;
 import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
@@ -482,7 +481,6 @@ public class JoinCompiler
                 rightPosition,
                 rightPage);
 
-        Scope compilerContext = rowEqualsRowMethod.getScope();
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
 
