@@ -43,6 +43,8 @@ final class PrestoDriverUri
     private String catalog;
     private String schema;
 
+    private final boolean useSecureConnection;
+
     public PrestoDriverUri(String url)
             throws SQLException
     {
@@ -56,6 +58,7 @@ final class PrestoDriverUri
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
 
         Map<String, String> params = parseParameters(uri.getQuery());
+        useSecureConnection = Boolean.parseBoolean(params.get("secure"));
 
         initCatalogAndSchema();
     }
@@ -119,7 +122,7 @@ final class PrestoDriverUri
 
     private URI buildHttpUri()
     {
-        String scheme = (address.getPort() == 443) ? "https" : "http";
+        String scheme = (address.getPort() == 443 || useSecureConnection) ? "https" : "http";
 
         return uriBuilder()
                 .scheme(scheme)
