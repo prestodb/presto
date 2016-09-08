@@ -197,8 +197,10 @@ public class ParallelHashBuildOperator
         checkState(!isFinished(), "Operator is already finished");
 
         index.addPage(page);
-
-        operatorContext.setMemoryReservation(page.getPositionCount());
+        if (!operatorContext.trySetMemoryReservation(index.getEstimatedSize().toBytes())) {
+            index.compact();
+        }
+        operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
