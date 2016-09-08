@@ -37,7 +37,6 @@ public class FeaturesConfig
         public static final List<String> AVAILABLE_OPTIONS = ImmutableList.of(DISABLED, COLUMNAR, COLUMNAR_DICTIONARY);
     }
 
-    public static final String FILE_BASED_RESOURCE_GROUP_MANAGER = "file";
     private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;

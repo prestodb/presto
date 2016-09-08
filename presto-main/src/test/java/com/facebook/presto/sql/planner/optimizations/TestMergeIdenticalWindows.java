@@ -31,8 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import javax.inject.Provider;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -334,11 +332,11 @@ public class TestMergeIdenticalWindows
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        Provider<List<PlanOptimizer>> optimizerProvider = () -> ImmutableList.of(
+        List<PlanOptimizer> optimizers = ImmutableList.of(
                         new UnaliasSymbolReferences(),
                         new PruneIdentityProjections(),
                         new MergeIdenticalWindows(),
                         new PruneUnreferencedOutputs());
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizerProvider));
+        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers));
     }
 }

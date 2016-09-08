@@ -102,7 +102,7 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
-import com.facebook.presto.sql.planner.PlanOptimizersFactory;
+import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.PlanPrinter;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -137,8 +137,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
-
-import javax.inject.Provider;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -607,16 +605,16 @@ public class LocalQueryRunner
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizersFactory planOptimizersFactory = new PlanOptimizersFactory(metadata, sqlParser, featuresConfig, true);
-        return createPlan(session, sql, featuresConfig, planOptimizersFactory, stage);
+        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true);
+        return createPlan(session, sql, featuresConfig, planOptimizers.get(), stage);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, Provider<List<PlanOptimizer>> optimizerProvider)
+    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers)
     {
-        return createPlan(session, sql, featuresConfig, optimizerProvider, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return createPlan(session, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, Provider<List<PlanOptimizer>> optimizerProvider, LogicalPlanner.Stage stage)
+    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
     {
         Statement wrapped = sqlParser.createStatement(sql);
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
@@ -632,7 +630,7 @@ public class LocalQueryRunner
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         QueryExplainer queryExplainer = new QueryExplainer(
-                optimizerProvider.get(),
+                optimizers,
                 metadata,
                 accessControl,
                 sqlParser,
@@ -640,7 +638,7 @@ public class LocalQueryRunner
                 featuresConfig.isExperimentalSyntaxEnabled());
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled(), parameters);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizerProvider.get(), idAllocator, metadata, sqlParser);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);

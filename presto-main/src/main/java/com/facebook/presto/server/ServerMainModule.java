@@ -99,8 +99,7 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.sql.planner.PlanOptimizersFactory;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.transaction.ForTransactionManager;
@@ -124,7 +123,6 @@ import io.airlift.units.Duration;
 
 import javax.inject.Singleton;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -370,7 +368,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         // optimizers
-        binder.bind(new TypeLiteral<List<PlanOptimizer>>() {}).toProvider(PlanOptimizersFactory.class).in(Scopes.SINGLETON);
+        binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
 
         // block encodings
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
