@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.amazonaws.AmazonWebServiceClient;
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -45,6 +47,7 @@ import static com.facebook.presto.hive.PrestoS3FileSystem.S3_ENCRYPTION_MATERIAL
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
+import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -364,16 +367,37 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testDefaultS3ClientConfiguration()
+            throws Exception
+    {
+        HiveClientConfig defaults = new HiveClientConfig();
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            ClientConfiguration config = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);
+            assertEquals(config.getMaxErrorRetry(), defaults.getS3MaxErrorRetries());
+            assertEquals(config.getConnectionTimeout(), defaults.getS3ConnectTimeout().toMillis());
+            assertEquals(config.getSocketTimeout(), defaults.getS3SocketTimeout().toMillis());
+            assertEquals(config.getMaxConnections(), defaults.getS3MaxConnections());
+            assertEquals(config.getUserAgentSuffix(), S3_USER_AGENT);
+        }
+    }
+
     private static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
     {
         return getFieldValue(fs.getS3Client(), "awsCredentialsProvider", AWSCredentialsProvider.class);
     }
 
-    @SuppressWarnings("unchecked")
     private static <T> T getFieldValue(Object instance, String name, Class<T> type)
     {
+        return getFieldValue(instance, instance.getClass(), name, type);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T getFieldValue(Object instance, Class<?> clazz, String name, Class<T> type)
+    {
         try {
-            Field field = instance.getClass().getDeclaredField(name);
+            Field field = clazz.getDeclaredField(name);
             checkArgument(field.getType() == type, "expected %s but found %s", type, field.getType());
             field.setAccessible(true);
             return (T) field.get(instance);
