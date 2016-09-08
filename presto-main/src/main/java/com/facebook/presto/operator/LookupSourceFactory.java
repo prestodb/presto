@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.PartitioningSpiller;
 import com.facebook.presto.sql.planner.Symbol;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public interface LookupSourceFactory
 {
@@ -34,4 +39,24 @@ public interface LookupSourceFactory
     default void setTaskContext(TaskContext taskContext) {}
 
     void destroy();
+
+    default Set<Integer> getSpilledPartitions()
+    {
+        return ImmutableSet.of();
+    }
+
+    default PartitioningSpiller getProbeSpiller(List<Type> probeTypes, HashGenerator probeHashGenerator)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default CompletableFuture<LookupSource> readSpilledLookupSource(Session session, int partition)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean hasSpilled()
+    {
+        return !getSpilledPartitions().isEmpty();
+    }
 }

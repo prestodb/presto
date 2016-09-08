@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.INNER;
@@ -47,6 +48,8 @@ public class LookupJoinOperatorFactory
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final ReferenceCount referenceCount;
+    private final AtomicInteger lookupJoinsCount = new AtomicInteger();
+    private final HashGenerator probeHashGenerator;
     private boolean closed;
 
     public LookupJoinOperatorFactory(int operatorId,
@@ -55,7 +58,9 @@ public class LookupJoinOperatorFactory
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             JoinType joinType,
-            JoinProbeFactory joinProbeFactory)
+            JoinProbeFactory joinProbeFactory,
+            List<Integer> probeJoinChannels,
+            Optional<Integer> probeHashChannel)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -66,6 +71,16 @@ public class LookupJoinOperatorFactory
         this.buildOutputTypes = ImmutableList.copyOf(lookupSourceFactory.getOutputTypes());
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
+        if (probeHashChannel.isPresent()) {
+            this.probeHashGenerator = new PrecomputedHashGenerator(probeHashChannel.get());
+        }
+        else {
+            ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
+            for (Integer probeJoinChannel : probeJoinChannels) {
+                hashTypes.add(probeTypes.get(probeJoinChannel));
+            }
+            this.probeHashGenerator = new InterpretedHashGenerator(hashTypes.build(), probeJoinChannels.stream().mapToInt(i -> i).toArray());
+        }
 
         this.referenceCount = new ReferenceCount();
 
@@ -107,6 +122,7 @@ public class LookupJoinOperatorFactory
         joinProbeFactory = other.joinProbeFactory;
         referenceCount = other.referenceCount;
         outerOperatorFactory = other.outerOperatorFactory;
+        probeHashGenerator = other.probeHashGenerator;
 
         referenceCount.retain();
     }
@@ -134,13 +150,17 @@ public class LookupJoinOperatorFactory
         lookupSourceFactory.setTaskContext(driverContext.getPipelineContext().getTaskContext());
 
         referenceCount.retain();
+        lookupJoinsCount.incrementAndGet();
         return new LookupJoinOperator(
                 operatorContext,
                 getTypes(),
+                probeTypes,
                 joinType,
-                lookupSourceFactory.createLookupSource(),
+                lookupSourceFactory,
                 joinProbeFactory,
-                referenceCount::release);
+                referenceCount::release,
+                lookupJoinsCount,
+                probeHashGenerator);
     }
 
     @Override

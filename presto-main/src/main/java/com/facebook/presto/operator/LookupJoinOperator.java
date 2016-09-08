@@ -16,16 +16,27 @@ package com.facebook.presto.operator;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.MappedBlock;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.PartitioningSpiller;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.io.Closeable;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUTER;
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.util.Objects.requireNonNull;
 
@@ -34,28 +45,54 @@ public class LookupJoinOperator
 {
     private final LookupJoiner lookupJoiner;
     private final OperatorContext operatorContext;
-    private final List<Type> types;
 
+    private final List<Type> allTypes;
+    private final List<Type> probeTypes;
+    private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
+    private final LookupSourceFactory lookupSourceFactory;
+    private final JoinProbeFactory joinProbeFactory;
     private final Runnable onClose;
 
+    private final AtomicInteger lookupJoinsCount;
+    private final HashGenerator hashGenerator;
+    private final boolean probeOnOuterSide;
+
+    private Optional<SpillledLookupJoiner> spilledLookupJoiner = Optional.empty();
+    private LookupSource lookupSource;
+
+    private boolean finishing;
     private boolean closed;
+
+    private Optional<PartitioningSpiller> spiller = Optional.empty();
+    private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
+    private Optional<Iterator<Integer>> spilledPartitions = Optional.empty();
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
-            List<Type> types,
+            List<Type> allTypes,
+            List<Type> probeTypes,
             JoinType joinType,
-            ListenableFuture<LookupSource> lookupSourceFuture,
+            LookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
-            Runnable onClose)
+            Runnable onClose,
+            AtomicInteger lookupJoinsCount,
+            HashGenerator hashGenerator)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.allTypes = ImmutableList.copyOf(requireNonNull(allTypes, "allTypes is null"));
+        this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
 
         requireNonNull(joinType, "joinType is null");
 
+        this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
+        this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.onClose = requireNonNull(onClose, "onClose is null");
+        this.lookupJoinsCount = requireNonNull(lookupJoinsCount, "lookupJoinsCount is null");
+        this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
 
-        this.lookupJoiner = new LookupJoiner(types, lookupSourceFuture, joinProbeFactory, joinType == PROBE_OUTER || joinType == FULL_OUTER);
+        this.lookupSourceFuture = lookupSourceFactory.createLookupSource();
+        this.probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
+        this.lookupJoiner = new LookupJoiner(allTypes, lookupSourceFuture, joinProbeFactory, probeOnOuterSide);
     }
 
     @Override
@@ -67,19 +104,55 @@ public class LookupJoinOperator
     @Override
     public List<Type> getTypes()
     {
-        return types;
+        return allTypes;
     }
 
     @Override
     public void finish()
     {
         lookupJoiner.finish();
+
+        if (!finishing && lookupSourceFactory.hasSpilled()) {
+            // Last LookupJoinOperator will handle spilled pages
+            int count = lookupJoinsCount.decrementAndGet();
+            checkState(count >= 0);
+            if (count > 0) {
+                spiller = Optional.empty();
+            }
+            else {
+                // last LookupJoinOperator might not spilled at all, but other parallel joins could
+                // so we have to load spiller if this operator hasn't used one yet
+                ensureSpillerLoaded();
+                unspillNextLookupSource();
+            }
+        }
+        finishing = true;
+    }
+
+    private void unspillNextLookupSource()
+    {
+        checkState(spiller.isPresent());
+        checkState(spilledPartitions.isPresent());
+        if (spilledPartitions.get().hasNext()) {
+            int currentSpilledPartition = spilledPartitions.get().next();
+
+            spilledLookupJoiner = Optional.of(new SpillledLookupJoiner(
+                    allTypes,
+                    lookupSourceFactory.readSpilledLookupSource(operatorContext.getSession(), currentSpilledPartition),
+                    joinProbeFactory,
+                    spiller.get().getSpilledPages(currentSpilledPartition),
+                    probeOnOuterSide));
+        }
+        else {
+            spiller.get().close();
+            spiller = Optional.empty();
+        }
     }
 
     @Override
     public boolean isFinished()
     {
-        boolean finished = lookupJoiner.isFinished();
+        boolean finished = lookupJoiner.isFinished() && !spiller.isPresent();
 
         // if finished drop references so memory is freed early
         if (finished) {
@@ -91,6 +164,13 @@ public class LookupJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
+        if (spilledLookupJoiner.isPresent()) {
+            return spilledLookupJoiner.get().isBlocked();
+        }
+        if (!spillInProgress.isDone()) {
+            checkState(lookupSourceFuture.isDone());
+            return spillInProgress;
+        }
         return lookupJoiner.isBlocked();
     }
 
@@ -103,13 +183,69 @@ public class LookupJoinOperator
     @Override
     public void addInput(Page page)
     {
+        requireNonNull(page, "page is null");
+
+        if (lookupSourceFactory.hasSpilled()) {
+            page = spillAndMaskSpilledPositions(page);
+        }
+
         lookupJoiner.addInput(page);
+    }
+
+    private Page spillAndMaskSpilledPositions(Page page)
+    {
+        ensureSpillerLoaded();
+
+        PartitioningSpiller.PartitioningSpillResult spillResult = spiller.get().partitionAndSpill(page);
+
+        if (!spillResult.isBlocked().isDone()) {
+            this.spillInProgress = toListenableFuture(spillResult.isBlocked());
+        }
+        IntArrayList unspilledPositions = spillResult.getUnspilledPositions();
+
+        return mapPage(unspilledPositions, page);
+    }
+
+    private void ensureSpillerLoaded()
+    {
+        checkState(lookupSourceFactory.hasSpilled());
+        checkState(lookupSourceFuture.isDone());
+        if (lookupSource == null) {
+            lookupSource = getFutureValue(lookupSourceFuture);
+        }
+        if (!spiller.isPresent()) {
+            spiller = Optional.of(lookupSourceFactory.getProbeSpiller(probeTypes, hashGenerator));
+        }
+        if (!spilledPartitions.isPresent()) {
+            spilledPartitions = Optional.of(ImmutableSet.copyOf(lookupSourceFactory.getSpilledPartitions()).iterator());
+        }
+    }
+
+    private Page mapPage(IntArrayList unspilledPositions, Page page)
+    {
+        Block[] mappedBlocks = new Block[page.getChannelCount()];
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            mappedBlocks[channel] = new MappedBlock(page.getBlock(channel), unspilledPositions.elements(), 0, unspilledPositions.size());
+        }
+        return new Page(mappedBlocks);
     }
 
     @Override
     public Page getOutput()
     {
-        return lookupJoiner.getOutput();
+        if (finishing && spiller.isPresent()) {
+            checkState(spilledLookupJoiner.isPresent());
+            SpillledLookupJoiner joiner = spilledLookupJoiner.get();
+            if (joiner.isFinished()) {
+                unspillNextLookupSource();
+                return null;
+            }
+            operatorContext.setMemoryReservation(joiner.getInMemorySizeInBytes());
+            return joiner.getOutput();
+        }
+        else {
+            return lookupJoiner.getOutput();
+        }
     }
 
     @Override
@@ -142,7 +278,7 @@ public class LookupJoinOperator
 
         public LookupJoiner(
                 List<Type> types,
-                ListenableFuture<LookupSource> lookupSourceFuture,
+                ListenableFuture<? extends LookupSource> lookupSourceFuture,
                 JoinProbeFactory joinProbeFactory,
                 boolean probeOnOuterSide)
         {
@@ -283,6 +419,58 @@ public class LookupJoinOperator
                 }
             }
             return true;
+        }
+    }
+
+    public static class SpillledLookupJoiner
+    {
+        private final LookupJoiner lookupJoiner;
+        private final Iterator<Page> probePages;
+        private final CompletableFuture<? extends LookupSource> lookupSourceFuture;
+
+        public SpillledLookupJoiner(
+                List<Type> allTypes,
+                CompletableFuture<? extends LookupSource> lookupSourceFuture,
+                JoinProbeFactory joinProbeFactory,
+                Iterator<Page> probePages,
+                boolean probeOnOuterSide)
+        {
+            this.lookupJoiner = new LookupJoiner(allTypes, toListenableFuture(lookupSourceFuture), joinProbeFactory, probeOnOuterSide);
+            this.lookupSourceFuture = requireNonNull(lookupSourceFuture, "lookupSourceFuture is null");
+            this.probePages = requireNonNull(probePages, "probePages is null");
+        }
+
+        public ListenableFuture<?> isBlocked()
+        {
+            return lookupJoiner.isBlocked();
+        }
+
+        public Page getOutput()
+        {
+            if (!lookupJoiner.needsInput()) {
+                return lookupJoiner.getOutput();
+            }
+            if (!probePages.hasNext()) {
+                lookupJoiner.finish();
+                return null;
+            }
+            Page probePage = probePages.next();
+            lookupJoiner.addInput(probePage);
+
+            return lookupJoiner.getOutput();
+        }
+
+        public boolean isFinished()
+        {
+            return lookupJoiner.isFinished();
+        }
+
+        public long getInMemorySizeInBytes()
+        {
+            if (lookupSourceFuture.isDone()) {
+                return getFutureValue(lookupSourceFuture).getInMemorySizeInBytes();
+            }
+            return 0;
         }
     }
 }
