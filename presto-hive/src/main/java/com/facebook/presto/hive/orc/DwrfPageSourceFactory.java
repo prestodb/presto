@@ -85,6 +85,7 @@ public class DwrfPageSourceFactory
                 typeManager,
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session)));
+                getOrcStreamBufferSize(session),
+                false));
     }
 }
