@@ -26,6 +26,7 @@ import static com.facebook.presto.util.Failures.checkCondition;
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
+@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
 public class LagFunction
         extends ValueWindowFunction
 {

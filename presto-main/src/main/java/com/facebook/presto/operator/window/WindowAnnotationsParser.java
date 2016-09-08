@@ -62,6 +62,8 @@ public final class WindowAnnotationsParser
                 argumentTypes,
                 false);
 
-        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz));
+        boolean canIgnoreNulls = window.name().equalsIgnoreCase("lag") || window.name().equalsIgnoreCase("lead");
+
+        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, canIgnoreNulls, clazz));
     }
 }
