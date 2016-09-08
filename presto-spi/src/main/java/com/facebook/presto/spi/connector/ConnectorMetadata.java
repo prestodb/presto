@@ -248,7 +248,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Start a SELECT/UPDATE/INSERT/DELETE query. This notification is triggered after the planning phase completes.
+     * Start a query. This notification is triggered after the planning phase completes.
      */
     default void beginQuery(ConnectorSession session) {}
 

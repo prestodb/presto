@@ -564,6 +564,15 @@ public class MetadataManager
     }
 
     @Override
+    public void beginQuery(Session session, String catalogName)
+    {
+        CatalogMetadata catalogMetadata = getOptionalCatalogMetadata(session, catalogName).get();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
+        metadata.beginQuery(connectorSession);
+    }
+
+    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
