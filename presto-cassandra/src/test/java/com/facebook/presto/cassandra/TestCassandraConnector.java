@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.HOSTNAME;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.KEYSPACE_NAME;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.PORT;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_NAME;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.initializeTestData;
@@ -89,7 +88,8 @@ public class TestCassandraConnector
     {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
 
-        initializeTestData(DATE);
+        String keyspace = "test_connector";
+        initializeTestData(DATE, keyspace);
 
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(
@@ -110,7 +110,7 @@ public class TestCassandraConnector
         recordSetProvider = connector.getRecordSetProvider();
         assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
 
-        database = KEYSPACE_NAME.toLowerCase();
+        database = keyspace;
         table = new SchemaTableName(database, TABLE_NAME.toLowerCase());
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");

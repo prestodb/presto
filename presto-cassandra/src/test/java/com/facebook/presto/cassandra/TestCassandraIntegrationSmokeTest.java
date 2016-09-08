@@ -37,11 +37,12 @@ public class TestCassandraIntegrationSmokeTest
     @Test
     public void testStringPartitionKey()
     {
-        initializeTestData(new Date());
+        String keyspace = "smoke_test";
+        initializeTestData(new Date(), keyspace);
 
-        queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 1'");
-        queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 2'");
-        queryRunner.execute(createCassandraSession("presto_database"), "select * from presto_database.presto_test where key='key 3'");
+        queryRunner.execute(createCassandraSession(keyspace), "select * from presto_test where key='key 1'");
+        queryRunner.execute(createCassandraSession(keyspace), "select * from presto_test where key='key 2'");
+        queryRunner.execute(createCassandraSession(keyspace), "select * from presto_test where key='key 3'");
     }
 
     @Override

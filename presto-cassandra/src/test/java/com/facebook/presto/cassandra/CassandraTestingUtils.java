@@ -34,7 +34,6 @@ public class CassandraTestingUtils
 {
     public static final String HOSTNAME = "localhost";
     public static final int PORT = 9142;
-    public static final String KEYSPACE_NAME = "Presto_Database";
     public static final String TABLE_NAME = "Presto_Test";
     private static final String CLUSTER_NAME = "TestCluster";
 
@@ -54,14 +53,14 @@ public class CassandraTestingUtils
         session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor':1}");
     }
 
-    public static void initializeTestData(Date date)
+    public static void initializeTestData(Date date, String keyspace)
     {
         try (Cluster cluster = getCluster()) {
             try (Session session = cluster.connect()) {
-                createOrReplaceKeyspace(session, KEYSPACE_NAME);
+                createOrReplaceKeyspace(session, keyspace);
             }
 
-            try (Session session = cluster.connect(KEYSPACE_NAME)) {
+            try (Session session = cluster.connect(keyspace)) {
                 session.execute("DROP TABLE IF EXISTS " + TABLE_NAME);
                 session.execute("CREATE TABLE " + TABLE_NAME + " (" +
                         " key text PRIMARY KEY, " +
@@ -92,7 +91,7 @@ public class CassandraTestingUtils
         }
     }
 
-    @Table(keyspace = "presto_database", name = "presto_test")
+    @Table(name = "presto_test")
     public static class TableRow
     {
         @PartitionKey
