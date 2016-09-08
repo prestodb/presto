@@ -15,8 +15,8 @@ package com.facebook.presto.hive;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
-import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
@@ -69,7 +69,7 @@ public class TestPrestoS3FileSystem
 
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
-            assertInstanceOf(getAwsCredentialsProvider(fs), StaticCredentialsProvider.class);
+            assertInstanceOf(getAwsCredentialsProvider(fs), AWSStaticCredentialsProvider.class);
         }
     }
 
