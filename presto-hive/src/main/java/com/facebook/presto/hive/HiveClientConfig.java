@@ -342,6 +342,7 @@ public class HiveClientConfig
         return metastoreCacheTtl;
     }
 
+    @MinDuration("0ms")
     @Config("hive.metastore-cache-ttl")
     public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
@@ -355,6 +356,7 @@ public class HiveClientConfig
         return metastoreRefreshInterval;
     }
 
+    @MinDuration("1ms")
     @Config("hive.metastore-refresh-interval")
     public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
