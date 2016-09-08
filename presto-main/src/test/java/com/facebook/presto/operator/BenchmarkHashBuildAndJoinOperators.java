@@ -280,7 +280,10 @@ public class BenchmarkHashBuildAndJoinOperators
                 false,
                 Optional.empty(),
                 10_000,
-                1);
+                1,
+                false,
+                new DataSize(1, GIGABYTE),
+                () -> 0);
 
         Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
         for (Page page : buildContext.getBuildPages()) {

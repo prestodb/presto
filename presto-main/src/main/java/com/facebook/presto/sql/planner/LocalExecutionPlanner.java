@@ -1518,6 +1518,8 @@ public class LocalExecutionPlanner
                 Map<Symbol, Integer> probeLayout,
                 LocalExecutionPlanContext context)
         {
+            boolean spillEnabled = isSpillEnabled(context.getSession());
+            DataSize memoryLimitBeforeSpill = getOperatorMemoryLimitBeforeSpill(context.getSession());
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
             List<Symbol> buildOutputSymbols = node.getOutputSymbols().stream()
@@ -1541,7 +1543,10 @@ public class LocalExecutionPlanner
                     node.getType() == RIGHT || node.getType() == FULL,
                     filterFunctionFactory,
                     10_000,
-                    buildContext.getDriverInstanceCount().orElse(1));
+                    buildContext.getDriverInstanceCount().orElse(1),
+                    false,
+                    memoryLimitBeforeSpill,
+                    spillerFactory);
 
             context.addDriverFactory(new DriverFactory(
                     buildContext.isInputDriver(),
