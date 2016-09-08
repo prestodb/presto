@@ -67,4 +67,37 @@ public class TestPrestoDriverUri
         assertEquals(uri.getPort(), 443);
         assertEquals(uri.getScheme(), "https");
     }
+
+    @Test
+    public void testURIWithSecureMissing()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = new PrestoDriverUri(URI.create("presto://localhost:8080/blackhole"));
+
+        URI uri = parameters.getHttpUri();
+        assertEquals(uri.getPort(), 8080);
+        assertEquals(uri.getScheme(), "http");
+    }
+
+    @Test
+    public void testURIWithSecureTrue()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = new PrestoDriverUri(URI.create("presto://localhost:8080/blackhole?secure=true"));
+
+        URI uri = parameters.getHttpUri();
+        assertEquals(uri.getPort(), 8080);
+        assertEquals(uri.getScheme(), "https");
+    }
+
+    @Test
+    public void testURIWithSecureFalse()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = new PrestoDriverUri(URI.create("presto://localhost:8080/blackhole?secure=false"));
+
+        URI uri = parameters.getHttpUri();
+        assertEquals(uri.getPort(), 8080);
+        assertEquals(uri.getScheme(), "http");
+    }
 }
