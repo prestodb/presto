@@ -1469,6 +1469,32 @@ public class TestHiveIntegrationSmokeTest
         assertEqualsIgnoreOrder(actualAfterTransaction, expected);
     }
 
+    @Test
+    public void testRenamePartitionColumn()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            testRenamePartitionColumn(storageFormat);
+        }
+    }
+
+    private void testRenamePartitionColumn(HiveStorageFormat storageFormat)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_partitioned_table (" +
+                "_bigint BIGINT" +
+                ", _partition_bigint BIGINT" +
+                ") " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ '_partition_bigint' ]" +
+                ") ";
+
+        assertUpdate(createTable);
+        assertQueryFails("ALTER TABLE test_partitioned_table RENAME COLUMN _partition_bigint TO new_name", "Renaming partition columns is not supported");
+        assertUpdate("DROP TABLE test_partitioned_table");
+    }
+
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
