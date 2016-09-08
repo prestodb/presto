@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests.cli;
 
-import com.facebook.presto.tests.ImmutableTpchTablesRequirements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
@@ -21,7 +20,6 @@ import com.google.inject.name.Named;
 import com.teradata.tempto.AfterTestWithContext;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
-import com.teradata.tempto.Requires;
 import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.fulfillment.ldap.LdapObjectRequirement;
 import org.testng.annotations.Test;
@@ -39,9 +37,16 @@ import static com.facebook.presto.tests.ImmutableLdapObjectDefinitions.DEFAULT_G
 import static com.facebook.presto.tests.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static com.facebook.presto.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP;
 import static com.facebook.presto.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
+import static com.facebook.presto.tests.ImmutableLdapObjectDefinitions.SPECIAL_USER;
+import static com.facebook.presto.tests.ImmutableLdapObjectDefinitions.USER_IN_MULTIPLE_GROUPS;
 import static com.facebook.presto.tests.TestGroups.LDAP;
+import static com.facebook.presto.tests.TestGroups.LDAP_CLI;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static com.teradata.tempto.Requirements.compose;
+import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static com.teradata.tempto.process.CliProcess.trimLines;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,16 +90,16 @@ public class PrestoLdapCliTests
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return new LdapObjectRequirement(
+        return compose(new LdapObjectRequirement(
                 Arrays.asList(
                         AMERICA_ORG, ASIA_ORG,
                         DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
-                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER
-                ));
+                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS
+                )),
+                immutableTable(NATION));
     }
 
-    @Requires(ImmutableTpchTablesRequirements.ImmutableNationTable.class)
-    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldRunQueryWithLdap()
             throws IOException, InterruptedException
     {
@@ -104,8 +109,7 @@ public class PrestoLdapCliTests
         assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
     }
 
-    @Requires(ImmutableTpchTablesRequirements.ImmutableNationTable.class)
-    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldRunBatchQueryWithLdap()
             throws IOException, InterruptedException
     {
@@ -113,8 +117,7 @@ public class PrestoLdapCliTests
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
-    @Requires(ImmutableTpchTablesRequirements.ImmutableNationTable.class)
-    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldRunQueryFromFileWithLdap()
             throws IOException, InterruptedException
     {
@@ -126,17 +129,17 @@ public class PrestoLdapCliTests
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
-    @Test(groups = {PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldPassQueryForLdapUserInMultipleGroups()
             throws IOException, InterruptedException
     {
-        ldapUserName = "UserInMultipleGroups";
+        ldapUserName = USER_IN_MULTIPLE_GROUPS.getAttributes().get("cn");
 
         launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
-    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInChildGroup()
             throws IOException, InterruptedException
     {
@@ -145,7 +148,7 @@ public class PrestoLdapCliTests
         assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("User " + ldapUserName + " not a member of the authorized group")));
     }
 
-    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInParentGroup()
             throws IOException, InterruptedException
     {
@@ -154,13 +157,98 @@ public class PrestoLdapCliTests
         assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("User " + ldapUserName + " not a member of the authorized group")));
     }
 
-    @Test(groups = {LDAP, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForOrphanLdapUser()
             throws IOException, InterruptedException
     {
         ldapUserName = ORPHAN_USER.getAttributes().get("cn");
         launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
         assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("User " + ldapUserName + " not a member of the authorized group")));
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailQueryForWrongLdapPassword()
+            throws IOException, InterruptedException
+    {
+        ldapUserPassword = "wrong_password";
+        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Invalid credentials")));
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailQueryForWrongLdapUser()
+            throws IOException, InterruptedException
+    {
+        ldapUserName = "invalid_user";
+        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Invalid credentials")));
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailQueryForEmptyUser()
+            throws IOException, InterruptedException
+    {
+        ldapUserName = "";
+        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Invalid credentials")));
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailQueryForLdapWithoutPassword()
+            throws IOException, InterruptedException
+    {
+        launchPrestoCli("--server", ldapServerAddress,
+                "--truststore-path", ldapTruststorePath,
+                "--truststore-password", ldapTruststorePassword,
+                "--user", ldapUserName,
+                "--execute", "select * from hive.default.nation;");
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("statusMessage=Unauthorized")));
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailQueryForLdapWithoutHttps()
+            throws IOException, InterruptedException
+    {
+        ldapServerAddress = format("http://%s:8443", serverHost);
+        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Authentication using username/password requires HTTPS to be enabled")));
+        skipAfterTestWithContext();
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailForIncorrectTrustStore()
+            throws IOException, InterruptedException
+    {
+        ldapTruststorePassword = "wrong_password";
+        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Keystore was tampered with, or password was incorrect")));
+        skipAfterTestWithContext();
+    }
+
+    private void skipAfterTestWithContext()
+    {
+        presto.close();
+        presto = null;
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldPassForCredentialsWithSpecialCharacters()
+            throws IOException, InterruptedException
+    {
+        ldapUserName = SPECIAL_USER.getAttributes().get("cn");
+        ldapUserPassword = SPECIAL_USER.getAttributes().get("userPassword");
+        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+    }
+
+    @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldFailForUserWithColon()
+            throws IOException, InterruptedException
+    {
+        ldapUserName = "UserWith:Colon";
+        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertTrue(trimLines(presto.readRemainingErrorLines()).stream().anyMatch(str -> str.contains("Illegal character ':' found in username")));
+        skipAfterTestWithContext();
     }
 
     private void launchPrestoCliWithServerArgument(String... arguments)
