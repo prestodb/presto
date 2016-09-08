@@ -137,6 +137,7 @@ public class PrestoS3FileSystem
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
     public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
+    public static final String S3_USER_AGENT = "presto";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -187,7 +188,8 @@ public class PrestoS3FileSystem
                 .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
                 .withConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()))
                 .withSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()))
-                .withMaxConnections(maxConnections);
+                .withMaxConnections(maxConnections)
+                .withUserAgentSuffix(S3_USER_AGENT);
 
         this.s3 = createAmazonS3Client(uri, conf, configuration);
 
