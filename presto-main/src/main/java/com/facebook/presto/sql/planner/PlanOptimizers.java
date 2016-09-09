@@ -105,9 +105,7 @@ public class PlanOptimizers
             builder.add(new PruneUnreferencedOutputs());
         }
 
-        if (featuresConfig.getExtractDistinctAggregations()) {
-            builder.add(new ExtractDistinctAggregationOptimizer(metadata));
-        }
+        builder.add(new ExtractDistinctAggregationOptimizer(metadata));
 
         if (!forceSingleNode) {
             builder.add(new PushTableWriteThroughUnion()); // Must run before AddExchanges
