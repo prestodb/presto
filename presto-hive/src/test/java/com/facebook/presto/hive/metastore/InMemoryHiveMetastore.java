@@ -158,9 +158,7 @@ public class InMemoryHiveMetastore
             throw new TableNotFoundException(schemaTableName);
         }
         views.remove(schemaTableName);
-        partitions.keySet().stream()
-                .filter(partitionName -> partitionName.matches(databaseName, tableName))
-                .forEach(partitions::remove);
+        partitions.keySet().removeIf(partitionName -> partitionName.matches(databaseName, tableName));
 
         // remove data
         if (deleteData) {
@@ -284,13 +282,8 @@ public class InMemoryHiveMetastore
     @Override
     public synchronized void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        for (Entry<PartitionName, Partition> entry : partitions.entrySet()) {
-            PartitionName partitionName = entry.getKey();
-            Partition partition = entry.getValue();
-            if (partitionName.matches(databaseName, tableName) && partition.getValues().equals(parts)) {
-                partitions.remove(partitionName);
-            }
-        }
+        partitions.entrySet().removeIf(entry ->
+                entry.getKey().matches(databaseName, tableName) && entry.getValue().getValues().equals(parts));
     }
 
     @Override
