@@ -59,7 +59,7 @@ public class TestAccessControlManager
     public void testInitializing()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = createTestAccessControlManager();
         accessControlManager.checkCanSetUser(null, "foo");
     }
 
@@ -67,7 +67,7 @@ public class TestAccessControlManager
     public void testNoneSystemAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = createTestAccessControlManager();
         accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
         accessControlManager.checkCanSetUser(null, USER_NAME);
     }
@@ -76,7 +76,7 @@ public class TestAccessControlManager
     public void testSetAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = createTestAccessControlManager();
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -91,8 +91,9 @@ public class TestAccessControlManager
     public void testNoCatalogAccessControl()
             throws Exception
     {
-        TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, catalogManager);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -110,14 +111,14 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, catalogManager);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, "catalog");
-        accessControlManager.addCatalogAccessControl(connectorId, "catalog", new DenyConnectorAccessControl());
+        accessControlManager.addCatalogAccessControl(connectorId, new DenyConnectorAccessControl());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
@@ -131,19 +132,25 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, catalogManager);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         registerBogusConnector(catalogManager, transactionManager, "connector");
-        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), "secured_catalog", new DenyConnectorAccessControl());
+        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), new DenyConnectorAccessControl());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"));
                 });
+    }
+
+    private AccessControlManager createTestAccessControlManager()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        return new AccessControlManager(createTestTransactionManager(catalogManager), catalogManager);
     }
 
     private static ConnectorId registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, String catalogName)

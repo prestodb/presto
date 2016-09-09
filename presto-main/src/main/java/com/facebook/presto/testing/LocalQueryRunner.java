@@ -272,7 +272,7 @@ public class LocalQueryRunner
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        this.accessControl = new TestingAccessControlManager(transactionManager);
+        this.accessControl = new TestingAccessControlManager(transactionManager, catalogManager);
         this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
 
