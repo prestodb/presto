@@ -61,6 +61,7 @@ import static java.math.BigInteger.ZERO;
 
 public final class MathFunctions
 {
+    public static final SqlScalarFunction DECIMAL_TRUNCATE_FUNCTION = decimalTruncateNFunction();
     public static final SqlScalarFunction[] DECIMAL_CEILING_FUNCTIONS = {decimalCeilingFunction("ceiling"), decimalCeilingFunction("ceil")};
     public static final SqlScalarFunction DECIMAL_FLOOR_FUNCTION = decimalFloorFunction();
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
@@ -866,6 +867,72 @@ public final class MathFunctions
         BigInteger rounded = divideAndRemainder[0].add(roundUp).multiply(rescaleFactor);
         checkOverflow(rounded);
         return rounded;
+    }
+
+    private static SqlScalarFunction decimalTruncateNFunction()
+    {
+        Signature signature = Signature.builder()
+                .kind(SCALAR)
+                .name("truncate")
+                .argumentTypes(
+                        parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")),
+                        parseTypeSignature(StandardTypes.BIGINT))
+                .returnType(parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")))
+                .build();
+        return SqlScalarFunction.builder(MathFunctions.class)
+                .signature(signature)
+                .description("truncate decimal to N places after decimal point")
+                .implementation(b -> b
+                        .methods("truncateNShortDecimal", "truncateNLongDecimal")
+                        .withExtraParameters(MathFunctions::decimalTruncateNExtraParameters))
+                .build();
+    }
+
+    private static List<Object> decimalTruncateNExtraParameters(SpecializeContext context)
+    {
+        return ImmutableList.of(context.getLiteral("num_precision"), context.getLiteral("num_scale"));
+    }
+
+    @UsedByGeneratedCode
+    public static long truncateNShortDecimal(long num, long roundScale, long inputPrecision, long inputScale)
+    {
+        if (num == 0 || inputPrecision - inputScale + roundScale <= 0) {
+            return 0;
+        }
+        if (roundScale >= inputScale) {
+            return num;
+        }
+        if (num < 0) {
+            return -truncateNShortDecimal(-num, roundScale, inputPrecision, inputScale);
+        }
+
+        long rescaleFactor = longTenToNth((int) (inputScale - roundScale));
+        long remainder = num % rescaleFactor;
+        return num - remainder;
+    }
+
+    @UsedByGeneratedCode
+    public static Slice truncateNLongDecimal(Slice num, long roundScale, long inputPrecision, long inputScale)
+    {
+        BigInteger unscaledVal = decodeUnscaledValue(num);
+        if (unscaledVal.signum() == 0 || inputPrecision - inputScale + roundScale <= 0) {
+            return encodeUnscaledValue(0);
+        }
+        if (roundScale >= inputScale) {
+            return num;
+        }
+        BigInteger rescaleFactor = bigIntegerTenToNth((int) (inputScale - roundScale));
+        if (unscaledVal.signum() < 0) {
+            return encodeUnscaledValue(truncateNLongDecimal(unscaledVal.negate(), rescaleFactor).negate());
+        }
+        return encodeUnscaledValue(truncateNLongDecimal(unscaledVal, rescaleFactor));
+    }
+
+    @UsedByGeneratedCode
+    public static BigInteger truncateNLongDecimal(BigInteger num, BigInteger rescaleFactor)
+    {
+        BigInteger remainder = num.remainder(rescaleFactor);
+        return num.subtract(remainder);
     }
 
     @Description("round to given number of decimal places")
