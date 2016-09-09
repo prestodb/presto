@@ -225,7 +225,7 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, new FeaturesConfig(), false);
+        this(defaultSession, new FeaturesConfig().setOptimizeMixedDistinctAggregations(true), false);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)

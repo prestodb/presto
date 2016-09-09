@@ -52,6 +52,7 @@ public class FeaturesConfig
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean legacyArrayAgg;
+    private boolean optimizeMixedDistinctAggregations;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -296,6 +297,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerThreads(int spillerThreads)
     {
         this.spillerThreads = spillerThreads;
+        return this;
+    }
+
+    public boolean isOptimizeMixedDistinctAggregations()
+    {
+        return optimizeMixedDistinctAggregations;
+    }
+
+    @Config("optimizer.optimize-mixed-distinct-aggregations")
+    public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
+    {
+        this.optimizeMixedDistinctAggregations = value;
         return this;
     }
 }
