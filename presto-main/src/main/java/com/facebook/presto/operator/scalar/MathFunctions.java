@@ -692,7 +692,7 @@ public final class MathFunctions
                 .kind(SCALAR)
                 .name("round")
                 .longVariableConstraints(
-                        longVariableExpression("return_precision", "min(38, num_precision - num_scale + min(1, num_scale))"))
+                        longVariableExpression("return_precision", "num_precision - num_scale + min(1, num_scale)"))
                 .argumentTypes(parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")))
                 .returnType(parseTypeSignature("decimal(return_precision,0)", ImmutableSet.of("return_precision")))
                 .build();
