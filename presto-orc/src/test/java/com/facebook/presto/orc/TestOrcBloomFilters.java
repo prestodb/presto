@@ -270,7 +270,7 @@ public class TestOrcBloomFilters
 
         // predicate consist of the bigint_0 = 1234
         TupleDomain<String> effectivePredicate = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(column0)));
-        TupleDomain<String> emptyEffectivePredicate = TupleDomain.none();
+        TupleDomain<String> emptyEffectivePredicate = TupleDomain.all();
 
         // predicate column references
         List<ColumnReference<String>> columnReferences = ImmutableList.<ColumnReference<String>>builder()
