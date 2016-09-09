@@ -19,23 +19,33 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
-import com.google.common.collect.ImmutableList;
 
-import java.util.List;
+import java.math.BigDecimal;
 
-public class TestShortDecimalMaxAggregation
+import static java.math.BigDecimal.ROUND_DOWN;
+import static java.math.BigDecimal.ROUND_HALF_UP;
+
+public abstract class AbstractTestDecimalAverageAggregation
         extends AbstractTestAggregationFunction
 {
-    public static final DecimalType SHORT_DECIMAL = DecimalType.createDecimalType(10, 5);
+    protected abstract DecimalType getDecimalType();
 
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = SHORT_DECIMAL.createBlockBuilder(new BlockBuilderStatus(), length);
+        BlockBuilder blockBuilder = getDecimalType().createBlockBuilder(new BlockBuilderStatus(), length);
         for (int i = start; i < start + length; i++) {
-            SHORT_DECIMAL.writeLong(blockBuilder, i);
+            writeDecimalToBlock(getBigDecimalForCounter(i), blockBuilder);
         }
         return new Block[] {blockBuilder.build()};
+    }
+
+    protected abstract void writeDecimalToBlock(BigDecimal decimal, BlockBuilder blockBuilder);
+
+    private BigDecimal getBigDecimalForCounter(int i)
+    {
+        String iAsString = String.valueOf(Math.abs(i));
+        return new BigDecimal(String.valueOf(i) + "." + iAsString + iAsString).setScale(2, ROUND_DOWN);
     }
 
     @Override
@@ -44,18 +54,17 @@ public class TestShortDecimalMaxAggregation
         if (length == 0) {
             return null;
         }
-        return SqlDecimal.of(start + length - 1, 10, 5);
+        BigDecimal avg = BigDecimal.ZERO;
+        for (int i = start; i < start + length; i++) {
+            avg = avg.add(getBigDecimalForCounter(i));
+        }
+        avg = avg.divide(BigDecimal.valueOf(length), ROUND_HALF_UP);
+        return new SqlDecimal(avg.unscaledValue(), avg.precision(), avg.scale());
     }
 
     @Override
     protected String getFunctionName()
     {
-        return "max";
-    }
-
-    @Override
-    protected List<String> getFunctionParameterTypes()
-    {
-        return ImmutableList.of(SHORT_DECIMAL.getTypeSignature().toString());
+        return "avg";
     }
 }
