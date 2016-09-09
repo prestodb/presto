@@ -32,6 +32,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableIdentity;
@@ -49,6 +50,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -73,6 +75,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
@@ -108,6 +112,8 @@ public class MetadataManager
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final TransactionManager transactionManager;
+
+    private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
 
     public MetadataManager(FeaturesConfig featuresConfig,
             TypeManager typeManager,
@@ -560,7 +566,14 @@ public class MetadataManager
             ConnectorMetadata metadata = getMetadata(session, connectorId);
             ConnectorSession connectorSession = session.toConnectorSession(connectorId);
             metadata.beginQuery(connectorSession);
+            registerCatalogForQueryId(session.getQueryId(), metadata);
         }
+    }
+
+    private void registerCatalogForQueryId(QueryId queryId, ConnectorMetadata metadata)
+    {
+        catalogsByQueryId.putIfAbsent(queryId.getId(), new ArrayList<>());
+        catalogsByQueryId.get(queryId.getId()).add(metadata);
     }
 
     @Override
@@ -570,6 +583,25 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
         metadata.beginQuery(connectorSession);
+        registerCatalogForQueryId(session.getQueryId(), metadata);
+    }
+
+    @Override
+    public void endQuery(Session session)
+    {
+        try {
+            Collection<ConnectorMetadata> catalogs = catalogsByQueryId.get(session.getQueryId().getId());
+            if (catalogs == null) {
+                return;
+            }
+
+            for (ConnectorMetadata metadata : catalogs) {
+                metadata.endQuery(session.toConnectorSession());
+            }
+        }
+        finally {
+            catalogsByQueryId.remove(session.getQueryId().getId());
+        }
     }
 
     @Override
@@ -879,5 +911,11 @@ public class MetadataManager
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TypeRegistry())));
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
+    }
+
+    @VisibleForTesting
+    public Map<String, Collection<ConnectorMetadata>> getCatalogsByQueryId()
+    {
+        return ImmutableMap.copyOf(catalogsByQueryId);
     }
 }

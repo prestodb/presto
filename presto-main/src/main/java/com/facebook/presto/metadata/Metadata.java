@@ -183,6 +183,11 @@ public interface Metadata
     void beginQuery(Session session, String catalogName);
 
     /**
+     * End a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
+     */
+    void endQuery(Session session);
+
+    /**
      * Begin insert query
      */
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
