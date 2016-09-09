@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -489,6 +490,12 @@ public class ExpressionInterpreter
 
             Expression resultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
             return new SearchedCaseExpression(whenClauses, Optional.ofNullable(resultExpression));
+        }
+
+        @Override
+        protected Object visitIfExpression(IfExpression node, Object context)
+        {
+            return node;
         }
 
         private Object processWithExceptionHandling(Expression expression, Object context)

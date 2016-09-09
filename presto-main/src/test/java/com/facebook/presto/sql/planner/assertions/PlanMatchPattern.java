@@ -17,8 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -32,6 +35,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -120,6 +124,16 @@ public final class PlanMatchPattern
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
     {
         return node(ApplyNode.class, inputPattern, subqueryPattern).with(new CorrelationMatcher(correlationSymbolAliases));
+    }
+
+    public static PlanMatchPattern groupingSet(List<List<Symbol>> groups, PlanMatchPattern source)
+    {
+        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of()));
+    }
+
+    public static PlanMatchPattern aggregation(List<List<Symbol>> groupingSets, List<FunctionCall> aggregations, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, PlanMatchPattern source)
+    {
+        return node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, aggregations, masks, groupId));
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
