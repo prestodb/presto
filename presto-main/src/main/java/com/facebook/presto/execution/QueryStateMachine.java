@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.security.AccessControl;
@@ -85,6 +86,7 @@ public class QueryStateMachine
     private final boolean autoCommit;
     private final TransactionManager transactionManager;
     private final Ticker ticker;
+    private final Metadata metadata;
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
@@ -127,7 +129,7 @@ public class QueryStateMachine
 
     private final AtomicReference<String> resourceGroup = new AtomicReference<>();
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker)
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker, Metadata metadata)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
@@ -136,6 +138,7 @@ public class QueryStateMachine
         this.autoCommit = autoCommit;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.ticker = ticker;
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.createNanos = tickerNanos();
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
@@ -153,9 +156,10 @@ public class QueryStateMachine
             boolean transactionControl,
             TransactionManager transactionManager,
             AccessControl accessControl,
-            Executor executor)
+            Executor executor,
+            Metadata metadata)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker());
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker(), metadata);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -167,7 +171,8 @@ public class QueryStateMachine
             TransactionManager transactionManager,
             AccessControl accessControl,
             Executor executor,
-            Ticker ticker)
+            Ticker ticker,
+            Metadata metadata)
     {
         session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
 
@@ -182,7 +187,7 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker, metadata);
         queryStateMachine.addStateChangeListener(newState -> log.debug("Query %s is %s", queryId, newState));
         queryStateMachine.addStateChangeListener(newState -> {
             if (newState.isDone()) {
@@ -196,9 +201,9 @@ public class QueryStateMachine
     /**
      * Create a QueryStateMachine that is already in a failed state.
      */
-    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Throwable throwable)
+    public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Metadata metadata, Throwable throwable)
     {
-        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), throwable);
+        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), metadata, throwable);
     }
 
     static QueryStateMachine failedWithTicker(
@@ -209,9 +214,10 @@ public class QueryStateMachine
             TransactionManager transactionManager,
             Executor executor,
             Ticker ticker,
+            Metadata metadata,
             Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker, metadata);
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -589,6 +595,13 @@ public class QueryStateMachine
 
     private boolean transitionToFinished()
     {
+        try {
+            metadata.cleanupQuery(session);
+        }
+        catch (Throwable t) {
+            log.error("Error during cleanupQuery: %s", t);
+        }
+
         recordDoneStats();
 
         return queryState.setIf(FINISHED, currentState -> !currentState.isDone());
@@ -596,6 +609,13 @@ public class QueryStateMachine
 
     public boolean transitionToFailed(Throwable throwable)
     {
+        try {
+            metadata.cleanupQuery(session);
+        }
+        catch (Throwable t) {
+            log.error("Error during cleanupQuery: %s", t);
+        }
+
         requireNonNull(throwable, "throwable is null");
 
         recordDoneStats();
