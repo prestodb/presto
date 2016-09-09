@@ -41,7 +41,7 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN);
+        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
     public void addCurrentNodeDatasource(String datasourceName)

@@ -146,7 +146,7 @@ public class BenchmarkNodeScheduler
 
             ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
             for (int i = 0; i < NODES; i++) {
-                nodeBuilder.add(new PrestoNode("node" + i, URI.create("http://" + addressForHost(i).getHostText()), NodeVersion.UNKNOWN));
+                nodeBuilder.add(new PrestoNode("node" + i, URI.create("http://" + addressForHost(i).getHostText()), NodeVersion.UNKNOWN, false));
             }
             List<Node> nodes = nodeBuilder.build();
             MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(Executors.newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s")));

@@ -174,8 +174,9 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service);
             NodeVersion nodeVersion = getNodeVersion(service);
+            boolean coordinator = isCoordinator(service);
             if (uri != null && nodeVersion != null) {
-                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion);
+                PrestoNode node = new PrestoNode(service.getNodeId(), uri, nodeVersion, coordinator);
                 NodeState nodeState = getNodeState(node);
 
                 // record current node
@@ -187,7 +188,7 @@ public final class DiscoveryNodeManager
                 switch (nodeState) {
                     case ACTIVE:
                         activeNodesBuilder.add(node);
-                        if (Boolean.parseBoolean(service.getProperties().get("coordinator"))) {
+                        if (coordinator) {
                             coordinatorsBuilder.add(node);
                         }
 
@@ -340,5 +341,10 @@ public final class DiscoveryNodeManager
     {
         String nodeVersion = descriptor.getProperties().get("node_version");
         return nodeVersion == null ? null : new NodeVersion(nodeVersion);
+    }
+
+    private static boolean isCoordinator(ServiceDescriptor service)
+    {
+        return Boolean.parseBoolean(service.getProperties().get("coordinator"));
     }
 }
