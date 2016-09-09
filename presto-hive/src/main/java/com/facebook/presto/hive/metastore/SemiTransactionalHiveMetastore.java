@@ -1442,7 +1442,7 @@ public class SemiTransactionalHiveMetastore
                     }
                 }
                 if (eligible) {
-                    if (!deleteIfExists(fileSystem, filePath)) {
+                    if (!deleteIfExists(fileSystem, filePath, false)) {
                         allDescendentsDeleted = false;
                         notDeletedEligibleItems.add(filePath.toString());
                     }
@@ -1467,7 +1467,7 @@ public class SemiTransactionalHiveMetastore
         }
         if (allDescendentsDeleted && deleteEmptyDirectories) {
             verify(notDeletedEligibleItems.build().isEmpty());
-            if (!deleteIfExists(fileSystem, directory)) {
+            if (!deleteIfExists(fileSystem, directory, false)) {
                 return new RecursiveDeleteResult(false, ImmutableList.of(directory.toString() + "/"));
             }
             return new RecursiveDeleteResult(true, ImmutableList.of());
@@ -1480,11 +1480,11 @@ public class SemiTransactionalHiveMetastore
      *
      * @return true if the location no longer exists
      */
-    private static boolean deleteIfExists(FileSystem fileSystem, Path path)
+    private static boolean deleteIfExists(FileSystem fileSystem, Path path, boolean recursive)
     {
         try {
             // attempt to delete the path
-            if (fileSystem.delete(path, false)) {
+            if (fileSystem.delete(path, recursive)) {
                 return true;
             }
 
@@ -1516,28 +1516,7 @@ public class SemiTransactionalHiveMetastore
             return false;
         }
 
-        return deleteRecursivelyIfExists(fileSystem, path);
-    }
-
-    private static boolean deleteRecursivelyIfExists(FileSystem fileSystem, Path path)
-    {
-        try {
-            // attempt to delete the path
-            if (fileSystem.delete(path, true)) {
-                return true;
-            }
-
-            // delete failed
-            // check if path still exists
-            return !fileSystem.exists(path);
-        }
-        catch (FileNotFoundException ignored) {
-            // path was already removed or never existed
-            return true;
-        }
-        catch (IOException ignored) {
-        }
-        return false;
+        return deleteIfExists(fileSystem, path, true);
     }
 
     private static void renameDirectory(String user, HdfsEnvironment hdfsEnvironment, Path source, Path target, Runnable runWhenPathDoesntExist)
