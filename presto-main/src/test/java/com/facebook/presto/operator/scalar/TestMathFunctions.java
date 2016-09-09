@@ -654,10 +654,135 @@ public class TestMathFunctions
         assertFunction("round(REAL '-3.5001', 1)", REAL, -3.5f);
         assertFunction("round(REAL '-3.99', 1)", REAL, -4.0f);
 
+        // ROUND short DECIMAL -> short DECIMAL
+        assertFunction("round(DECIMAL '0')", createDecimalType(1, 0), SqlDecimal.of("0"));
+        assertFunction("round(DECIMAL '0.1')", createDecimalType(1, 0), SqlDecimal.of("0"));
+        assertFunction("round(DECIMAL '-0.1')", createDecimalType(1, 0), SqlDecimal.of("0"));
+        assertFunction("round(DECIMAL '3')", createDecimalType(1, 0), SqlDecimal.of("3"));
+        assertFunction("round(DECIMAL '-3')", createDecimalType(1, 0), SqlDecimal.of("-3"));
+        assertFunction("round(DECIMAL '3.0')", createDecimalType(2, 0), SqlDecimal.of("3"));
+        assertFunction("round(DECIMAL '-3.0')", createDecimalType(2, 0), SqlDecimal.of("-3"));
+        assertFunction("round(DECIMAL '3.49')", createDecimalType(2, 0), SqlDecimal.of("3"));
+        assertFunction("round(DECIMAL '-3.49')", createDecimalType(2, 0), SqlDecimal.of("-3"));
+        assertFunction("round(DECIMAL '3.50')", createDecimalType(2, 0), SqlDecimal.of("4"));
+        assertFunction("round(DECIMAL '-3.50')", createDecimalType(2, 0), SqlDecimal.of("-4"));
+        assertFunction("round(DECIMAL '3.99')", createDecimalType(2, 0), SqlDecimal.of("4"));
+        assertFunction("round(DECIMAL '-3.99')", createDecimalType(2, 0), SqlDecimal.of("-4"));
+        assertFunction("round(DECIMAL '9.99')", createDecimalType(2, 0), SqlDecimal.of("10"));
+        assertFunction("round(DECIMAL '-9.99')", createDecimalType(2, 0), SqlDecimal.of("-10"));
+        assertFunction("round(DECIMAL '9999.9')", createDecimalType(5, 0), SqlDecimal.of("10000"));
+        assertFunction("round(DECIMAL '-9999.9')", createDecimalType(5, 0), SqlDecimal.of("-10000"));
+        assertFunction("round(DECIMAL '1000000000000.9999')", createDecimalType(14, 0), SqlDecimal.of("1000000000001"));
+        assertFunction("round(DECIMAL '-1000000000000.9999')", createDecimalType(14, 0), SqlDecimal.of("-1000000000001"));
+        assertFunction("round(DECIMAL '10000000000000000')", createDecimalType(17, 0), SqlDecimal.of("10000000000000000"));
+        assertFunction("round(DECIMAL '-10000000000000000')", createDecimalType(17, 0), SqlDecimal.of("-10000000000000000"));
+
+        // ROUND long DECIMAL -> long DECIMAL
+        assertFunction("round(CAST(0 AS DECIMAL(18,0)))", createDecimalType(18, 0), SqlDecimal.of("0"));
+        assertFunction("round(CAST(0 AS DECIMAL(18,1)))", createDecimalType(18, 0), SqlDecimal.of("0"));
+        assertFunction("round(CAST(0 AS DECIMAL(18,2)))", createDecimalType(17, 0), SqlDecimal.of("0"));
+        assertFunction("round(CAST(DECIMAL '0.1' AS DECIMAL(18,1)))", createDecimalType(18, 0), SqlDecimal.of("0"));
+        assertFunction("round(CAST(DECIMAL '-0.1' AS DECIMAL(18,1)))", createDecimalType(18, 0), SqlDecimal.of("0"));
+        assertFunction("round(DECIMAL '3000000000000000000000')", createDecimalType(22, 0), SqlDecimal.of("3000000000000000000000"));
+        assertFunction("round(DECIMAL '-3000000000000000000000')", createDecimalType(22, 0), SqlDecimal.of("-3000000000000000000000"));
+        assertFunction("round(DECIMAL '3000000000000000000000.0')", createDecimalType(23, 0), SqlDecimal.of("3000000000000000000000"));
+        assertFunction("round(DECIMAL '-3000000000000000000000.0')", createDecimalType(23, 0), SqlDecimal.of("-3000000000000000000000"));
+        assertFunction("round(DECIMAL '3000000000000000000000.49')", createDecimalType(23, 0), SqlDecimal.of("3000000000000000000000"));
+        assertFunction("round(DECIMAL '-3000000000000000000000.49')", createDecimalType(23, 0), SqlDecimal.of("-3000000000000000000000"));
+        assertFunction("round(DECIMAL '3000000000000000000000.50')", createDecimalType(23, 0), SqlDecimal.of("3000000000000000000001"));
+        assertFunction("round(DECIMAL '-3000000000000000000000.50')", createDecimalType(23, 0), SqlDecimal.of("-3000000000000000000001"));
+        assertFunction("round(DECIMAL '3000000000000000000000.99')", createDecimalType(23, 0), SqlDecimal.of("3000000000000000000001"));
+        assertFunction("round(DECIMAL '-3000000000000000000000.99')", createDecimalType(23, 0), SqlDecimal.of("-3000000000000000000001"));
+        assertFunction("round(DECIMAL '9999999999999999999999.99')", createDecimalType(23, 0), SqlDecimal.of("10000000000000000000000"));
+        assertFunction("round(DECIMAL '-9999999999999999999999.99')", createDecimalType(23, 0), SqlDecimal.of("-10000000000000000000000"));
+        assertFunction("round(DECIMAL '1000000000000000000000000000000000.9999')", createDecimalType(35, 0), SqlDecimal.of("1000000000000000000000000000000001"));
+        assertFunction("round(DECIMAL '-1000000000000000000000000000000000.9999')", createDecimalType(35, 0), SqlDecimal.of("-1000000000000000000000000000000001"));
+        assertFunction("round(DECIMAL '10000000000000000000000000000000000000')", createDecimalType(38, 0), SqlDecimal.of("10000000000000000000000000000000000000"));
+        assertFunction("round(DECIMAL '-10000000000000000000000000000000000000')", createDecimalType(38, 0), SqlDecimal.of("-10000000000000000000000000000000000000"));
+
+        // ROUND long DECIMAL -> short DECIMAL
+        assertFunction("round(DECIMAL '3000000000000000.000000')", createDecimalType(17, 0), SqlDecimal.of("3000000000000000"));
+        assertFunction("round(DECIMAL '-3000000000000000.000000')", createDecimalType(17, 0), SqlDecimal.of("-3000000000000000"));
+        assertFunction("round(DECIMAL '3000000000000000.499999')", createDecimalType(17, 0), SqlDecimal.of("3000000000000000"));
+        assertFunction("round(DECIMAL '-3000000000000000.499999')", createDecimalType(17, 0), SqlDecimal.of("-3000000000000000"));
+        assertFunction("round(DECIMAL '3000000000000000.500000')", createDecimalType(17, 0), SqlDecimal.of("3000000000000001"));
+        assertFunction("round(DECIMAL '-3000000000000000.500000')", createDecimalType(17, 0), SqlDecimal.of("-3000000000000001"));
+        assertFunction("round(DECIMAL '3000000000000000.999999')", createDecimalType(17, 0), SqlDecimal.of("3000000000000001"));
+        assertFunction("round(DECIMAL '-3000000000000000.999999')", createDecimalType(17, 0), SqlDecimal.of("-3000000000000001"));
+        assertFunction("round(DECIMAL '9999999999999999.999999')", createDecimalType(17, 0), SqlDecimal.of("10000000000000000"));
+        assertFunction("round(DECIMAL '-9999999999999999.999999')", createDecimalType(17, 0), SqlDecimal.of("-10000000000000000"));
+
+        // ROUND_N short DECIMAL -> short DECIMAL
+        assertFunction("round(DECIMAL '3', 1)", createDecimalType(2, 0), SqlDecimal.of("3"));
+        assertFunction("round(DECIMAL '-3', 1)", createDecimalType(2, 0), SqlDecimal.of("-3"));
+        assertFunction("round(DECIMAL '3.0', 1)", createDecimalType(3, 1), SqlDecimal.of("3.0"));
+        assertFunction("round(DECIMAL '-3.0', 1)", createDecimalType(3, 1), SqlDecimal.of("-3.0"));
+        assertFunction("round(DECIMAL '3.449', 1)", createDecimalType(5, 3), SqlDecimal.of("3.400"));
+        assertFunction("round(DECIMAL '-3.449', 1)", createDecimalType(5, 3), SqlDecimal.of("-3.400"));
+        assertFunction("round(DECIMAL '3.450', 1)", createDecimalType(5, 3), SqlDecimal.of("3.500"));
+        assertFunction("round(DECIMAL '-3.450', 1)", createDecimalType(5, 3), SqlDecimal.of("-3.500"));
+        assertFunction("round(DECIMAL '3.99', 1)", createDecimalType(4, 2), SqlDecimal.of("4.00"));
+        assertFunction("round(DECIMAL '-3.99', 1)", createDecimalType(4, 2), SqlDecimal.of("-4.00"));
+        assertFunction("round(DECIMAL '9.99', 1)", createDecimalType(4, 2), SqlDecimal.of("10.00"));
+        assertFunction("round(DECIMAL '-9.99', 1)", createDecimalType(4, 2), SqlDecimal.of("-10.00"));
+        assertFunction("round(DECIMAL '0.00', 1)", createDecimalType(3, 2), SqlDecimal.of("0.00"));
+        assertFunction("round(DECIMAL '1234', 7)", createDecimalType(5, 0), SqlDecimal.of("1234"));
+        assertFunction("round(DECIMAL '-1234', 7)", createDecimalType(5, 0), SqlDecimal.of("-1234"));
+        assertFunction("round(DECIMAL '1234', -7)", createDecimalType(5, 0), SqlDecimal.of("0"));
+        assertFunction("round(DECIMAL '-1234', -7)", createDecimalType(5, 0), SqlDecimal.of("0"));
+        assertFunction("round(DECIMAL '1234.5678', 7)", createDecimalType(9, 4), SqlDecimal.of("1234.5678"));
+        assertFunction("round(DECIMAL '-1234.5678', 7)", createDecimalType(9, 4), SqlDecimal.of("-1234.5678"));
+        assertFunction("round(DECIMAL '1234.5678', -2)", createDecimalType(9, 4), SqlDecimal.of("1200.0000"));
+        assertFunction("round(DECIMAL '-1234.5678', -2)", createDecimalType(9, 4), SqlDecimal.of("-1200.0000"));
+        assertFunction("round(DECIMAL '1254.5678', -2)", createDecimalType(9, 4), SqlDecimal.of("1300.0000"));
+        assertFunction("round(DECIMAL '-1254.5678', -2)", createDecimalType(9, 4), SqlDecimal.of("-1300.0000"));
+        assertFunction("round(DECIMAL '1234.5678', -7)", createDecimalType(9, 4), SqlDecimal.of("0.0000"));
+        assertFunction("round(DECIMAL '-1234.5678', -7)", createDecimalType(9, 4), SqlDecimal.of("0.0000"));
+        assertFunction("round(DECIMAL '99', -1)", createDecimalType(3, 0), SqlDecimal.of("100"));
+
+        // ROUND_N long DECIMAL -> long DECIMAL
+        assertFunction("round(DECIMAL '123456789012345678', 1)", createDecimalType(19, 0), SqlDecimal.of("123456789012345678"));
+        assertFunction("round(DECIMAL '-123456789012345678', 1)", createDecimalType(19, 0), SqlDecimal.of("-123456789012345678"));
+        assertFunction("round(DECIMAL '123456789012345678.0', 1)", createDecimalType(20, 1), SqlDecimal.of("123456789012345678.0"));
+        assertFunction("round(DECIMAL '-123456789012345678.0', 1)", createDecimalType(20, 1), SqlDecimal.of("-123456789012345678.0"));
+        assertFunction("round(DECIMAL '123456789012345678.449', 1)", createDecimalType(22, 3), SqlDecimal.of("123456789012345678.400"));
+        assertFunction("round(DECIMAL '-123456789012345678.449', 1)", createDecimalType(22, 3), SqlDecimal.of("-123456789012345678.400"));
+        assertFunction("round(DECIMAL '123456789012345678.45', 1)", createDecimalType(21, 2), SqlDecimal.of("123456789012345678.50"));
+        assertFunction("round(DECIMAL '-123456789012345678.45', 1)", createDecimalType(21, 2), SqlDecimal.of("-123456789012345678.50"));
+        assertFunction("round(DECIMAL '123456789012345678.501', 1)", createDecimalType(22, 3), SqlDecimal.of("123456789012345678.500"));
+        assertFunction("round(DECIMAL '-123456789012345678.501', 1)", createDecimalType(22, 3), SqlDecimal.of("-123456789012345678.500"));
+        assertFunction("round(DECIMAL '999999999999999999.99', 1)", createDecimalType(21, 2), SqlDecimal.of("1000000000000000000.00"));
+        assertFunction("round(DECIMAL '-999999999999999999.99', 1)", createDecimalType(21, 2), SqlDecimal.of("-1000000000000000000.00"));
+        assertFunction("round(DECIMAL '123456789012345678', 7)", createDecimalType(19, 0), SqlDecimal.of("123456789012345678"));
+        assertFunction("round(DECIMAL '-123456789012345678', 7)", createDecimalType(19, 0), SqlDecimal.of("-123456789012345678"));
+        assertFunction("round(DECIMAL '123456789012345678.99', 7)", createDecimalType(21, 2), SqlDecimal.of("123456789012345678.99"));
+        assertFunction("round(DECIMAL '-123456789012345678.99', 7)", createDecimalType(21, 2), SqlDecimal.of("-123456789012345678.99"));
+        assertFunction("round(DECIMAL '123456789012345611.99', -2)", createDecimalType(21, 2), SqlDecimal.of("123456789012345600.00"));
+        assertFunction("round(DECIMAL '-123456789012345611.99', -2)", createDecimalType(21, 2), SqlDecimal.of("-123456789012345600.00"));
+        assertFunction("round(DECIMAL '123456789012345678.99', -2)", createDecimalType(21, 2), SqlDecimal.of("123456789012345700.00"));
+        assertFunction("round(DECIMAL '-123456789012345678.99', -2)", createDecimalType(21, 2), SqlDecimal.of("-123456789012345700.00"));
+        assertFunction("round(DECIMAL '123456789012345678.99', -30)", createDecimalType(21, 2), SqlDecimal.of("0.00"));
+        assertFunction("round(DECIMAL '-123456789012345678.99', -30)", createDecimalType(21, 2), SqlDecimal.of("0.00"));
+
+        // ROUND_N short DECIMAL -> long DECIMAL
+        assertFunction("round(DECIMAL '999999999999999.99', 1)", createDecimalType(18, 2), SqlDecimal.of("1000000000000000.00"));
+        assertFunction("round(DECIMAL '-999999999999999.99', 1)", createDecimalType(18, 2), SqlDecimal.of("-1000000000000000.00"));
+        assertFunction("round(DECIMAL '999999999999999.99', -1)", createDecimalType(18, 2), SqlDecimal.of("1000000000000000.00"));
+        assertFunction("round(DECIMAL '-999999999999999.99', -1)", createDecimalType(18, 2), SqlDecimal.of("-1000000000000000.00"));
+        assertFunction("round(DECIMAL '999999999999999.99', 2)", createDecimalType(18, 2), SqlDecimal.of("999999999999999.99"));
+        assertFunction("round(DECIMAL '-999999999999999.99', 2)", createDecimalType(18, 2), SqlDecimal.of("-999999999999999.99"));
+
+        // NULL
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(-3.0, CAST(NULL as BIGINT))", DOUBLE, null);
         assertFunction("round(CAST(NULL as DOUBLE), 1)", DOUBLE, null);
+        assertFunction("round(CAST(NULL as DECIMAL(1,0)), CAST(NULL as BIGINT))", createDecimalType(2, 0), null);
+        assertFunction("round(DECIMAL '-3.0', CAST(NULL as BIGINT))", createDecimalType(3, 1), null);
+        assertFunction("round(CAST(NULL as DECIMAL(1,0)), 1)", createDecimalType(2, 0), null);
+        assertFunction("round(CAST(NULL as DECIMAL(17,2)), 1)", createDecimalType(18, 2), null);
+        assertFunction("round(CAST(NULL as DECIMAL(20,2)), 1)", createDecimalType(21, 2), null);
 
+        // NaN
         assertFunction("round(nan(), 2)", DOUBLE, Double.NaN);
         assertFunction("round(1.0 / 0, 2)", DOUBLE, Double.POSITIVE_INFINITY);
         assertFunction("round(-1.0 / 0, 2)", DOUBLE, Double.NEGATIVE_INFINITY);
