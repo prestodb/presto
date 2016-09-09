@@ -51,6 +51,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
+import static com.facebook.presto.cli.StatusCode.NON_TERMINATED_STATEMENT;
 import static com.facebook.presto.cli.StatusCode.OTHER;
 import static com.facebook.presto.cli.StatusCode.SUCCESS;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
@@ -133,7 +134,7 @@ public class Console
                 clientOptions.authenticationEnabled,
                 kerberosConfig)) {
             if (hasQuery) {
-                return executeCommand(queryRunner, query, clientOptions.outputFormat);
+                return executeCommand(queryRunner, query, clientOptions.outputFormat, session.isStopOnError());
             }
             else {
                 runConsole(queryRunner, session, exiting);
@@ -276,17 +277,21 @@ public class Console
         return statement instanceof Use;
     }
 
-    private static StatusCode executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
+    private static StatusCode executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean stopOnError)
     {
         StatusCode statusCode = null;
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
                 statusCode = process(queryRunner, split.statement(), outputFormat, false);
+                if (stopOnError && statusCode != SUCCESS) {
+                    return statusCode;
+                }
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
             System.err.println("Non-terminated statement: " + splitter.getPartialStatement());
+            statusCode = NON_TERMINATED_STATEMENT;
         }
         return statusCode;
     }

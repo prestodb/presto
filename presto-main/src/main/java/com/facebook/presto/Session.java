@@ -372,7 +372,8 @@ public final class Session
                 preparedStatements,
                 transactionId.map(TransactionId::toString).orElse(null),
                 debug,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                true);
     }
 
     public SessionRepresentation toSessionRepresentation()

@@ -105,6 +105,16 @@ public class TestClientOptions
         assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
     }
 
+    @Test
+    public void testStopOnError()
+    {
+        Console console = singleCommand(Console.class).parse("--stop-on-error", "false", "--session", "key=value");
+        assertEquals(console.clientOptions.stopOnError, false);
+        //default for stop-on-error is true
+        console = singleCommand(Console.class).parse("--session", "key=value");
+        assertEquals(console.clientOptions.stopOnError, true);
+    }
+
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testThreePartPropertyName()
     {

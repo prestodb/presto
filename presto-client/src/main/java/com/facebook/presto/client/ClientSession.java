@@ -42,6 +42,7 @@ public class ClientSession
     private final String transactionId;
     private final boolean debug;
     private final Duration clientRequestTimeout;
+    private final boolean stopOnError;
 
     public static ClientSession withCatalogAndSchema(ClientSession session, String catalog, String schema)
     {
@@ -57,7 +58,8 @@ public class ClientSession
                 session.getPreparedStatements(),
                 session.getTransactionId(),
                 session.isDebug(),
-                session.getClientRequestTimeout());
+                session.getClientRequestTimeout(),
+                session.isStopOnError());
     }
 
     public static ClientSession withProperties(ClientSession session, Map<String, String> properties)
@@ -74,7 +76,8 @@ public class ClientSession
                 session.getPreparedStatements(),
                 session.getTransactionId(),
                 session.isDebug(),
-                session.getClientRequestTimeout());
+                session.getClientRequestTimeout(),
+                session.isStopOnError());
     }
 
     public static ClientSession withPreparedStatements(ClientSession session, Map<String, String> preparedStatements)
@@ -91,7 +94,8 @@ public class ClientSession
                 preparedStatements,
                 session.getTransactionId(),
                 session.isDebug(),
-                session.getClientRequestTimeout());
+                session.getClientRequestTimeout(),
+                session.isStopOnError());
     }
 
     public static ClientSession withTransactionId(ClientSession session, String transactionId)
@@ -108,7 +112,8 @@ public class ClientSession
                 session.getPreparedStatements(),
                 transactionId,
                 session.isDebug(),
-                session.getClientRequestTimeout());
+                session.getClientRequestTimeout(),
+                session.isStopOnError());
     }
 
     public static ClientSession stripTransactionId(ClientSession session)
@@ -125,15 +130,30 @@ public class ClientSession
                 session.getPreparedStatements(),
                 null,
                 session.isDebug(),
-                session.getClientRequestTimeout());
+                session.getClientRequestTimeout(),
+                session.isStopOnError());
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, String transactionId, boolean debug, Duration clientRequestTimeout)
+    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId,
+            Locale locale, Map<String, String> properties, String transactionId, boolean debug, Duration clientRequestTimeout, boolean stopOnError)
     {
-        this(server, user, source, catalog, schema, timeZoneId, locale, properties, emptyMap(), transactionId, debug, clientRequestTimeout);
+        this(server, user, source, catalog, schema, timeZoneId, locale, properties, emptyMap(), transactionId, debug, clientRequestTimeout, stopOnError);
     }
 
-    public ClientSession(URI server, String user, String source, String catalog, String schema, String timeZoneId, Locale locale, Map<String, String> properties, Map<String, String> preparedStatements, String transactionId, boolean debug, Duration clientRequestTimeout)
+    public ClientSession(
+            URI server,
+            String user,
+            String source,
+            String catalog,
+            String schema,
+            String timeZoneId,
+            Locale locale,
+            Map<String, String> properties,
+            Map<String, String> preparedStatements,
+            String transactionId,
+            boolean debug,
+            Duration clientRequestTimeout,
+            boolean stopOnError)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -147,6 +167,7 @@ public class ClientSession
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
         this.clientRequestTimeout = clientRequestTimeout;
+        this.stopOnError = stopOnError;
 
         // verify the properties are valid
         CharsetEncoder charsetEncoder = US_ASCII.newEncoder();
@@ -218,6 +239,11 @@ public class ClientSession
         return clientRequestTimeout;
     }
 
+    public boolean isStopOnError()
+    {
+        return stopOnError;
+    }
+
     @Override
     public String toString()
     {
@@ -230,6 +256,8 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
+                .add("clientRequestTimeout", clientRequestTimeout)
+                .add("stopOnError", stopOnError)
                 .add("debug", debug)
                 .toString();
     }

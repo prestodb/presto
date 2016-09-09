@@ -107,13 +107,16 @@ public class PerfTest
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, TimeUnit.MINUTES);
 
+    @Option(name = "--stop-on-error", title = "stop-on-error", description = "Whether to stop execution immediately if any query fails in batch mode (default: true)")
+    public boolean stopOnError = true;
+
     public void run()
             throws Exception
     {
         initializeLogging(debug);
         List<String> queries = loadQueries();
 
-        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug, timeout, clientRequestTimeout)) {
+        try (ParallelQueryRunner parallelQueryRunner = new ParallelQueryRunner(16, parseServer(server), catalog, schema, debug, timeout, clientRequestTimeout, stopOnError)) {
             for (int loop = 0; loop < runs; loop++) {
                 executeQueries(queries, parallelQueryRunner, 1);
                 executeQueries(queries, parallelQueryRunner, 2);
@@ -149,7 +152,7 @@ public class PerfTest
         private final ListeningExecutorService executor;
         private final List<QueryRunner> runners;
 
-        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug, int timeout, Duration clientRequestTimeout)
+        public ParallelQueryRunner(int maxParallelism, URI server, String catalog, String schema, boolean debug, int timeout, Duration clientRequestTimeout, boolean stopOnError)
         {
             executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("query-runner-%s")));
 
@@ -166,7 +169,8 @@ public class PerfTest
                         ImmutableMap.<String, String>of(),
                         null,
                         debug,
-                        clientRequestTimeout);
+                        clientRequestTimeout,
+                        stopOnError);
                 runners.add(new QueryRunner(session, executor, timeout));
             }
             this.runners = runners.build();
