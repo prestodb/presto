@@ -78,7 +78,7 @@ public class TestTaskManagerConfig
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
                 .put("sink.new-implementation", "true")
                 .put("task.writer-count", "3")
-                .put("task.concurrency", "5")
+                .put("task.concurrency", "8")
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
                 .put("task.task-notification-threads", "13")
@@ -103,7 +103,7 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(new DataSize(40, Unit.MEGABYTE))
                 .setNewSinkBufferImplementation(true)
                 .setWriterCount(3)
-                .setTaskConcurrency(5)
+                .setTaskConcurrency(8)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
                 .setTaskNotificationThreads(13);
