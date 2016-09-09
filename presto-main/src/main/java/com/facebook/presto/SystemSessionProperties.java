@@ -63,6 +63,7 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
+    public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -247,7 +248,12 @@ public final class SystemSessionProperties
                         featuresConfig.getOperatorMemoryLimitBeforeSpill(),
                         false,
                         value -> DataSize.valueOf((String) value),
-                        DataSize::toString));
+                        DataSize::toString),
+                booleanSessionProperty(
+                        OPTIMIZE_DISTINCT_AGGREGATIONS,
+                        "Optimize mixed non-distinct and distinct aggregations",
+                        featuresConfig.isOptimizeMixedDistinctAggregations(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -382,5 +388,10 @@ public final class SystemSessionProperties
         DataSize memoryLimitBeforeSpill = session.getSystemProperty(OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, DataSize.class);
         checkArgument(memoryLimitBeforeSpill.toBytes() >= 0, "%s must be positive", OPERATOR_MEMORY_LIMIT_BEFORE_SPILL);
         return memoryLimitBeforeSpill;
+    }
+
+    public static boolean isOptimizeDistinctAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
     }
 }

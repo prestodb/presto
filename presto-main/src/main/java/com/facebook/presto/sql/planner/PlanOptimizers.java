@@ -105,9 +105,7 @@ public class PlanOptimizers
             builder.add(new PruneUnreferencedOutputs());
         }
 
-        if (featuresConfig.isOptimizeMixedDistinctAggregations()) {
-            builder.add(new OptimizeMixedDistinctAggregations(metadata));
-        }
+        builder.add(new OptimizeMixedDistinctAggregations(metadata));
 
         if (!forceSingleNode) {
             builder.add(new PushTableWriteThroughUnion()); // Must run before AddExchanges
