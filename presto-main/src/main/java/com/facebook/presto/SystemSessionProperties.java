@@ -107,11 +107,23 @@ public final class SystemSessionProperties
                         "Prefer source table layouts that produce streaming operators",
                         false,
                         false),
-                integerSessionProperty(
+                new PropertyMetadata<>(
                         TASK_WRITER_COUNT,
                         "Default number of local parallel table writer jobs per worker",
+                        BIGINT,
+                        Integer.class,
                         taskManagerConfig.getWriterCount(),
-                        false),
+                        false,
+                        value -> {
+                            int concurrency = ((Number) value).intValue();
+                            if (Integer.bitCount(concurrency) != 1) {
+                                throw new PrestoException(
+                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
+                                        format("%s must be a power of 2: %s", TASK_WRITER_COUNT, concurrency));
+                            }
+                            return concurrency;
+                        },
+                        value -> value),
                 booleanSessionProperty(
                         REDISTRIBUTE_WRITES,
                         "Force parallel distributed writes",
