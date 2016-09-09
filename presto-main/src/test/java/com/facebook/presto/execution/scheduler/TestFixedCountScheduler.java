@@ -91,7 +91,7 @@ public class TestFixedCountScheduler
     {
         ImmutableMap.Builder<Integer, Node> nodes = ImmutableMap.builder();
         for (int i = 0; i < count; i++) {
-            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false));
         }
         return nodes.build();
     }

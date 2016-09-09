@@ -22,4 +22,8 @@ public interface Node
     URI getHttpUri();
 
     String getNodeIdentifier();
+
+    String getVersion();
+
+    boolean isCoordinator();
 }

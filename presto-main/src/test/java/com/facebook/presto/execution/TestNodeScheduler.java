@@ -81,9 +81,9 @@ public class TestNodeScheduler
         nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         ImmutableList<Node> nodes = nodeBuilder.build();
         nodeManager.addNode("foo", nodes);
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
@@ -129,9 +129,9 @@ public class TestNodeScheduler
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN));
-        nodeBuilder.add(new PrestoNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN));
+        nodeBuilder.add(new PrestoNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new PrestoNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new PrestoNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
         ImmutableList<Node> nodes = nodeBuilder.build();
         nodeManager.addNode("foo", nodes);
 
@@ -319,7 +319,7 @@ public class TestNodeScheduler
     {
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
 
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -358,7 +358,7 @@ public class TestNodeScheduler
     {
         TestingTransactionHandle transactionHandle = TestingTransactionHandle.create("foo");
 
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN);
+        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode("foo", newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
