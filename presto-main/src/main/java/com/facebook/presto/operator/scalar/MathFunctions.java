@@ -857,7 +857,7 @@ public final class MathFunctions
         return encodeUnscaledValue(roundNLongDecimal(unscaledValue, rescaleFactor));
     }
 
-    public static BigInteger roundNLongDecimal(BigInteger num, BigInteger rescaleFactor)
+    private static BigInteger roundNLongDecimal(BigInteger num, BigInteger rescaleFactor)
     {
         BigInteger[] divideAndRemainder = num.divideAndRemainder(rescaleFactor);
         BigInteger roundUp = divideAndRemainder[1].compareTo(rescaleFactor.shiftRight(1)) >= 0 ? ONE : ZERO;
