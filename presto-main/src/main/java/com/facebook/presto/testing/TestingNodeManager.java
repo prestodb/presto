@@ -21,8 +21,11 @@ import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+
+import static java.util.Objects.requireNonNull;
 
 public class TestingNodeManager
         implements NodeManager
@@ -32,8 +35,19 @@ public class TestingNodeManager
 
     public TestingNodeManager()
     {
-        localNode = new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN);
+        this(new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN));
+    }
+
+    public TestingNodeManager(Node localNode)
+    {
+        this(localNode, ImmutableSet.of());
+    }
+
+    public TestingNodeManager(Node localNode, Collection<Node> otherNodes)
+    {
+        this.localNode = requireNonNull(localNode, "localNode is null");
         nodes.add(localNode);
+        nodes.addAll(otherNodes);
     }
 
     public void addNode(Node node)
