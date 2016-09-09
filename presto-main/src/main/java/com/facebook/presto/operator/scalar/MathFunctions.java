@@ -760,7 +760,6 @@ public final class MathFunctions
         }
     }
 
-    @UsedByGeneratedCode
     private static BigInteger roundLongLongDecimal(BigInteger num, BigInteger rescaleFactor)
     {
         BigInteger[] divideAndRemainder = num.divideAndRemainder(rescaleFactor);
