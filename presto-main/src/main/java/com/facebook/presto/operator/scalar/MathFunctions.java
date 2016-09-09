@@ -40,6 +40,7 @@ import static com.facebook.presto.metadata.Signature.longVariableExpression;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
+import static com.facebook.presto.spi.type.Decimals.checkOverflow;
 import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
@@ -55,12 +56,15 @@ import static java.lang.Character.MIN_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
+import static java.math.BigInteger.ONE;
+import static java.math.BigInteger.ZERO;
 
 public final class MathFunctions
 {
     public static final SqlScalarFunction[] DECIMAL_CEILING_FUNCTIONS = {decimalCeilingFunction("ceiling"), decimalCeilingFunction("ceil")};
     public static final SqlScalarFunction DECIMAL_FLOOR_FUNCTION = decimalFloorFunction();
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
+    public static final SqlScalarFunction[] DECIMAL_ROUND_FUNCTIONS = {decimalRoundFunction(), decimalRoundNFunction()};
 
     private MathFunctions() {}
 
@@ -682,6 +686,186 @@ public final class MathFunctions
         }
 
         return Math.round(num * factor) / factor;
+    }
+
+    private static SqlScalarFunction decimalRoundFunction()
+    {
+        Signature signature = Signature.builder()
+                .kind(SCALAR)
+                .name("round")
+                .longVariableConstraints(
+                        longVariableExpression("return_precision", "num_precision - num_scale + min(1, num_scale)"))
+                .argumentTypes(parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")))
+                .returnType(parseTypeSignature("decimal(return_precision,0)", ImmutableSet.of("return_precision")))
+                .build();
+        return SqlScalarFunction.builder(MathFunctions.class)
+                .signature(signature)
+                .description("round to nearest integer")
+                .implementation(b -> b
+                        .methods("roundShortShortDecimal")
+                        .withExtraParameters(MathFunctions::decimalRoundShortExtraParameters))
+                .implementation(b -> b
+                        .methods("roundLongLongDecimal", "roundLongShortDecimal")
+                        .withExtraParameters(MathFunctions::decimalRoundLongExtraParameters))
+
+                .build();
+    }
+
+    private static List<Object> decimalRoundShortExtraParameters(SpecializeContext context)
+    {
+        long scale = context.getLiteral("num_scale");
+        long rescaleFactor = longTenToNth((int) scale);
+        return ImmutableList.of(rescaleFactor, scale);
+    }
+
+    @UsedByGeneratedCode
+    public static long roundShortShortDecimal(long num, long rescaleFactor, long inputScale)
+    {
+        if (num == 0) {
+            return 0;
+        }
+        if (inputScale == 0) {
+            return num;
+        }
+        if (num < 0) {
+            return -roundShortShortDecimal(-num, rescaleFactor, inputScale);
+        }
+
+        long remainder = num % rescaleFactor;
+        long remainderBoundary = rescaleFactor >> 1;
+        int roundUp = remainder >= remainderBoundary ? 1 : 0;
+        return num / rescaleFactor + roundUp;
+    }
+
+    private static List<Object> decimalRoundLongExtraParameters(SpecializeContext context)
+    {
+        long scale = context.getLiteral("num_scale");
+        BigInteger rescaleFactor = bigIntegerTenToNth((int) scale);
+        return ImmutableList.of(rescaleFactor, scale);
+    }
+
+    @UsedByGeneratedCode
+    public static Slice roundLongLongDecimal(Slice numSlice, BigInteger rescaleFactor, long inputScale)
+    {
+        BigInteger num = decodeUnscaledValue(numSlice);
+        if (num.signum() == 0) {
+            return encodeUnscaledValue(0);
+        }
+        if (inputScale == 0) {
+            return encodeUnscaledValue(num);
+        }
+        if (num.signum() < 0) {
+            return encodeUnscaledValue(roundLongLongDecimal(num.negate(), rescaleFactor).negate());
+        }
+        else {
+            return encodeUnscaledValue(roundLongLongDecimal(num, rescaleFactor));
+        }
+    }
+
+    private static BigInteger roundLongLongDecimal(BigInteger num, BigInteger rescaleFactor)
+    {
+        BigInteger[] divideAndRemainder = num.divideAndRemainder(rescaleFactor);
+        BigInteger roundUp = divideAndRemainder[1].compareTo(rescaleFactor.shiftRight(1)) >= 0 ? ONE : ZERO;
+        return divideAndRemainder[0].add(roundUp);
+    }
+
+    @UsedByGeneratedCode
+    public static long roundLongShortDecimal(Slice numSlice, BigInteger rescaleFactor, long inputScale)
+    {
+        BigInteger num = decodeUnscaledValue(numSlice);
+        if (num.signum() == 0) {
+            return 0;
+        }
+        if (num.signum() < 0) {
+            return roundLongLongDecimal(num.negate(), rescaleFactor).negate().longValue();
+        }
+        else {
+            return roundLongLongDecimal(num, rescaleFactor).longValue();
+        }
+    }
+
+    private static SqlScalarFunction decimalRoundNFunction()
+    {
+        Signature signature = Signature.builder()
+                .kind(SCALAR)
+                .name("round")
+                .longVariableConstraints(
+                        //result precision = increment the input precision only if the input number has a decimal point (scale > 0)
+                        longVariableExpression("return_precision", "min(38, num_precision + 1)"))
+                .argumentTypes(parseTypeSignature("decimal(num_precision,num_scale)", ImmutableSet.of("num_precision", "num_scale")), parseTypeSignature(StandardTypes.BIGINT))
+                .returnType(parseTypeSignature("decimal(return_precision,num_scale)", ImmutableSet.of("return_precision", "num_scale")))
+                .build();
+        return SqlScalarFunction.builder(MathFunctions.class)
+                .signature(signature)
+                .description("round to given number of decimal places")
+                .implementation(b -> b
+                        .methods("roundNShortShortDecimal", "roundNLongLongDecimal", "roundNShortLongDecimal")
+                        .withExtraParameters(MathFunctions::decimalRoundNExtraParameters))
+                .build();
+    }
+
+    private static List<Object> decimalRoundNExtraParameters(SpecializeContext context)
+    {
+        return ImmutableList.of(context.getLiteral("num_precision"), context.getLiteral("num_scale"));
+    }
+
+    @UsedByGeneratedCode
+    public static long roundNShortShortDecimal(long num, long roundScale, long inputPrecision, long inputScale)
+    {
+        if (num == 0 || inputPrecision - inputScale + roundScale <= 0) {
+            return 0;
+        }
+        if (roundScale >= inputScale) {
+            return num;
+        }
+        if (num < 0) {
+            return -roundNShortShortDecimal(-num, roundScale, inputPrecision, inputScale);
+        }
+
+        long rescaleFactor = longTenToNth((int) (inputScale - roundScale));
+        long remainder = num % rescaleFactor;
+        int roundUp = (remainder >= rescaleFactor >> 1) ? 1 : 0;
+        return (num / rescaleFactor + roundUp) * rescaleFactor;
+    }
+
+    @UsedByGeneratedCode
+    public static Slice roundNLongLongDecimal(Slice num, long roundScale, long inputPrecision, long inputScale)
+    {
+        BigInteger unscaledVal = decodeUnscaledValue(num);
+        if (roundScale >= inputScale) {
+            return num;
+        }
+        return roundNLongDecimal(unscaledVal, roundScale, inputPrecision, inputScale);
+    }
+
+    @UsedByGeneratedCode
+    public static Slice roundNShortLongDecimal(long num, long roundScale, long inputPrecision, long inputScale)
+    {
+        if (roundScale >= inputScale) {
+            return encodeUnscaledValue(num);
+        }
+        return roundNLongDecimal(BigInteger.valueOf(num), roundScale, inputPrecision, inputScale);
+    }
+
+    private static Slice roundNLongDecimal(BigInteger unscaledValue, long roundScale, long inputPrecision, long inputScale)
+    {
+        if (unscaledValue.signum() == 0 || inputPrecision - inputScale + roundScale <= 0) {
+            return encodeUnscaledValue(0);
+        }
+        BigInteger rescaleFactor = bigIntegerTenToNth((int) (inputScale - roundScale));
+        if (unscaledValue.signum() < 0) {
+            return encodeUnscaledValue(roundNLongDecimal(unscaledValue.negate(), rescaleFactor).negate());
+        }
+        return encodeUnscaledValue(roundNLongDecimal(unscaledValue, rescaleFactor));
+    }
+
+    private static BigInteger roundNLongDecimal(BigInteger num, BigInteger rescaleFactor)
+    {
+        BigInteger[] divideAndRemainder = num.divideAndRemainder(rescaleFactor);
+        BigInteger roundUp = divideAndRemainder[1].compareTo(rescaleFactor.shiftRight(1)) >= 0 ? ONE : ZERO;
+        BigInteger rounded = divideAndRemainder[0].add(roundUp).multiply(rescaleFactor);
+        checkOverflow(rounded);
+        return rounded;
     }
 
     @Description("round to given number of decimal places")
