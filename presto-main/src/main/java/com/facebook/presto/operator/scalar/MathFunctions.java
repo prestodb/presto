@@ -840,7 +840,7 @@ public final class MathFunctions
     public static Slice roundNShortLongDecimal(long num, long roundScale, long inputPrecision, long inputScale)
     {
         if (roundScale >= inputScale) {
-            return encodeUnscaledValue(ZERO);
+            return encodeUnscaledValue(num);
         }
         return roundNLongDecimal(BigInteger.valueOf(num), roundScale, inputPrecision, inputScale);
     }

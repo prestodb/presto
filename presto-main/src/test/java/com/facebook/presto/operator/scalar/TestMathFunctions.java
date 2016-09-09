@@ -769,6 +769,8 @@ public class TestMathFunctions
         assertFunction("round(DECIMAL '-999999999999999.99', 1)", createDecimalType(18, 2), SqlDecimal.of("-1000000000000000.00"));
         assertFunction("round(DECIMAL '999999999999999.99', -1)", createDecimalType(18, 2), SqlDecimal.of("1000000000000000.00"));
         assertFunction("round(DECIMAL '-999999999999999.99', -1)", createDecimalType(18, 2), SqlDecimal.of("-1000000000000000.00"));
+        assertFunction("round(DECIMAL '999999999999999.99', 2)", createDecimalType(18, 2), SqlDecimal.of("999999999999999.99"));
+        assertFunction("round(DECIMAL '-999999999999999.99', 2)", createDecimalType(18, 2), SqlDecimal.of("-999999999999999.99"));
 
         // NULL
         assertFunction("round(CAST(NULL as DOUBLE), CAST(NULL as BIGINT))", DOUBLE, null);
