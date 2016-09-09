@@ -80,7 +80,7 @@ public class TestDeallocateTask
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, accessControl, executor);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, accessControl, executor, metadata);
         Deallocate deallocate = new Deallocate(statementName);
         new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getDeallocatedPreparedStatements();

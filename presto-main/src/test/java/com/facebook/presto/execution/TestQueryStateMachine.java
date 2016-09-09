@@ -17,6 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.PrestoException;
@@ -402,9 +404,10 @@ public class TestQueryStateMachine
 
     private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
     {
+        Metadata metadata = MetadataManager.createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
-        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker);
+        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, accessControl, executor, ticker, metadata);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setOutputFieldNames(OUTPUT_FIELD_NAMES);

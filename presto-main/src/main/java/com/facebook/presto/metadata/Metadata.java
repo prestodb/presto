@@ -179,6 +179,12 @@ public interface Metadata
     void beginQuery(Session session, Set<ConnectorId> connectors);
 
     /**
+     * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
+     * An exception thrown in this method will not affect the result of the query.
+     */
+    void cleanupQuery(Session session);
+
+    /**
      * Begin insert query
      */
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
