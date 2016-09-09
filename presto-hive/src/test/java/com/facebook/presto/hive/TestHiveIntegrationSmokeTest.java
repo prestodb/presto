@@ -443,7 +443,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getSession().withSystemProperty("task_writer_count", "3"),
+                getSession().withSystemProperty("task_writer_count", "4"),
                 createTable,
                 3);
 
@@ -487,7 +487,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getSession().withSystemProperty("task_writer_count", "3"),
+                getSession().withSystemProperty("task_writer_count", "4"),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -528,7 +528,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getSession().withSystemProperty("task_writer_count", "3"),
+                getSession().withSystemProperty("task_writer_count", "4"),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -601,7 +601,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getSession().withSystemProperty("task_writer_count", "3"),
+                getSession().withSystemProperty("task_writer_count", "4"),
                 "INSERT INTO " + tableName + " " +
                         "VALUES " +
                         "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
@@ -678,7 +678,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getSession().withSystemProperty("task_writer_count", "3"),
+                    getSession().withSystemProperty("task_writer_count", "4"),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, comment, orderstatus " +
@@ -722,7 +722,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getSession().withSystemProperty("task_writer_count", "3"),
+                    getSession().withSystemProperty("task_writer_count", "4"),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, comment, orderstatus " +

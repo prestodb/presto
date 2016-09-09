@@ -293,6 +293,7 @@ public class TaskManagerConfig
     }
 
     @Min(1)
+    @PowerOfTwo
     public int getWriterCount()
     {
         return writerCount;
