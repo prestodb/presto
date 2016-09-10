@@ -48,7 +48,7 @@ public final class LocalAtopQueryRunner
 
         try {
             ServerInfo serverInfo = new ServerInfo("testnode", "testenv", "testversion");
-            AtopConnectorFactory connectorFactory = new AtopConnectorFactory(factoryClass, LocalAtopQueryRunner.class.getClassLoader(), queryRunner.getTypeManager(), queryRunner.getNodeManager(), serverInfo);
+            AtopConnectorFactory connectorFactory = new AtopConnectorFactory(factoryClass, LocalAtopQueryRunner.class.getClassLoader(), queryRunner.getTypeManager(), serverInfo);
             ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                     .putAll(catalogProperties)
                     .put("atop.max-history-days", "1");

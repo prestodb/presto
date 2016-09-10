@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.ConnectorContextInstance;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -68,12 +68,12 @@ public class TestJmxSplitManager
     private final NodeManager nodeManager = new TestingNodeManager(localNode, nodes);
 
     private final JmxConnector jmxConnector =
-            (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer(), nodeManager)
+            (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer())
                     .create(CONNECTOR_ID, ImmutableMap.of(
                             "jmx.dump-tables", TEST_BEANS,
                             "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
                             "jmx.max-entries", "1000"),
-                            new ConnectorContext() {});
+                            new ConnectorContextInstance(nodeManager));
 
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", createUnboundedVarcharType());
     private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle), true);

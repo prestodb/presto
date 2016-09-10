@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.connector;
 
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.ServerInfo;
@@ -22,11 +21,6 @@ import com.facebook.presto.spi.type.TypeManager;
 public interface ConnectorFactoryContext
 {
     default TypeManager getTypeManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default NodeManager getNodeManager()
     {
         throw new UnsupportedOperationException();
     }

@@ -47,7 +47,6 @@ public class RaptorConnectorFactory
     private final String name;
     private final Module metadataModule;
     private final Map<String, Module> backupProviders;
-    private final NodeManager nodeManager;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
 
@@ -55,7 +54,6 @@ public class RaptorConnectorFactory
             String name,
             Module metadataModule,
             Map<String, Module> backupProviders,
-            NodeManager nodeManager,
             PageSorter pageSorter,
             TypeManager typeManager)
     {
@@ -63,7 +61,6 @@ public class RaptorConnectorFactory
         this.name = name;
         this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
         this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
@@ -83,6 +80,7 @@ public class RaptorConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
+        NodeManager nodeManager = context.getNodeManager();
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),

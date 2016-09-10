@@ -54,7 +54,7 @@ public final class BenchmarkQueryRunner
 
         // add tpch
         NodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
 
         return localQueryRunner;
     }

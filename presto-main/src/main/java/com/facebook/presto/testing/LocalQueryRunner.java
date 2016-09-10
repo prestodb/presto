@@ -137,6 +137,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
@@ -263,6 +264,7 @@ public class LocalQueryRunner
                 pageSinkManager,
                 new HandleResolver(),
                 nodeManager,
+                new NodeInfo("test"),
                 transactionManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
@@ -334,7 +336,7 @@ public class LocalQueryRunner
 
     public NodeManager getNodeManager()
     {
-        return new ConnectorAwareNodeManager(nodeManager);
+        return new ConnectorAwareNodeManager(nodeManager, "testenv", "test");
     }
 
     public TypeRegistry getTypeManager()

@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.spi.NodeManager;
+
 public interface ConnectorContext
 {
+    default NodeManager getNodeManager()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

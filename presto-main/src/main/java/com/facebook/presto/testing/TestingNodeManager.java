@@ -17,7 +17,6 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
@@ -56,21 +55,13 @@ public class TestingNodeManager
     }
 
     @Override
-    public Set<Node> getNodes(NodeState state)
+    public Set<Node> getAllNodes()
     {
-        switch (state) {
-            case ACTIVE:
-                return nodes;
-            case INACTIVE:
-            case SHUTTING_DOWN:
-                return ImmutableSet.of();
-            default:
-                throw new IllegalArgumentException("Unknown node state " + state);
-        }
+        return nodes;
     }
 
     @Override
-    public Set<Node> getActiveDatasourceNodes(String datasourceName)
+    public Set<Node> getWorkerNodes()
     {
         return nodes;
     }
@@ -82,9 +73,8 @@ public class TestingNodeManager
     }
 
     @Override
-    public Set<Node> getCoordinators()
+    public String getEnvironment()
     {
-        // always use localNode as coordinator
-        return ImmutableSet.of(localNode);
+        return "testenv";
     }
 }

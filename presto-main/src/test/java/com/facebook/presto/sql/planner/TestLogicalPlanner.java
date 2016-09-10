@@ -65,7 +65,7 @@ public class TestLogicalPlanner
                 .build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(queryRunner.getNodeManager(), 1),
+                new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
     }
 

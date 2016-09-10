@@ -45,7 +45,6 @@ public class KafkaPlugin
     {
         return ImmutableList.of(new KafkaConnectorFactory(
                 context.getTypeManager(),
-                context.getNodeManager(),
                 tableDescriptionSupplier));
     }
 }

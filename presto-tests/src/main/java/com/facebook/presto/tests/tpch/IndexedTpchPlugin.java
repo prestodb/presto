@@ -38,6 +38,6 @@ public class IndexedTpchPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        return ImmutableList.of(new IndexedTpchConnectorFactory(context.getNodeManager(), indexSpec, 4));
+        return ImmutableList.of(new IndexedTpchConnectorFactory(indexSpec, 4));
     }
 }

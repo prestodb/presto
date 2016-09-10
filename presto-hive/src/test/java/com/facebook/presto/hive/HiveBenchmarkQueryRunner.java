@@ -65,7 +65,7 @@ public final class HiveBenchmarkQueryRunner
 
         // add tpch
         NodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
 
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
@@ -79,7 +79,6 @@ public final class HiveBenchmarkQueryRunner
                 new BridgingHiveMetastore(metastore),
                 new TypeRegistry(),
                 new GroupByHashPageIndexerFactory(),
-                nodeManager,
                 new ServerInfo("test_id", "test_environment", "test_version"));
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()

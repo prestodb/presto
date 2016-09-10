@@ -45,7 +45,6 @@ public class RedisPlugin
     {
         return ImmutableList.of(new RedisConnectorFactory(
                 context.getTypeManager(),
-                context.getNodeManager(),
                 tableDescriptionSupplier));
     }
 }

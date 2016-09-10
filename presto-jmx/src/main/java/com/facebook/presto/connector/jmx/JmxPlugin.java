@@ -41,6 +41,6 @@ public class JmxPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        return ImmutableList.of(new JmxConnectorFactory(mBeanServer, context.getNodeManager()));
+        return ImmutableList.of(new JmxConnectorFactory(mBeanServer));
     }
 }

@@ -24,6 +24,6 @@ public class SampledTpchPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        return ImmutableList.of(new SampledTpchConnectorFactory(context.getNodeManager(), 1, 2));
+        return ImmutableList.of(new SampledTpchConnectorFactory(1, 2));
     }
 }

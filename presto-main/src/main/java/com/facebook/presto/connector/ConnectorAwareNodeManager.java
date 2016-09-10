@@ -16,7 +16,7 @@ package com.facebook.presto.connector;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.NodeState;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
@@ -26,22 +26,29 @@ public class ConnectorAwareNodeManager
         implements NodeManager
 {
     private final InternalNodeManager nodeManager;
+    private final String environment;
+    private final String connectorId;
 
-    public ConnectorAwareNodeManager(InternalNodeManager nodeManager)
+    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, String connectorId)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.environment = requireNonNull(environment, "environment is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override
-    public Set<Node> getNodes(NodeState state)
+    public Set<Node> getAllNodes()
     {
-        return nodeManager.getNodes(state);
+        return ImmutableSet.<Node>builder()
+                .addAll(getWorkerNodes())
+                .addAll(nodeManager.getCoordinators())
+                .build();
     }
 
     @Override
-    public Set<Node> getActiveDatasourceNodes(String datasourceName)
+    public Set<Node> getWorkerNodes()
     {
-        return nodeManager.getActiveDatasourceNodes(datasourceName);
+        return nodeManager.getActiveDatasourceNodes(connectorId);
     }
 
     @Override
@@ -51,8 +58,8 @@ public class ConnectorAwareNodeManager
     }
 
     @Override
-    public Set<Node> getCoordinators()
+    public String getEnvironment()
     {
-        return nodeManager.getCoordinators();
+        return environment;
     }
 }
