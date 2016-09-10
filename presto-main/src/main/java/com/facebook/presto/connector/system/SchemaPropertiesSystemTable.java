@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -21,8 +22,8 @@ public class SchemaPropertiesSystemTable
         extends AbstractPropertiesSystemTable
 {
     @Inject
-    public SchemaPropertiesSystemTable(Metadata metadata)
+    public SchemaPropertiesSystemTable(TransactionManager transactionManager, Metadata metadata)
     {
-        super("schema_properties", () -> metadata.getSchemaPropertyManager().getAllProperties());
+        super("schema_properties", transactionManager, () -> metadata.getSchemaPropertyManager().getAllProperties());
     }
 }

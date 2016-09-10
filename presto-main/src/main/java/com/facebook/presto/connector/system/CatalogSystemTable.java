@@ -68,7 +68,7 @@ public class CatalogSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        TransactionId transactionId = checkType(transactionHandle, SystemTransactionHandle.class, "transactionHandle").getTransactionId();
+        TransactionId transactionId = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transactionHandle").getTransactionId();
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
         for (Map.Entry<String, ConnectorId> entry : transactionManager.getCatalogNames(transactionId).entrySet()) {
             table.addRow(entry.getKey(), entry.getValue().toString());

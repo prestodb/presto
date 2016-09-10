@@ -398,7 +398,7 @@ final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(objectName.getCatalogName());
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
                 Map<String, Expression> sqlProperties = new HashMap<>();
 
                 for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {

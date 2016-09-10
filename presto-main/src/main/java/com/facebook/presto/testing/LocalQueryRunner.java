@@ -299,8 +299,8 @@ public class LocalQueryRunner
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(transactionManager),
-                new SchemaPropertiesSystemTable(metadata),
-                new TablePropertiesSystemTable(metadata),
+                new SchemaPropertiesSystemTable(transactionManager, metadata),
+                new TablePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
                 ImmutableSet.of());
 
