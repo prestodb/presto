@@ -24,6 +24,6 @@ public class LocalFilePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        return ImmutableList.of(new LocalFileConnectorFactory(context.getNodeManager()));
+        return ImmutableList.of(new LocalFileConnectorFactory());
     }
 }

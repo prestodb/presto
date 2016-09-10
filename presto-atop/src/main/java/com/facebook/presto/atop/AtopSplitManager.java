@@ -64,7 +64,7 @@ public class AtopSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
         DateTime end = DateTime.now().withZone(timeZone);
-        for (Node node : nodeManager.getActiveDatasourceNodes(connectorId.getId())) {
+        for (Node node : nodeManager.getAllNodes()) {
             DateTime start = end.minusDays(maxHistoryDays - 1).withTimeAtStartOfDay();
             while (start.isBefore(end)) {
                 DateTime splitEnd = start.withTime(23, 59, 59, 999);

@@ -63,7 +63,7 @@ public class TestMLQueries
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
-                new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1),
+                new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
 
         MLPlugin plugin = new MLPlugin();

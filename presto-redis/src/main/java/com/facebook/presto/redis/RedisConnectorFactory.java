@@ -40,16 +40,13 @@ public class RedisConnectorFactory
         implements ConnectorFactory
 {
     private final TypeManager typeManager;
-    private final NodeManager nodeManager;
     private final Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier;
 
     RedisConnectorFactory(
             TypeManager typeManager,
-            NodeManager nodeManager,
             Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
@@ -78,7 +75,7 @@ public class RedisConnectorFactory
                     binder -> {
                         binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(connectorId));
                         binder.bind(TypeManager.class).toInstance(typeManager);
-                        binder.bind(NodeManager.class).toInstance(nodeManager);
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
                         if (tableDescriptionSupplier.isPresent()) {
                             binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, RedisTableDescription>>>() {}).toInstance(tableDescriptionSupplier.get());

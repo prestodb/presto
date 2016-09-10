@@ -46,9 +46,9 @@ public class TestLocalQueries
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
-                new TpchConnectorFactory(localQueryRunner.getNodeManager(), 1),
+                new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
-        localQueryRunner.createCatalog(TPCH_SAMPLED_SCHEMA, new SampledTpchConnectorFactory(localQueryRunner.getNodeManager(), 1, 2), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog(TPCH_SAMPLED_SCHEMA, new SampledTpchConnectorFactory(1, 2), ImmutableMap.<String, String>of());
 
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 

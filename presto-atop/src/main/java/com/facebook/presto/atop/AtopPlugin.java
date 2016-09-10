@@ -30,7 +30,6 @@ public class AtopPlugin
                 AtopProcessFactory.class,
                 getClassLoader(),
                 context.getTypeManager(),
-                context.getNodeManager(),
                 context.getServerInfo()));
     }
 

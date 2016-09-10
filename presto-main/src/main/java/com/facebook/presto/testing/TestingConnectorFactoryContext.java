@@ -15,9 +15,6 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
-import com.facebook.presto.connector.ConnectorAwareNodeManager;
-import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.ServerInfo;
@@ -29,7 +26,6 @@ public class TestingConnectorFactoryContext
         implements ConnectorFactoryContext
 {
     private final TypeManager typeManager = new TypeRegistry();
-    private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager());
     private final PageSorter pageSorter = new PagesIndexPageSorter();
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory();
     private final ServerInfo serverInfo = new ServerInfo("testnode", "testenv", "testversion");
@@ -38,12 +34,6 @@ public class TestingConnectorFactoryContext
     public TypeManager getTypeManager()
     {
         return typeManager;
-    }
-
-    @Override
-    public NodeManager getNodeManager()
-    {
-        return nodeManager;
     }
 
     @Override

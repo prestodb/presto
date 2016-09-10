@@ -29,13 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class LocalFileConnectorFactory
         implements ConnectorFactory
 {
-    private final NodeManager nodeManager;
-
-    public LocalFileConnectorFactory(NodeManager nodeManager)
-    {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
     @Override
     public String getName()
     {
@@ -55,7 +48,7 @@ public class LocalFileConnectorFactory
 
         try {
             Bootstrap app = new Bootstrap(
-                    binder -> binder.bind(NodeManager.class).toInstance(nodeManager),
+                    binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
                     new LocalFileModule(connectorId));
 
             Injector injector = app

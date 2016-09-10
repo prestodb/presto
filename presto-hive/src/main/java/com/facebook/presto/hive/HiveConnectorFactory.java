@@ -17,7 +17,6 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -67,7 +66,6 @@ public class HiveConnectorFactory
     private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
-    private final NodeManager nodeManager;
     private final ServerInfo serverInfo;
 
     public HiveConnectorFactory(
@@ -76,7 +74,6 @@ public class HiveConnectorFactory
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
             PageIndexerFactory pageIndexerFactory,
-            NodeManager nodeManager,
             ServerInfo serverInfo)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
@@ -85,7 +82,6 @@ public class HiveConnectorFactory
         this.metastore = metastore;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexer is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
     }
 
@@ -110,7 +106,7 @@ public class HiveConnectorFactory
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(connectorId, metastore, typeManager, pageIndexerFactory, nodeManager),
+                    new HiveClientModule(connectorId, metastore, typeManager, pageIndexerFactory, context.getNodeManager()),
                     installModuleIf(
                             SecurityConfig.class,
                             security -> ALLOW_ALL_ACCESS_CONTROL.equalsIgnoreCase(security.getSecuritySystem()),

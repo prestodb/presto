@@ -20,7 +20,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -76,7 +75,6 @@ import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
@@ -387,13 +385,6 @@ public class ServerMainModule
 
         // Finalizer
         binder.bind(FinalizerService.class).in(Scopes.SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    public NodeManager createNodeManager(InternalNodeManager nodeManager)
-    {
-        return new ConnectorAwareNodeManager(nodeManager);
     }
 
     @Provides

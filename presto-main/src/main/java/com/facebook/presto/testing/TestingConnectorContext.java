@@ -11,20 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.testing;
 
-package com.facebook.presto.plugin.blackhole;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.connector.ConnectorContext;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
-import com.google.common.collect.ImmutableList;
-
-public final class BlackHolePlugin
-        implements Plugin
+public class TestingConnectorContext
+        implements ConnectorContext
 {
+    private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", "test");
+
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public NodeManager getNodeManager()
     {
-        return ImmutableList.of(new BlackHoleConnectorFactory(context.getTypeManager()));
+        return nodeManager;
     }
 }

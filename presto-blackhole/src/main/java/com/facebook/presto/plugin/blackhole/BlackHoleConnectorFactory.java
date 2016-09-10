@@ -15,7 +15,6 @@
 package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -28,12 +27,10 @@ import static java.util.Objects.requireNonNull;
 public class BlackHoleConnectorFactory
         implements ConnectorFactory
 {
-    private final NodeManager nodeManager;
     private final TypeManager typeManager;
 
-    public BlackHoleConnectorFactory(NodeManager nodeManager, TypeManager typeManager)
+    public BlackHoleConnectorFactory(TypeManager typeManager)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -57,7 +54,7 @@ public class BlackHoleConnectorFactory
                 new BlackHoleSplitManager(),
                 new BlackHolePageSourceProvider(),
                 new BlackHolePageSinkProvider(),
-                new BlackHoleNodePartitioningProvider(connectorId, nodeManager),
+                new BlackHoleNodePartitioningProvider(context.getNodeManager()),
                 typeManager);
     }
 }

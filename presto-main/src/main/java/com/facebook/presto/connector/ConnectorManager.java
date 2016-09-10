@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -76,6 +77,7 @@ public class ConnectorManager
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
+    private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
 
     private final ConcurrentMap<String, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
@@ -95,6 +97,7 @@ public class ConnectorManager
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
+            NodeInfo nodeInfo,
             TransactionManager transactionManager)
     {
         this.metadataManager = metadataManager;
@@ -106,6 +109,7 @@ public class ConnectorManager
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
+        this.nodeInfo = nodeInfo;
         this.transactionManager = transactionManager;
     }
 
@@ -305,15 +309,18 @@ public class ConnectorManager
         }
     }
 
-    private static Connector createConnector(String connectorId, ConnectorFactory factory, Map<String, String> properties)
+    private Connector createConnector(String connectorId, ConnectorFactory factory, Map<String, String> properties)
     {
         Class<?> factoryClass = factory.getClass();
         if (factory instanceof LegacyTransactionConnectorFactory) {
             factoryClass = ((LegacyTransactionConnectorFactory) factory).getConnectorFactory().getClass();
         }
 
+        ConnectorContext context = new ConnectorContextInstance(
+                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId));
+
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factoryClass.getClassLoader())) {
-            return factory.create(connectorId, properties, new ConnectorContext() {});
+            return factory.create(connectorId, properties, context);
         }
     }
 

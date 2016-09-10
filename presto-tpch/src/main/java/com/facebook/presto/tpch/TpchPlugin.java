@@ -24,6 +24,6 @@ public class TpchPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
     {
-        return ImmutableList.of(new TpchConnectorFactory(context.getNodeManager()));
+        return ImmutableList.of(new TpchConnectorFactory());
     }
 }

@@ -18,7 +18,6 @@ import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
 import com.facebook.presto.raptor.RaptorMetadata;
-import com.facebook.presto.raptor.RaptorNodeSupplier;
 import com.facebook.presto.raptor.RaptorPartitioningHandle;
 import com.facebook.presto.raptor.RaptorSessionProperties;
 import com.facebook.presto.raptor.RaptorTableHandle;
@@ -110,7 +109,7 @@ public class TestRaptorMetadata
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         NodeManager nodeManager = new TestingNodeManager();
-        NodeSupplier nodeSupplier = new RaptorNodeSupplier(nodeManager, connectorId);
+        NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
         metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
     }

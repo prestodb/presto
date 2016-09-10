@@ -31,11 +31,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.hive.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HiveNodePartitioningProvider
@@ -71,9 +69,7 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
 
-        Set<Node> nodesSet = nodeManager.getActiveDatasourceNodes(connectorId);
-        checkState(!nodesSet.isEmpty(), "No %s nodes available", connectorId);
-        List<Node> nodes = shuffle(nodesSet);
+        List<Node> nodes = shuffle(nodeManager.getRequiredWorkerNodes());
 
         int bucketCount = handle.getBucketCount();
         ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();

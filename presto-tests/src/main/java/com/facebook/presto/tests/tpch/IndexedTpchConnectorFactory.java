@@ -41,13 +41,11 @@ import static java.util.Objects.requireNonNull;
 public class IndexedTpchConnectorFactory
         implements ConnectorFactory
 {
-    private final NodeManager nodeManager;
     private final TpchIndexSpec indexSpec;
     private final int defaultSplitsPerNode;
 
-    public IndexedTpchConnectorFactory(NodeManager nodeManager, TpchIndexSpec indexSpec, int defaultSplitsPerNode)
+    public IndexedTpchConnectorFactory(TpchIndexSpec indexSpec, int defaultSplitsPerNode)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.indexSpec = requireNonNull(indexSpec, "indexSpec is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
     }
@@ -69,6 +67,7 @@ public class IndexedTpchConnectorFactory
     {
         int splitsPerNode = getSplitsPerNode(properties);
         TpchIndexedData indexedData = new TpchIndexedData(connectorId, indexSpec);
+        NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
         {
@@ -87,7 +86,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new TpchSplitManager(connectorId, nodeManager, splitsPerNode);
+                return new TpchSplitManager(nodeManager, splitsPerNode);
             }
 
             @Override
@@ -111,7 +110,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorNodePartitioningProvider getNodePartitioningProvider()
             {
-                return new TpchNodePartitioningProvider(connectorId, nodeManager, splitsPerNode);
+                return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
             }
         };
     }

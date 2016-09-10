@@ -106,7 +106,7 @@ public class ShardCleaner
         this(
                 shardDaoSupplier,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
-                nodeManager.getCoordinators().contains(nodeManager.getCurrentNode()),
+                nodeManager.getCurrentNode().isCoordinator(),
                 ticker,
                 storageService,
                 backupStore,

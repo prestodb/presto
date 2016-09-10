@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.client.NodeVersion;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.ServerInfo;
@@ -30,7 +29,6 @@ class PluginConnectorFactoryContext
         implements ConnectorFactoryContext
 {
     private final TypeManager typeManager;
-    private final NodeManager nodeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final ServerInfo serverInfo;
@@ -40,7 +38,6 @@ class PluginConnectorFactoryContext
             NodeInfo nodeInfo,
             NodeVersion nodeVersion,
             TypeManager typeManager,
-            NodeManager nodeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory)
     {
@@ -49,7 +46,6 @@ class PluginConnectorFactoryContext
         this.serverInfo = new ServerInfo(nodeInfo.getNodeId(), nodeInfo.getEnvironment(), nodeVersion.getVersion());
 
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
     }
@@ -58,12 +54,6 @@ class PluginConnectorFactoryContext
     public TypeManager getTypeManager()
     {
         return typeManager;
-    }
-
-    @Override
-    public NodeManager getNodeManager()
-    {
-        return nodeManager;
     }
 
     @Override

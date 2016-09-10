@@ -61,7 +61,6 @@ public class RaptorPlugin
                 name,
                 metadataModule,
                 backupProviders,
-                context.getNodeManager(),
                 context.getPageSorter(),
                 context.getTypeManager()));
     }
