@@ -216,6 +216,12 @@ public interface Metadata
     void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
+     * Returns a connector id for the specified catalog name.
+     */
+    @NotNull
+    Optional<ConnectorId> getCatalogHandle(Session session, String catalogName);
+
+    /**
      * Gets all the loaded catalogs
      *
      * @return Map of catalog name to connector id

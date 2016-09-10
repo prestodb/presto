@@ -544,7 +544,7 @@ class StatementAnalyzer
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
         if (!tableHandle.isPresent()) {
-            if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
+            if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                 throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
             }
             if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {

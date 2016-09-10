@@ -655,6 +655,13 @@ public class MetadataManager
     }
 
     @Override
+    public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+    {
+        return Optional.ofNullable(connectorsByCatalog.get(catalogName))
+                .map(ConnectorEntry::getConnectorId);
+    }
+
+    @Override
     public Map<String, ConnectorId> getCatalogNames()
     {
         ImmutableMap.Builder<String, ConnectorId> catalogsMap = ImmutableMap.builder();
