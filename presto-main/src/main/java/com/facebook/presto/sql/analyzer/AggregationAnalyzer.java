@@ -393,7 +393,24 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFieldReference(FieldReference node, Void context)
         {
-            return fieldIndexes.contains(node.getFieldIndex());
+            boolean inGroup = fieldIndexes.contains(node.getFieldIndex());
+            if (!inGroup) {
+                Field field = scope.getRelationType().getFieldByIndex(node.getFieldIndex());
+
+                String column;
+                if (!field.getName().isPresent()) {
+                    column = Integer.toString(node.getFieldIndex() + 1);
+                }
+                else if (field.getRelationAlias().isPresent()) {
+                    column = String.format("'%s.%s'", field.getRelationAlias().get(), field.getName().get());
+                }
+                else {
+                    column = "'" + field.getName().get() + "'";
+                }
+
+                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column %s not in GROUP BY clause", column);
+            }
+            return inGroup;
         }
 
         @Override

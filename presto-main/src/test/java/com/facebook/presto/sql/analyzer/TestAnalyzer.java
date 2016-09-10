@@ -784,11 +784,11 @@ public class TestAnalyzer
     public void testAggregateWithWildcard()
             throws Exception
     {
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 't.a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
 
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 'a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
     }
 
     @Test
@@ -1193,6 +1193,11 @@ public class TestAnalyzer
         assertFails(CLIENT_SESSION, error, query);
     }
 
+    private void assertFails(SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        assertFails(CLIENT_SESSION, error, message, query);
+    }
+
     private void assertFails(Session session, SemanticErrorCode error, @Language("SQL") String query)
     {
         try {
@@ -1202,6 +1207,23 @@ public class TestAnalyzer
         catch (SemanticException e) {
             if (e.getCode() != error) {
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
+            }
+        }
+    }
+
+    private void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        try {
+            analyze(session, query);
+            fail(format("Expected error %s, but analysis succeeded", error));
+        }
+        catch (SemanticException e) {
+            if (e.getCode() != error) {
+                fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
+            }
+
+            if (!e.getMessage().equals(message)) {
+                fail(format("Expected error '%s', but got '%s'", message, e.getMessage()), e);
             }
         }
     }
