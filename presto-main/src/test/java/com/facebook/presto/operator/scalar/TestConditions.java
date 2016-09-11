@@ -88,6 +88,7 @@ public class TestConditions
         assertFunction("1 IS NOT DISTINCT FROM 1", BOOLEAN, true);
         assertFunction("1 IS NOT DISTINCT FROM 2", BOOLEAN, false);
     }
+
     @Test
     public void testBetween()
     {

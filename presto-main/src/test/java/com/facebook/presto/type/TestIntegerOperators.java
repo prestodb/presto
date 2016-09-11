@@ -264,4 +264,15 @@ public class TestIntegerOperators
         assertFunction("cast('37' as integer)", INTEGER, 37);
         assertFunction("cast('17' as integer)", INTEGER, 17);
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS INTEGER) IS DISTINCT FROM CAST(NULL AS INTEGER)", BOOLEAN, false);
+        assertFunction("37 IS DISTINCT FROM 37", BOOLEAN, false);
+        assertFunction("37 IS DISTINCT FROM 38", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM 37", BOOLEAN, true);
+        assertFunction("37 IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
 }

@@ -130,6 +130,23 @@ public class TestRowOperators
     }
 
     @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS ROW(UNKNOWN)) IS DISTINCT FROM CAST(NULL AS ROW(UNKNOWN))", BOOLEAN, false);
+        assertFunction("row(NULL) IS DISTINCT FROM row(NULL)", BOOLEAN, false);
+        assertFunction("row(1, 'cat') IS DISTINCT FROM row(1, 'cat')", BOOLEAN, false);
+        assertFunction("row(1, ARRAY [1]) IS DISTINCT FROM row(1, ARRAY [1])", BOOLEAN, false);
+        assertFunction("row(1, ARRAY [1, 2]) IS DISTINCT FROM row(1, ARRAY [1, NULL])", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, 'cat', from_unixtime(1)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', from_unixtime(1))", BOOLEAN, false);
+        assertFunction("row(1, 2.0, TRUE, 'cat', from_unixtime(1)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', from_unixtime(2))", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', 2)", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER))", BOOLEAN, false);
+        assertFunction("row(1, 2.0, TRUE, 'cat') IS DISTINCT FROM row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3))) IS DISTINCT FROM row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, false);
+    }
+
+    @Test
     public void testRowEquality()
             throws Exception
     {

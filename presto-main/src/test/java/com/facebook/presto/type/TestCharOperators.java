@@ -132,4 +132,18 @@ public class TestCharOperators
         assertFunction("cast('bar' as char(4)) BETWEEN cast('bar' as char(3)) AND cast('bar' as char(5))", BOOLEAN, true);
         assertFunction("cast('bar' as char(4)) BETWEEN cast('bar' as char(5)) AND cast('bar' as char(7))", BOOLEAN, false);
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("cast(NULL as char(3)) IS DISTINCT FROM cast(NULL as char(3))", BOOLEAN, false);
+        assertFunction("cast(NULL as char(3)) IS DISTINCT FROM cast(NULL as char(5))", BOOLEAN, false);
+        assertFunction("cast('foo' as char(3)) IS DISTINCT FROM cast('foo' as char(5))", BOOLEAN, true);
+        assertFunction("cast('foo' as char(3)) IS DISTINCT FROM cast('foo' as char(3))", BOOLEAN, false);
+        assertFunction("cast('foo' as char(3)) IS DISTINCT FROM cast('bar' as char(3))", BOOLEAN, true);
+        assertFunction("cast('bar' as char(3)) IS DISTINCT FROM cast('foo' as char(3))", BOOLEAN, true);
+        assertFunction("cast('foo' as char(3)) IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM cast('foo' as char(3))", BOOLEAN, true);
+    }
 }

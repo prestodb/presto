@@ -316,6 +316,17 @@ public class TestDateTimeOperators
                 new SqlTimestamp(new DateTime(2013, 10, 27, 2, 5, 0, 0, TIME_ZONE).getMillis(), TIME_ZONE_KEY));
     }
 
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS DATE) IS DISTINCT FROM CAST(NULL AS DATE)", BOOLEAN, false);
+        assertFunction("DATE '2013-10-27' IS DISTINCT FROM TIMESTAMP '2013-10-27 00:00:00'", BOOLEAN, false);
+        assertFunction("DATE '2013-10-27' IS DISTINCT FROM TIMESTAMP '2013-10-28 00:00:00'", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM DATE '2013-10-27'", BOOLEAN, true);
+        assertFunction("DATE '2013-10-27' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
     private static SqlDate toDate(DateTime dateTime)
     {
         return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(dateTime.getMillis()));

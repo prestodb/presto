@@ -245,6 +245,17 @@ public class TestBigintOperators
     }
 
     @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS BIGINT) IS DISTINCT FROM CAST(NULL AS BIGINT)", BOOLEAN, false);
+        assertFunction("100000000037 IS DISTINCT FROM 100000000037", BOOLEAN, false);
+        assertFunction("100000000037 IS DISTINCT FROM 100000000038", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM 100000000037", BOOLEAN, true);
+        assertFunction("100000000037 IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
     public void testOverflowAdd()
             throws Exception
     {

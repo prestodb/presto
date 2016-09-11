@@ -95,9 +95,6 @@ public class BytecodeExpressionVisitor
                 case IS_NULL:
                     generator = new IsNullCodeGenerator();
                     break;
-                case "IS_DISTINCT_FROM":
-                    generator = new IsDistinctFromCodeGenerator();
-                    break;
                 case COALESCE:
                     generator = new CoalesceCodeGenerator();
                     break;

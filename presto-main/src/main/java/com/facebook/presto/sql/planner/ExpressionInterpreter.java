@@ -763,10 +763,6 @@ public class ExpressionInterpreter
                 return new ComparisonExpression(type, toExpression(left, expressionTypes.get(node.getLeft())), toExpression(right, expressionTypes.get(node.getRight())));
             }
 
-            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
-                type = ComparisonExpression.Type.NOT_EQUAL;
-            }
-
             return invokeOperator(OperatorType.valueOf(type.name()), types(node.getLeft(), node.getRight()), ImmutableList.of(left, right));
         }
 

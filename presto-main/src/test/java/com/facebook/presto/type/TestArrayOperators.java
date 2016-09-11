@@ -759,6 +759,26 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS ARRAY(UNKNOWN)) IS DISTINCT FROM CAST(NULL AS ARRAY(UNKNOWN))", BOOLEAN, false);
+        assertFunction("ARRAY [NULL] IS DISTINCT FROM ARRAY [NULL]", BOOLEAN, false);
+        assertFunction("NULL IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, false);
+        assertFunction("ARRAY [1, 2, 3] IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM ARRAY [1, 3]", BOOLEAN, true);
+        assertFunction("ARRAY [1, NULL] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, false);
+        assertFunction("ARRAY [1, NULL] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, false);
+        assertFunction("ARRAY [1, 2, NULL] IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, true);
+        assertFunction("ARRAY ['puppies', 'kittens'] IS DISTINCT FROM ARRAY ['puppies', 'kittens']", BOOLEAN, false);
+        assertFunction("ARRAY ['puppies', NULL] IS DISTINCT FROM ARRAY ['puppies', 'kittens']", BOOLEAN, true);
+        assertFunction("ARRAY ['puppies', NULL] IS DISTINCT FROM ARRAY [NULL, 'kittens']", BOOLEAN, true);
+    }
+
+    @Test
     public void testArrayRemove()
             throws Exception
     {

@@ -43,6 +43,7 @@ public final class SqlScalarFunctionBuilder
     private boolean deterministic;
     private boolean nullableResult;
     private List<Boolean> nullableArguments = emptyList();
+    private List<Boolean> nullFlags = emptyList();
     private List<MethodsGroup> methodsGroups = new ArrayList<>();
 
     public SqlScalarFunctionBuilder(Class<?> clazz)
@@ -99,6 +100,18 @@ public final class SqlScalarFunctionBuilder
         return this;
     }
 
+    public SqlScalarFunctionBuilder nullFlags(boolean... nullFlags)
+    {
+        requireNonNull(nullFlags, "nullFlags is null");
+
+        ImmutableList.Builder<Boolean> nullFlagsBuilder = ImmutableList.builder();
+        for (boolean flag : nullFlags) {
+            nullFlagsBuilder.add(flag);
+        }
+        this.nullFlags = nullFlagsBuilder.build();
+        return this;
+    }
+
     public SqlScalarFunctionBuilder implementation(Function<MethodsGroupBuilder, MethodsGroupBuilder> methodGroupSpecification)
     {
         MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz);
@@ -115,8 +128,19 @@ public final class SqlScalarFunctionBuilder
         if (nullableArguments.isEmpty()) {
             nullableArguments = Collections.nCopies(signature.getArgumentTypes().size(), false);
         }
+        if (nullFlags.isEmpty()) {
+            nullFlags = Collections.nCopies(signature.getArgumentTypes().size(), false);
+        }
 
-        return new PolymorphicScalarFunction(signature, description, hidden.orElse(false), deterministic, nullableResult, nullableArguments, methodsGroups);
+        return new PolymorphicScalarFunction(
+                signature,
+                description,
+                hidden.orElse(false),
+                deterministic,
+                nullableResult,
+                nullableArguments,
+                nullFlags,
+                methodsGroups);
     }
 
     @SafeVarargs

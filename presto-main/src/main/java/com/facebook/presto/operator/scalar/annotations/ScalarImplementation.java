@@ -130,7 +130,7 @@ public class ScalarImplementation
                 return Optional.empty();
             }
         }
-        Class<?> returnContainerType = getNullAwareContainerType(typeManager.getType(boundSignature.getReturnType()).getJavaType(), nullable);
+        Class<?> returnContainerType = getNullAwareReturnType(typeManager.getType(boundSignature.getReturnType()).getJavaType(), nullable);
         if (!returnContainerType.equals(methodHandle.type().returnType())) {
             return Optional.empty();
         }
@@ -156,8 +156,19 @@ public class ScalarImplementation
         return Optional.of(new MethodHandleAndConstructor(methodHandle, Optional.ofNullable(constructor)));
     }
 
+    private static Class<?> getNullAwareReturnType(Class<?> clazz, boolean nullable)
+    {
+        if (nullable) {
+            return Primitives.wrap(clazz);
+        }
+        return clazz;
+    }
+
     private static Class<?> getNullAwareContainerType(Class<?> clazz, boolean nullable)
     {
+        if (clazz == void.class) {
+            return Primitives.wrap(clazz);
+        }
         if (nullable) {
             return Primitives.wrap(clazz);
         }

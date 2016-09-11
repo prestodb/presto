@@ -129,7 +129,6 @@ public class ExpressionOptimizer
                     case "WHEN":
                     case TRY_CAST:
                     case IS_NULL:
-                    case "IS_DISTINCT_FROM":
                     case COALESCE:
                     case "AND":
                     case "OR":

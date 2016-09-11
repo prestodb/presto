@@ -375,6 +375,27 @@ public class TestMapOperators
     }
 
     @Test
+    public void testDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS MAP<INTEGER, VARCHAR>) IS DISTINCT FROM CAST(NULL AS MAP<INTEGER, VARCHAR>)", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1], ARRAY[2]) IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM MAP(ARRAY[1], ARRAY[2])", BOOLEAN, true);
+
+        assertFunction("MAP(ARRAY[1], ARRAY[2]) IS DISTINCT FROM MAP(ARRAY[1], ARRAY[2])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1], ARRAY[NULL]) IS DISTINCT FROM MAP(ARRAY[1], ARRAY[2])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1], ARRAY[2]) IS DISTINCT FROM MAP(ARRAY[1], ARRAY[NULL])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1], ARRAY[NULL]) IS DISTINCT FROM MAP(ARRAY[1], ARRAY[NULL])", BOOLEAN, false);
+
+        assertFunction("MAP(ARRAY[1, 2], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY['puppies', 'kittens'])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1, 2], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY['kittens', 'puppies'])", BOOLEAN, false);
+        assertFunction("MAP(ARRAY[1, 3], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY['kittens', 'puppies'])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1, 3], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY['kittens', 'pupp111'])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1, 3], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY['kittens', NULL])", BOOLEAN, true);
+        assertFunction("MAP(ARRAY[1, 3], ARRAY['kittens','puppies']) IS DISTINCT FROM MAP(ARRAY[1, 2], ARRAY[NULL, NULL])", BOOLEAN, true);
+    }
+
+    @Test
     public void testMapConcat()
             throws Exception
     {
