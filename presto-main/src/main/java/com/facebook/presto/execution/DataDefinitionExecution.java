@@ -71,9 +71,12 @@ public class DataDefinitionExecution<T extends Statement>
         this.parameters = parameters;
 
         stateMachine.addStateChangeListener(state -> {
-            if (state == QueryState.RUNNING) { // DDLs don't have STARTING phase
-                if (statement instanceof CatalogRelatedStatement) {
+            if (statement instanceof CatalogRelatedStatement) {
+                if (state == QueryState.RUNNING) { // DDLs don't have STARTING phase
                     notifyBeginQuery(statement);
+                }
+                if (state.isDone()) {
+                    notifyEndQuery();
                 }
             }
         });
@@ -86,6 +89,11 @@ public class DataDefinitionExecution<T extends Statement>
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, ((CatalogRelatedStatement) statement).getQualifiedName());
         metadata.beginQuery(session, tableName.getCatalogName());
+    }
+
+    private void notifyEndQuery()
+    {
+        metadata.endQuery(stateMachine.getSession());
     }
 
     @Override

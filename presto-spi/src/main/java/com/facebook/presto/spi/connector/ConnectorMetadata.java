@@ -253,7 +253,7 @@ public interface ConnectorMetadata
     default void beginQuery(ConnectorSession session) {}
 
     /**
-     * End a SELECT/UPDATE/INSERT/DELETE query. This is the very last notification after the query finishes, whether it succeeds or fails.
+     * End a query. This is the very last notification after the query finishes, whether it succeeds or fails.
      */
     default void endQuery(ConnectorSession session) {}
 
