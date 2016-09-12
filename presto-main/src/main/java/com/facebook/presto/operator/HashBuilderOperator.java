@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SingleStreamSpiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.Symbol;
@@ -116,7 +117,8 @@ public class HashBuilderOperator
                     hashChannels,
                     partitionCount,
                     requireNonNull(layout, "layout is null"),
-                    outer);
+                    outer,
+                    spillerFactory);
 
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
@@ -189,6 +191,8 @@ public class HashBuilderOperator
     private final boolean spillEnabled;
     private final DataSize memoryLimitBeforeSpill;
     private final SpillerFactory spillerFactory;
+    private Optional<SingleStreamSpiller> spiller = Optional.empty();
+    private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
 
     private boolean finishing;
     private final HashCollisionsCounter hashCollisionsCounter;
@@ -245,11 +249,20 @@ public class HashBuilderOperator
         }
         finishing = true;
 
-        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, Optional.of(outputChannels));
-        lookupSourceFactory.setPartitionLookupSourceSupplier(partitionIndex, partition);
+        if (spiller.isPresent()) {
+            lookupSourceFactory.setPartitionSpilledLookupSourceSupplier(partitionIndex, spiller.get());
+            spiller = Optional.empty();
 
-        operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
-        hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
+            operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+            hashCollisionsCounter.recordHashCollision(0, 0);
+        }
+        else {
+            LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, Optional.of(outputChannels));
+            lookupSourceFactory.setPartitionLookupSourceSupplier(partitionIndex, partition);
+
+            operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
+            hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
+        }
     }
 
     @Override
@@ -267,6 +280,9 @@ public class HashBuilderOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
+        if (!spillInProgress.isDone()) {
+            return spillInProgress;
+        }
         if (!finishing) {
             return NOT_BLOCKED;
         }
@@ -278,18 +294,50 @@ public class HashBuilderOperator
     {
         requireNonNull(page, "page is null");
         checkState(!isFinished(), "Operator is already finished");
+        checkState(spillInProgress.isDone());
+
+        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+
+        if (spiller.isPresent()) {
+            spill(page);
+            return;
+        }
 
         index.addPage(page);
         if (!operatorContext.trySetMemoryReservation(index.getEstimatedSize().toBytes())) {
             index.compact();
         }
-        operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
-        operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
+
+        if (spillEnabled && index.getEstimatedSize().compareTo(memoryLimitBeforeSpill) > 0) {
+            spiller = Optional.of(spillerFactory.createSingleStreamSpiller(index.getTypes()));
+            spillInProgress = MoreFutures.toListenableFuture(spiller.get().spill(index.getPages()));
+        }
+        else {
+            operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+        }
+    }
+
+    private void spill(Page page)
+    {
+        if (index.getPositionCount() > 0) {
+            index.clear();
+            operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
+        }
+        spillInProgress = MoreFutures.toListenableFuture(spiller.get().spill(page));
     }
 
     @Override
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void close()
+    {
+        if (spiller.isPresent()) {
+            spiller.get().close();
+            spiller = Optional.empty();
+        }
     }
 }
