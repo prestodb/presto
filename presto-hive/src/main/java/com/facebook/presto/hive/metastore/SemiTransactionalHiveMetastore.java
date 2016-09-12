@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static com.facebook.presto.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.createDirectory;
 import static com.facebook.presto.hive.HiveWriteUtils.pathExists;
@@ -502,6 +503,7 @@ public class SemiTransactionalHiveMetastore
     public synchronized void addPartition(ConnectorSession session, String databaseName, String tableName, Partition partition, Path currentLocation)
     {
         setShared();
+        checkArgument(getPrestoQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
         if (oldPartitionAction == null) {
@@ -1544,6 +1546,11 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    private static Optional<String> getPrestoQueryId(Partition partition)
+    {
+        return Optional.ofNullable(partition.getParameters().get(PRESTO_QUERY_ID_NAME));
+    }
+
     private void checkHoldsLock()
     {
         // This method serves a similar purpose at runtime as GuardedBy on method serves during static analysis.
@@ -2042,6 +2049,7 @@ public class SemiTransactionalHiveMetastore
 
         public void addPartition(Partition partition)
         {
+            checkArgument(getPrestoQueryId(partition).isPresent());
             partitions.add(partition);
         }
 
@@ -2049,14 +2057,41 @@ public class SemiTransactionalHiveMetastore
         {
             List<List<Partition>> batchedPartitions = Lists.partition(partitions, batchSize);
             for (List<Partition> batch : batchedPartitions) {
-                metastore.addPartitions(schemaName, tableName, batch);
-                // One of the possible reasons that addPartitions fail is that the partition may already exist.
-                // Therefore, `batch` cannot be added to the list of created partitions before addPartitions call returns.
-                // However, adding it after could result in transaction not fully rolled back.
-                // But there isn't any guarantee that metastore will respond to our dropPartition calls anyways.
-                // On the other hand, `rollback` cannot guarantee that it only deletes partition we added.
-                for (Partition partition : batch) {
-                    createdPartitionValues.add(partition.getValues());
+                try {
+                    metastore.addPartitions(schemaName, tableName, batch);
+                    for (Partition partition : batch) {
+                        createdPartitionValues.add(partition.getValues());
+                    }
+                }
+                catch (Throwable t) {
+                    // Add partition to the created list conservatively.
+                    // Some metastore implementations are known to violate the "all or none" guarantee for add_partitions call.
+                    boolean batchCompletelyAdded = true;
+                    for (Partition partition : batch) {
+                        try {
+                            Optional<Partition> remotePartition = metastore.getPartition(schemaName, tableName, partition.getValues());
+                            // getPrestoQueryId(partition) is guaranteed to be non-empty. It is asserted in PartitionAdder.addPartition.
+                            if (remotePartition.isPresent() && getPrestoQueryId(remotePartition.get()).equals(getPrestoQueryId(partition))) {
+                                createdPartitionValues.add(partition.getValues());
+                            }
+                            else {
+                                batchCompletelyAdded = false;
+                            }
+                        }
+                        catch (Throwable ignored) {
+                            // When partition could not be fetched from metastore, it is not known whether the partition was added.
+                            // Deleting the partition when aborting commit has the risk of deleting partition not added in this transaction.
+                            // Not deleting the partition may leave garbage behind. The former is much more dangerous than the latter.
+                            // Therefore, the partition is not added to the createdPartitionValues list here.
+                            batchCompletelyAdded = false;
+                        }
+                    }
+                    // If all the partitions were added successfully, the add_partition operation was actually successful.
+                    // For some reason, it threw an exception (communication failure, retry failure after communication failure, etc).
+                    // But we would consider it successful anyways.
+                    if (!batchCompletelyAdded) {
+                        throw t;
+                    }
                 }
             }
             partitions.clear();
