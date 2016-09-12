@@ -52,6 +52,7 @@ public class StorageModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(StorageManagerConfig.class);
+        configBinder(binder).bindConfig(BucketBalancerConfig.class);
         configBinder(binder).bindConfig(ShardCleanerConfig.class);
         configBinder(binder).bindConfig(MetadataConfig.class);
 

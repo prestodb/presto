@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -40,6 +41,11 @@ public class TestingNodeManager
     public TestingNodeManager(Node localNode)
     {
         this(localNode, ImmutableSet.of());
+    }
+
+    public TestingNodeManager(List<Node> allNodes)
+    {
+        this(allNodes.iterator().next(), allNodes);
     }
 
     public TestingNodeManager(Node localNode, Collection<Node> otherNodes)

@@ -627,6 +627,30 @@ public class DatabaseShardManager
     }
 
     @Override
+    public void updateBucketAssignment(long distributionId, int bucketNumber, String nodeId)
+    {
+        dao.updateBucketNode(distributionId, bucketNumber, getOrCreateNodeId(nodeId));
+    }
+
+    @Override
+    public List<Distribution> getDistributions()
+    {
+        return dao.listActiveDistributions();
+    }
+
+    @Override
+    public long getDistributionSizeInBytes(long distributionId)
+    {
+        return dao.getDistributionSizeBytes(distributionId);
+    }
+
+    @Override
+    public List<BucketNode> getBucketNodes(long distibutionId)
+    {
+        return dao.getBucketNodes(distibutionId);
+    }
+
+    @Override
     public Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids)
     {
         try (Handle handle = dbi.open()) {
@@ -651,6 +675,11 @@ public class DatabaseShardManager
         }
     }
 
+    private List<BucketNode> getBuckets(long distributionId)
+    {
+        return dao.getBucketNodes(distributionId);
+    }
+
     private Map<Integer, String> loadBucketAssignments(long distributionId)
     {
         Set<String> nodeIds = getNodeIdentifiers();
@@ -658,7 +687,7 @@ public class DatabaseShardManager
 
         ImmutableMap.Builder<Integer, String> assignments = ImmutableMap.builder();
 
-        for (BucketNode bucketNode : dao.getBucketNodes(distributionId)) {
+        for (BucketNode bucketNode : getBuckets(distributionId)) {
             int bucket = bucketNode.getBucketNumber();
             String nodeId = bucketNode.getNodeIdentifier();
 

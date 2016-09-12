@@ -703,6 +703,11 @@ public class TestDatabaseShardManager
         return createShardManager(dbi, ImmutableSet::of, systemTicker());
     }
 
+    public static ShardManager createShardManager(IDBI dbi, NodeSupplier nodeSupplier)
+    {
+        return createShardManager(dbi, nodeSupplier, systemTicker());
+    }
+
     public static ShardManager createShardManager(IDBI dbi, NodeSupplier nodeSupplier, Ticker ticker)
     {
         DaoSupplier<ShardDao> shardDaoSupplier = new DaoSupplier<>(dbi, H2ShardDao.class);

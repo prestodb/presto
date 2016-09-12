@@ -110,6 +110,26 @@ public interface ShardManager
     Map<Integer, String> getBucketAssignments(long distributionId);
 
     /**
+     * Change the node a bucket is assigned to.
+     */
+    void updateBucketAssignment(long distributionId, int bucketNumber, String nodeId);
+
+    /**
+     * Get all active distributions.
+     */
+    List<Distribution> getDistributions();
+
+    /**
+     * Get total physical size of all tables in a distribution.
+     */
+    long getDistributionSizeInBytes(long distributionId);
+
+    /**
+     * Get list of bucket nodes for a distribution.
+     */
+    List<BucketNode> getBucketNodes(long distributionId);
+
+    /**
      * Return the subset of shard uuids that exist
      */
     Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids);
