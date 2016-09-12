@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.type.TypeManager;
-import io.airlift.node.NodeInfo;
 
 import javax.inject.Inject;
 
@@ -31,20 +28,13 @@ class PluginConnectorFactoryContext
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
-    private final ServerInfo serverInfo;
 
     @Inject
     public PluginConnectorFactoryContext(
-            NodeInfo nodeInfo,
-            NodeVersion nodeVersion,
             TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory)
     {
-        requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(nodeVersion, "nodeVersion is null");
-        this.serverInfo = new ServerInfo(nodeInfo.getNodeId(), nodeInfo.getEnvironment(), nodeVersion.getVersion());
-
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
@@ -66,11 +56,5 @@ class PluginConnectorFactoryContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
-    }
-
-    @Override
-    public ServerInfo getServerInfo()
-    {
-        return serverInfo;
     }
 }
