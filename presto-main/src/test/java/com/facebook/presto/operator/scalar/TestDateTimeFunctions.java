@@ -674,7 +674,6 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + dateTimeLiteral + ", '%T')", VARCHAR, "13:04:05");
         assertFunction("date_format(" + dateTimeLiteral + ", '%v')", VARCHAR, "02");
         assertFunction("date_format(" + dateTimeLiteral + ", '%W')", VARCHAR, "Tuesday");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%w')", VARCHAR, "2");
         assertFunction("date_format(" + dateTimeLiteral + ", '%Y')", VARCHAR, "2001");
         assertFunction("date_format(" + dateTimeLiteral + ", '%y')", VARCHAR, "01");
         assertFunction("date_format(" + dateTimeLiteral + ", '%%')", VARCHAR, "%");
@@ -707,7 +706,6 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%T')", VARCHAR, "13:04:05");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%v')", VARCHAR, "02");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%W')", VARCHAR, "Tuesday");
-        assertFunction("date_format(" + wierdDateTimeLiteral + ", '%w')", VARCHAR, "2");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%Y')", VARCHAR, "2001");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%y')", VARCHAR, "01");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%%')", VARCHAR, "%");
@@ -718,6 +716,13 @@ public class TestDateTimeFunctions
 
         assertFunction("date_format(TIMESTAMP '2001-01-09 13:04:05.32', '%f')", VARCHAR, "320000");
         assertFunction("date_format(TIMESTAMP '2001-01-09 00:04:05.32', '%k')", VARCHAR, "0");
+
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%D')", "%D not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%U')", "%U not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%u')", "%u not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%V')", "%V not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%w')", "%w not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%X')", "%X not supported in date format string");
     }
 
     @Test
@@ -786,6 +791,13 @@ public class TestDateTimeFunctions
         assertFunction("date_parse('31-MAY-69 04.59.59.999000 AM','%d-%b-%y %l.%i.%s.%f %p')",
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(2069, 5, 31, 4, 59, 59, 999, DATE_TIME_ZONE)));
+
+        assertInvalidFunction("date_parse('', '%D')", "%D not supported in date format string");
+        assertInvalidFunction("date_parse('', '%U')", "%U not supported in date format string");
+        assertInvalidFunction("date_parse('', '%u')", "%u not supported in date format string");
+        assertInvalidFunction("date_parse('', '%V')", "%V not supported in date format string");
+        assertInvalidFunction("date_parse('', '%w')", "%w not supported in date format string");
+        assertInvalidFunction("date_parse('', '%X')", "%X not supported in date format string");
 
         assertInvalidFunction("date_parse('3.0123456789', '%s.%f')", "Invalid format: \"3.0123456789\" is malformed at \"9\"");
         assertInvalidFunction("date_parse('%Y-%M-%d', '')", "Both printing and parsing not supported");
