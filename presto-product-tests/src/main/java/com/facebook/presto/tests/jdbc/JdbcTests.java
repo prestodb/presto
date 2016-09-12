@@ -22,7 +22,7 @@ import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.Requires;
 import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.query.QueryResult;
-import org.slf4j.LoggerFactory;
+import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -60,7 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class JdbcTests
         extends ProductTest
 {
-    private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(JdbcTests.class);
+    private static final Logger LOGGER = Logger.get(JdbcTests.class);
     private static final String TABLE_NAME = "nation_table_name";
 
     private static class ImmutableAndMutableNationTable
