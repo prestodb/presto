@@ -28,6 +28,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
@@ -53,6 +54,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
 import static org.joda.time.DurationFieldType.millis;
@@ -89,7 +91,6 @@ public class TestDateTimeFunctions
     private static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
     private static final String WEIRD_TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+07:09";
 
-    private static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
     private Session session;
     private FunctionAssertions functionAssertions;
 
@@ -107,7 +108,7 @@ public class TestDateTimeFunctions
             throws Exception
     {
         // current date is the time at midnight in the session time zone
-        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate((int) epochDaysInZone(TIME_ZONE_KEY, session.getStartTime())));
+        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(Ints.checkedCast(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
     }
 
     @Test
@@ -183,7 +184,7 @@ public class TestDateTimeFunctions
         int timeZoneHoursOffset = 1;
         int timezoneMinutesOffset = 10;
 
-        DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset(timeZoneHoursOffset * 60 + timezoneMinutesOffset)));
+        DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset((timeZoneHoursOffset * 60L) + timezoneMinutesOffset)));
         assertFunction("from_unixtime(" + seconds + ", " + timeZoneHoursOffset + ", " + timezoneMinutesOffset + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
     }
 
@@ -886,10 +887,10 @@ public class TestDateTimeFunctions
         functionAssertions.assertFunctionString(projection, expectedType, expected);
     }
 
-    private SqlDate toDate(DateTime dateDate)
+    private static SqlDate toDate(DateTime dateDate)
     {
         long millis = dateDate.getMillis();
-        return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis));
+        return new SqlDate(Ints.checkedCast(MILLISECONDS.toDays(millis)));
     }
 
     private static long millisBetween(ReadableInstant start, ReadableInstant end)
@@ -909,7 +910,7 @@ public class TestDateTimeFunctions
         return new SqlTime(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
+    private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
     {
         return new SqlTimeWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }
@@ -924,12 +925,12 @@ public class TestDateTimeFunctions
         return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private SqlTimestamp toTimestamp(DateTime dateTime, Session session)
+    private static SqlTimestamp toTimestamp(DateTime dateTime, Session session)
     {
         return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
+    private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
     {
         return new SqlTimestampWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }
