@@ -26,7 +26,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.type.TypeManager;
@@ -57,10 +56,10 @@ public class AtopMetadata
     private final String environment;
 
     @Inject
-    public AtopMetadata(TypeManager typeManager, ServerInfo serverInfo)
+    public AtopMetadata(TypeManager typeManager, Environment environment)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.environment = requireNonNull(serverInfo, "serverInfo is null").getEnvironment();
+        this.environment = requireNonNull(environment, "environment is null").toString();
     }
 
     @Override

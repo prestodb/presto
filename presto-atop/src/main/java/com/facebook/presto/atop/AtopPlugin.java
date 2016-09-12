@@ -29,8 +29,7 @@ public class AtopPlugin
         return ImmutableList.of(new AtopConnectorFactory(
                 AtopProcessFactory.class,
                 getClassLoader(),
-                context.getTypeManager(),
-                context.getServerInfo()));
+                context.getTypeManager()));
     }
 
     private static ClassLoader getClassLoader()

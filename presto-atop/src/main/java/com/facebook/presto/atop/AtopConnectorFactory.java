@@ -16,7 +16,6 @@ package com.facebook.presto.atop;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControlModule;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
@@ -40,14 +39,12 @@ public class AtopConnectorFactory
     private final Class<? extends AtopFactory> atopFactoryClass;
     private final TypeManager typeManager;
     private final ClassLoader classLoader;
-    private final ServerInfo serverInfo;
 
-    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, ClassLoader classLoader, TypeManager typeManager, ServerInfo serverInfo)
+    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, ClassLoader classLoader, TypeManager typeManager)
     {
         this.atopFactoryClass = requireNonNull(atopFactoryClass, "atopFactoryClass is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
     }
 
     @Override
@@ -69,7 +66,12 @@ public class AtopConnectorFactory
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
-                    new AtopModule(atopFactoryClass, typeManager, context.getNodeManager(), serverInfo, connectorId),
+                    new AtopModule(
+                            atopFactoryClass,
+                            typeManager,
+                            context.getNodeManager(),
+                            context.getNodeManager().getEnvironment(),
+                            connectorId),
                     installModuleIf(
                         AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),

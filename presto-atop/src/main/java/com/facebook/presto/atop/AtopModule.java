@@ -14,7 +14,6 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -29,15 +28,15 @@ public class AtopModule
     private final Class<? extends AtopFactory> atopFactoryClass;
     private final TypeManager typeManager;
     private final NodeManager nodeManager;
-    private final ServerInfo serverInfo;
+    private final String environment;
     private final String connectorId;
 
-    public AtopModule(Class<? extends AtopFactory> atopFactoryClass, TypeManager typeManager, NodeManager nodeManager, ServerInfo serverInfo, String connectorId)
+    public AtopModule(Class<? extends AtopFactory> atopFactoryClass, TypeManager typeManager, NodeManager nodeManager, String environment, String connectorId)
     {
         this.atopFactoryClass = requireNonNull(atopFactoryClass, "atopFactoryClass is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
+        this.environment = requireNonNull(environment, "environment is null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
@@ -46,7 +45,7 @@ public class AtopModule
     {
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
-        binder.bind(ServerInfo.class).toInstance(serverInfo);
+        binder.bind(Environment.class).toInstance(new Environment(environment));
         binder.bind(AtopConnectorId.class).toInstance(new AtopConnectorId(connectorId));
         binder.bind(AtopConnector.class).in(Scopes.SINGLETON);
         binder.bind(AtopMetadata.class).in(Scopes.SINGLETON);
