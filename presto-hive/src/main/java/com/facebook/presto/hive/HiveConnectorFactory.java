@@ -18,7 +18,6 @@ import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.PageIndexerFactory;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -66,15 +65,13 @@ public class HiveConnectorFactory
     private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
-    private final ServerInfo serverInfo;
 
     public HiveConnectorFactory(
             String name,
             ClassLoader classLoader,
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
-            PageIndexerFactory pageIndexerFactory,
-            ServerInfo serverInfo)
+            PageIndexerFactory pageIndexerFactory)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
@@ -82,7 +79,6 @@ public class HiveConnectorFactory
         this.metastore = metastore;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexer is null");
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
     }
 
     @Override
@@ -154,7 +150,7 @@ public class HiveConnectorFactory
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
-                        binder.bind(ServerInfo.class).toInstance(serverInfo);
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                     }
             );
 
