@@ -37,7 +37,6 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -153,7 +152,7 @@ public class HiveMetadata
     private final boolean forceIntegralToBigint;
     private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
-    private final ServerInfo serverInfo;
+    private final String prestoVersion;
 
     public HiveMetadata(
             String connectorId,
@@ -173,7 +172,7 @@ public class HiveMetadata
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             Executor renameExecutor,
             TypeTranslator typeTranslator,
-            ServerInfo serverInfo)
+            String prestoVersion)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
 
@@ -192,10 +191,9 @@ public class HiveMetadata
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
-
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecution is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -398,7 +396,7 @@ public class HiveMetadata
         LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
 
-        Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, serverInfo);
+        Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
     }
@@ -414,7 +412,7 @@ public class HiveMetadata
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
             Path targetPath,
-            ServerInfo serverInfo)
+            String prestoVersion)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
@@ -455,7 +453,7 @@ public class HiveMetadata
                 .setPartitionColumns(partitionColumns)
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put("comment", tableComment)
-                        .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
+                        .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, queryId)
                         .putAll(additionalTableParameters)
                         .build());
@@ -582,7 +580,7 @@ public class HiveMetadata
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
                 targetPath,
-                serverInfo);
+                prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -818,7 +816,7 @@ public class HiveMetadata
             partition.getStorageBuilder().setStorageFormat(fromHiveStorageFormat(defaultStorageFormat));
         }
         partition.setParameters(ImmutableMap.<String, String>builder()
-                .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
+                .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, queryId)
                 .build());
 

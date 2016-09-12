@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.GroupByHashPageIndexerFactory;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -55,8 +54,8 @@ public class TestHiveConnectorFactory
                 HiveConnector.class.getClassLoader(),
                 null,
                 new TypeRegistry(),
-                new GroupByHashPageIndexerFactory(),
-                new ServerInfo("test_id", "test_environment", "test_version"));
+                new GroupByHashPageIndexerFactory()
+        );
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.uri", metastoreUri)
