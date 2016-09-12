@@ -14,7 +14,6 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableMap;
@@ -47,8 +46,7 @@ public final class LocalAtopQueryRunner
         LocalQueryRunner queryRunner = new LocalQueryRunner(session);
 
         try {
-            ServerInfo serverInfo = new ServerInfo("testnode", "testenv", "testversion");
-            AtopConnectorFactory connectorFactory = new AtopConnectorFactory(factoryClass, LocalAtopQueryRunner.class.getClassLoader(), queryRunner.getTypeManager(), serverInfo);
+            AtopConnectorFactory connectorFactory = new AtopConnectorFactory(factoryClass, LocalAtopQueryRunner.class.getClassLoader(), queryRunner.getTypeManager());
             ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                     .putAll(catalogProperties)
                     .put("atop.max-history-days", "1");
