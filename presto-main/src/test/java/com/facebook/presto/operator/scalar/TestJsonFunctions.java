@@ -165,6 +165,7 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET('', null)", JSON, null);
         assertFunction("JSON_ARRAY_GET('', 1)", JSON, null);
         assertFunction("JSON_ARRAY_GET('', -1)", JSON, null);
+        assertFunction("JSON_ARRAY_GET('[1]', -9223372036854775807 - 1)", JSON, null);
     }
 
     @Test
@@ -182,6 +183,7 @@ public class TestJsonFunctions
         assertFunction("JSON_ARRAY_GET('[]', 0)", JSON, null);
         assertFunction("JSON_ARRAY_GET('[null]', 0)", JSON, null);
         assertFunction("JSON_ARRAY_GET('[]', null)", JSON, null);
+        assertFunction("JSON_ARRAY_GET('[1]', -9223372036854775807 - 1)", JSON, null);
     }
 
     @Test

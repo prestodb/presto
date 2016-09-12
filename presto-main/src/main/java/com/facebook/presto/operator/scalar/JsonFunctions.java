@@ -321,6 +321,11 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
+        // this value cannot be converted to positive number
+        if (index == Long.MIN_VALUE) {
+            return null;
+        }
+
         try (JsonParser parser = createJsonParser(MAPPING_JSON_FACTORY, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
