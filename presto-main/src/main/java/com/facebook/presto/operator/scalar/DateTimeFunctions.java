@@ -1001,15 +1001,13 @@ public final class DateTimeFunctions
                     case 'W': // %W Weekday name (Sunday..Saturday)
                         builder.appendDayOfWeekText();
                         break;
-                    case 'w': // %w Day of the week (0=Sunday..6=Saturday)
-                        builder.appendDayOfWeek(1);
-                        break;
                     case 'Y': // %Y Year, numeric, four digits
                         builder.appendYear(4, 4);
                         break;
                     case 'y': // %y Year, numeric (two digits)
                         builder.appendTwoDigitYear(PIVOT_YEAR);
                         break;
+                    case 'w': // %w Day of the week (0=Sunday..6=Saturday)
                     case 'U': // %U Week (00..53), where Sunday is the first day of the week
                     case 'u': // %u Week (00..53), where Monday is the first day of the week
                     case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
