@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
@@ -33,7 +32,6 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
 import org.joda.time.ReadableInstant;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -67,6 +65,7 @@ import static org.joda.time.Years.yearsBetween;
 import static org.testng.Assert.assertEquals;
 
 public class TestDateTimeFunctions
+        extends AbstractTestFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
@@ -91,16 +90,18 @@ public class TestDateTimeFunctions
     private static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
     private static final String WEIRD_TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+07:09";
 
-    private Session session;
-    private FunctionAssertions functionAssertions;
+    private final Session session;
 
-    @BeforeClass
-    public void setUp()
+    @Test
+    public TestDateTimeFunctions()
     {
-        session = testSessionBuilder()
-                .setTimeZoneKey(TIME_ZONE_KEY)
-                .build();
-        functionAssertions = new FunctionAssertions(session);
+        this(testSessionBuilder().setTimeZoneKey(TIME_ZONE_KEY).build());
+    }
+
+    private TestDateTimeFunctions(Session session)
+    {
+        super(session);
+        this.session = session;
     }
 
     @Test
@@ -637,12 +638,6 @@ public class TestDateTimeFunctions
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forOffsetHours(5))));
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Both printing and parsing not supported")
-    public void testInvalidDateParseFormat()
-    {
-        assertFunction("date_parse('%Y-%M-%d', '')", BIGINT, 0);
-    }
-
     @Test
     public void testFormatDatetime()
     {
@@ -791,14 +786,9 @@ public class TestDateTimeFunctions
         assertFunction("date_parse('31-MAY-69 04.59.59.999000 AM','%d-%b-%y %l.%i.%s.%f %p')",
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(2069, 5, 31, 4, 59, 59, 999, DATE_TIME_ZONE)));
-    }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Invalid format: \"3.0123456789\" is malformed at \"9\"")
-    public void testTooManyFractionsInSeconds()
-    {
-        assertFunction("date_parse('3.0123456789', '%s.%f')",
-                TimestampType.TIMESTAMP,
-                null);
+        assertInvalidFunction("date_parse('3.0123456789', '%s.%f')", "Invalid format: \"3.0123456789\" is malformed at \"9\"");
+        assertInvalidFunction("date_parse('%Y-%M-%d', '')", "Both printing and parsing not supported");
     }
 
     @Test
@@ -875,11 +865,6 @@ public class TestDateTimeFunctions
         assertFunctionString("timestamp '0000-01-02 01:02:03 Asia/Shanghai'", TIMESTAMP_WITH_TIME_ZONE, "0000-01-02 01:02:03.000 Asia/Shanghai");
         assertFunctionString("timestamp '1234-05-06 23:23:23.233 America/Los_Angeles'", TIMESTAMP_WITH_TIME_ZONE, "1234-05-06 23:23:23.233 America/Los_Angeles");
         assertFunctionString("timestamp '2333-02-23 23:59:59.999 Asia/Tokyo'", TIMESTAMP_WITH_TIME_ZONE, "2333-02-23 23:59:59.999 Asia/Tokyo");
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
     private void assertFunctionString(String projection, Type expectedType, String expected)

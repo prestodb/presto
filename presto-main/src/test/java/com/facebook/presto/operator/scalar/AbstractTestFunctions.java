@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlFunction;
@@ -47,6 +48,11 @@ public abstract class AbstractTestFunctions
     protected AbstractTestFunctions()
     {
         functionAssertions = new FunctionAssertions();
+    }
+
+    protected AbstractTestFunctions(Session session)
+    {
+        functionAssertions = new FunctionAssertions(session);
     }
 
     protected AbstractTestFunctions(FeaturesConfig featuresConfig)
