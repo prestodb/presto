@@ -115,6 +115,9 @@ public class HashBuilderOperator
                             .map(types::get)
                             .collect(ImmutableCollectors.toImmutableList()),
                     hashChannels,
+                    outputChannels,
+                    preComputedHashChannel,
+                    filterFunctionFactory,
                     partitionCount,
                     requireNonNull(layout, "layout is null"),
                     outer,
