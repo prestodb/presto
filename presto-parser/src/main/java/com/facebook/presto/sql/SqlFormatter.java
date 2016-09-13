@@ -71,6 +71,7 @@ import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
@@ -1050,6 +1051,25 @@ public final class SqlFormatter
             builder.append(node.getTableName())
                     .append(" FROM ")
                     .append(node.getGrantee());
+
+            return null;
+        }
+
+        @Override
+        public Void visitShowGrants(ShowGrants node, Integer indent)
+        {
+            builder.append("SHOW GRANTS ");
+
+            builder.append("ON ");
+            if (node.getAll()) {
+                builder.append("ALL");
+            }
+            else {
+                if (node.getTable()) {
+                    builder.append("TABLE ");
+                }
+                builder.append(node.getTableName().get());
+            }
 
             return null;
         }
