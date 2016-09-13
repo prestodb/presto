@@ -52,6 +52,12 @@ public class TestAtopSmoke
     }
 
     @Test
+    public void testPredicatePushdown()
+    {
+        assertThatQueryReturnsValue("SELECT device_name FROM disks WHERE start_time < current_timestamp LIMIT 1", "sda");
+    }
+
+    @Test
     public void testReboots()
     {
         assertThatQueryReturnsValue("SELECT count(*) FROM reboots WHERE CAST(power_on_time AS date) = current_date", 2L);

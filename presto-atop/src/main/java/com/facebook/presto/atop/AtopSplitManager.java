@@ -34,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.atop.Types.checkType;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
 public class AtopSplitManager
@@ -68,7 +68,7 @@ public class AtopSplitManager
             DateTime start = end.minusDays(maxHistoryDays - 1).withTimeAtStartOfDay();
             while (start.isBefore(end)) {
                 DateTime splitEnd = start.withTime(23, 59, 59, 999);
-                Domain splitDomain = Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP, start.getMillis(), true, splitEnd.getMillis(), true)), false);
+                Domain splitDomain = Domain.create(ValueSet.ofRanges(Range.range(TIMESTAMP_WITH_TIME_ZONE, start.getMillis(), true, splitEnd.getMillis(), true)), false);
                 if (handle.getStartTimeConstraint().overlaps(splitDomain) && handle.getEndTimeConstraint().overlaps(splitDomain)) {
                     splits.add(new AtopSplit(table.getTable(), node.getHostAndPort(), start));
                 }
