@@ -33,6 +33,7 @@ import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimi
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class QueryContext
@@ -177,5 +178,17 @@ public class QueryContext
         TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitQueryContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return taskContexts.stream()
+                .map(taskContext -> taskContext.accept(visitor, context))
+                .collect(toList());
     }
 }

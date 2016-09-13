@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +46,7 @@ import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class PipelineContext
@@ -457,6 +459,18 @@ public class PipelineContext
 
                 ImmutableList.copyOf(operatorSummaries.values()),
                 drivers);
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitPipelineContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return drivers.stream()
+                .map(driver -> driver.accept(visitor, context))
+                .collect(toList());
     }
 
     private static <K, V> boolean compareAndSet(ConcurrentMap<K, V> map, K key, V oldValue, V newValue)
