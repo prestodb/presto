@@ -61,6 +61,8 @@ statement
         (GRANT OPTION FOR)?
         (privilege (',' privilege)* | ALL PRIVILEGES)
         ON TABLE? qualifiedName FROM grantee=identifier                #revoke
+    | SHOW GRANTS
+        (ON TABLE? qualifiedName)?                                     #showGrants
     | EXPLAIN ANALYZE?
         ('(' explainOption (',' explainOption)* ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
@@ -452,7 +454,7 @@ nonReserved
     | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
     | COMMENT
     | CALL
-    | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
+    | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION | GRANTS
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
     | INPUT | OUTPUT
@@ -568,6 +570,7 @@ REVOKE: 'REVOKE';
 PRIVILEGES: 'PRIVILEGES';
 PUBLIC: 'PUBLIC';
 OPTION: 'OPTION';
+GRANTS: 'GRANTS';
 EXPLAIN: 'EXPLAIN';
 ANALYZE: 'ANALYZE';
 FORMAT: 'FORMAT';
