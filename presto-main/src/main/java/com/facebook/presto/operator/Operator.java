@@ -73,6 +73,15 @@ public interface Operator
     Page getOutput();
 
     /**
+     * After calling this method operator should revoke all reserved revocable memory.
+     * As soon as memory is revoked returned future should be marked as done.
+     */
+    default ListenableFuture<?> revokeMemory()
+    {
+        return NOT_BLOCKED;
+    }
+
+    /**
      * This method will always be called before releasing the Operator reference.
      */
     @Override
