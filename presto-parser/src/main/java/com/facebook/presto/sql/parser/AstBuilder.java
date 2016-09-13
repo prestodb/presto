@@ -119,6 +119,7 @@ import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
@@ -760,6 +761,21 @@ class AstBuilder
                 context.TABLE() != null,
                 getQualifiedName(context.qualifiedName()),
                 context.grantee.getText());
+    }
+
+    @Override
+    public Node visitShowGrants(SqlBaseParser.ShowGrantsContext context)
+    {
+        Optional<QualifiedName> tableName = Optional.empty();
+
+        if (context.qualifiedName() != null) {
+            tableName = Optional.of(getQualifiedName(context.qualifiedName()));
+        }
+
+        return new ShowGrants(
+                getLocation(context),
+                context.TABLE() != null,
+                tableName);
     }
 
     // ***************** boolean expressions ******************
