@@ -79,11 +79,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
@@ -162,6 +157,18 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
             <scope>provided</scope>
         </dependency>
 
