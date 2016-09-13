@@ -22,7 +22,6 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HivePageSink.DataColumn;
 import com.facebook.presto.hive.HivePageSink.HiveRecordWriter;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
@@ -43,7 +42,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -374,7 +372,6 @@ public enum FileFormat
                         targetFile.length(),
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
-                        ImmutableList.<HivePartitionKey>of(),
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getTimeZoneKey().getId()))
                 .get();

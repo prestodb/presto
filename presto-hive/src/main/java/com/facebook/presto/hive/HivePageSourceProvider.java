@@ -131,13 +131,17 @@ public class HivePageSourceProvider
                     start,
                     length,
                     schema,
-                    hiveColumns,
-                    partitionKeys,
+                    regularColumns,
                     effectivePredicate,
                     hiveStorageTimeZone
             );
             if (pageSource.isPresent()) {
-                return Optional.of(pageSource.get());
+                return Optional.of(
+                        new HivePageSource(
+                                columnMappings,
+                                hiveStorageTimeZone,
+                                typeManager,
+                                pageSource.get()));
             }
         }
 
