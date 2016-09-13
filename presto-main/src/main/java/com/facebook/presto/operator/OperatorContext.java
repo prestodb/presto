@@ -212,6 +212,11 @@ public class OperatorContext
         return memoryFuture.get();
     }
 
+    public ListenableFuture<?> isWaitingForSystemRevocableMemory()
+    {
+        return systemMemoryContext.getRevocableSystemMemoryFuture().get();
+    }
+
     public void reserveMemory(long bytes)
     {
         updateMemoryFuture(driverContext.reserveMemory(bytes), memoryFuture);
@@ -448,10 +453,14 @@ public class OperatorContext
         private boolean closed;
         private long reservedBytes;
         private long reservedRevocableBytes;
+        private AtomicReference<SettableFuture<?>> revocableSystemMemoryFuture;
 
         public OperatorSystemMemoryContext(DriverContext driverContext)
         {
             this.driverContext = driverContext;
+            SettableFuture<SettableFuture> future = SettableFuture.create();
+            future.set(null);
+            revocableSystemMemoryFuture = new AtomicReference<>(future);
         }
 
         public void close()
@@ -481,7 +490,7 @@ public class OperatorContext
         private void updateRevocableBytes(long bytes)
         {
             if (bytes > 0) {
-                driverContext.reserveRevocableSystemMemory(bytes);
+                updateMemoryFuture(driverContext.reserveRevocableSystemMemory(bytes), revocableSystemMemoryFuture);
             }
             else {
                 checkArgument(reservedRevocableBytes + bytes >= 0, "tried to free %s bytes of revocable system memory from %s bytes reserved", -bytes, reservedRevocableBytes);
@@ -510,6 +519,11 @@ public class OperatorContext
         public long getReservedRevocableBytes()
         {
             return reservedRevocableBytes;
+        }
+
+        public AtomicReference<SettableFuture<?>> getRevocableSystemMemoryFuture()
+        {
+            return revocableSystemMemoryFuture;
         }
 
         @Override
