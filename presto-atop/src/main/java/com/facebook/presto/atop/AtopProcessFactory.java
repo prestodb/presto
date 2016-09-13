@@ -18,10 +18,6 @@ import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -29,6 +25,9 @@ import javax.inject.Inject;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -45,9 +44,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class AtopProcessFactory
         implements AtopFactory
 {
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormat.forPattern("YYYYMMdd");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("YYYYMMdd");
     private final String executablePath;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
     private final Duration readTimeout;
     private final ExecutorService executor;
 
@@ -55,21 +54,21 @@ public class AtopProcessFactory
     public AtopProcessFactory(AtopConnectorConfig config, AtopConnectorId connectorId)
     {
         this.executablePath = config.getExecutablePath();
-        this.timeZone = config.getDateTimeZone();
+        this.timeZone = config.getTimeZoneId();
         this.readTimeout = config.getReadTimeout();
         this.executor = newFixedThreadPool(config.getConcurrentReadersPerNode(), daemonThreadsNamed("atop-" + connectorId + "executable-reader-%s"));
     }
 
     @Override
-    public Atop create(AtopTable table, DateTime date)
+    public Atop create(AtopTable table, ZonedDateTime date)
     {
-        checkArgument(date.getZone().equals(timeZone), "Split date (%s) is not in the local timezone (%s)", date.getZone(), timeZone);
+        checkArgument(date.getZone().getRules().equals(timeZone.getRules()), "Split date (%s) is not in the local timezone (%s)", date.getZone(), timeZone);
 
         ProcessBuilder processBuilder = new ProcessBuilder(executablePath);
         processBuilder.command().add("-P");
         processBuilder.command().add(table.getAtopLabel());
         processBuilder.command().add("-r");
-        processBuilder.command().add(DATE_FORMATTER.print(date));
+        processBuilder.command().add(DATE_FORMATTER.format(date));
         Process process;
         try {
             process = processBuilder.start();
