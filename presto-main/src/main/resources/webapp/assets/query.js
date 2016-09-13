@@ -619,18 +619,18 @@ var QueryDetail = React.createClass({
                 lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
             }
 
-            var elapsedMillisLastRefresh = nowMillis - lastRefresh;
-
-            var currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedMillisLastRefresh;
-            var currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedMillisLastRefresh;
-            var currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedMillisLastRefresh;
-
-            this.setState({
-                cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
-                rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
-                byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
-            });
+            var elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000;
+            if (elapsedSecsSinceLastRefresh != 0) {
+                var currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedSecsSinceLastRefresh;
+                var currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
+                var currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                this.setState({
+                    cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
+                    rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
+                    byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
+                });
+            }
             this.resetTimer();
         }.bind(this))
         .error(function() {
