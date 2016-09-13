@@ -44,7 +44,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.atop.AtopTable.AtopColumn.END_TIME;
 import static com.facebook.presto.atop.AtopTable.AtopColumn.START_TIME;
 import static com.facebook.presto.atop.Types.checkType;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
 public class AtopMetadata
@@ -94,8 +94,8 @@ public class AtopMetadata
     {
         AtopTableHandle tableHandle = checkType(table, AtopTableHandle.class, "table");
         Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
-        Domain endTimeDomain = Domain.all(TIMESTAMP);
-        Domain startTimeDomain = Domain.all(TIMESTAMP);
+        Domain endTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
+        Domain startTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
         if (domains.isPresent()) {
             if (domains.get().containsKey(START_TIME_HANDLE)) {
                 startTimeDomain = domains.get().get(START_TIME_HANDLE);
