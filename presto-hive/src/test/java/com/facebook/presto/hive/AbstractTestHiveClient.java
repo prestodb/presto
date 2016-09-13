@@ -2813,7 +2813,7 @@ public abstract class AbstractTestHiveClient
             assertInstanceOf(hiveRecordCursor.getRegularColumnRecordCursor(), recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
         }
         else {
-            assertInstanceOf(pageSource, pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
+            assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
         }
     }
 

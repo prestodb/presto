@@ -17,7 +17,6 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
@@ -96,7 +95,6 @@ public class OrcPageSourceFactory
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
@@ -113,7 +111,6 @@ public class OrcPageSourceFactory
                 start,
                 length,
                 columns,
-                partitionKeys,
                 useOrcColumnNames,
                 effectivePredicate,
                 hiveStorageTimeZone,
@@ -133,7 +130,6 @@ public class OrcPageSourceFactory
             long start,
             long length,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
@@ -186,12 +182,10 @@ public class OrcPageSourceFactory
             return new OrcPageSource(
                     recordReader,
                     orcDataSource,
-                    partitionKeys,
                     physicalColumns,
                     hiveStorageTimeZone,
                     typeManager,
-                    systemMemoryUsage,
-                    path);
+                    systemMemoryUsage);
         }
         catch (Exception e) {
             try {

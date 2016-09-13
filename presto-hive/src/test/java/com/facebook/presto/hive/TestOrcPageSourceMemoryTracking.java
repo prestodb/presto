@@ -41,6 +41,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -382,17 +383,22 @@ public class TestOrcPageSourceMemoryTracking
         public ConnectorPageSource newPageSource()
         {
             OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT);
-            return orcPageSourceFactory.createPageSource(
+            return HivePageSourceProvider.createHivePageSource(
+                    ImmutableSet.of(),
+                    ImmutableSet.of(orcPageSourceFactory),
+                    "test",
                     new Configuration(),
                     SESSION,
                     fileSplit.getPath(),
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     schema,
+                    TupleDomain.all(),
                     columns,
                     partitionKeys,
-                    TupleDomain.all(),
-                    DateTimeZone.UTC).get();
+                    DateTimeZone.UTC,
+                    TYPE_MANAGER)
+                    .get();
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)

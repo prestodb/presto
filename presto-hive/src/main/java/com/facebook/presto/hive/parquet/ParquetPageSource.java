@@ -14,8 +14,6 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.HiveUtil;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -26,65 +24,30 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.FixedWidthType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static com.facebook.presto.hive.HiveUtil.bigintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.booleanPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.charPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.datePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.doublePartitionKey;
-import static com.facebook.presto.hive.HiveUtil.floatPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
-import static com.facebook.presto.hive.HiveUtil.integerPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.longDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.shortDecimalPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.smallintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.timestampPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.tinyintPartitionKey;
-import static com.facebook.presto.hive.HiveUtil.varcharPartitionKey;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
-import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Maps.uniqueIndex;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-class ParquetPageSource
+public class ParquetPageSource
         implements ConnectorPageSource
 {
-    private static final int MAX_VECTOR_LENGTH = 1024;
+    public static final int MAX_VECTOR_LENGTH = 1024;
     private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private final ParquetReader parquetReader;
@@ -110,17 +73,14 @@ class ParquetPageSource
             long totalBytes,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            boolean useParquetColumnNames,
-            Path path)
+            boolean useParquetColumnNames)
     {
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(partitionKeys, "partitionKeys is null");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
 
         this.parquetReader = parquetReader;
@@ -132,11 +92,11 @@ class ParquetPageSource
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
 
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
+            checkState(column.getColumnType() == REGULAR, "column type must be regular");
 
             String name = column.getName();
             Type type = typeManager.getType(column.getTypeSignature());
@@ -146,110 +106,7 @@ class ParquetPageSource
 
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
-            if (column.isPartitionKey() || column.isHidden()) {
-                HivePartitionKey partitionKey = partitionKeysByName.get(name);
-
-                String columnValue = getPrefilledColumnValue(column, partitionKey, path);
-                byte[] bytes = columnValue.getBytes(UTF_8);
-
-                BlockBuilder blockBuilder;
-                if (type instanceof FixedWidthType) {
-                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH);
-                }
-                else {
-                    blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH, bytes.length);
-                }
-
-                if (HiveUtil.isHiveNull(bytes)) {
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        blockBuilder.appendNull();
-                    }
-                }
-                else if (type.equals(BOOLEAN)) {
-                    boolean value = booleanPartitionKey(columnValue, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        BOOLEAN.writeBoolean(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(TINYINT)) {
-                    long value = tinyintPartitionKey(columnValue, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        TINYINT.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(SMALLINT)) {
-                    long value = smallintPartitionKey(columnValue, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        SMALLINT.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(INTEGER)) {
-                    long value = integerPartitionKey(columnValue, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        INTEGER.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(BIGINT)) {
-                    long value = bigintPartitionKey(columnValue, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        BIGINT.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(REAL)) {
-                    long value = floatPartitionKey(partitionKey.getValue(), name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        REAL.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(DOUBLE)) {
-                    double value = doublePartitionKey(columnValue, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        DOUBLE.writeDouble(blockBuilder, value);
-                    }
-                }
-                else if (isVarcharType(type)) {
-                    Slice value = varcharPartitionKey(columnValue, name, type);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        type.writeSlice(blockBuilder, value);
-                    }
-                }
-                else if (isCharType(type)) {
-                    Slice value = charPartitionKey(columnValue, name, type);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        type.writeSlice(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(TIMESTAMP)) {
-                    long value = timestampPartitionKey(columnValue, hiveStorageTimeZone, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        TIMESTAMP.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (type.equals(DATE)) {
-                    long value = datePartitionKey(columnValue, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        DATE.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (isShortDecimal(type)) {
-                    long value = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        type.writeLong(blockBuilder, value);
-                    }
-                }
-                else if (isLongDecimal(type)) {
-                    Slice value = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                    for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                        type.writeSlice(blockBuilder, value);
-                    }
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
-                }
-
-                constantBlocks[columnIndex] = blockBuilder.build();
-            }
-            else if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
+            if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
                 BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH);
                 for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
                     blockBuilder.appendNull();

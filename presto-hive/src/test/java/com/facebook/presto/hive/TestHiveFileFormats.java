@@ -505,17 +505,21 @@ public class TestHiveFileFormats
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testColumns);
 
-        Optional<? extends ConnectorPageSource> pageSource = sourceFactory.createPageSource(
+        Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
+                ImmutableSet.of(),
+                ImmutableSet.of(sourceFactory),
+                "test",
                 new Configuration(),
                 session,
                 split.getPath(),
                 split.getStart(),
                 split.getLength(),
                 splitProperties,
+                TupleDomain.all(),
                 columnHandles,
                 partitionKeys,
-                TupleDomain.<HiveColumnHandle>all(),
-                DateTimeZone.getDefault());
+                DateTimeZone.getDefault(),
+                TYPE_MANAGER);
 
         assertTrue(pageSource.isPresent());
 
