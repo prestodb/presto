@@ -30,6 +30,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
@@ -177,5 +178,17 @@ public class QueryContext
         TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, operatorPreAllocatedMemory, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitQueryContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return taskContexts.stream()
+                .map(taskContext -> taskContext.accept(visitor, context))
+                .collect(toImmutableList());
     }
 }

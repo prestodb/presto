@@ -19,6 +19,7 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +39,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -406,5 +408,17 @@ public class TaskContext
                 succinctBytes(outputDataSize),
                 outputPositions,
                 pipelineStats);
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitTaskContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return pipelineContexts.stream()
+                .map(pipelineContext -> pipelineContext.accept(visitor, context))
+                .collect(toImmutableList());
     }
 }
