@@ -21,6 +21,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
@@ -363,8 +364,13 @@ public class TestQueryStateMachine
 
     private QueryStateMachine createQueryStateMachine()
     {
+        return createQueryStateMachineWithTicker(Ticker.systemTicker());
+    }
+
+    private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
+    {
         TransactionManager transactionManager = createTestTransactionManager();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, executor);
+        QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(QUERY_ID, QUERY, TEST_SESSION, LOCATION, false, transactionManager, executor, ticker);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setOutputFieldNames(OUTPUT_FIELD_NAMES);
