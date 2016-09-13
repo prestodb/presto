@@ -18,11 +18,13 @@ import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import org.joda.time.DateTime;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.time.Instant.ofEpochSecond;
 import static java.util.Objects.requireNonNull;
 
 public class AtopSplit
@@ -30,17 +32,19 @@ public class AtopSplit
 {
     private final AtopTable table;
     private final HostAddress host;
-    private final DateTime date;
+    private final ZonedDateTime date;
 
     @JsonCreator
     public AtopSplit(
             @JsonProperty("table") AtopTable table,
             @JsonProperty("host") HostAddress host,
-            @JsonProperty("date") DateTime date)
+            @JsonProperty("epochSeconds") long epochSeconds,
+            @JsonProperty("timeZone") ZoneId timeZone)
     {
         this.table = requireNonNull(table, "table name is null");
         this.host = requireNonNull(host, "host is null");
-        this.date = requireNonNull(date, "date is null");
+        requireNonNull(timeZone, "timeZone is null");
+        this.date = ZonedDateTime.ofInstant(ofEpochSecond(epochSeconds), timeZone);
     }
 
     @JsonProperty
@@ -56,7 +60,18 @@ public class AtopSplit
     }
 
     @JsonProperty
-    public DateTime getDate()
+    public long getEpochSeconds()
+    {
+        return date.toEpochSecond();
+    }
+
+    @JsonProperty
+    public ZoneId getTimeZone()
+    {
+        return date.getZone();
+    }
+
+    public ZonedDateTime getDate()
     {
         return date;
     }

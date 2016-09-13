@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.atop;
 
-import org.joda.time.DateTime;
+import java.time.ZonedDateTime;
 
 public interface AtopFactory
 {
-    Atop create(AtopTable table, DateTime date);
+    Atop create(AtopTable table, ZonedDateTime date);
 }

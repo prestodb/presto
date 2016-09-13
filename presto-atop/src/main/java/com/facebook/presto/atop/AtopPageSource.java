@@ -23,10 +23,10 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
@@ -41,7 +41,7 @@ public class AtopPageSource
     private final ConnectorSession session;
     private final Slice hostIp;
     private final AtopTable table;
-    private final DateTime date;
+    private final ZonedDateTime date;
     private final List<AtopColumn> columns;
     private final List<Type> types;
     private final PageBuilder pageBuilder;
@@ -49,7 +49,7 @@ public class AtopPageSource
     private Atop atop;
     private boolean finished;
 
-    public AtopPageSource(Semaphore readerPermits, AtopFactory atopFactory, ConnectorSession session, Slice hostIp, AtopTable table, DateTime date, List<AtopColumn> columns, List<Type> types)
+    public AtopPageSource(Semaphore readerPermits, AtopFactory atopFactory, ConnectorSession session, Slice hostIp, AtopTable table, ZonedDateTime date, List<AtopColumn> columns, List<Type> types)
     {
         this.readerPermits = requireNonNull(readerPermits, "readerPermits is null");
         this.atopFactory = requireNonNull(atopFactory, "atopFactory is null");

@@ -17,12 +17,11 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.util.TimeZone;
+import java.time.ZoneId;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -32,7 +31,7 @@ public class AtopConnectorConfig
     public static final String SECURITY_FILE = "file";
 
     private String executablePath = "atop";
-    private String timeZone = TimeZone.getDefault().getID();
+    private String timeZone = ZoneId.systemDefault().getId();
     private String security = SECURITY_NONE;
     private Duration readTimeout = new Duration(5, MINUTES);
     private int concurrentReadersPerNode = 1;
@@ -64,9 +63,9 @@ public class AtopConnectorConfig
         return this;
     }
 
-    public DateTimeZone getDateTimeZone()
+    public ZoneId getTimeZoneId()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZone));
+        return ZoneId.of(timeZone);
     }
 
     @NotNull
