@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -61,7 +62,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.nanosSince;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -71,7 +72,7 @@ public class QueryStateMachine
     private static final Logger log = Logger.get(QueryStateMachine.class);
 
     private final DateTime createTime = DateTime.now();
-    private final long createNanos = System.nanoTime();
+    private final long createNanos;
     private final AtomicLong endNanos = new AtomicLong();
 
     private final QueryId queryId;
@@ -80,6 +81,7 @@ public class QueryStateMachine
     private final URI self;
     private final boolean autoCommit;
     private final TransactionManager transactionManager;
+    private final Ticker ticker;
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
@@ -119,7 +121,7 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor)
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
@@ -127,6 +129,8 @@ public class QueryStateMachine
         this.self = requireNonNull(self, "self is null");
         this.autoCommit = autoCommit;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.ticker = ticker;
+        this.createNanos = tickerNanos();
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
@@ -136,6 +140,19 @@ public class QueryStateMachine
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
     public static QueryStateMachine begin(QueryId queryId, String query, Session session, URI self, boolean transactionControl, TransactionManager transactionManager, Executor executor)
+    {
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, executor, Ticker.systemTicker());
+    }
+
+    public static QueryStateMachine beginWithTicker(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            boolean transactionControl,
+            TransactionManager transactionManager,
+            Executor executor,
+            Ticker ticker)
     {
         session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
 
@@ -150,7 +167,7 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker);
         queryStateMachine.addStateChangeListener(newState -> log.debug("Query %s is %s", queryId, newState));
         queryStateMachine.addStateChangeListener(newState -> {
             if (newState.isDone()) {
@@ -166,7 +183,20 @@ public class QueryStateMachine
      */
     public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor);
+        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), throwable);
+    }
+
+    public static QueryStateMachine failedWithTicker(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            TransactionManager transactionManager,
+            Executor executor,
+            Ticker ticker,
+            Throwable throwable)
+    {
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker);
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -501,7 +531,7 @@ public class QueryStateMachine
         totalPlanningTime.compareAndSet(null, durationSinceCreation);
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
-        finishingStartNanos.compareAndSet(null, System.nanoTime());
+        finishingStartNanos.compareAndSet(null, tickerNanos());
 
         if (!queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
             return false;
@@ -578,10 +608,10 @@ public class QueryStateMachine
         totalPlanningTime.compareAndSet(null, durationSinceCreation);
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
-        finishingStartNanos.compareAndSet(null, System.nanoTime());
+        finishingStartNanos.compareAndSet(null, tickerNanos());
         finishingTime.compareAndSet(null, nanosSince(finishingStartNanos.get()));
         endTime.compareAndSet(null, now);
-        endNanos.compareAndSet(0, System.nanoTime());
+        endNanos.compareAndSet(0, tickerNanos());
     }
 
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
@@ -692,5 +722,15 @@ public class QueryStateMachine
                 queryInfo.isCompleteInfo()
         );
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
+    }
+
+    private long tickerNanos()
+    {
+        return ticker.read();
+    }
+
+    private Duration nanosSince(long start)
+    {
+        return succinctNanos(tickerNanos() - start);
     }
 }
