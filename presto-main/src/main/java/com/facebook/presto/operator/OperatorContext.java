@@ -302,7 +302,7 @@ public class OperatorContext
         memoryReservation.getAndAdd(-bytes);
     }
 
-    public AbstractAggregatedMemoryContext getSystemMemoryContext()
+    public OperatorSystemMemoryContext getSystemMemoryContext()
     {
         return systemMemoryContext;
     }
@@ -502,7 +502,7 @@ public class OperatorContext
         }
     }
 
-    private static class OperatorSystemMemoryContext
+    public static class OperatorSystemMemoryContext
             extends AbstractAggregatedMemoryContext
     {
         // TODO: remove this class. See comment in AbstractAggregatedMemoryContext

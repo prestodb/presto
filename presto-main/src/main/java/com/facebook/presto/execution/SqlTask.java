@@ -440,4 +440,9 @@ public class SqlTask
     {
         taskStateMachine.addStateChangeListener(stateChangeListener);
     }
+
+    public QueryContext getQueryContext()
+    {
+        return queryContext;
+    }
 }
