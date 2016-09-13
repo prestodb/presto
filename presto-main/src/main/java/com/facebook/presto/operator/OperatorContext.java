@@ -31,6 +31,7 @@ import java.lang.management.ThreadMXBean;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -92,6 +93,9 @@ public class OperatorContext
     private final AtomicReference<Supplier<?>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
+    // systemMemoryRevokingRequestedFuture is done iff memory revoking was requested for operator
+    private final AtomicReference<SettableFuture<?>> systemMemoryRevokingRequestedFuture = new AtomicReference<>();
+
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor, long maxMemoryReservation)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
@@ -102,9 +106,11 @@ public class OperatorContext
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.systemMemoryContext = new OperatorSystemMemoryContext(this.driverContext);
         this.executor = requireNonNull(executor, "executor is null");
-        SettableFuture<Object> future = SettableFuture.create();
-        future.set(null);
-        this.memoryFuture.set(future);
+
+        this.memoryFuture.set(SettableFuture.create());
+        this.memoryFuture.get().set(null);
+
+        this.systemMemoryRevokingRequestedFuture.set(SettableFuture.create());
 
         collectTimings = driverContext.isVerboseStats() && driverContext.isCpuTimerEnabled();
     }
@@ -357,6 +363,27 @@ public class OperatorContext
             freeMemory(-delta);
             return true;
         }
+    }
+
+    public boolean isSystemMemoryRevokingRequested()
+    {
+        return systemMemoryRevokingRequestedFuture.get().isDone();
+    }
+
+    public void requestSystemMemoryRevoking()
+    {
+        systemMemoryRevokingRequestedFuture.get().set(null);
+    }
+
+    public void resetSystemMemoryRevokingRequested()
+    {
+        SettableFuture<?> currentFuture = systemMemoryRevokingRequestedFuture.get();
+        if (!currentFuture.isDone()) {
+            return;
+        }
+        systemMemoryRevokingRequestedFuture.compareAndSet(currentFuture, SettableFuture.create());
+        // if we do not change the value of currentFuture we are still good as this means other thread
+        // changed it to SettableFuture.create in exactly same method.
     }
 
     public void setInfoSupplier(Supplier<?> infoSupplier)
