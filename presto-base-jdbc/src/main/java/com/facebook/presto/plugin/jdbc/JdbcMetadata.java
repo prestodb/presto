@@ -120,7 +120,14 @@ public class JdbcMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
+        List<SchemaTableName> tables;
+        if (prefix.getTableName() != null) {
+            tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            tables = listTables(session, prefix.getSchemaName());
+        }
+        for (SchemaTableName tableName : tables) {
             try {
                 JdbcTableHandle tableHandle = jdbcClient.getTableHandle(tableName);
                 if (tableHandle == null) {
