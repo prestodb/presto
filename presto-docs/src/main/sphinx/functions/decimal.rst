@@ -56,6 +56,13 @@ Binary Arithmetic Decimal Operators
     the precision and scale of the result data type,
     then an exception condition is raised - ``Value is out of range``.
 
+    When operating on decimal types with different scale and precision, the values are
+    first coerced to a common super type. For types near the largest representable precision (38),
+    this can result in Value is out of range errors when one of the operands doesn't fit
+    in the common super type. For example, the common super type of decimal(38, 0) and
+    decimal(38, 1) is decimal(38, 1), but certain values that fit in decimal(38, 0)
+    cannot be represented as a decimal(38, 1).
+
 Comparison Operators
 --------------------
 
