@@ -34,8 +34,11 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpressionType;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantDouble;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFloat;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
@@ -88,6 +91,35 @@ public class TestArrayBytecodeExpressions
 
         assertBytecodeExpressionType(constantString("foo bar baz").invoke("split", String[].class, constantString(" ")), type(String[].class));
         assertBytecodeExpression(constantString("foo bar baz").invoke("split", String[].class, constantString(" ")).length(), 3, "\"foo bar baz\".split(\" \").length");
+    }
+
+    @Test
+    public void testNewArrayPrefilled()
+            throws Exception
+    {
+        assertBytecodeExpressionType(newArray(type(boolean[].class), ImmutableList.of(constantTrue(), constantFalse(), constantTrue())), type(boolean[].class));
+        assertBytecodeExpression(
+                newArray(type(boolean[].class), ImmutableList.of(constantTrue(), constantFalse(), constantTrue())),
+                new boolean[] {true, false, true},
+                "new boolean[] {true, false, true}");
+
+        assertBytecodeExpressionType(newArray(type(int[].class), ImmutableList.of(constantInt(65), constantInt(66), constantInt(99))), type(int[].class));
+        assertBytecodeExpression(
+                newArray(type(int[].class), ImmutableList.of(constantInt(65), constantInt(66), constantInt(99))),
+                new int[] {65, 66, 99},
+                "new int[] {65, 66, 99}");
+
+        assertBytecodeExpressionType(newArray(type(long[].class), ImmutableList.of(constantLong(1234L), constantLong(12345L), constantLong(9876543210L))), type(long[].class));
+        assertBytecodeExpression(
+                newArray(type(long[].class), ImmutableList.of(constantLong(1234L), constantLong(12345L), constantLong(9876543210L))),
+                new long[] {1234L, 12345L, 9876543210L},
+                "new long[] {1234L, 12345L, 9876543210L}");
+
+        assertBytecodeExpressionType(newArray(type(String[].class), ImmutableList.of(constantString("presto"), constantNull(String.class), constantString("new"), constantString("array"))), type(String[].class));
+        assertBytecodeExpression(
+                newArray(type(String[].class), ImmutableList.of(constantString("presto"), constantNull(String.class), constantString("new"), constantString("array"))),
+                new String[] {"presto", null, "new", "array"},
+                "new String[] {\"presto\", null, \"new\", \"array\"}");
     }
 
     @Test
