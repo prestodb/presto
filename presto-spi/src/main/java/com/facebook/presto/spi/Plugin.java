@@ -16,7 +16,6 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
@@ -30,12 +29,12 @@ import static java.util.Collections.emptySet;
 
 public interface Plugin
 {
-    default Iterable<com.facebook.presto.spi.ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
+    default Iterable<com.facebook.presto.spi.ConnectorFactory> getLegacyConnectorFactories()
     {
         return emptyList();
     }
 
-    default Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    default Iterable<ConnectorFactory> getConnectorFactories()
     {
         return emptyList();
     }

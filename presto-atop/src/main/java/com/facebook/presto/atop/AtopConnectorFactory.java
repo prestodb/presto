@@ -20,7 +20,6 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -37,13 +36,11 @@ public class AtopConnectorFactory
         implements ConnectorFactory
 {
     private final Class<? extends AtopFactory> atopFactoryClass;
-    private final TypeManager typeManager;
     private final ClassLoader classLoader;
 
-    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, ClassLoader classLoader, TypeManager typeManager)
+    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, ClassLoader classLoader)
     {
         this.atopFactoryClass = requireNonNull(atopFactoryClass, "atopFactoryClass is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
@@ -68,7 +65,7 @@ public class AtopConnectorFactory
             Bootstrap app = new Bootstrap(
                     new AtopModule(
                             atopFactoryClass,
-                            typeManager,
+                            context.getTypeManager(),
                             context.getNodeManager(),
                             context.getNodeManager().getEnvironment(),
                             connectorId),

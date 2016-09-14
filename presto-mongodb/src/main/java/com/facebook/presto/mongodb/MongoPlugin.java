@@ -15,7 +15,6 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -40,8 +39,8 @@ public class MongoPlugin
     }
 
     @Override
-    public Iterable<ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getLegacyConnectorFactories()
     {
-        return ImmutableList.of(new MongoConnectorFactory("mongodb", context.getTypeManager()));
+        return ImmutableList.of(new MongoConnectorFactory("mongodb"));
     }
 }

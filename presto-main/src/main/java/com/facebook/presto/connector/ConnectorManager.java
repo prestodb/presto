@@ -20,6 +20,8 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -34,6 +36,7 @@ import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
@@ -77,6 +80,9 @@ public class ConnectorManager
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
+    private final TypeManager typeManager;
+    private final PageSorter pageSorter;
+    private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
 
@@ -98,6 +104,9 @@ public class ConnectorManager
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
+            TypeManager typeManager,
+            PageSorter pageSorter,
+            PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager)
     {
         this.metadataManager = metadataManager;
@@ -109,6 +118,9 @@ public class ConnectorManager
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
+        this.typeManager = typeManager;
+        this.pageSorter = pageSorter;
+        this.pageIndexerFactory = pageIndexerFactory;
         this.nodeInfo = nodeInfo;
         this.transactionManager = transactionManager;
     }
@@ -317,7 +329,10 @@ public class ConnectorManager
         }
 
         ConnectorContext context = new ConnectorContextInstance(
-                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId));
+                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
+                typeManager,
+                pageSorter,
+                pageIndexerFactory);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factoryClass.getClassLoader())) {
             return factory.create(connectorId, properties, context);

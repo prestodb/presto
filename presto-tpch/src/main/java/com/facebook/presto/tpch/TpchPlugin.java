@@ -15,14 +15,13 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
 public class TpchPlugin
         implements Plugin
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new TpchConnectorFactory());
     }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
@@ -79,6 +81,8 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -184,6 +188,8 @@ public class LocalQueryRunner
     private final SqlParser sqlParser;
     private final InMemoryNodeManager nodeManager;
     private final TypeRegistry typeRegistry;
+    private final PageSorter pageSorter;
+    private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
     private final TestingAccessControlManager accessControl;
     private final TestingEventListenerManager eventListener;
@@ -226,6 +232,8 @@ public class LocalQueryRunner
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
+        this.pageSorter = new PagesIndexPageSorter();
+        this.pageIndexerFactory = new GroupByHashPageIndexerFactory();
         this.indexManager = new IndexManager();
         NodeScheduler nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
@@ -265,6 +273,9 @@ public class LocalQueryRunner
                 new HandleResolver(),
                 nodeManager,
                 new NodeInfo("test"),
+                typeRegistry,
+                pageSorter,
+                pageIndexerFactory,
                 transactionManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(

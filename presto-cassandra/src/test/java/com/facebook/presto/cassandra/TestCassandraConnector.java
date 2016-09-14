@@ -28,12 +28,12 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
@@ -99,7 +99,7 @@ public class TestCassandraConnector
         Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
                 "cassandra.contact-points", HOSTNAME,
                 "cassandra.native-protocol-port", Integer.toString(PORT)),
-                new ConnectorContext() {});
+                new TestingConnectorContext());
 
         metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
         assertInstanceOf(metadata, CassandraMetadata.class);

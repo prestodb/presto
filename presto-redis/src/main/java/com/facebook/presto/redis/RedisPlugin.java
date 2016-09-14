@@ -16,7 +16,6 @@ package com.facebook.presto.redis;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -41,10 +40,8 @@ public class RedisPlugin
     }
 
     @Override
-    public synchronized Iterable<ConnectorFactory> getLegacyConnectorFactories(ConnectorFactoryContext context)
+    public synchronized Iterable<ConnectorFactory> getLegacyConnectorFactories()
     {
-        return ImmutableList.of(new RedisConnectorFactory(
-                context.getTypeManager(),
-                tableDescriptionSupplier));
+        return ImmutableList.of(new RedisConnectorFactory(tableDescriptionSupplier));
     }
 }

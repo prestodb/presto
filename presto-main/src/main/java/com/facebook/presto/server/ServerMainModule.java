@@ -80,7 +80,6 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.split.PageSinkManager;
@@ -360,7 +359,6 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(ServerInfoResource.class);
 
         // plugin manager
-        binder.bind(ConnectorFactoryContext.class).to(PluginConnectorFactoryContext.class).in(Scopes.SINGLETON);
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PluginManagerConfig.class);
 

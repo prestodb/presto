@@ -33,13 +33,11 @@ public class MongoConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final TypeManager typeManager;
 
-    public MongoConnectorFactory(String name, TypeManager typeManager)
+    public MongoConnectorFactory(String name)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -64,7 +62,7 @@ public class MongoConnectorFactory
                     new JsonModule(),
                     new MongoClientModule(),
                     binder -> {
-                        binder.bind(TypeManager.class).toInstance(typeManager);
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(MongoConnectorId.class).toInstance(new MongoConnectorId(connectorId));
                     });
 

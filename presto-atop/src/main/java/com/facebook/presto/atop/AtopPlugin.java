@@ -15,7 +15,6 @@ package com.facebook.presto.atop;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -24,12 +23,9 @@ public class AtopPlugin
         implements Plugin
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new AtopConnectorFactory(
-                AtopProcessFactory.class,
-                getClassLoader(),
-                context.getTypeManager()));
+        return ImmutableList.of(new AtopConnectorFactory(AtopProcessFactory.class, getClassLoader()));
     }
 
     private static ClassLoader getClassLoader()
