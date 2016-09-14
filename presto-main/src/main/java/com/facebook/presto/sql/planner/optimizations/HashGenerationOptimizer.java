@@ -266,9 +266,7 @@ public class HashGenerationOptimizer
                     new TopNRowNumberNode(
                             idAllocator.getNextId(),
                             child.getNode(),
-                            node.getPartitionBy(),
-                            node.getOrderBy(),
-                            node.getOrderings(),
+                            node.getSpecification(),
                             node.getRowNumberSymbol(),
                             node.getMaxRowCountPerPartition(),
                             node.isPartial(),

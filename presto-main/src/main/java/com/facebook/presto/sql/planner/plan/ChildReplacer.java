@@ -185,7 +185,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitTopNRowNumber(TopNRowNumberNode node, List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashSymbol());
+        return new TopNRowNumberNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getSpecification(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashSymbol());
     }
 
     @Override

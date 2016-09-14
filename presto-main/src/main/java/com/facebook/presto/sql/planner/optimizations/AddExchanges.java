@@ -425,9 +425,7 @@ public class AddExchanges
                         new TopNRowNumberNode(
                                 idAllocator.getNextId(),
                                 child.getNode(),
-                                node.getPartitionBy(),
-                                node.getOrderBy(),
-                                node.getOrderings(),
+                                node.getSpecification(),
                                 node.getRowNumberSymbol(),
                                 node.getMaxRowCountPerPartition(),
                                 true,
