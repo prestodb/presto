@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressionAssertions.assertBytecodeExpression;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.getStatic;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestCastBytecodeExpression
 {
@@ -39,6 +40,29 @@ public class TestCastBytecodeExpression
         assertBytecodeExpression(getStatic(getClass(), "OBJECT_FIELD").cast(String.class).invoke("length", int.class),
                 ((String) OBJECT_FIELD).length(),
                 "((String) " + getClass().getSimpleName() + ".OBJECT_FIELD).length()");
+    }
+
+    @Test
+    public void testCastBetweenObjectAndPrimitive()
+            throws Exception
+    {
+        assertCast(getStatic(getClass(), "INT_FIELD"), 33, Object.class);
+        assertCast(getStatic(getClass(), "INT_FIELD").cast(Object.class), 33, int.class);
+    }
+
+    @Test
+    public void testInvalildCast()
+    {
+        // Cast between a boxed primitive and a primitive that are different
+        assertInvalidCast(getStatic(getClass(), "INT_FIELD"), Double.class);
+        assertInvalidCast(getStatic(getClass(), "INT_FIELD").cast(Integer.class), double.class);
+
+        // Cast between two different boxed primitives
+        assertInvalidCast(getStatic(getClass(), "INT_FIELD").cast(Integer.class), Double.class);
+
+        // Cast between a primitive and an object (that is not java.lang.Object)
+        assertInvalidCast(getStatic(getClass(), "OBJECT_FIELD").cast(String.class), double.class);
+        assertInvalidCast(getStatic(getClass(), "INT_FIELD"), String.class);
     }
 
     @Test
@@ -127,6 +151,18 @@ public class TestCastBytecodeExpression
         BytecodeExpression castExpression = expression.cast(castToType);
         assertBytecodeExpression(castExpression, expectedValue, expectedCastRendering(expression.toString(), castToType));
         assertEquals(castExpression.getType().getJavaClassName(), castToType.getName());
+    }
+
+    public static void assertInvalidCast(BytecodeExpression expression, Class<?> castToType)
+    {
+        try {
+            // Exception must be thrown here.
+            // An exception that is thrown at actual byte code generation time is too late. At that point, stack trace is generally not useful.
+            expression.cast(castToType);
+            fail();
+        }
+        catch (IllegalArgumentException ignored) {
+        }
     }
 
     public static String expectedCastRendering(String expectedRendering, Class<?> castToType)
