@@ -592,9 +592,7 @@ public class PruneUnreferencedOutputs
 
             return new TopNRowNumberNode(node.getId(),
                     source,
-                    node.getPartitionBy(),
-                    node.getOrderBy(),
-                    node.getOrderings(),
+                    node.getSpecification(),
                     node.getRowNumberSymbol(),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
