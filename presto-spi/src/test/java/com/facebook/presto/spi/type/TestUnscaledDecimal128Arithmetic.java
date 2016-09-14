@@ -20,6 +20,8 @@ import java.math.BigInteger;
 
 import static com.facebook.presto.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
 import static com.facebook.presto.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.add;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.divide;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.hash;
@@ -44,6 +46,7 @@ public class TestUnscaledDecimal128Arithmetic
 {
     private static final Slice MAX_DECIMAL = unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE);
     private static final Slice MIN_DECIMAL = unscaledDecimal(MIN_DECIMAL_UNSCALED_VALUE);
+    private static final BigInteger TWO = BigInteger.valueOf(2);
 
     @Test
     public void testUnscaledBigIntegerToDecimal()
@@ -115,6 +118,28 @@ public class TestUnscaledDecimal128Arithmetic
     public void testRescaleOverflows()
     {
         assertRescaleOverflows(unscaledDecimal(1), 38);
+    }
+
+    @Test
+    public void testAdd()
+    {
+        assertEquals(add(unscaledDecimal(0), unscaledDecimal(0)), unscaledDecimal(0));
+        assertEquals(add(unscaledDecimal(1), unscaledDecimal(0)), unscaledDecimal(1));
+        assertEquals(add(unscaledDecimal(1), unscaledDecimal(1)), unscaledDecimal(2));
+
+        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(0)), unscaledDecimal(1L << 32));
+        assertEquals(add(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31)), unscaledDecimal(1L << 32));
+        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(1L << 33)), unscaledDecimal((1L << 32) + (1L << 33)));
+    }
+
+    @Test
+    public void testAddReturnOverflow()
+    {
+        assertAddReturnOverflow(TWO, TWO);
+        assertAddReturnOverflow(MAX_DECIMAL_UNSCALED_VALUE, MAX_DECIMAL_UNSCALED_VALUE);
+        assertAddReturnOverflow(MAX_DECIMAL_UNSCALED_VALUE.negate(), MAX_DECIMAL_UNSCALED_VALUE);
+        assertAddReturnOverflow(MAX_DECIMAL_UNSCALED_VALUE, MAX_DECIMAL_UNSCALED_VALUE.negate());
+        assertAddReturnOverflow(MAX_DECIMAL_UNSCALED_VALUE.negate(), MAX_DECIMAL_UNSCALED_VALUE.negate());
     }
 
     @Test
@@ -235,6 +260,19 @@ public class TestUnscaledDecimal128Arithmetic
     {
         assertEquals(hash(unscaledDecimal(0)), hash(negate(unscaledDecimal(0))));
         assertNotEquals(hash(unscaledDecimal(0)), unscaledDecimal(1));
+    }
+
+    private void assertAddReturnOverflow(BigInteger left, BigInteger right)
+    {
+        Slice result = unscaledDecimal();
+        long overflow = addWithOverflow(unscaledDecimal(left), unscaledDecimal(right), result);
+
+        BigInteger actual = unscaledDecimalToBigInteger(result);
+        BigInteger expected = left.add(right).remainder(TWO.pow(UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 1));
+        BigInteger expectedOverflow = left.add(right).divide(TWO.pow(UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 1));
+
+        assertEquals(actual, expected);
+        assertEquals(overflow, expectedOverflow.longValueExact());
     }
 
     private static void assertUnscaledBigIntegerToDecimalOverflows(BigInteger value)
