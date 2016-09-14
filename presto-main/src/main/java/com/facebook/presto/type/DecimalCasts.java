@@ -57,18 +57,22 @@ import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compareAbsolute;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.multiply;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.overflows;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static java.lang.Double.isFinite;
+import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Float.parseFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -96,6 +100,27 @@ public final class DecimalCasts
     public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(parseTypeSignature("varchar(x)", ImmutableSet.of("x")), "varcharToShortDecimal", "varcharToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
     public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), "jsonToShortDecimal", "jsonToLongDecimal").nullableResult(true).build();
+
+    /**
+     * Powers of 10 which can be represented exactly in double.
+     */
+    private static final double[] DOUBLE_10_POW = {
+            1.0e0, 1.0e1, 1.0e2, 1.0e3, 1.0e4, 1.0e5,
+            1.0e6, 1.0e7, 1.0e8, 1.0e9, 1.0e10, 1.0e11,
+            1.0e12, 1.0e13, 1.0e14, 1.0e15, 1.0e16, 1.0e17,
+            1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22
+    };
+
+    /**
+     * Powers of 10 which can be represented exactly in float.
+     */
+    private static final float[] FLOAT_10_POW = {
+            1.0e0f, 1.0e1f, 1.0e2f, 1.0e3f, 1.0e4f, 1.0e5f,
+            1.0e6f, 1.0e7f, 1.0e8f, 1.0e9f, 1.0e10f
+    };
+
+    private static final Slice MAX_EXACT_DOUBLE = unscaledDecimal((1L << 52) - 1);
+    private static final Slice MAX_EXACT_FLOAT = unscaledDecimal((1L << 22) - 1);
 
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
     {
@@ -416,10 +441,13 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static double longDecimalToDouble(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        // TODO: optimize
-        BigInteger decimalBigInteger = decodeUnscaledValue(decimal);
-        BigDecimal bigDecimal = new BigDecimal(decimalBigInteger, intScale(scale));
-        return bigDecimal.doubleValue();
+        // If both decimal and scale can be represented exactly in double then compute rescaled and rounded result directly in double.
+        if (scale < DOUBLE_10_POW.length && compareAbsolute(decimal, MAX_EXACT_DOUBLE) <= 0) {
+            return (double) unscaledDecimalToUnscaledLongUnsafe(decimal) / DOUBLE_10_POW[intScale(scale)];
+        }
+
+        // TODO: optimize and convert directly to double in similar fashion as in double to decimal casts
+        return parseDouble(Decimals.toString(decimal, intScale(scale)));
     }
 
     @UsedByGeneratedCode
@@ -431,10 +459,13 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long longDecimalToReal(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        // TODO: optimize
-        BigInteger decimalBigInteger = decodeUnscaledValue(decimal);
-        BigDecimal bigDecimal = new BigDecimal(decimalBigInteger, intScale(scale));
-        return floatToRawIntBits(bigDecimal.floatValue());
+        // If both decimal and scale can be represented exactly in float then compute rescaled and rounded result directly in float.
+        if (scale < FLOAT_10_POW.length && compareAbsolute(decimal, MAX_EXACT_FLOAT) <= 0) {
+            return floatToRawIntBits((float) unscaledDecimalToUnscaledLongUnsafe(decimal) / FLOAT_10_POW[intScale(scale)]);
+        }
+
+        // TODO: optimize and convert directly to float in similar fashion as in double to decimal casts
+        return floatToRawIntBits(parseFloat(Decimals.toString(decimal, intScale(scale))));
     }
 
     @UsedByGeneratedCode
