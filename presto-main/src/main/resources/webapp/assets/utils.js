@@ -373,3 +373,11 @@ function formatShortDateTime(date) {
     var dayOfMonth  = "" + date.getDate();
     return year + "-" + (month[1] ? month : "0" + month[0]) + "-" + (dayOfMonth[1] ? dayOfMonth: "0" + dayOfMonth[0]) + " " + formatShortTime(date);
 }
+
+function removeQueryId(id) {
+    var pos = id.indexOf('.');
+    if (pos != -1) {
+        return id.substring(pos + 1);
+    }
+    return id;
+}
