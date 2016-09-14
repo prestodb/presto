@@ -47,7 +47,7 @@ public class LegacyTransactionConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
     {
-        return new LegacyTransactionConnector(connectorId, connectorFactory.create(connectorId, config, context));
+        return new LegacyTransactionConnector(connectorFactory.create(connectorId, config, context));
     }
 
     public com.facebook.presto.spi.ConnectorFactory getConnectorFactory()

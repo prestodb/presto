@@ -1008,9 +1008,9 @@ public class TestAnalyzer
         TypeManager typeManager = new TypeRegistry();
 
         transactionManager = createTestTransactionManager();
-        transactionManager.addConnector(TPCH_CONNECTOR_ID, createTestingConnector(TPCH_CONNECTOR_ID));
-        transactionManager.addConnector(SECOND_CONNECTOR_ID, createTestingConnector(SECOND_CONNECTOR_ID));
-        transactionManager.addConnector(THIRD_CONNECTOR_ID, createTestingConnector(THIRD_CONNECTOR_ID));
+        transactionManager.addConnector(TPCH_CONNECTOR_ID, createTestingConnector());
+        transactionManager.addConnector(SECOND_CONNECTOR_ID, createTestingConnector());
+        transactionManager.addConnector(THIRD_CONNECTOR_ID, createTestingConnector());
 
         MetadataManager metadata = new MetadataManager(
                 new FeaturesConfig().setExperimentalSyntaxEnabled(true),
@@ -1201,9 +1201,9 @@ public class TestAnalyzer
     }
 
     @SuppressWarnings("deprecation")
-    private static Connector createTestingConnector(ConnectorId connectorId)
+    private static Connector createTestingConnector()
     {
-        return new LegacyTransactionConnector(connectorId.getCatalogName(), new com.facebook.presto.spi.Connector()
+        return new LegacyTransactionConnector(new com.facebook.presto.spi.Connector()
         {
             private final ConnectorMetadata metadata = new TestingMetadata();
 
