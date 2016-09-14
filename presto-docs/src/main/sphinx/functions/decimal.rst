@@ -56,6 +56,12 @@ Binary Arithmetic Decimal Operators
     the precision and scale of the result data type,
     then an exception condition is raised - ``Value is out of range``.
 
+    Semantic for performing operations on different decimal types like ``DECIMAL(38, 0)``
+    and ``DECIMAL(38, 1)`` is that they are first coerced to common supper type. In
+    This case it would be ``DECIMAL(38, 1)``. This can cause runtime error
+    ``Value is out of range`` if value of a parameter doesn't fit in common supper type.
+
+
 Comparison Operators
 --------------------
 
