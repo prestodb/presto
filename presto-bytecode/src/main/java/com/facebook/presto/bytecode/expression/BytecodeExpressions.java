@@ -130,6 +130,14 @@ public final class BytecodeExpressions
         return new ConstantBytecodeExpression(String.class, loadString(value));
     }
 
+    public static BytecodeExpression defaultValue(ParameterizedType type)
+    {
+        if (type.isPrimitive()) {
+            return defaultValue(type.getPrimitiveType());
+        }
+        return constantNull(type);
+    }
+
     public static BytecodeExpression defaultValue(Class<?> type)
     {
         requireNonNull(type, "type is null");
