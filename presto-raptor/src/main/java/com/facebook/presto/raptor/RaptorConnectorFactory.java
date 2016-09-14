@@ -47,22 +47,13 @@ public class RaptorConnectorFactory
     private final String name;
     private final Module metadataModule;
     private final Map<String, Module> backupProviders;
-    private final TypeManager typeManager;
-    private final PageSorter pageSorter;
 
-    public RaptorConnectorFactory(
-            String name,
-            Module metadataModule,
-            Map<String, Module> backupProviders,
-            PageSorter pageSorter,
-            TypeManager typeManager)
+    public RaptorConnectorFactory(String name, Module metadataModule, Map<String, Module> backupProviders)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.metadataModule = requireNonNull(metadataModule, "metadataModule is null");
         this.backupProviders = ImmutableMap.copyOf(requireNonNull(backupProviders, "backupProviders is null"));
-        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -92,8 +83,8 @@ public class RaptorConnectorFactory
                         binder.bind(MBeanServer.class).toInstance(mbeanServer);
                         binder.bind(CurrentNodeId.class).toInstance(currentNodeId);
                         binder.bind(NodeManager.class).toInstance(nodeManager);
-                        binder.bind(PageSorter.class).toInstance(pageSorter);
-                        binder.bind(TypeManager.class).toInstance(typeManager);
+                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
                     metadataModule,
                     new BackupModule(backupProviders),

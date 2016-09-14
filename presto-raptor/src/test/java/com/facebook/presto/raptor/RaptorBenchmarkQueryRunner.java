@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.benchmark.BenchmarkSuite;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.testing.TestingConnectorFactoryContext;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
@@ -59,7 +58,7 @@ public final class RaptorBenchmarkQueryRunner
 
         // add raptor
         ConnectorFactory raptorConnectorFactory = getOnlyElement(new RaptorPlugin()
-                .getConnectorFactories(new TestingConnectorFactoryContext()));
+                .getConnectorFactories());
         Map<String, String> config = createRaptorConfig(TPCH_CACHE_DIR);
         localQueryRunner.createCatalog("raptor", raptorConnectorFactory, config);
 

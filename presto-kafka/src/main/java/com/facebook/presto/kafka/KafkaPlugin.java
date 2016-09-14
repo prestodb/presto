@@ -16,7 +16,6 @@ package com.facebook.presto.kafka;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
@@ -41,10 +40,8 @@ public class KafkaPlugin
     }
 
     @Override
-    public synchronized Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public synchronized Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new KafkaConnectorFactory(
-                context.getTypeManager(),
-                tableDescriptionSupplier));
+        return ImmutableList.of(new KafkaConnectorFactory(tableDescriptionSupplier));
     }
 }

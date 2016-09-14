@@ -17,7 +17,6 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -31,7 +30,6 @@ import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPag
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
@@ -63,22 +61,13 @@ public class HiveConnectorFactory
     private final String name;
     private final ClassLoader classLoader;
     private final ExtendedHiveMetastore metastore;
-    private final TypeManager typeManager;
-    private final PageIndexerFactory pageIndexerFactory;
 
-    public HiveConnectorFactory(
-            String name,
-            ClassLoader classLoader,
-            ExtendedHiveMetastore metastore,
-            TypeManager typeManager,
-            PageIndexerFactory pageIndexerFactory)
+    public HiveConnectorFactory(String name, ClassLoader classLoader, ExtendedHiveMetastore metastore)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.metastore = metastore;
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexer is null");
     }
 
     @Override
@@ -102,7 +91,12 @@ public class HiveConnectorFactory
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
                     new JsonModule(),
-                    new HiveClientModule(connectorId, metastore, typeManager, pageIndexerFactory, context.getNodeManager()),
+                    new HiveClientModule(
+                            connectorId,
+                            metastore,
+                            context.getTypeManager(),
+                            context.getPageIndexerFactory(),
+                            context.getNodeManager()),
                     installModuleIf(
                             SecurityConfig.class,
                             security -> ALLOW_ALL_ACCESS_CONTROL.equalsIgnoreCase(security.getSecuritySystem()),

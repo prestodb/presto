@@ -15,7 +15,6 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
@@ -55,14 +54,9 @@ public class RaptorPlugin
     }
 
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new RaptorConnectorFactory(
-                name,
-                metadataModule,
-                backupProviders,
-                context.getPageSorter(),
-                context.getTypeManager()));
+        return ImmutableList.of(new RaptorConnectorFactory(name, metadataModule, backupProviders));
     }
 
     private static PluginInfo getPluginInfo()

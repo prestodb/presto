@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -41,15 +40,9 @@ public class HivePlugin
     }
 
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HiveConnectorFactory(
-                name,
-                getClassLoader(),
-                metastore,
-                context.getTypeManager(),
-                context.getPageIndexerFactory()
-        ));
+        return ImmutableList.of(new HiveConnectorFactory(name, getClassLoader(), metastore));
     }
 
     private static ClassLoader getClassLoader()

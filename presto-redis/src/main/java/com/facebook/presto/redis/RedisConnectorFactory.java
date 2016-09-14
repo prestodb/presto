@@ -39,14 +39,10 @@ import static java.util.Objects.requireNonNull;
 public class RedisConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
     private final Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier;
 
-    RedisConnectorFactory(
-            TypeManager typeManager,
-            Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier)
+    RedisConnectorFactory(Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
@@ -74,7 +70,7 @@ public class RedisConnectorFactory
                     new RedisConnectorModule(),
                     binder -> {
                         binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(connectorId));
-                        binder.bind(TypeManager.class).toInstance(typeManager);
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
                         if (tableDescriptionSupplier.isPresent()) {
