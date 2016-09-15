@@ -257,6 +257,12 @@
             <artifactId>jgrapht-core</artifactId>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>org.apache.bval</groupId>
+            <artifactId>bval-jsr</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -286,12 +292,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parser</artifactId>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.bval</groupId>
-            <artifactId>bval-jsr</artifactId>
             <scope>test</scope>
         </dependency>
 
