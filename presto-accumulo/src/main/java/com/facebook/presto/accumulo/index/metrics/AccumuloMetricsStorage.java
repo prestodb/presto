@@ -253,7 +253,7 @@ public class AccumuloMetricsStorage
             ImmutableList.Builder<Mutation> mutationBuilder = ImmutableList.builder();
             // Mapping of column value to column to number of row IDs that contain that value
             for (Map.Entry<CardinalityKey, AtomicLong> entry : metrics.entrySet()) {
-                if (entry.getValue().get() > 0) {
+                if (entry.getValue().get() != 0) {
                     // Row ID: Column value
                     // Family: columnfamily_columnqualifier
                     // Qualifier: CARDINALITY_CQ
@@ -273,7 +273,7 @@ public class AccumuloMetricsStorage
             }
 
             for (Map.Entry<TimestampTruncateKey, AtomicLong> entry : timestampMetrics.entrySet()) {
-                if (entry.getValue().get() > 0) {
+                if (entry.getValue().get() != 0) {
                     Mutation mut = new Mutation(entry.getKey().value.array());
                     mut.put(
                             Bytes.concat(entry.getKey().column.array(), TIMESTAMP_CARDINALITY_FAMILIES.get(entry.getKey().level)),

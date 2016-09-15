@@ -103,6 +103,46 @@ public abstract class MetricsWriter
     }
 
     /**
+     * Decrements the number of rows in the table by one
+     */
+    public void decrementRowCount()
+    {
+        decrementCardinality(METRICS_TABLE_ROW_ID, METRICS_TABLE_ROWS_COLUMN, EMPTY_VISIBILITY, false);
+    }
+
+    /**
+     * Decrement the cardinality of the given value and column, accounting for the visibility of the column
+     *
+     * @param value Cell's value
+     * @param column Column of the row
+     * @param visibility Row's visibility
+     * @param truncateTimestamp True if this column is a TIMESTAMP type AND truncate timestamps is enabled, otherwise false
+     */
+    public void decrementCardinality(ByteBuffer value, ByteBuffer column, ColumnVisibility visibility, boolean truncateTimestamp)
+    {
+        CardinalityKey key = new CardinalityKey(value, column, visibility);
+        AtomicLong count = metrics.get(key);
+        if (count == null) {
+            count = new AtomicLong(0);
+            metrics.put(key, count);
+        }
+
+        count.decrementAndGet();
+
+        if (truncateTimestamp) {
+            for (Entry<TimestampPrecision, Long> entry : getTruncatedTimestamps(serializer.decode(TIMESTAMP, value.array())).entrySet()) {
+                TimestampTruncateKey truncatedKey = new TimestampTruncateKey(entry.getKey(), wrap(serializer.encode(TIMESTAMP, entry.getValue())), column, visibility);
+                AtomicLong truncatedCount = timestampMetrics.get(truncatedKey);
+                if (truncatedCount == null) {
+                    truncatedCount = new AtomicLong(0);
+                    timestampMetrics.put(truncatedKey, truncatedCount);
+                }
+                truncatedCount.decrementAndGet();
+            }
+        }
+    }
+
+    /**
      * Flush all current metrics
      */
     public abstract void flush();

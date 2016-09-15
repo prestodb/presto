@@ -19,7 +19,6 @@ import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
 import com.facebook.presto.accumulo.index.metrics.MetricsWriter;
-import com.facebook.presto.accumulo.io.AccumuloPageSink;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
@@ -68,6 +67,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloClient.getRangeFromPrestoRange;
+import static com.facebook.presto.accumulo.io.PrestoBatchWriter.toMutation;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -158,13 +158,13 @@ public class TestColumnCardinalityCache
         MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
         BatchWriter writer = multiTableBatchWriter.getBatchWriter(indexTable);
         MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector, CONFIG).newWriter(table);
-        Indexer indexer = new Indexer(CONFIG, AUTHS, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
+        Indexer indexer = new Indexer(connector, CONFIG, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
 
         for (LineItem item : TpchTable.LINE_ITEM.createGenerator(.01f, 1, 1)) {
             String line = item.toLine();
             line = UUID.randomUUID() + "|" + item.toLine().substring(0, line.length() - 1);
             Row row = Row.fromString(schema, line, '|');
-            Mutation data = AccumuloPageSink.toMutation(row, 0, columns, serializer);
+            Mutation data = toMutation(row, 0, columns, serializer);
             writer.addMutation(data);
             indexer.index(data);
         }
@@ -522,7 +522,7 @@ public class TestColumnCardinalityCache
         MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
         BatchWriter writer = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
         MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector, CONFIG).newWriter(table);
-        Indexer indexer = new Indexer(CONFIG, AUTHS, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
+        Indexer indexer = new Indexer(connector, CONFIG, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
 
         Mutation m = new Mutation("1");
         m.put("___ROW___", "___ROW___", "1");
