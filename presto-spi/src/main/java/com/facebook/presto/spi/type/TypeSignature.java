@@ -97,6 +97,7 @@ public class TypeSignature
     public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
+            checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
             return new TypeSignature(signature, new ArrayList<>());
         }
         if (signature.toLowerCase(Locale.ENGLISH).startsWith(StandardTypes.ROW + "(")) {
@@ -123,6 +124,7 @@ public class TypeSignature
                     verify(baseName == null, "Expected baseName to be null");
                     verify(parameterStart == -1, "Expected parameter start to be -1");
                     baseName = signature.substring(0, i);
+                    checkArgument(!literalCalculationParameters.contains(baseName), "Bad type signature: '%s'", signature);
                     parameterStart = i + 1;
                 }
                 bracketCount++;
