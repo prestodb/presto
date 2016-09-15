@@ -78,6 +78,7 @@ import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -126,6 +127,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
@@ -223,7 +225,7 @@ class AstBuilder
     @Override
     public Node visitCreateTable(SqlBaseParser.CreateTableContext context)
     {
-        return new CreateTable(getLocation(context), getQualifiedName(context.qualifiedName()), visit(context.columnDefinition(), ColumnDefinition.class), context.EXISTS() != null, processTableProperties(context.tableProperties()));
+        return new CreateTable(getLocation(context), getQualifiedName(context.qualifiedName()), visit(context.tableElement(), TableElement.class), context.EXISTS() != null, processTableProperties(context.tableProperties()));
     }
 
     private Map<String, Expression> processTableProperties(TablePropertiesContext tablePropertiesContext)
@@ -1246,6 +1248,16 @@ class AstBuilder
     }
 
     @Override
+    public Node visitLikeClause(SqlBaseParser.LikeClauseContext context)
+    {
+        return new LikeClause(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                Optional.ofNullable(context.optionType)
+                        .map(AstBuilder::getPropertiesOption));
+    }
+
+    @Override
     public Node visitSortItem(SqlBaseParser.SortItemContext context)
     {
         return new SortItem(
@@ -1432,6 +1444,17 @@ class AstBuilder
     {
         return value.substring(1, value.length() - 1)
                 .replace("''", "'");
+    }
+
+    private static LikeClause.PropertiesOption getPropertiesOption(Token token)
+    {
+        switch (token.getType()) {
+            case SqlBaseLexer.INCLUDING:
+                return LikeClause.PropertiesOption.INCLUDING;
+            case SqlBaseLexer.EXCLUDING:
+                return LikeClause.PropertiesOption.EXCLUDING;
+        }
+        throw new IllegalArgumentException("Unsupported LIKE option type: " + token.getText());
     }
 
     private static QualifiedName getQualifiedName(SqlBaseParser.QualifiedNameContext context)

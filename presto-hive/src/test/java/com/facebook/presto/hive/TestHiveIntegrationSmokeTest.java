@@ -59,6 +59,10 @@ import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPER
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
+import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -74,6 +78,7 @@ import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -289,6 +294,123 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE test_partitioned_table");
 
         assertFalse(queryRunner.tableExists(session, "test_partitioned_table"));
+    }
+
+    @Test
+    public void createTableLike()
+            throws Exception
+    {
+        createTableLike("", false);
+        createTableLike("EXCLUDING PROPERTIES", false);
+        createTableLike("INCLUDING PROPERTIES", true);
+    }
+
+    protected void createTableLike(String likeSuffix, boolean hasPartition)
+            throws Exception
+    {
+        // Create a non-partitioned table
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_table_original (" +
+                "  tinyint_col tinyint " +
+                ", smallint_col smallint" +
+                ")";
+        assertUpdate(createTable);
+
+        // Verify the table is correctly created
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_table_original");
+        assertColumnType(tableMetadata, "tinyint_col", TINYINT);
+        assertColumnType(tableMetadata, "smallint_col", SMALLINT);
+
+        // Create a partitioned table
+        @Language("SQL") String createPartitionedTable = "" +
+                "CREATE TABLE test_partitioned_table_original (" +
+                "  string_col VARCHAR" +
+                ", decimal_long_col DECIMAL(30,10)" +
+                ", partition_bigint BIGINT" +
+                ", partition_decimal_long DECIMAL(30,10)" +
+                ") " +
+                "WITH (" +
+                "partitioned_by = ARRAY['partition_bigint', 'partition_decimal_long']" +
+                ")";
+        assertUpdate(createPartitionedTable);
+
+        // Verify the table is correctly created
+        tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table_original");
+
+        // Verify the partition keys are correctly created
+        List<String> partitionedBy = ImmutableList.of("partition_bigint", "partition_decimal_long");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
+            assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
+        }
+
+        // Verify the column types
+        assertColumnType(tableMetadata, "string_col", createUnboundedVarcharType());
+        assertColumnType(tableMetadata, "partition_bigint", BIGINT);
+        assertColumnType(tableMetadata, "partition_decimal_long", createDecimalType(30, 10));
+
+        // Create a table using only one LIKE
+        @Language("SQL") String createTableSingleLike = "" +
+                "CREATE TABLE test_partitioned_table_single_like (" +
+                "LIKE test_partitioned_table_original " + likeSuffix +
+                ")";
+        assertUpdate(createTableSingleLike);
+
+        tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table_single_like");
+
+        // Verify the partitioned keys are correctly created if copying partition columns
+        verifyPartition(hasPartition, tableMetadata, partitionedBy);
+
+        // Verify the column types
+        assertColumnType(tableMetadata, "string_col", createUnboundedVarcharType());
+        assertColumnType(tableMetadata, "partition_bigint", BIGINT);
+        assertColumnType(tableMetadata, "partition_decimal_long", createDecimalType(30, 10));
+
+        @Language("SQL") String createTableLikeExtra = "" +
+                "CREATE TABLE test_partitioned_table_like_extra (" +
+                "  bigint_col BIGINT" +
+                ", double_col DOUBLE" +
+                ", LIKE test_partitioned_table_single_like " + likeSuffix +
+                ")";
+        assertUpdate(createTableLikeExtra);
+
+        tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table_like_extra");
+
+        // Verify the partitioned keys are correctly created if copying partition columns
+        verifyPartition(hasPartition, tableMetadata, partitionedBy);
+
+        // Verify the column types
+        assertColumnType(tableMetadata, "bigint_col", BIGINT);
+        assertColumnType(tableMetadata, "double_col", DOUBLE);
+        assertColumnType(tableMetadata, "string_col", createUnboundedVarcharType());
+        assertColumnType(tableMetadata, "partition_bigint", BIGINT);
+        assertColumnType(tableMetadata, "partition_decimal_long", createDecimalType(30, 10));
+
+        @Language("SQL") String createTableDoubleLike = "" +
+                "CREATE TABLE test_partitioned_table_double_like (" +
+                "  LIKE test_table_original " +
+                ", LIKE test_partitioned_table_like_extra " + likeSuffix +
+                ")";
+        assertUpdate(createTableDoubleLike);
+
+        tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table_double_like");
+
+        // Verify the partitioned keys are correctly created if copying partition columns
+        verifyPartition(hasPartition, tableMetadata, partitionedBy);
+
+        // Verify the column types
+        assertColumnType(tableMetadata, "tinyint_col", TINYINT);
+        assertColumnType(tableMetadata, "smallint_col", SMALLINT);
+        assertColumnType(tableMetadata, "string_col", createUnboundedVarcharType());
+        assertColumnType(tableMetadata, "partition_bigint", BIGINT);
+        assertColumnType(tableMetadata, "partition_decimal_long", createDecimalType(30, 10));
+
+        assertUpdate("DROP TABLE test_table_original");
+        assertUpdate("DROP TABLE test_partitioned_table_original");
+        assertUpdate("DROP TABLE test_partitioned_table_single_like");
+        assertUpdate("DROP TABLE test_partitioned_table_like_extra");
+        assertUpdate("DROP TABLE test_partitioned_table_double_like");
     }
 
     @Test
@@ -1532,6 +1654,21 @@ public class TestHiveIntegrationSmokeTest
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
     {
         assertEquals(tableMetadata.getColumn(columnName).getType(), canonicalizeType(expectedType));
+    }
+
+    private void verifyPartition(boolean hasPartition, TableMetadata tableMetadata, List<String> partitionKeys)
+    {
+        Object partitionByProperty = tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY);
+        if (hasPartition) {
+            assertEquals(partitionByProperty, partitionKeys);
+            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+                boolean partitionKey = partitionKeys.contains(columnMetadata.getName());
+                assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
+            }
+        }
+        else {
+            assertNull(partitionByProperty);
+        }
     }
 
     private void rollback()

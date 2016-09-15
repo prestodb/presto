@@ -118,6 +118,21 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE test_create_table_if_not_exists");
         assertFalse(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+
+        // Test CREATE TABLE LIKE
+        assertUpdate("CREATE TABLE test_create_original (a bigint, b double, c varchar)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_original"));
+        assertTableColumnNames("test_create_original", "a", "b", "c");
+
+        assertUpdate("CREATE TABLE test_create_like (LIKE test_create_original, d boolean, e varchar)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_like"));
+        assertTableColumnNames("test_create_like", "a", "b", "c", "d", "e");
+
+        assertUpdate("DROP TABLE test_create_original");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_original"));
+
+        assertUpdate("DROP TABLE test_create_like");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_like"));
     }
 
     @Test

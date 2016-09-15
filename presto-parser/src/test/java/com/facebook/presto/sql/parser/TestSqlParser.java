@@ -64,6 +64,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -1114,6 +1115,47 @@ public class TestSqlParser
                         ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP")),
                         true,
                         ImmutableMap.of()));
+
+        // with LIKE
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.empty())),
+                        true,
+                        ImmutableMap.of()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.empty())),
+                        true,
+                        ImmutableMap.of()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.empty()),
+                                new ColumnDefinition("d", "DATE")),
+                        true,
+                        ImmutableMap.of()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.of(LikeClause.PropertiesOption.INCLUDING))),
+                        true,
+                        ImmutableMap.of()));
+        assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
+                new CreateTable(QualifiedName.of("bar"),
+                        ImmutableList.of(
+                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new LikeClause(QualifiedName.of("like_table"),
+                                        Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
+                        true,
+                        ImmutableMap.of()));
     }
 
     @Test
@@ -1128,9 +1170,6 @@ public class TestSqlParser
 
         assertStatement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t",
                 new CreateTableAsSelect(table, query, true, ImmutableMap.of(), true));
-
-        assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH DATA",
-                new CreateTableAsSelect(table, query, false, ImmutableMap.of(), true));
 
         assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA",
                 new CreateTableAsSelect(table, query, false, ImmutableMap.of(), false));

@@ -337,6 +337,32 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateBucketedTableLike()
+            throws Exception
+    {
+        assertUpdate("" +
+                "CREATE TABLE orders_bucketed_original (" +
+                "  orderkey bigint" +
+                ", custkey bigint" +
+                ") " +
+                "WITH (bucket_count = 50, bucketed_on = ARRAY['orderkey'])");
+
+        assertUpdate("" +
+                "CREATE TABLE orders_bucketed_like (" +
+                "  orderdate date" +
+                ", LIKE orders_bucketed_original INCLUDING PROPERTIES" +
+                ")");
+
+        assertUpdate("INSERT INTO orders_bucketed_like SELECT orderdate, orderkey, custkey FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("INSERT INTO orders_bucketed_like SELECT orderdate, orderkey, custkey FROM orders", "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed_like", "SELECT 50 * 2");
+
+        assertUpdate("DROP TABLE orders_bucketed_original");
+        assertUpdate("DROP TABLE orders_bucketed_like");
+    }
+
+    @Test
     public void testShowCreateTable()
             throws Exception
     {

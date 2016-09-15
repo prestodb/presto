@@ -20,7 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnDefinition
-        extends Node
+        extends TableElement
 {
     private final String name;
     private final String type;
@@ -55,7 +55,7 @@ public final class ColumnDefinition
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitTableElement(this, context);
+        return visitor.visitColumnDefinition(this, context);
     }
 
     @Override

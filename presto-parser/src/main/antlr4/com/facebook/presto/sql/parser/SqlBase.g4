@@ -38,7 +38,7 @@ statement
         (WITH tableProperties)? AS query
         (WITH (NO)? DATA)?                                             #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
-        '(' columnDefinition (',' columnDefinition)* ')'
+        '(' tableElement (',' tableElement)* ')'
         (WITH tableProperties)?                                        #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
     | INSERT INTO qualifiedName columnAliases? query                   #insertInto
@@ -93,8 +93,17 @@ with
     : WITH RECURSIVE? namedQuery (',' namedQuery)*
     ;
 
+tableElement
+    : columnDefinition
+    | likeClause
+    ;
+
 columnDefinition
     : identifier type
+    ;
+
+likeClause
+    : LIKE qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
     ;
 
 tableProperties
@@ -606,6 +615,9 @@ DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
 CASCADE: 'CASCADE';
 RESTRICT: 'RESTRICT';
+INCLUDING: 'INCLUDING';
+EXCLUDING: 'EXCLUDING';
+PROPERTIES: 'PROPERTIES';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';
