@@ -26,7 +26,6 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolToInputRewriter
-        extends ExpressionRewriter<Void>
 {
     private final Map<Symbol, Integer> symbolToChannelMapping;
 
@@ -36,12 +35,21 @@ public class SymbolToInputRewriter
         this.symbolToChannelMapping = ImmutableMap.copyOf(symbolToChannelMapping);
     }
 
-    @Override
-    public Expression rewriteSymbolReference(SymbolReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+    public Expression rewrite(Expression expression)
     {
-        Integer channel = symbolToChannelMapping.get(Symbol.from(node));
-        Preconditions.checkArgument(channel != null, "Cannot resolve symbol %s", node.getName());
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Context>() {
+            @Override
+            public Expression rewriteSymbolReference(SymbolReference node, Context context, ExpressionTreeRewriter<Context> treeRewriter)
+            {
+                Integer channel = symbolToChannelMapping.get(Symbol.from(node));
+                Preconditions.checkArgument(channel != null, "Cannot resolve symbol %s", node.getName());
 
-        return new FieldReference(channel);
+                return new FieldReference(channel);
+            }
+        }, expression, new Context());
+    }
+
+    private static class Context
+    {
     }
 }
