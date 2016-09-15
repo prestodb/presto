@@ -17,18 +17,18 @@ package com.facebook.presto.tests.hive;
 import com.teradata.tempto.fulfillment.table.TableDefinitionsRepository;
 import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
 import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
+import com.teradata.tempto.query.QueryExecutor;
 
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
 {
-    // TODO generate data files using hive instead using prebuilt commited files.
-
     private AllSimpleTypesTableDefinitions()
     {
     }
@@ -42,17 +42,17 @@ public final class AllSimpleTypesTableDefinitions
 
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = parquetTableDefinitionBuilder()
-            .setDataSource(getParquetDataSource())
+            .setNoData()
             .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = tableDefinitionBuilder("ORC", Optional.empty())
-            .setDataSource(getOrcDataSource())
+            .setNoData()
             .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = tableDefinitionBuilder("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
-            .setDataSource(getRcfileDataSource())
+            .setNoData()
             .build();
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> rowFormat)
@@ -109,18 +109,15 @@ public final class AllSimpleTypesTableDefinitions
         return createResourceDataSource(format(tableNameFormat, "textfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
     }
 
-    private static HiveDataSource getParquetDataSource()
+    public static void populateDataToHiveTable(String tableName)
     {
-        return createResourceDataSource(format(tableNameFormat, "parquet"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
+        onHive().executeQuery(format("INSERT INTO %s SELECT * FROM %s",
+                tableName,
+                format(tableNameFormat, "textfile")));
     }
 
-    private static HiveDataSource getOrcDataSource()
+    public static QueryExecutor onHive()
     {
-        return createResourceDataSource(format(tableNameFormat, "orc"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.orc");
-    }
-
-    private static HiveDataSource getRcfileDataSource()
-    {
-        return createResourceDataSource(format(tableNameFormat, "rcfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.rcfile");
+        return testContext().getDependency(QueryExecutor.class, "hive");
     }
 }
