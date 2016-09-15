@@ -22,6 +22,12 @@
         </dependency>
 
         <dependency>
+            <!-- used by tests but also needed transitively -->
+            <groupId>org.apache.bval</groupId>
+            <artifactId>bval-jsr</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
         </dependency>
@@ -286,12 +292,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parser</artifactId>
             <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.bval</groupId>
-            <artifactId>bval-jsr</artifactId>
             <scope>test</scope>
         </dependency>
 
