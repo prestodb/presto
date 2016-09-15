@@ -722,13 +722,17 @@ public class TestHashJoinOperator
                     100,
                     PARTITION_COUNT);
             PipelineContext buildPipeline = taskContext.addPipelineContext(true, true);
+
+            Driver[] buildDrivers = new Driver[PARTITION_COUNT];
             for (int i = 0; i < PARTITION_COUNT; i++) {
                 DriverContext buildDriverContext = buildPipeline.addDriverContext();
-                Driver buildDriver = new Driver(buildDriverContext,
+                buildDrivers[i] = new Driver(buildDriverContext,
                         sourceOperatorFactory.createOperator(buildDriverContext),
                         buildOperatorFactory.createOperator(buildDriverContext));
+            }
 
-                while (!buildDriver.isFinished()) {
+            while (!buildOperatorFactory.getLookupSourceSupplier().getLookupSource().isDone()) {
+                for (Driver buildDriver : buildDrivers) {
                     buildDriver.process();
                 }
             }
