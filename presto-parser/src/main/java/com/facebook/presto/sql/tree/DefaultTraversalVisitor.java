@@ -515,8 +515,8 @@ public abstract class DefaultTraversalVisitor<R, C>
     @Override
     protected R visitCreateTable(CreateTable node, C context)
     {
-        for (TableElement tableElement : node.getElements()) {
-            process(tableElement, context);
+        for (ColumnDefinition columnDefinition : node.getElements()) {
+            process(columnDefinition, context);
         }
         for (Entry<String, Expression> entry : node.getProperties().entrySet()) {
             process(entry.getValue(), context);

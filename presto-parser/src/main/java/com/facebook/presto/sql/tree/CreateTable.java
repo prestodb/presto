@@ -28,21 +28,21 @@ public class CreateTable
         extends Statement
 {
     private final QualifiedName name;
-    private final List<TableElement> elements;
+    private final List<ColumnDefinition> elements;
     private final boolean notExists;
     private final Map<String, Expression> properties;
 
-    public CreateTable(QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    public CreateTable(QualifiedName name, List<ColumnDefinition> elements, boolean notExists, Map<String, Expression> properties)
     {
         this(Optional.empty(), name, elements, notExists, properties);
     }
 
-    public CreateTable(NodeLocation location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    public CreateTable(NodeLocation location, QualifiedName name, List<ColumnDefinition> elements, boolean notExists, Map<String, Expression> properties)
     {
         this(Optional.of(location), name, elements, notExists, properties);
     }
 
-    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, Map<String, Expression> properties)
+    private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<ColumnDefinition> elements, boolean notExists, Map<String, Expression> properties)
     {
         super(location);
         this.name = requireNonNull(name, "table is null");
@@ -56,7 +56,7 @@ public class CreateTable
         return name;
     }
 
-    public List<TableElement> getElements()
+    public List<ColumnDefinition> getElements()
     {
         return elements;
     }

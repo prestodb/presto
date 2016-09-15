@@ -19,23 +19,23 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class TableElement
+public final class ColumnDefinition
         extends Node
 {
     private final String name;
     private final String type;
 
-    public TableElement(String name, String type)
+    public ColumnDefinition(String name, String type)
     {
         this(Optional.empty(), name, type);
     }
 
-    public TableElement(NodeLocation location, String name, String type)
+    public ColumnDefinition(NodeLocation location, String name, String type)
     {
         this(Optional.of(location), name, type);
     }
 
-    private TableElement(Optional<NodeLocation> location, String name, String type)
+    private ColumnDefinition(Optional<NodeLocation> location, String name, String type)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -67,7 +67,7 @@ public final class TableElement
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        TableElement o = (TableElement) obj;
+        ColumnDefinition o = (ColumnDefinition) obj;
         return Objects.equals(this.name, o.name) &&
                 Objects.equals(this.type, o.type);
     }

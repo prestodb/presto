@@ -22,9 +22,9 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.ArrayList;
@@ -72,7 +72,7 @@ public class CreateTableTask
         }
 
         List<ColumnMetadata> columns = new ArrayList<>();
-        for (TableElement element : statement.getElements()) {
+        for (ColumnDefinition element : statement.getElements()) {
             Type type = metadata.getType(parseTypeSignature(element.getType()));
             if ((type == null) || type.equals(UNKNOWN)) {
                 throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());
