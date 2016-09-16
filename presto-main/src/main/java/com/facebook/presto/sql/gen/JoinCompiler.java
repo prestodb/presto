@@ -27,6 +27,7 @@ import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.operator.BigintInMemoryJoinHash;
 import com.facebook.presto.operator.InMemoryJoinHash;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.LookupSource;
@@ -68,6 +69,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.notEqual;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 
@@ -121,11 +123,20 @@ public class JoinCompiler
     {
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, joinChannels);
 
-        Class<? extends LookupSource> lookupSourceClass = IsolatedClass.isolateClass(
-                new DynamicClassLoader(getClass().getClassLoader()),
-                LookupSource.class,
-                InMemoryJoinHash.class);
+        Class<? extends LookupSource> lookupSourceClass;
 
+        if (joinChannels.size() == 1 && types.get(joinChannels.get(0)).equals(BIGINT)) {
+            lookupSourceClass = IsolatedClass.isolateClass(
+                    new DynamicClassLoader(getClass().getClassLoader()),
+                    LookupSource.class,
+                    BigintInMemoryJoinHash.class);
+        }
+        else {
+            lookupSourceClass = IsolatedClass.isolateClass(
+                    new DynamicClassLoader(getClass().getClassLoader()),
+                    LookupSource.class,
+                    InMemoryJoinHash.class);
+        }
         return new LookupSourceFactory(lookupSourceClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
     }
 
@@ -689,18 +700,18 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = lookupSourceClass.getConstructor(LongArrayList.class, PagesHashStrategy.class);
+                constructor = lookupSourceClass.getConstructor(LongArrayList.class, PagesHashStrategy.class, List.class, List.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
             }
         }
 
-        public LookupSource createLookupSource(LongArrayList addresses, List<List<Block>> channels, Optional<Integer> hashChannel)
+        public LookupSource createLookupSource(LongArrayList addresses, List<List<Block>> channels, Optional<Integer> hashChannel, List<Integer> joinChannels)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(addresses, pagesHashStrategy);
+                return constructor.newInstance(addresses, pagesHashStrategy, channels, joinChannels);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);

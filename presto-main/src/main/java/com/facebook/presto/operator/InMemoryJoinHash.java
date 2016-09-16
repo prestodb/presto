@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -49,7 +50,7 @@ public final class InMemoryJoinHash
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
-    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
+    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, List<List<Block>> channels, List<Integer> joinChannels)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
