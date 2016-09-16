@@ -34,8 +34,8 @@ public class QueryContext
 
     private final Map<String, String> sessionProperties;
 
-    private final String serverVersion;
     private final String serverAddress;
+    private final String serverVersion;
     private final String environment;
 
     public QueryContext(
@@ -59,8 +59,8 @@ public class QueryContext
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
-        this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
+        this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
     }
 
@@ -113,15 +113,15 @@ public class QueryContext
     }
 
     @JsonProperty
-    public String getServerVersion()
-    {
-        return serverVersion;
-    }
-
-    @JsonProperty
     public String getServerAddress()
     {
         return serverAddress;
+    }
+
+    @JsonProperty
+    public String getServerVersion()
+    {
+        return serverVersion;
     }
 
     @JsonProperty
