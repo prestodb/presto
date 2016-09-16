@@ -355,45 +355,45 @@ public class OrcTester
             Type type)
             throws IOException
     {
-        OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(objectInspector, expectedValues), type);
-        assertEquals(recordReader.getReaderPosition(), 0);
-        assertEquals(recordReader.getFilePosition(), 0);
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, metadataReader, createOrcPredicate(objectInspector, expectedValues), type)) {
+            assertEquals(recordReader.getReaderPosition(), 0);
+            assertEquals(recordReader.getFilePosition(), 0);
 
-        boolean isFirst = true;
-        int rowsProcessed = 0;
-        Iterator<?> iterator = expectedValues.iterator();
-        for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
-            if (skipStripe && rowsProcessed < 10000) {
-                assertEquals(advance(iterator, batchSize), batchSize);
-            }
-            else if (skipFirstBatch && isFirst) {
-                assertEquals(advance(iterator, batchSize), batchSize);
-                isFirst = false;
-            }
-            else {
-                Block block = recordReader.readBlock(type, 0);
-
-                List<Object> data = new ArrayList<>(block.getPositionCount());
-                for (int position = 0; position < block.getPositionCount(); position++) {
-                    data.add(type.getObjectValue(SESSION, block, position));
+            boolean isFirst = true;
+            int rowsProcessed = 0;
+            Iterator<?> iterator = expectedValues.iterator();
+            for (int batchSize = toIntExact(recordReader.nextBatch()); batchSize >= 0; batchSize = toIntExact(recordReader.nextBatch())) {
+                if (skipStripe && rowsProcessed < 10000) {
+                    assertEquals(advance(iterator, batchSize), batchSize);
                 }
-
-                for (int i = 0; i < batchSize; i++) {
-                    assertTrue(iterator.hasNext());
-                    Object expected = iterator.next();
-                    Object actual = data.get(i);
-                    assertColumnValueEquals(type, actual, expected);
+                else if (skipFirstBatch && isFirst) {
+                    assertEquals(advance(iterator, batchSize), batchSize);
+                    isFirst = false;
                 }
+                else {
+                    Block block = recordReader.readBlock(type, 0);
+
+                    List<Object> data = new ArrayList<>(block.getPositionCount());
+                    for (int position = 0; position < block.getPositionCount(); position++) {
+                        data.add(type.getObjectValue(SESSION, block, position));
+                    }
+
+                    for (int i = 0; i < batchSize; i++) {
+                        assertTrue(iterator.hasNext());
+                        Object expected = iterator.next();
+                        Object actual = data.get(i);
+                        assertColumnValueEquals(type, actual, expected);
+                    }
+                }
+                assertEquals(recordReader.getReaderPosition(), rowsProcessed);
+                assertEquals(recordReader.getFilePosition(), rowsProcessed);
+                rowsProcessed += batchSize;
             }
+            assertFalse(iterator.hasNext());
+
             assertEquals(recordReader.getReaderPosition(), rowsProcessed);
             assertEquals(recordReader.getFilePosition(), rowsProcessed);
-            rowsProcessed += batchSize;
         }
-        assertFalse(iterator.hasNext());
-
-        assertEquals(recordReader.getReaderPosition(), rowsProcessed);
-        assertEquals(recordReader.getFilePosition(), rowsProcessed);
-        recordReader.close();
     }
 
     private static void assertColumnValueEquals(Type type, Object actual, Object expected)

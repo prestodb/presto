@@ -63,23 +63,23 @@ public class TestOrcReaderPositions
         try (TempFile tempFile = new TempFile()) {
             createMultiStripeFile(tempFile.getFile());
 
-            OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), OrcPredicate.TRUE, BIGINT);
-            assertEquals(reader.getReaderRowCount(), 100);
-            assertEquals(reader.getReaderPosition(), 0);
-            assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
-            assertEquals(reader.getFilePosition(), reader.getReaderPosition());
-
-            for (int i = 0; i < 5; i++) {
-                assertEquals(reader.nextBatch(), 20);
-                assertEquals(reader.getReaderPosition(), i * 20L);
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), OrcPredicate.TRUE, BIGINT)) {
+                assertEquals(reader.getReaderRowCount(), 100);
+                assertEquals(reader.getReaderPosition(), 0);
+                assertEquals(reader.getFileRowCount(), reader.getReaderRowCount());
                 assertEquals(reader.getFilePosition(), reader.getReaderPosition());
-                assertCurrentBatch(reader, i);
-            }
 
-            assertEquals(reader.nextBatch(), -1);
-            assertEquals(reader.getReaderPosition(), 100);
-            assertEquals(reader.getFilePosition(), reader.getReaderPosition());
-            reader.close();
+                for (int i = 0; i < 5; i++) {
+                    assertEquals(reader.nextBatch(), 20);
+                    assertEquals(reader.getReaderPosition(), i * 20L);
+                    assertEquals(reader.getFilePosition(), reader.getReaderPosition());
+                    assertCurrentBatch(reader, i);
+                }
+
+                assertEquals(reader.nextBatch(), -1);
+                assertEquals(reader.getReaderPosition(), 100);
+                assertEquals(reader.getFilePosition(), reader.getReaderPosition());
+            }
         }
     }
 
@@ -100,28 +100,28 @@ public class TestOrcReaderPositions
                         ((stats.getMin() == 180) && (stats.getMax() == 237));
             };
 
-            OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT);
-            assertEquals(reader.getFileRowCount(), 100);
-            assertEquals(reader.getReaderRowCount(), 40);
-            assertEquals(reader.getFilePosition(), 0);
-            assertEquals(reader.getReaderPosition(), 0);
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT)) {
+                assertEquals(reader.getFileRowCount(), 100);
+                assertEquals(reader.getReaderRowCount(), 40);
+                assertEquals(reader.getFilePosition(), 0);
+                assertEquals(reader.getReaderPosition(), 0);
 
-            // second stripe
-            assertEquals(reader.nextBatch(), 20);
-            assertEquals(reader.getReaderPosition(), 0);
-            assertEquals(reader.getFilePosition(), 20);
-            assertCurrentBatch(reader, 1);
+                // second stripe
+                assertEquals(reader.nextBatch(), 20);
+                assertEquals(reader.getReaderPosition(), 0);
+                assertEquals(reader.getFilePosition(), 20);
+                assertCurrentBatch(reader, 1);
 
-            // fourth stripe
-            assertEquals(reader.nextBatch(), 20);
-            assertEquals(reader.getReaderPosition(), 20);
-            assertEquals(reader.getFilePosition(), 60);
-            assertCurrentBatch(reader, 3);
+                // fourth stripe
+                assertEquals(reader.nextBatch(), 20);
+                assertEquals(reader.getReaderPosition(), 20);
+                assertEquals(reader.getFilePosition(), 60);
+                assertCurrentBatch(reader, 3);
 
-            assertEquals(reader.nextBatch(), -1);
-            assertEquals(reader.getReaderPosition(), 40);
-            assertEquals(reader.getFilePosition(), 100);
-            reader.close();
+                assertEquals(reader.nextBatch(), -1);
+                assertEquals(reader.getReaderPosition(), 40);
+                assertEquals(reader.getFilePosition(), 100);
+            }
         }
     }
 
@@ -143,34 +143,33 @@ public class TestOrcReaderPositions
                 return (stats.getMin() == 50_000) || (stats.getMin() == 60_000);
             };
 
-            OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT);
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, new OrcMetadataReader(), predicate, BIGINT)) {
+                assertEquals(reader.getFileRowCount(), rowCount);
+                assertEquals(reader.getReaderRowCount(), rowCount);
+                assertEquals(reader.getFilePosition(), 0);
+                assertEquals(reader.getReaderPosition(), 0);
 
-            assertEquals(reader.getFileRowCount(), rowCount);
-            assertEquals(reader.getReaderRowCount(), rowCount);
-            assertEquals(reader.getFilePosition(), 0);
-            assertEquals(reader.getReaderPosition(), 0);
+                long position = 50_000;
+                while (true) {
+                    int batchSize = reader.nextBatch();
+                    if (batchSize == -1) {
+                        break;
+                    }
 
-            long position = 50_000;
-            while (true) {
-                int batchSize = reader.nextBatch();
-                if (batchSize == -1) {
-                    break;
+                    Block block = reader.readBlock(BIGINT, 0);
+                    for (int i = 0; i < batchSize; i++) {
+                        assertEquals(BIGINT.getLong(block, i), position + i);
+                    }
+
+                    assertEquals(reader.getFilePosition(), position);
+                    assertEquals(reader.getReaderPosition(), position);
+                    position += batchSize;
                 }
 
-                Block block = reader.readBlock(BIGINT, 0);
-                for (int i = 0; i < batchSize; i++) {
-                    assertEquals(BIGINT.getLong(block, i), position + i);
-                }
-
-                assertEquals(reader.getFilePosition(), position);
-                assertEquals(reader.getReaderPosition(), position);
-                position += batchSize;
+                assertEquals(position, 70_000);
+                assertEquals(reader.getFilePosition(), rowCount);
+                assertEquals(reader.getReaderPosition(), rowCount);
             }
-
-            assertEquals(position, 70_000);
-            assertEquals(reader.getFilePosition(), rowCount);
-            assertEquals(reader.getReaderPosition(), rowCount);
-            reader.close();
         }
     }
 

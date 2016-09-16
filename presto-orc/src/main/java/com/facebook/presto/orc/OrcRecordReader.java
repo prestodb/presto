@@ -39,6 +39,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,6 +60,7 @@ import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
 public class OrcRecordReader
+        implements Closeable
 {
     private final OrcDataSource orcDataSource;
 
@@ -280,6 +282,7 @@ public class OrcRecordReader
         return splitLength;
     }
 
+    @Override
     public void close()
             throws IOException
     {
