@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
@@ -105,13 +106,13 @@ public class AddLocalExchanges
     private class Rewriter
             extends PlanVisitor<StreamPreferredProperties, PlanWithProperties>
     {
-        private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
+        private final Map<Symbol, Type> types;
 
         public Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Session session)
         {
-            this.symbolAllocator = symbolAllocator;
+            this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
             this.idAllocator = idAllocator;
             this.session = session;
         }
@@ -567,12 +568,12 @@ public class AddLocalExchanges
 
         private PlanWithProperties deriveProperties(PlanNode result, StreamProperties inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser));
         }
 
         private PlanWithProperties deriveProperties(PlanNode result, List<StreamProperties> inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser));
         }
 
         private StreamProperties derivePropertiesRecursively(PlanNode node)
@@ -580,7 +581,7 @@ public class AddLocalExchanges
             List<StreamProperties> inputProperties = node.getSources().stream()
                     .map(this::derivePropertiesRecursively)
                     .collect(toImmutableList());
-            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
+            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
         }
     }
 

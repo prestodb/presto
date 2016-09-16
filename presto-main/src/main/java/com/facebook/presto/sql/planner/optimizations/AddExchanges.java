@@ -77,6 +77,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
@@ -182,7 +183,7 @@ public class AddExchanges
             extends PlanVisitor<Context, PlanWithProperties>
     {
         private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final Map<Symbol, Type> types;
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean distributedJoins;
@@ -192,7 +193,7 @@ public class AddExchanges
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
             this.idAllocator = idAllocator;
-            this.symbolAllocator = symbolAllocator;
+            this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
             this.session = session;
             this.distributedJoins = SystemSessionProperties.isDistributedJoinEnabled(session);
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
@@ -553,7 +554,7 @@ public class AddExchanges
                     metadata,
                     session,
                     deterministicPredicate,
-                    symbolAllocator.getTypes());
+                    types);
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
@@ -646,7 +647,7 @@ public class AddExchanges
                     session,
                     metadata,
                     parser,
-                    symbolAllocator.getTypes(),
+                    types,
                     predicate,
                     emptyList() /* parameters already replaced */);
 
@@ -1171,12 +1172,12 @@ public class AddExchanges
 
         private ActualProperties deriveProperties(PlanNode result, ActualProperties inputProperties)
         {
-            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser);
         }
 
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
-            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser);
         }
     }
 
