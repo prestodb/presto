@@ -348,8 +348,6 @@ public class LogicalPlanner
 
     private TableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, boolean sampled, List<Expression> parameters)
     {
-        String owner = session.getUser();
-
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 table.getCatalogName(),
                 propertyExpressions,
