@@ -454,8 +454,8 @@ public class ParquetHiveRecordCursor
                     }
                     else {
                         splitGroup.add(block);
-                        offsets.add(block.getStartingPos());
                     }
+                    offsets.add(block.getStartingPos());
                 }
             }
 
