@@ -72,7 +72,12 @@ public class TestCachingOrcDataSource
         tempFile = new TempFile();
         Random random = new Random();
         Iterator<String> iterator = Stream.generate(() -> Long.toHexString(random.nextLong())).limit(POSITION_COUNT).iterator();
-        writeOrcFileColumnOld(tempFile.getFile(), ORC_12, createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector), javaStringObjectInspector, iterator);
+        writeOrcFileColumnOld(
+                tempFile.getFile(),
+                ORC_12,
+                createOrcRecordWriter(tempFile.getFile(), ORC_12, ZLIB, javaStringObjectInspector),
+                VARCHAR,
+                iterator);
     }
 
     @AfterClass

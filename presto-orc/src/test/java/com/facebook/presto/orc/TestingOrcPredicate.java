@@ -14,16 +14,18 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.ColumnStatistics;
+import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.VarbinaryType;
+import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +33,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
@@ -48,55 +62,55 @@ public final class TestingOrcPredicate
     {
     }
 
-    public static OrcPredicate createOrcPredicate(ObjectInspector objectInspector, Iterable<?> values)
+    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values)
     {
         List<Object> expectedValues = newArrayList(values);
-        if (!(objectInspector instanceof PrimitiveObjectInspector)) {
+        if (BOOLEAN.equals(type)) {
+            return new BooleanOrcPredicate(expectedValues);
+        }
+        if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
+            return new LongOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((Number) value).longValue())
+                            .collect(toList()));
+        }
+        if (TIMESTAMP.equals(type)) {
+            return new LongOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                            .collect(toList()));
+        }
+        if (DATE.equals(type)) {
+            return new DateOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
+                            .collect(toList()));
+        }
+        if (REAL.equals(type) || DOUBLE.equals(type)) {
+            return new DoubleOrcPredicate(
+                    expectedValues.stream()
+                            .map(value -> value == null ? null : ((Number) value).doubleValue())
+                            .collect(toList()));
+        }
+        if (type instanceof VarbinaryType) {
+            // binary does not have stats
             return new BasicOrcPredicate<>(expectedValues, Object.class);
         }
-
-        PrimitiveObjectInspector primitiveObjectInspector = (PrimitiveObjectInspector) objectInspector;
-        PrimitiveCategory primitiveCategory = primitiveObjectInspector.getPrimitiveCategory();
-
-        switch (primitiveCategory) {
-            case BOOLEAN:
-                return new BooleanOrcPredicate(expectedValues);
-            case BYTE:
-            case SHORT:
-            case INT:
-            case LONG:
-                return new LongOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : ((Number) value).longValue())
-                                .collect(toList()));
-            case TIMESTAMP:
-                return new LongOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
-                                .collect(toList()));
-            case DATE:
-                return new DateOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : (long) ((SqlDate) value).getDays())
-                                .collect(toList()));
-            case FLOAT:
-            case DOUBLE:
-                return new DoubleOrcPredicate(
-                        expectedValues.stream()
-                                .map(value -> value == null ? null : ((Number) value).doubleValue())
-                                .collect(toList()));
-            case BINARY:
-                // binary does not have stats
-                return new BasicOrcPredicate<>(expectedValues, Object.class);
-            case STRING:
-                return new StringOrcPredicate(expectedValues);
-            case CHAR:
-                return new CharOrcPredicate(expectedValues);
-            case DECIMAL:
-                return new DecimalOrcPredicate(expectedValues);
-            default:
-                throw new IllegalArgumentException("Unsupported types " + primitiveCategory);
+        if (type instanceof VarcharType) {
+            return new StringOrcPredicate(expectedValues);
         }
+        if (type instanceof CharType) {
+            return new CharOrcPredicate(expectedValues);
+        }
+        if (type instanceof DecimalType) {
+            return new DecimalOrcPredicate(expectedValues);
+        }
+
+        String baseType = type.getTypeSignature().getBase();
+        if (ARRAY.equals(baseType) || MAP.equals(baseType) || ROW.equals(baseType)) {
+            return new BasicOrcPredicate<>(expectedValues, Object.class);
+        }
+        throw new IllegalArgumentException("Unsupported type " + type);
     }
 
     public static class BasicOrcPredicate<T>

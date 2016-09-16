@@ -55,7 +55,6 @@ import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.UUID.randomUUID;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaHiveDecimalObjectInspector;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -104,7 +103,7 @@ public class BenchmarkOrcDecimalReader
             temporary = createTempDir();
             dataPath = new File(temporary, randomUUID().toString());
 
-            writeOrcColumn(dataPath, ORC_12, NONE, javaHiveDecimalObjectInspector, createDecimalValues().iterator());
+            writeOrcColumn(dataPath, ORC_12, NONE, DECIMAL_TYPE, createDecimalValues().iterator());
         }
 
         @TearDown

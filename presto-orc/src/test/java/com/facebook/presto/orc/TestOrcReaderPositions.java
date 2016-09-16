@@ -51,7 +51,6 @@ import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspec
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
-import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderPositions
@@ -205,10 +204,10 @@ public class TestOrcReaderPositions
     private static void createMultiStripeFile(File file)
             throws IOException, ReflectiveOperationException, SerDeException
     {
-        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, javaLongObjectInspector);
+        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, BIGINT);
 
         @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", javaLongObjectInspector);
+        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
         Object row = objectInspector.create();
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
 
@@ -231,7 +230,7 @@ public class TestOrcReaderPositions
         Configuration conf = new Configuration();
         OrcFile.WriterOptions writerOptions = new OrcWriterOptions(conf)
                 .memory(new NullMemoryManager(conf))
-                .inspector(createSettableStructObjectInspector("test", javaLongObjectInspector))
+                .inspector(createSettableStructObjectInspector("test", BIGINT))
                 .compress(SNAPPY);
         Writer writer = OrcFile.createWriter(new Path(file.toURI()), writerOptions);
         for (Map.Entry<String, String> entry : metadata.entrySet()) {
@@ -253,10 +252,10 @@ public class TestOrcReaderPositions
     private static void createSequentialFile(File file, int count)
             throws IOException, ReflectiveOperationException, SerDeException
     {
-        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, javaLongObjectInspector);
+        FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, OrcTester.Compression.NONE, BIGINT);
 
         @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
-        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", javaLongObjectInspector);
+        SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
         Object row = objectInspector.create();
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
 
