@@ -18,10 +18,12 @@ import com.teradata.tempto.fulfillment.table.TableDefinitionsRepository;
 import com.teradata.tempto.fulfillment.table.hive.HiveDataSource;
 import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
 
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
 {
@@ -31,22 +33,31 @@ public final class AllSimpleTypesTableDefinitions
     {
     }
 
-    @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_TEXTFILE = allHiveSimpleTypesTableDefinition("TEXTFILE", Optional.of("DELIMITED FIELDS TERMINATED BY '|'"));
+    private static String tableNameFormat = "%s_all_types";
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = allHiveSimpleTypesParquetTableDefinition();
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_TEXTFILE = tableDefinitionBuilder("TEXTFILE", Optional.of("DELIMITED FIELDS TERMINATED BY '|'"))
+            .setDataSource(getTextFileDataSource())
+            .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = allHiveSimpleTypesTableDefinition("ORC", Optional.empty());
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = parquetTableDefinitionBuilder()
+            .setDataSource(getParquetDataSource())
+            .build();
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = allHiveSimpleTypesTableDefinition("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"));
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_ORC = tableDefinitionBuilder("ORC", Optional.empty())
+            .setDataSource(getOrcDataSource())
+            .build();
 
-    private static HiveTableDefinition allHiveSimpleTypesTableDefinition(String fileFormat, Optional<String> rowFormat)
+    @TableDefinitionsRepository.RepositoryTableDefinition
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_RCFILE = tableDefinitionBuilder("RCFILE", Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
+            .setDataSource(getRcfileDataSource())
+            .build();
+
+    private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> rowFormat)
     {
-        String tableName = fileFormat.toLowerCase() + "_all_types";
-        HiveDataSource dataSource = createResourceDataSource(tableName, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data." + fileFormat.toLowerCase());
+        String tableName = format(tableNameFormat, fileFormat.toLowerCase(Locale.ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE %EXTERNAL% TABLE %NAME%(" +
@@ -67,16 +78,12 @@ public final class AllSimpleTypesTableDefinitions
                         "   c_binary             BINARY" +
                         ") " +
                         (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.get() + " " : " ") +
-                        "STORED AS " + fileFormat)
-                .setDataSource(dataSource)
-                .build();
+                        "STORED AS " + fileFormat);
     }
 
-    private static HiveTableDefinition allHiveSimpleTypesParquetTableDefinition()
+    private static HiveTableDefinition.HiveTableDefinitionBuilder parquetTableDefinitionBuilder()
     {
-        String tableName = "parquet_all_types";
-        HiveDataSource dataSource = createResourceDataSource(tableName, String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
-        return HiveTableDefinition.builder(tableName)
+        return HiveTableDefinition.builder("parquet_all_types")
                 .setCreateTableDDLTemplate("" +
                         "CREATE %EXTERNAL% TABLE %NAME%(" +
                         "   c_tinyint            TINYINT," +
@@ -94,8 +101,26 @@ public final class AllSimpleTypesTableDefinitions
                         "   c_boolean            BOOLEAN," +
                         "   c_binary             BINARY" +
                         ") " +
-                        "STORED AS PARQUET")
-                .setDataSource(dataSource)
-                .build();
+                        "STORED AS PARQUET");
+    }
+
+    private static HiveDataSource getTextFileDataSource()
+    {
+        return createResourceDataSource(format(tableNameFormat, "textfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.textfile");
+    }
+
+    private static HiveDataSource getParquetDataSource()
+    {
+        return createResourceDataSource(format(tableNameFormat, "parquet"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.parquet");
+    }
+
+    private static HiveDataSource getOrcDataSource()
+    {
+        return createResourceDataSource(format(tableNameFormat, "orc"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.orc");
+    }
+
+    private static HiveDataSource getRcfileDataSource()
+    {
+        return createResourceDataSource(format(tableNameFormat, "rcfile"), String.valueOf(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE)), "com/facebook/presto/tests/hive/data/all_types/data.rcfile");
     }
 }
