@@ -137,7 +137,64 @@ public class OrcTester
 
     public enum Format
     {
-        ORC_12, ORC_11, DWRF
+        ORC_12 {
+            @Override
+            public MetadataReader createMetadataReader()
+            {
+                return new OrcMetadataReader();
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public Serializer createSerializer()
+            {
+                return new OrcSerde();
+            }
+        },
+        ORC_11 {
+            @Override
+            public MetadataReader createMetadataReader()
+            {
+                return new OrcMetadataReader();
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public Serializer createSerializer()
+            {
+                return new OrcSerde();
+            }
+        },
+        DWRF {
+            @Override
+            public MetadataReader createMetadataReader()
+            {
+                return new DwrfMetadataReader();
+            }
+
+            @Override
+            public boolean supportsType(Type type)
+            {
+                return !hasType(type, ImmutableSet.of(DATE, DECIMAL, CHAR));
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public Serializer createSerializer()
+            {
+                return new com.facebook.hive.orc.OrcSerde();
+            }
+        };
+
+        public abstract MetadataReader createMetadataReader();
+
+        public boolean supportsType(Type type)
+        {
+            return true;
+        }
+
+        @SuppressWarnings("deprecation")
+        public abstract Serializer createSerializer();
     }
 
     public enum Compression
@@ -347,21 +404,15 @@ public class OrcTester
     public void assertRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
-        for (Format formatVersion : formats) {
-            MetadataReader metadataReader;
-            if (DWRF == formatVersion) {
-                // DWRF doesn't support dates, decimals, or char
-                if (hasType(type, ImmutableSet.of(DATE, DECIMAL, CHAR))) {
-                    return;
-                }
-                metadataReader = new DwrfMetadataReader();
+        for (Format format : formats) {
+            if (!format.supportsType(type)) {
+                return;
             }
-            else {
-                metadataReader = new OrcMetadataReader();
-            }
+
+            MetadataReader metadataReader = format.createMetadataReader();
             for (Compression compression : compressions) {
                 try (TempFile tempFile = new TempFile()) {
-                    writeOrcColumn(tempFile.getFile(), formatVersion, compression, type, readValues.iterator());
+                    writeOrcColumn(tempFile.getFile(), format, compression, type, readValues.iterator());
 
                     assertFileContents(type, tempFile, readValues, false, false, metadataReader);
 
@@ -531,6 +582,7 @@ public class OrcTester
         Object row = objectInspector.create();
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+        @SuppressWarnings("deprecation") Serializer serializer = format.createSerializer();
 
         int i = 0;
         while (values.hasNext()) {
@@ -538,17 +590,12 @@ public class OrcTester
             value = preprocessWriteValueOld(type, value);
             objectInspector.setStructFieldData(row, fields.get(0), value);
 
-            @SuppressWarnings("deprecation") Serializer serde;
             if (DWRF == format) {
-                serde = new com.facebook.hive.orc.OrcSerde();
                 if (i == 142_345) {
                     setDwrfLowMemoryFlag(recordWriter);
                 }
             }
-            else {
-                serde = new OrcSerde();
-            }
-            Writable record = serde.serialize(row, objectInspector);
+            Writable record = serializer.serialize(row, objectInspector);
             recordWriter.write(record);
             i++;
         }
