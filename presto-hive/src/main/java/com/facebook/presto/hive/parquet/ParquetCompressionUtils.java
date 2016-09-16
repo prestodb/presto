@@ -72,13 +72,16 @@ public final class ParquetCompressionUtils
             throws IOException
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(uncompressedSize);
+
+        if (uncompressedSize == 0) {
+            return sliceOutput.getUnderlyingSlice();
+        }
+
         byte[] buffer = new byte[uncompressedSize];
         try (InputStream gzipInputStream = new GZIPInputStream(input.getInput(), GZIP_BUFFER_SIZE)) {
             int bytesRead;
-            if (uncompressedSize != 0) {
-                while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
-                    sliceOutput.write(buffer, 0, bytesRead);
-                }
+            while ((bytesRead = gzipInputStream.read(buffer)) != -1) {
+                sliceOutput.write(buffer, 0, bytesRead);
             }
             return sliceOutput.getUnderlyingSlice();
         }
@@ -92,11 +95,11 @@ public final class ParquetCompressionUtils
         byte[] output = new byte[uncompressedSize + SIZE_OF_LONG];
         int outputOffset = 0;
         int inputOffset = 0;
-        int uncompressedBlockLength = 0;
+        int cumulativeUncompressedBlockLength = 0;
 
         while (totalDecompressedCount < uncompressedSize) {
-            if (totalDecompressedCount == uncompressedBlockLength) {
-                uncompressedBlockLength = Integer.reverseBytes(input.getInt(inputOffset));
+            if (totalDecompressedCount == cumulativeUncompressedBlockLength) {
+                cumulativeUncompressedBlockLength += Integer.reverseBytes(input.getInt(inputOffset));
                 inputOffset += SIZE_OF_INT;
             }
             int compressedChunkLength = Integer.reverseBytes(input.getInt(inputOffset));
