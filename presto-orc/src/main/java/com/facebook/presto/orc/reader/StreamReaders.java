@@ -51,9 +51,9 @@ public final class StreamReaders
                 return new StructStreamReader(streamDescriptor, hiveStorageTimeZone);
             case MAP:
                 return new MapStreamReader(streamDescriptor, hiveStorageTimeZone);
-            case UNION:
             case DECIMAL:
                 return new DecimalStreamReader(streamDescriptor);
+            case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getStreamType());
         }
