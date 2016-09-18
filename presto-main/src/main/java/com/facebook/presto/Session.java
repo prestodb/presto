@@ -217,19 +217,9 @@ public final class Session
     {
         requireNonNull(transactionId, "transactionId is null");
         checkArgument(!this.transactionId.isPresent(), "Session already has an active transaction");
-        return withTransactionId(Optional.of(transactionId));
-    }
-
-    public Session withoutTransactionId()
-    {
-        return withTransactionId(Optional.empty());
-    }
-
-    private Session withTransactionId(Optional<TransactionId> transactionId)
-    {
         return new Session(
                 queryId,
-                transactionId,
+                Optional.of(transactionId),
                 clientTransactionSupport,
                 identity,
                 source,

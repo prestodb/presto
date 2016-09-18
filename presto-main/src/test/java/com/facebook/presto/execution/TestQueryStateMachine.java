@@ -313,7 +313,7 @@ public class TestQueryStateMachine
     private static void assertState(QueryStateMachine stateMachine, QueryState expectedState, Exception expectedException)
     {
         assertEquals(stateMachine.getQueryId(), QUERY_ID);
-        assertEqualSessions(stateMachine.getSession().withoutTransactionId(), TEST_SESSION);
+        assertEqualSessionsWithoutTransactionId(stateMachine.getSession(), TEST_SESSION);
         assertSame(stateMachine.getMemoryPool(), MEMORY_POOL);
         assertEquals(stateMachine.getSetSessionProperties(), SET_SESSION_PROPERTIES);
         assertEquals(stateMachine.getResetSessionProperties(), RESET_SESSION_PROPERTIES);
@@ -414,10 +414,9 @@ public class TestQueryStateMachine
         return stateMachine;
     }
 
-    private static void assertEqualSessions(Session actual, Session expected)
+    private static void assertEqualSessionsWithoutTransactionId(Session actual, Session expected)
     {
         assertEquals(actual.getQueryId(), expected.getQueryId());
-        assertEquals(actual.getTransactionId(), expected.getTransactionId());
         assertEquals(actual.getIdentity(), expected.getIdentity());
         assertEquals(actual.getSource(), expected.getSource());
         assertEquals(actual.getCatalog(), expected.getCatalog());
