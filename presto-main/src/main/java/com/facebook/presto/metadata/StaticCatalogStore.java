@@ -36,9 +36,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.util.Objects.requireNonNull;
 
-public class CatalogManager
+public class StaticCatalogStore
 {
-    private static final Logger log = Logger.get(CatalogManager.class);
+    private static final Logger log = Logger.get(StaticCatalogStore.class);
     private final ConnectorManager connectorManager;
     private final File catalogConfigurationDir;
     private final Set<String> disabledCatalogs;
@@ -46,14 +46,14 @@ public class CatalogManager
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean();
 
     @Inject
-    public CatalogManager(ConnectorManager connectorManager, CatalogManagerConfig config)
+    public StaticCatalogStore(ConnectorManager connectorManager, StaticCatalogStoreConfig config)
     {
         this(connectorManager,
                 config.getCatalogConfigurationDir(),
                 firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()));
     }
 
-    public CatalogManager(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
+    public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)
     {
         this.connectorManager = connectorManager;
         this.catalogConfigurationDir = catalogConfigurationDir;

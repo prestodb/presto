@@ -24,12 +24,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestCatalogManagerConfig
+public class TestStaticCatalogStoreConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(CatalogManagerConfig.class)
+        assertRecordedDefaults(recordDefaults(StaticCatalogStoreConfig.class)
                 .setCatalogConfigurationDir(new File("etc/catalog"))
                 .setDisabledCatalogs((String) null));
     }
@@ -42,7 +42,7 @@ public class TestCatalogManagerConfig
                 .put("catalog.disabled-catalogs", "abc,xyz")
                 .build();
 
-        CatalogManagerConfig expected = new CatalogManagerConfig()
+        StaticCatalogStoreConfig expected = new StaticCatalogStoreConfig()
                 .setCatalogConfigurationDir(new File("/foo"))
                 .setDisabledCatalogs(ImmutableList.of("abc", "xyz"));
 

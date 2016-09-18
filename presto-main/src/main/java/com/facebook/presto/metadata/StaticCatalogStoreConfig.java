@@ -23,7 +23,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.List;
 
-public class CatalogManagerConfig
+public class StaticCatalogStoreConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
@@ -38,7 +38,7 @@ public class CatalogManagerConfig
 
     @LegacyConfig("plugin.config-dir")
     @Config("catalog.config-dir")
-    public CatalogManagerConfig setCatalogConfigurationDir(File dir)
+    public StaticCatalogStoreConfig setCatalogConfigurationDir(File dir)
     {
         this.catalogConfigurationDir = dir;
         return this;
@@ -50,13 +50,13 @@ public class CatalogManagerConfig
     }
 
     @Config("catalog.disabled-catalogs")
-    public CatalogManagerConfig setDisabledCatalogs(String catalogs)
+    public StaticCatalogStoreConfig setDisabledCatalogs(String catalogs)
     {
         this.disabledCatalogs = (catalogs == null) ? null : SPLITTER.splitToList(catalogs);
         return this;
     }
 
-    public CatalogManagerConfig setDisabledCatalogs(List<String> catalogs)
+    public StaticCatalogStoreConfig setDisabledCatalogs(List<String> catalogs)
     {
         this.disabledCatalogs = (catalogs == null) ? null : ImmutableList.copyOf(catalogs);
         return this;
