@@ -69,8 +69,8 @@ public class TestResetSessionTask
     {
         Session session = testSessionBuilder(metadata.getSessionPropertyManager())
                 .setSystemProperty("foo", "bar")
-                .build()
-                .withCatalogProperty("catalog", "baz", "blah");
+                .setCatalogSessionProperty("catalog", "baz", "blah")
+                .build();
 
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), false, transactionManager, executor);

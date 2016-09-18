@@ -1737,10 +1737,10 @@ public class TestHiveIntegrationSmokeTest
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
         }
         formats.add(new TestingHiveStorageFormat(
-                session.withCatalogProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true"),
+                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true").build(),
                 HiveStorageFormat.RCBINARY));
         formats.add(new TestingHiveStorageFormat(
-                session.withCatalogProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true"),
+                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true").build(),
                 HiveStorageFormat.RCTEXT));
         return formats.build();
     }

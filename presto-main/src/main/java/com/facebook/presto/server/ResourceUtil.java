@@ -27,10 +27,6 @@ import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
@@ -117,7 +113,6 @@ final class ResourceUtil
         }
 
         // parse session properties
-        Multimap<String, Entry<String, String>> sessionPropertiesByCatalog = HashMultimap.create();
         try {
             for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
                 // validate session property value
@@ -148,7 +143,7 @@ final class ResourceUtil
                     assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
                     accessControl.checkCanSetCatalogSessionProperty(identity, catalogName, propertyName);
-                    sessionPropertiesByCatalog.put(catalogName, Maps.immutableEntry(propertyName, propertyValue));
+                    sessionBuilder.setCatalogSessionProperty(catalogName, propertyName, propertyValue);
                 }
                 else {
                     throw badRequest(format("Invalid %s header", PRESTO_SESSION));
@@ -157,11 +152,6 @@ final class ResourceUtil
         }
         catch (AccessDeniedException e) {
             throw new WebApplicationException(e.getMessage(), Status.BAD_REQUEST);
-        }
-        for (Entry<String, Collection<Entry<String, String>>> entry : sessionPropertiesByCatalog.asMap().entrySet()) {
-            if (entry.getKey() != null) {
-                sessionBuilder.setCatalogProperties(entry.getKey(), toMap(entry.getValue()));
-            }
         }
 
         Map<String, String> preparedStatements = new HashMap<>();
@@ -190,15 +180,6 @@ final class ResourceUtil
             sessionProperties.put(nameValue.get(0), nameValue.get(1));
         }
         return sessionProperties;
-    }
-
-    private static <K, V> Map<K, V> toMap(Iterable<? extends Entry<K, V>> entries)
-    {
-        ImmutableMap.Builder<K, V> builder = ImmutableMap.builder();
-        for (Entry<K, V> entry : entries) {
-            builder.put(entry);
-        }
-        return builder.build();
     }
 
     public static void assertRequest(boolean expression, String format, Object... args)

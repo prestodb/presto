@@ -30,7 +30,6 @@ import io.airlift.units.Duration;
 import java.net.URI;
 import java.security.Principal;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -247,42 +246,6 @@ public final class Session
                 preparedStatements);
     }
 
-    public Session withCatalogProperty(String catalog, String key, String value)
-    {
-        requireNonNull(catalog, "catalog is null");
-        requireNonNull(key, "key is null");
-        requireNonNull(value, "value is null");
-
-        Map<String, Map<String, String>> catalogProperties = new LinkedHashMap<>(this.catalogProperties);
-        Map<String, String> properties = catalogProperties.get(catalog);
-        if (properties == null) {
-            properties = new LinkedHashMap<>();
-        }
-        else {
-            properties = new LinkedHashMap<>(properties);
-        }
-        properties.put(key, value);
-        catalogProperties.put(catalog, properties);
-
-        return new Session(
-                queryId,
-                transactionId,
-                clientTransactionSupport,
-                identity,
-                source,
-                this.catalog,
-                schema,
-                timeZoneKey,
-                locale,
-                remoteUserAddress,
-                userAgent,
-                startTime,
-                systemProperties,
-                catalogProperties,
-                sessionPropertyManager,
-                preparedStatements);
-    }
-
     public Session withPreparedStatement(String statementName, String query)
     {
         requireNonNull(statementName, "statementName is null");
@@ -421,7 +384,7 @@ public final class Session
         private String userAgent;
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
-        private final Map<String, Map<String, String>> catalogProperties = new HashMap<>();
+        private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private Map<String, String> preparedStatements = ImmutableMap.of();
 
@@ -448,7 +411,7 @@ public final class Session
             this.userAgent = session.userAgent.orElse(null);
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
-            this.catalogProperties.putAll(session.catalogProperties);
+            this.catalogSessionProperties.putAll(session.catalogProperties);
             this.preparedStatements.putAll(session.preparedStatements);
         }
 
@@ -535,15 +498,13 @@ public final class Session
         }
 
         /**
-         * Sets the properties for a catalog.  The catalog name, property names, and
-         * values must only contain characters from US-ASCII and must not be for '='.
+         * Sets a catalog property for the session.  The property name and value must
+         * only contain characters from US-ASCII and must not be for '='.
          */
-        public SessionBuilder setCatalogProperties(String catalog, Map<String, String> properties)
+        public SessionBuilder setCatalogSessionProperty(String catalogName, String propertyName, String propertyValue)
         {
-            requireNonNull(catalog, "catalog is null");
-            checkArgument(!catalog.isEmpty(), "catalog is empty");
-
-            catalogProperties.put(catalog, ImmutableMap.copyOf(properties));
+            checkArgument(transactionId == null, "Catalog session properties cannot be set if there is an open transaction");
+            catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
             return this;
         }
 
@@ -568,7 +529,7 @@ public final class Session
                     Optional.ofNullable(userAgent),
                     startTime,
                     systemProperties,
-                    catalogProperties,
+                    catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements);
         }

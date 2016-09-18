@@ -5338,9 +5338,9 @@ public abstract class AbstractTestQueries
                 Session.builder(getSession())
                         .setSystemProperty("test_string", "foo string")
                         .setSystemProperty("test_long", "424242")
-                        .build()
-                        .withCatalogProperty("connector", "connector_string", "bar string")
-                        .withCatalogProperty("connector", "connector_long", "11"),
+                        .setCatalogSessionProperty("connector", "connector_string", "bar string")
+                        .setCatalogSessionProperty("connector", "connector_long", "11")
+                        .build(),
                 "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
