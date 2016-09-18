@@ -14,20 +14,24 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
+import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.testing.TestingConnectorContext;
+import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -36,6 +40,8 @@ import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.security.AccessControlManager.ALLOW_ALL_ACCESS_CONTROL;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -108,8 +114,8 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        registerBogusConnector(transactionManager, "connector");
-        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), "catalog", new DenyConnectorAccessControl());
+        ConnectorId connectorId = registerBogusConnector(transactionManager, "catalog");
+        accessControlManager.addCatalogAccessControl(connectorId, "catalog", new DenyConnectorAccessControl());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
@@ -137,29 +143,28 @@ public class TestAccessControlManager
                 });
     }
 
-    private static void registerBogusConnector(TransactionManager transactionManager, String connectorId)
+    private static ConnectorId registerBogusConnector(TransactionManager transactionManager, String catalogName)
     {
-        transactionManager.addConnector(new ConnectorId(connectorId), new Connector()
-        {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-            {
-                // Just return something
-                return new ConnectorTransactionHandle() {};
-            }
+        ConnectorId connectorId = new ConnectorId(catalogName);
+        Connector connector = new TpchConnectorFactory().create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
-            {
-                throw new UnsupportedOperationException();
-            }
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        ConnectorId systemId = createSystemTablesConnectorId(connectorId);
+        transactionManager.registerCatalog(new Catalog(
+                catalogName,
+                connectorId,
+                connector,
+                createInformationSchemaConnectorId(connectorId),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata),
+                systemId,
+                new SystemConnector(
+                        systemId,
+                        nodeManager,
+                        connector.getSystemTables(),
+                        transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId))));
 
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                throw new UnsupportedOperationException();
-            }
-        });
+        return connectorId;
     }
 
     private static class TestSystemAccessControlFactory

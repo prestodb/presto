@@ -16,6 +16,7 @@ package com.facebook.presto.connector;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -203,44 +204,42 @@ public class ConnectorManager
                 connector.getSystemTables(),
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId)));
 
-        // Register session and table properties once per catalog
+        Catalog catalog = new Catalog(
+                catalogName,
+                connector.getConnectorId(),
+                connector.getConnector(),
+                informationSchemaConnector.getConnectorId(),
+                informationSchemaConnector.getConnector(),
+                systemConnector.getConnectorId(),
+                systemConnector.getConnector());
+        transactionManager.registerCatalog(catalog);
+        metadataManager.registerConnectorCatalog(connectorId, catalogName);
+
+        // todo the following managers currently need access to catalog name, so they must be handled specially
+        for (Procedure procedure : connector.getProcedures()) {
+            metadataManager.getProcedureRegistry().addProcedure(catalogName, procedure);
+        }
+        connector.getAccessControl()
+                .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, catalogName, accessControl));
+
         metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
         metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
         metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
 
-        addConnectorInternal(ConnectorType.STANDARD, catalogName, connector);
-        addConnectorInternal(ConnectorType.INFORMATION_SCHEMA, catalogName, informationSchemaConnector);
-        addConnectorInternal(ConnectorType.SYSTEM, catalogName, systemConnector);
+        addConnectorInternal(connector);
+        addConnectorInternal(informationSchemaConnector);
+        addConnectorInternal(systemConnector);
     }
 
-    private synchronized void addConnectorInternal(ConnectorType type, String catalogName, MaterializedConnector connector)
+    private synchronized void addConnectorInternal(MaterializedConnector connector)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         ConnectorId connectorId = connector.getConnectorId();
         checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
         connectors.put(connectorId, connector);
 
-        transactionManager.addConnector(connectorId, connector.getConnector());
-
-        if (type == ConnectorType.STANDARD) {
-            metadataManager.registerConnectorCatalog(connectorId, catalogName);
-        }
-        else if (type == ConnectorType.INFORMATION_SCHEMA) {
-            metadataManager.registerInformationSchemaCatalog(connectorId, catalogName);
-        }
-        else if (type == ConnectorType.SYSTEM) {
-            metadataManager.registerSystemTablesCatalog(connectorId, catalogName);
-        }
-        else {
-            throw new IllegalArgumentException("Unhandled type: " + type);
-        }
-
         splitManager.addConnectorSplitManager(connectorId, connector.getSplitManager());
         pageSourceManager.addConnectorPageSourceProvider(connectorId, connector.getPageSourceProvider());
-
-        for (Procedure procedure : connector.getProcedures()) {
-            metadataManager.getProcedureRegistry().addProcedure(catalogName, procedure);
-        }
 
         connector.getPageSinkProvider()
                 .ifPresent(pageSinkProvider -> pageSinkManager.addConnectorPageSinkProvider(connectorId, pageSinkProvider));
@@ -250,9 +249,6 @@ public class ConnectorManager
 
         connector.getPartitioningProvider()
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider));
-
-        connector.getAccessControl()
-                .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, catalogName, accessControl));
     }
 
     private Connector createConnector(ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)
@@ -450,11 +446,4 @@ public class ConnectorManager
             return schemaProperties;
         }
     }
-
-    private enum ConnectorType
-     {
-         STANDARD,
-         INFORMATION_SCHEMA,
-         SYSTEM
-     }
 }
