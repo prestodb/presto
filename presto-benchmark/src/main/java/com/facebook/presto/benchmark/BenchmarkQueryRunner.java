@@ -46,7 +46,7 @@ public final class BenchmarkQueryRunner
                 .setSchema(TINY_SCHEMA_NAME);
 
         if (hashingEnabled) {
-            sessionBuilder.setSystemProperties(ImmutableMap.of("optimizer.optimize_hash_generation", "true"));
+            sessionBuilder.setSystemProperty("optimizer.optimize_hash_generation", "true");
         }
 
         Session session = sessionBuilder.build();

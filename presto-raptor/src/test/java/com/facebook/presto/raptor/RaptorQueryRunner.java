@@ -125,7 +125,8 @@ public final class RaptorQueryRunner
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")
                 .setSchema(schema)
-                .setSystemProperties(ImmutableMap.of("processing_optimization", "columnar_dictionary", "dictionary_aggregation", "true"))
+                .setSystemProperty("processing_optimization", "columnar_dictionary")
+                .setSystemProperty("dictionary_aggregation", "true")
                 .build();
     }
 

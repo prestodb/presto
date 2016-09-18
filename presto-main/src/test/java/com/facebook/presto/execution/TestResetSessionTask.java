@@ -29,8 +29,8 @@ import java.net.URI;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
@@ -67,7 +67,10 @@ public class TestResetSessionTask
     public void test()
             throws Exception
     {
-        Session session = TEST_SESSION.withSystemProperty("foo", "bar").withCatalogProperty("catalog", "baz", "blah");
+        Session session = testSessionBuilder(metadata.getSessionPropertyManager())
+                .setSystemProperty("foo", "bar")
+                .build()
+                .withCatalogProperty("catalog", "baz", "blah");
 
         TransactionManager transactionManager = createTestTransactionManager();
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), false, transactionManager, executor);

@@ -198,7 +198,7 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT count(*) FROM orders");
 
         assertCreateTableAsSelect(
-                getSession().withSystemProperty("redistribute_writes", "true"),
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
                 "test_union_all",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
@@ -207,7 +207,7 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT count(*) + 1 FROM orders");
 
         assertCreateTableAsSelect(
-                getSession().withSystemProperty("redistribute_writes", "false"),
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
                 "test_union_all",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",

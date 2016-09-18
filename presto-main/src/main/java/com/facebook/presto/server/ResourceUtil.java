@@ -138,7 +138,7 @@ final class ResourceUtil
                     assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
                     accessControl.checkCanSetSystemSessionProperty(identity, propertyName);
-                    sessionPropertiesByCatalog.put(null, Maps.immutableEntry(propertyName, propertyValue));
+                    sessionBuilder.setSystemProperty(propertyName, propertyValue);
                 }
                 else if (nameParts.size() == 2) {
                     String catalogName = nameParts.get(0);
@@ -158,7 +158,6 @@ final class ResourceUtil
         catch (AccessDeniedException e) {
             throw new WebApplicationException(e.getMessage(), Status.BAD_REQUEST);
         }
-        sessionBuilder.setSystemProperties(toMap(sessionPropertiesByCatalog.get(null)));
         for (Entry<String, Collection<Entry<String, String>>> entry : sessionPropertiesByCatalog.asMap().entrySet()) {
             if (entry.getKey() != null) {
                 sessionBuilder.setCatalogProperties(entry.getKey(), toMap(entry.getValue()));

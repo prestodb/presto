@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.units.Duration;
@@ -246,33 +247,6 @@ public final class Session
                 preparedStatements);
     }
 
-    public Session withSystemProperty(String key, String value)
-    {
-        requireNonNull(key, "key is null");
-        requireNonNull(value, "value is null");
-
-        Map<String, String> systemProperties = new LinkedHashMap<>(this.systemProperties);
-        systemProperties.put(key, value);
-
-        return new Session(
-                queryId,
-                transactionId,
-                clientTransactionSupport,
-                identity,
-                source,
-                catalog,
-                schema,
-                timeZoneKey,
-                locale,
-                remoteUserAddress,
-                userAgent,
-                startTime,
-                systemProperties,
-                catalogProperties,
-                sessionPropertyManager,
-                preparedStatements);
-    }
-
     public Session withCatalogProperty(String catalog, String key, String value)
     {
         requireNonNull(catalog, "catalog is null");
@@ -426,6 +400,12 @@ public final class Session
         return new SessionBuilder(sessionPropertyManager);
     }
 
+    @VisibleForTesting
+    public static SessionBuilder builder(Session session)
+    {
+        return new SessionBuilder(session);
+    }
+
     public static class SessionBuilder
     {
         private QueryId queryId;
@@ -440,7 +420,7 @@ public final class Session
         private String remoteUserAddress;
         private String userAgent;
         private long startTime = System.currentTimeMillis();
-        private Map<String, String> systemProperties = ImmutableMap.of();
+        private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private Map<String, String> preparedStatements = ImmutableMap.of();
@@ -448,6 +428,28 @@ public final class Session
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
             this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        }
+
+        private SessionBuilder(Session session)
+        {
+            requireNonNull(session, "session is null");
+            checkArgument(!session.getTransactionId().isPresent(), "Session builder can not be created from a session in a transaction");
+            this.sessionPropertyManager = session.sessionPropertyManager;
+            this.queryId = session.queryId;
+            this.transactionId = session.transactionId.orElse(null);
+            this.clientTransactionSupport = session.clientTransactionSupport;
+            this.identity = session.identity;
+            this.source = session.source.orElse(null);
+            this.catalog = session.catalog.orElse(null);
+            this.schema = session.schema.orElse(null);
+            this.timeZoneKey = session.timeZoneKey;
+            this.locale = session.locale;
+            this.remoteUserAddress = session.remoteUserAddress.orElse(null);
+            this.userAgent = session.userAgent.orElse(null);
+            this.startTime = session.startTime;
+            this.systemProperties.putAll(session.systemProperties);
+            this.catalogProperties.putAll(session.catalogProperties);
+            this.preparedStatements.putAll(session.preparedStatements);
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -523,12 +525,12 @@ public final class Session
         }
 
         /**
-         * Sets the system properties for the session.  The property names and
-         * values must only contain characters from US-ASCII and must not be for '='.
+         * Sets a system property for the session.  The property name and value must
+         * only contain characters from US-ASCII and must not be for '='.
          */
-        public SessionBuilder setSystemProperties(Map<String, String> systemProperties)
+        public SessionBuilder setSystemProperty(String propertyName, String propertyValue)
         {
-            this.systemProperties = ImmutableMap.copyOf(systemProperties);
+            systemProperties.put(propertyName, propertyValue);
             return this;
         }
 

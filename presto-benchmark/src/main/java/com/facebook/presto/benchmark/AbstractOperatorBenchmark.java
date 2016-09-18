@@ -104,7 +104,7 @@ public abstract class AbstractOperatorBenchmark
     protected Map<String, Long> runOnce()
     {
         Session session = testSessionBuilder()
-                .setSystemProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "true"))
+                .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
         ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));

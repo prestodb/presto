@@ -31,8 +31,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -47,8 +47,9 @@ public class TestMemoryPools
     public void testBlocking()
             throws Exception
     {
-        Session session = TEST_SESSION
-                .withSystemProperty("task_default_concurrency", "1");
+        Session session = testSessionBuilder()
+                .setSystemProperty("task_default_concurrency", "1")
+                .build();
 
         LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 

@@ -595,7 +595,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                session.withSystemProperty("task_writer_count", "4"),
+                getParallelWriteSession(),
                 createTable,
                 3);
 
@@ -639,7 +639,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getSession().withSystemProperty("task_writer_count", "4"),
+                getParallelWriteSession(),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -680,7 +680,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getSession().withSystemProperty("task_writer_count", "4"),
+                getParallelWriteSession(),
                 createTable,
                 "SELECT count(*) from orders");
 
@@ -754,7 +754,7 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                session.withSystemProperty("task_writer_count", "4"),
+                getParallelWriteSession(),
                 "INSERT INTO " + tableName + " " +
                         "VALUES " +
                         "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
@@ -832,7 +832,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getSession().withSystemProperty("task_writer_count", "4"),
+                    getParallelWriteSession(),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -877,7 +877,7 @@ public class TestHiveIntegrationSmokeTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getSession().withSystemProperty("task_writer_count", "4"),
+                    getParallelWriteSession(),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -1423,10 +1423,10 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(bucketedSession, "select count(distinct custkey) from orders");
 
         assertQuery(
-                bucketedSession.withSystemProperty("task_concurrency", "1"),
+                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "1").build(),
                 "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
         assertQuery(
-                bucketedSession.withSystemProperty("task_concurrency", "4"),
+                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "4").build(),
                 "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
@@ -1650,7 +1650,9 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTable, "SELECT count(*) FROM orders");
         assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN orderkey TO new_orderkey");
         assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
-        assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus", "com.facebook.presto.spi.PrestoException: Renaming partition columns is not supported");
+        assertQueryFails(
+                "ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus",
+                "com.facebook.presto.spi.PrestoException: Renaming partition columns is not supported");
         assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
         assertUpdate("DROP TABLE test_rename_column");
     }
@@ -1663,6 +1665,13 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column x is smallint, which is not supported by Avro. Use integer instead.");
 
         assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column z is smallint, which is not supported by Avro. Use integer instead.");
+    }
+
+    private Session getParallelWriteSession()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "4")
+                .build();
     }
 
     private void assertOneNotNullResult(@Language("SQL") String query)

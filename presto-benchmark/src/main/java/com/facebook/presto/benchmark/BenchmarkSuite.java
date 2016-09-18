@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
@@ -46,7 +47,11 @@ public class BenchmarkSuite
                 new HashBuildBenchmark(localQueryRunner),
                 new HashJoinBenchmark(localQueryRunner),
                 new HashBuildAndJoinBenchmark(localQueryRunner.getDefaultSession(), localQueryRunner),
-                new HashBuildAndJoinBenchmark(localQueryRunner.getDefaultSession().withSystemProperty(OPTIMIZE_HASH_GENERATION, "true"), localQueryRunner),
+                new HashBuildAndJoinBenchmark(
+                        Session.builder(localQueryRunner.getDefaultSession())
+                                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
+                                .build(),
+                        localQueryRunner),
                 new HandTpchQuery1(localQueryRunner),
                 new HandTpchQuery6(localQueryRunner),
 

@@ -5335,9 +5335,10 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         MaterializedResult result = computeActual(
-                getSession()
-                        .withSystemProperty("test_string", "foo string")
-                        .withSystemProperty("test_long", "424242")
+                Session.builder(getSession())
+                        .setSystemProperty("test_string", "foo string")
+                        .setSystemProperty("test_long", "424242")
+                        .build()
                         .withCatalogProperty("connector", "connector_string", "bar string")
                         .withCatalogProperty("connector", "connector_long", "11"),
                 "SHOW SESSION");

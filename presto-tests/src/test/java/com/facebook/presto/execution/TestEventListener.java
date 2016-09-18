@@ -55,7 +55,7 @@ public class TestEventListener
             throws Exception
     {
         session = testSessionBuilder()
-                .setSystemProperties(ImmutableMap.of("task_concurrency", "1"))
+                .setSystemProperty("task_concurrency", "1")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
