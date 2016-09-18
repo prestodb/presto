@@ -257,129 +257,129 @@ public final class SystemSessionProperties
 
     public static String getExecutionPolicy(Session session)
     {
-        return session.getProperty(EXECUTION_POLICY, String.class);
+        return session.getSystemProperty(EXECUTION_POLICY, String.class);
     }
 
     public static boolean isOptimizeHashGenerationEnabled(Session session)
     {
-        return session.getProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
+        return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
     public static boolean isDistributedJoinEnabled(Session session)
     {
-        return session.getProperty(DISTRIBUTED_JOIN, Boolean.class);
+        return session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
     }
 
     public static boolean isDistributedIndexJoinEnabled(Session session)
     {
-        return session.getProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+        return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
     }
 
     public static int getHashPartitionCount(Session session)
     {
-        return session.getProperty(HASH_PARTITION_COUNT, Integer.class);
+        return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
     {
-        return session.getProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
+        return session.getSystemProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
     }
 
     public static int getTaskWriterCount(Session session)
     {
-        return session.getProperty(TASK_WRITER_COUNT, Integer.class);
+        return session.getSystemProperty(TASK_WRITER_COUNT, Integer.class);
     }
 
     public static boolean isRedistributeWrites(Session session)
     {
-        return session.getProperty(REDISTRIBUTE_WRITES, Boolean.class);
+        return session.getSystemProperty(REDISTRIBUTE_WRITES, Boolean.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)
     {
-        return session.getProperty(PUSH_TABLE_WRITE_THROUGH_UNION, Boolean.class);
+        return session.getSystemProperty(PUSH_TABLE_WRITE_THROUGH_UNION, Boolean.class);
     }
 
     public static int getTaskConcurrency(Session session)
     {
-        return session.getProperty(TASK_CONCURRENCY, Integer.class);
+        return session.getSystemProperty(TASK_CONCURRENCY, Integer.class);
     }
 
     public static boolean isShareIndexLoading(Session session)
     {
-        return session.getProperty(TASK_SHARE_INDEX_LOADING, Boolean.class);
+        return session.getSystemProperty(TASK_SHARE_INDEX_LOADING, Boolean.class);
     }
 
     public static String getProcessingOptimization(Session session)
     {
-        return session.getProperty(PROCESSING_OPTIMIZATION, String.class);
+        return session.getSystemProperty(PROCESSING_OPTIMIZATION, String.class);
     }
 
     public static boolean isDictionaryAggregationEnabled(Session session)
     {
-        return session.getProperty(DICTIONARY_AGGREGATION, Boolean.class);
+        return session.getSystemProperty(DICTIONARY_AGGREGATION, Boolean.class);
     }
 
     public static boolean isOptimizeMetadataQueries(Session session)
     {
-        return session.getProperty(OPTIMIZE_METADATA_QUERIES, Boolean.class);
+        return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)
     {
-        return session.getProperty(QUERY_MAX_MEMORY, DataSize.class);
+        return session.getSystemProperty(QUERY_MAX_MEMORY, DataSize.class);
     }
 
     public static Duration getQueryMaxRunTime(Session session)
     {
-        return session.getProperty(QUERY_MAX_RUN_TIME, Duration.class);
+        return session.getSystemProperty(QUERY_MAX_RUN_TIME, Duration.class);
     }
 
     public static boolean resourceOvercommit(Session session)
     {
-        return session.getProperty(RESOURCE_OVERCOMMIT, Boolean.class);
+        return session.getSystemProperty(RESOURCE_OVERCOMMIT, Boolean.class);
     }
 
     public static boolean planWithTableNodePartitioning(Session session)
     {
-        return session.getProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
+        return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)
     {
-        return session.getProperty(COLOCATED_JOIN, Boolean.class);
+        return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
     }
 
     public static int getInitialSplitsPerNode(Session session)
     {
-        return session.getProperty(INITIAL_SPLITS_PER_NODE, Integer.class);
+        return session.getSystemProperty(INITIAL_SPLITS_PER_NODE, Integer.class);
     }
 
     public static int getQueryPriority(Session session)
     {
-        Integer priority = session.getProperty(QUERY_PRIORITY, Integer.class);
+        Integer priority = session.getSystemProperty(QUERY_PRIORITY, Integer.class);
         checkArgument(priority > 0, "Query priority must be positive");
         return priority;
     }
 
     public static Duration getSplitConcurrencyAdjustmentInterval(Session session)
     {
-        return session.getProperty(SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL, Duration.class);
+        return session.getSystemProperty(SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL, Duration.class);
     }
 
     public static Duration getQueryMaxCpuTime(Session session)
     {
-        return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
+        return session.getSystemProperty(QUERY_MAX_CPU_TIME, Duration.class);
     }
 
     public static boolean isSpillEnabled(Session session)
     {
-        return session.getProperty(SPILL_ENABLED, Boolean.class);
+        return session.getSystemProperty(SPILL_ENABLED, Boolean.class);
     }
 
     public static DataSize getOperatorMemoryLimitBeforeSpill(Session session)
     {
-        DataSize memoryLimitBeforeSpill = session.getProperty(OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, DataSize.class);
+        DataSize memoryLimitBeforeSpill = session.getSystemProperty(OPERATOR_MEMORY_LIMIT_BEFORE_SPILL, DataSize.class);
         checkArgument(memoryLimitBeforeSpill.toBytes() >= 0, "%s must be positive", OPERATOR_MEMORY_LIMIT_BEFORE_SPILL);
         return memoryLimitBeforeSpill;
     }

@@ -176,7 +176,7 @@ public final class Session
         return clientTransactionSupport;
     }
 
-    public <T> T getProperty(String name, Class<T> type)
+    public <T> T getSystemProperty(String name, Class<T> type)
     {
         return sessionPropertyManager.decodeProperty(name, systemProperties.get(name), type);
     }
