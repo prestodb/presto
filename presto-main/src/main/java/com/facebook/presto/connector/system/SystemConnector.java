@@ -59,7 +59,7 @@ public class SystemConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
-        return new SystemTransactionHandle(connectorId, transactionHandleFunction.apply(transactionId));
+        return new SystemTransactionHandle(connectorId, transactionId, transactionHandleFunction);
     }
 
     @Override

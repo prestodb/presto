@@ -99,10 +99,10 @@ public class SystemPageSourceProvider
         TupleDomain<Integer> newContraint = withColumnDomains(newConstraints.build());
 
         try {
-            return new MappedPageSource(systemTable.pageSource(systemTransaction.getTransactionHandle(), session, newContraint), userToSystemFieldIndex.build());
+            return new MappedPageSource(systemTable.pageSource(systemTransaction.getConnectorTransactionHandle(), session, newContraint), userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
-            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build()));
+            return new RecordPageSource(new MappedRecordSet(toRecordSet(systemTransaction.getConnectorTransactionHandle(), systemTable, session, newContraint), userToSystemFieldIndex.build()));
         }
     }
 

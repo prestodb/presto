@@ -309,7 +309,6 @@ public class TransactionManager
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(connectorId);
             if (transactionMetadata == null) {
                 transactionMetadata = new ConnectorTransactionMetadata(connector, beginTransaction(connector));
-                // Don't use computeIfAbsent b/c the beginTransaction call might be recursive
                 checkState(connectorIdToMetadata.put(connectorId, transactionMetadata) == null);
             }
             return transactionMetadata;
