@@ -118,20 +118,40 @@ final class ResourceUtil
 
         // parse session properties
         Multimap<String, Entry<String, String>> sessionPropertiesByCatalog = HashMultimap.create();
-        for (String sessionHeader : splitSessionHeader(servletRequest.getHeaders(PRESTO_SESSION))) {
-            parseSessionHeader(sessionHeader, sessionPropertiesByCatalog, sessionPropertyManager);
-        }
-
-        // verify user can set the session properties
         try {
-            for (Entry<String, Entry<String, String>> property : sessionPropertiesByCatalog.entries()) {
-                String catalogName = property.getKey();
-                String propertyName = property.getValue().getKey();
-                if (catalogName == null) {
+            for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
+                // validate session property value
+                String fullPropertyName = entry.getKey();
+                String propertyValue = entry.getValue();
+                PropertyMetadata<?> metadata = sessionPropertyManager.getSessionPropertyMetadata(fullPropertyName);
+                try {
+                    sessionPropertyManager.decodeProperty(fullPropertyName, propertyValue, metadata.getJavaType());
+                }
+                catch (RuntimeException e) {
+                    throw badRequest(format("Invalid %s header", PRESTO_SESSION));
+                }
+
+                List<String> nameParts = Splitter.on('.').splitToList(fullPropertyName);
+                if (nameParts.size() == 1) {
+                    String propertyName = nameParts.get(0);
+
+                    assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+
                     accessControl.checkCanSetSystemSessionProperty(identity, propertyName);
+                    sessionPropertiesByCatalog.put(null, Maps.immutableEntry(propertyName, propertyValue));
+                }
+                else if (nameParts.size() == 2) {
+                    String catalogName = nameParts.get(0);
+                    String propertyName = nameParts.get(1);
+
+                    assertRequest(!catalogName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+                    assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+
+                    accessControl.checkCanSetCatalogSessionProperty(identity, catalogName, propertyName);
+                    sessionPropertiesByCatalog.put(catalogName, Maps.immutableEntry(propertyName, propertyValue));
                 }
                 else {
-                    accessControl.checkCanSetCatalogSessionProperty(identity, catalogName, propertyName);
+                    throw badRequest(format("Invalid %s header", PRESTO_SESSION));
                 }
             }
         }
@@ -162,41 +182,15 @@ final class ResourceUtil
                 .collect(toImmutableList());
     }
 
-    private static void parseSessionHeader(String header, Multimap<String, Entry<String, String>> sessionPropertiesByCatalog, SessionPropertyManager sessionPropertyManager)
+    private static Map<String, String> parseSessionHeaders(HttpServletRequest servletRequest)
     {
-        List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-        assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
-        String fullPropertyName = nameValue.get(0);
-
-        String catalog;
-        String name;
-        List<String> nameParts = Splitter.on('.').splitToList(fullPropertyName);
-        if (nameParts.size() == 1) {
-            catalog = null;
-            name = nameParts.get(0);
+        Map<String, String> sessionProperties = new HashMap<>();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_SESSION))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
+            sessionProperties.put(nameValue.get(0), nameValue.get(1));
         }
-        else if (nameParts.size() == 2) {
-            catalog = nameParts.get(0);
-            name = nameParts.get(1);
-        }
-        else {
-            throw badRequest(format("Invalid %s header", PRESTO_SESSION));
-        }
-        assertRequest(catalog == null || !catalog.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-        assertRequest(!name.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-
-        String value = nameValue.get(1);
-
-        // validate session property value
-        PropertyMetadata<?> metadata = sessionPropertyManager.getSessionPropertyMetadata(fullPropertyName);
-        try {
-            sessionPropertyManager.decodeProperty(fullPropertyName, value, metadata.getJavaType());
-        }
-        catch (RuntimeException e) {
-            throw badRequest(format("Invalid %s header", PRESTO_SESSION));
-        }
-
-        sessionPropertiesByCatalog.put(catalog, Maps.immutableEntry(name, value));
+        return sessionProperties;
     }
 
     private static <K, V> Map<K, V> toMap(Iterable<? extends Entry<K, V>> entries)
