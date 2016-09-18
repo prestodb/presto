@@ -5091,7 +5091,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testExplainExecute()
     {
-        Session session = getSession().withPreparedStatement("my_query", "SELECT * FROM orders");
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT * FROM orders")
+                .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query");
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders", LOGICAL));
     }
@@ -5099,7 +5101,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testExplainExecuteWithUsing()
     {
-        Session session = getSession().withPreparedStatement("my_query", "SELECT * FROM orders where orderkey < ?");
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT * FROM orders where orderkey < ?")
+                .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("SELECT * FROM orders where orderkey < 7", LOGICAL));
     }
@@ -5107,7 +5111,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testExplainSetSessionWithUsing()
     {
-        Session session = getSession().withPreparedStatement("my_query", "SET SESSION foo = ?");
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SET SESSION foo = ?")
+                .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
         assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), "SET SESSION foo = 7");
     }
@@ -7838,7 +7844,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testExecute() throws Exception
     {
-        Session session = getSession().withPreparedStatement("my_query", "SELECT 123, 'abc'");
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT 123, 'abc'")
+                .build();
         assertQuery(session, "EXECUTE my_query", "SELECT 123, 'abc'");
     }
 
@@ -7847,7 +7855,9 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         String query = "SELECT a + 1, count(?) FROM (VALUES 1, 2, 3, 2) t1(a) JOIN (VALUES 1, 2, 3, 4) t2(b) ON b < ? WHERE a < ? GROUP BY a + 1 HAVING count(1) > ?";
-        Session session = getSession().withPreparedStatement("my_query", query);
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
         assertQuery(session,
                 "EXECUTE my_query USING 1, 5, 4, 0",
                 "VALUES (2, 4), (3, 8), (4, 4)");
@@ -7858,7 +7868,9 @@ public abstract class AbstractTestQueries
             throws Exception
     {
         String query = "SELECT ? in (SELECT orderkey FROM orders)";
-        Session session = getSession().withPreparedStatement("my_query", query);
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
 
         assertQuery(session,
                 "EXECUTE my_query USING 10",
@@ -7878,7 +7890,9 @@ public abstract class AbstractTestQueries
                 "  ON "  +
                 "(x in (VALUES 1,2,?)) = (y in (VALUES 1,2,3)) AND (x in (VALUES 1,?)) = (y in (VALUES 1,2))";
 
-        Session session = getSession().withPreparedStatement("my_query", query);
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
         assertQuery(session,
                 "EXECUTE my_query USING 1, 3, 2",
                 "VALUES (1,1), (1,2), (2,2), (2,1), (3,3)");
@@ -7890,7 +7904,9 @@ public abstract class AbstractTestQueries
     {
         try {
             String query = "SELECT a + ?, count(1) FROM (VALUES 1, 2, 3, 2) t(a) GROUP BY a + ?";
-            Session session = getSession().withPreparedStatement("my_query", query);
+            Session session = Session.builder(getSession())
+                    .addPreparedStatement("my_query", query)
+                    .build();
             computeActual(session, "EXECUTE my_query USING 1, 1");
             fail("parameters in group by and select should fail");
         }
@@ -7926,7 +7942,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testDescribeInput()
     {
-        Session session = getSession().withPreparedStatement("my_query", "select ? from nation where nationkey = ? and name < ?");
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "select ? from nation where nationkey = ? and name < ?")
+                .build();
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
         MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
                 .row(0, "unknown")
@@ -7939,7 +7957,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testDescribeInputNoParameters()
     {
-        Session session = getSession().withPreparedStatement("my_query", "select * from nation");
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "select * from nation")
+                .build();
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
         MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR).build();
         assertEquals(actual, expected);

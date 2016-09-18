@@ -154,11 +154,9 @@ final class ResourceUtil
             throw new WebApplicationException(e.getMessage(), Status.BAD_REQUEST);
         }
 
-        Map<String, String> preparedStatements = new HashMap<>();
-        for (String preparedStatementsHeader : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
-            parsePreparedStatementsHeader(preparedStatementsHeader, preparedStatements);
+        for (Entry<String, String> preparedStatement : parsePreparedStatementsHeaders(servletRequest).entrySet()) {
+            sessionBuilder.addPreparedStatement(preparedStatement.getKey(), preparedStatement.getValue());
         }
-        sessionBuilder.setPreparedStatements(preparedStatements);
         return sessionBuilder.build();
     }
 
@@ -189,31 +187,35 @@ final class ResourceUtil
         }
     }
 
-    private static void parsePreparedStatementsHeader(String header, Map<String, String> preparedStatements)
+    private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest)
     {
-        List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-        assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
+        Map<String, String> preparedStatements = new HashMap<>();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
 
-        String statementName;
-        String sqlString;
-        try {
-            statementName = urlDecode(nameValue.get(0));
-            sqlString = urlDecode(nameValue.get(1));
-        }
-        catch (IllegalArgumentException e) {
-            throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
-        }
+            String statementName;
+            String sqlString;
+            try {
+                statementName = urlDecode(nameValue.get(0));
+                sqlString = urlDecode(nameValue.get(1));
+            }
+            catch (IllegalArgumentException e) {
+                throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
+            }
 
-        // Validate statement
-        SqlParser sqlParser = new SqlParser();
-        try {
-            sqlParser.createStatement(sqlString);
-        }
-        catch (ParsingException e) {
-            throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
-        }
+            // Validate statement
+            SqlParser sqlParser = new SqlParser();
+            try {
+                sqlParser.createStatement(sqlString);
+            }
+            catch (ParsingException e) {
+                throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
+            }
 
-        preparedStatements.put(statementName, sqlString);
+            preparedStatements.put(statementName, sqlString);
+        }
+        return preparedStatements;
     }
 
     private static TimeZoneKey getTimeZoneKey(String timeZoneId)

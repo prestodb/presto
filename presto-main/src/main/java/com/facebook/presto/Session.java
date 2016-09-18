@@ -246,32 +246,6 @@ public final class Session
                 preparedStatements);
     }
 
-    public Session withPreparedStatement(String statementName, String query)
-    {
-        requireNonNull(statementName, "statementName is null");
-        requireNonNull(query, "query is null");
-
-        Map<String, String> preparedStatements = new HashMap<>(getPreparedStatements());
-        preparedStatements.put(statementName, query);
-        return new Session(
-                queryId,
-                transactionId,
-                clientTransactionSupport,
-                identity,
-                source,
-                catalog,
-                schema,
-                timeZoneKey,
-                locale,
-                remoteUserAddress,
-                userAgent,
-                startTime,
-                systemProperties,
-                catalogProperties,
-                sessionPropertyManager,
-                preparedStatements);
-    }
-
     public ConnectorSession toConnectorSession()
     {
         return new FullConnectorSession(queryId.toString(), identity, timeZoneKey, locale, startTime);
@@ -386,7 +360,7 @@ public final class Session
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
-        private Map<String, String> preparedStatements = ImmutableMap.of();
+        private final Map<String, String> preparedStatements = new HashMap<>();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -508,9 +482,10 @@ public final class Session
             return this;
         }
 
-        public void setPreparedStatements(Map<String, String> preparedStatements)
+        public SessionBuilder addPreparedStatement(String statementName, String query)
         {
-            this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
+            this.preparedStatements.put(statementName, query);
+            return this;
         }
 
         public Session build()

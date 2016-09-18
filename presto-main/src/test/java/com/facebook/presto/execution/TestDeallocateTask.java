@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
@@ -53,7 +54,9 @@ public class TestDeallocateTask
     @Test
     public void testDeallocate()
     {
-        Session session = TEST_SESSION.withPreparedStatement("my_query", "SELECT bar, baz FROM foo");
+        Session session = testSessionBuilder()
+                .addPreparedStatement("my_query", "SELECT bar, baz FROM foo")
+                .build();
         Set<String> statements = executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", session);
         assertEquals(statements, ImmutableSet.of("my_query"));
     }

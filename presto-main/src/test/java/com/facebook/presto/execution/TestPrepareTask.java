@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
@@ -71,7 +72,9 @@ public class TestPrepareTask
     @Test
     public void testPrepareNameExists()
     {
-        Session session = TEST_SESSION.withPreparedStatement("my_query", "SELECT bar, baz from foo");
+        Session session = testSessionBuilder()
+                .addPreparedStatement("my_query", "SELECT bar, baz from foo")
+                .build();
 
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
         String sqlString = "PREPARE my_query FROM SELECT * FROM foo";
