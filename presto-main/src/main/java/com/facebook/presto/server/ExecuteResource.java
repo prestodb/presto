@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementClient;
-import com.facebook.presto.execution.QueryIdGenerator;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.http.client.HttpClient;
@@ -43,7 +39,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.server.ResourceUtil.assertRequest;
-import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
+import static com.facebook.presto.server.ResourceUtil.createClientSessionForRequest;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterators.concat;
@@ -58,26 +54,17 @@ import static javax.ws.rs.core.Response.status;
 public class ExecuteResource
 {
     private final HttpServerInfo serverInfo;
-    private final AccessControl accessControl;
-    private final SessionPropertyManager sessionPropertyManager;
     private final HttpClient httpClient;
-    private final QueryIdGenerator queryIdGenerator;
     private final JsonCodec<QueryResults> queryResultsCodec;
 
     @Inject
     public ExecuteResource(
             HttpServerInfo serverInfo,
-            AccessControl accessControl,
-            SessionPropertyManager sessionPropertyManager,
             @ForExecute HttpClient httpClient,
-            QueryIdGenerator queryIdGenerator,
             JsonCodec<QueryResults> queryResultsCodec)
     {
         this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
     }
 
@@ -87,9 +74,7 @@ public class ExecuteResource
     {
         assertRequest(!isNullOrEmpty(query), "SQL query is empty");
 
-        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager, queryIdGenerator.createNextQueryId());
-        ClientSession clientSession = session.toClientSession(serverUri(), false, new Duration(2, MINUTES));
-
+        ClientSession clientSession = createClientSessionForRequest(servletRequest, serverUri(), new Duration(2, MINUTES));
         StatementClient client = new StatementClient(httpClient, queryResultsCodec, clientSession, query);
 
         List<Column> columns = getColumns(client);

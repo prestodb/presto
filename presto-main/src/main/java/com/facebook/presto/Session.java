@@ -13,7 +13,6 @@
  */
 package com.facebook.presto;
 
-import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
@@ -25,14 +24,11 @@ import com.facebook.presto.transaction.TransactionId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.airlift.units.Duration;
 
-import java.net.URI;
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.TimeZone;
 
@@ -253,32 +249,6 @@ public final class Session
                 catalogProperties.getOrDefault(connectorId.getCatalogName(), ImmutableMap.of()),
                 connectorId.getCatalogName(),
                 sessionPropertyManager);
-    }
-
-    public ClientSession toClientSession(URI server, boolean debug, Duration clientRequestTimeout)
-    {
-        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
-        properties.putAll(systemProperties);
-        for (Entry<String, Map<String, String>> catalogProperties : this.catalogProperties.entrySet()) {
-            String catalog = catalogProperties.getKey();
-            for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
-                properties.put(catalog + "." + entry.getKey(), entry.getValue());
-            }
-        }
-
-        return new ClientSession(
-                requireNonNull(server, "server is null"),
-                identity.getUser(),
-                source.orElse(null),
-                catalog.orElse(null),
-                schema.orElse(null),
-                timeZoneKey.getId(),
-                locale,
-                properties.build(),
-                preparedStatements,
-                transactionId.map(TransactionId::toString).orElse(null),
-                debug,
-                clientRequestTimeout);
     }
 
     public SessionRepresentation toSessionRepresentation()
