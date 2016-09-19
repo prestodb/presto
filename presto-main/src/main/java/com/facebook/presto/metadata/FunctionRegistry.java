@@ -848,7 +848,7 @@ public class FunctionRegistry
         // so do a second pass allowing "type only" coercions
         for (SqlFunction candidate : candidates) {
             SignatureBinder binder = new SignatureBinder(typeManager, candidate.getSignature(), true);
-            Optional<Signature> boundSignature = binder.bind(argumentTypes);
+            Optional<Signature> boundSignature = binder.bind(argumentTypes, returnType);
             if (boundSignature.isPresent()) {
                 if (!typeManager.isTypeOnlyCoercion(typeManager.getType(boundSignature.get().getReturnType()), returnType)) {
                     continue;
