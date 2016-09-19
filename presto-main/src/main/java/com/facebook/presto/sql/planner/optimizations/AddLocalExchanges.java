@@ -238,7 +238,13 @@ public class AddLocalExchanges
             StreamPreferredProperties preferredChildProperties;
 
             checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
-            // aggregation requires that all data be partitioned
+
+            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
+            // needs to know whether input was received at the query level.
+            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+
             HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
             for (int i = 1; i < node.getGroupingSets().size(); i++) {
                 partitioningRequirement.retainAll(node.getGroupingSets().get(i));

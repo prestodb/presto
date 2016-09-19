@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
 import com.facebook.presto.spi.Page;
@@ -21,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -31,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -48,9 +51,11 @@ public class HashAggregationOperator
         private final PlanNodeId planNodeId;
         private final List<Type> groupByTypes;
         private final List<Integer> groupByChannels;
+        private final List<Integer> globalAggregationGroupIds;
         private final Step step;
         private final List<AccumulatorFactory> accumulatorFactories;
         private final Optional<Integer> hashChannel;
+        private final Optional<Integer> groupIdChannel;
 
         private final int expectedGroups;
         private final List<Type> types;
@@ -62,17 +67,21 @@ public class HashAggregationOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> groupByTypes,
                 List<Integer> groupByChannels,
+                List<Integer> globalAggregationGroupIds,
                 Step step,
                 List<AccumulatorFactory> accumulatorFactories,
                 Optional<Integer> hashChannel,
+                Optional<Integer> groupIdChannel,
                 int expectedGroups,
                 DataSize maxPartialMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+            this.groupIdChannel = requireNonNull(groupIdChannel, "groupIdChannel is null");
             this.groupByTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = ImmutableList.copyOf(groupByChannels);
+            this.globalAggregationGroupIds = ImmutableList.copyOf(globalAggregationGroupIds);
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.expectedGroups = expectedGroups;
@@ -103,9 +112,11 @@ public class HashAggregationOperator
                     operatorContext,
                     groupByTypes,
                     groupByChannels,
+                    globalAggregationGroupIds,
                     step,
                     accumulatorFactories,
                     hashChannel,
+                    groupIdChannel,
                     expectedGroups);
             return hashAggregationOperator;
         }
@@ -124,9 +135,11 @@ public class HashAggregationOperator
                     planNodeId,
                     groupByTypes,
                     groupByChannels,
+                    globalAggregationGroupIds,
                     step,
                     accumulatorFactories,
                     hashChannel,
+                    groupIdChannel,
                     expectedGroups,
                     new DataSize(maxPartialMemory, Unit.BYTE));
         }
@@ -135,24 +148,30 @@ public class HashAggregationOperator
     private final OperatorContext operatorContext;
     private final List<Type> groupByTypes;
     private final List<Integer> groupByChannels;
+    private final List<Integer> globalAggregationGroupIds;
     private final Step step;
     private final List<AccumulatorFactory> accumulatorFactories;
     private final Optional<Integer> hashChannel;
+    private final Optional<Integer> groupIdChannel;
     private final int expectedGroups;
 
     private final List<Type> types;
 
     private GroupByHashAggregationBuilder aggregationBuilder;
     private Iterator<Page> outputIterator;
+    private boolean inputProcessed;
     private boolean finishing;
+    private boolean finished;
 
     public HashAggregationOperator(
             OperatorContext operatorContext,
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
+            List<Integer> globalAggregationGroupIds,
             Step step,
             List<AccumulatorFactory> accumulatorFactories,
             Optional<Integer> hashChannel,
+            Optional<Integer> groupIdChannel,
             int expectedGroups)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -162,8 +181,10 @@ public class HashAggregationOperator
 
         this.groupByTypes = ImmutableList.copyOf(groupByTypes);
         this.groupByChannels = ImmutableList.copyOf(groupByChannels);
+        this.globalAggregationGroupIds = ImmutableList.copyOf(globalAggregationGroupIds);
         this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+        this.groupIdChannel = requireNonNull(groupIdChannel, "groupIdChannel is null");
         this.step = step;
         this.expectedGroups = expectedGroups;
         this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
@@ -190,7 +211,7 @@ public class HashAggregationOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && aggregationBuilder == null && (outputIterator == null || !outputIterator.hasNext());
+        return finished;
     }
 
     @Override
@@ -204,6 +225,8 @@ public class HashAggregationOperator
     {
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
+        inputProcessed = true;
+
         if (aggregationBuilder == null) {
             aggregationBuilder = new GroupByHashAggregationBuilder(
                     accumulatorFactories,
@@ -225,17 +248,29 @@ public class HashAggregationOperator
     @Override
     public Page getOutput()
     {
+        if (finished) {
+            return null;
+        }
+
         if (outputIterator == null || !outputIterator.hasNext()) {
             // current output iterator is done
             outputIterator = null;
 
-            // no data
-            if (aggregationBuilder == null) {
-                return null;
+            if (finishing) {
+                if (!inputProcessed && !step.isOutputPartial()) {
+                    // global aggregations always generate an output row with the default aggregation output (e.g. 0 for COUNT, NULL for SUM)
+                    finished = true;
+                    return getGlobalAggregationOutput();
+                }
+
+                if (aggregationBuilder == null) {
+                    finished = true;
+                    return null;
+                }
             }
 
             // only flush if we are finishing or the aggregation builder is full
-            if (!finishing && !aggregationBuilder.isFull()) {
+            if (!finishing && (aggregationBuilder == null || !aggregationBuilder.isFull())) {
                 return null;
             }
 
@@ -250,6 +285,39 @@ public class HashAggregationOperator
         }
 
         return outputIterator.next();
+    }
+
+    private Page getGlobalAggregationOutput()
+    {
+        List<Accumulator> accumulators = accumulatorFactories.stream()
+                .map(AccumulatorFactory::createAccumulator)
+                .collect(Collectors.toList());
+
+        PageBuilder output = new PageBuilder(types);
+
+        for (int groupId : globalAggregationGroupIds) {
+            output.declarePosition();
+            int channel = 0;
+
+            for (; channel < groupByTypes.size(); channel++) {
+                if (channel == groupIdChannel.get()) {
+                    output.getBlockBuilder(channel).writeLong(groupId);
+                }
+                else {
+                    output.getBlockBuilder(channel).appendNull();
+                }
+            }
+
+            if (hashChannel.isPresent()) {
+                output.getBlockBuilder(channel++).writeLong(TypeUtils.NULL_HASH_CODE);
+            }
+
+            for (int j = 0; j < accumulators.size(); channel++, j++) {
+                accumulators.get(j).evaluateFinal(output.getBlockBuilder(channel));
+            }
+        }
+
+        return output.build();
     }
 
     private static List<Type> toTypes(List<? extends Type> groupByType, Step step, List<AccumulatorFactory> factories, Optional<Integer> hashChannel)

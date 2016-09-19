@@ -1880,6 +1880,13 @@ public class LocalExecutionPlanner
                 aggregationOutputSymbols.add(symbol);
             }
 
+            ImmutableList.Builder<Integer> globalAggregationGroupIds = ImmutableList.builder();
+            for (int i = 0; i < node.getGroupingSets().size(); i++) {
+                if (node.getGroupingSets().get(i).isEmpty()) {
+                    globalAggregationGroupIds.add(i);
+                }
+            }
+
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             // add group-by key fields each in a separate channel
             int channel = 0;
@@ -1906,18 +1913,21 @@ public class LocalExecutionPlanner
 
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
 
+            Map<Symbol, Integer> mappings = outputMappings.build();
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                     operatorId,
                     node.getId(),
                     groupByTypes,
                     groupByChannels,
+                    globalAggregationGroupIds.build(),
                     node.getStep(),
                     accumulatorFactories,
                     hashChannel,
+                    node.getGroupIdSymbol().map(mappings::get),
                     10_000,
                     maxPartialAggregationMemorySize);
 
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            return new PhysicalOperation(operatorFactory, mappings, source);
         }
     }
 
