@@ -191,7 +191,6 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableList.of(columnA, columnB),
                 aggregations,
                 functions,
                 ImmutableMap.of(),
@@ -199,6 +198,7 @@ public class TestTypeValidator
                 SINGLE,
                 Optional.empty(),
                 0,
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -255,7 +255,6 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableList.of(columnA, columnB),
                 aggregations,
                 functions,
                 ImmutableMap.of(),
@@ -263,6 +262,7 @@ public class TestTypeValidator
                 SINGLE,
                 Optional.empty(),
                 0,
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -287,7 +287,6 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableList.of(columnA, columnB),
                 aggregations,
                 functions,
                 ImmutableMap.of(),
@@ -295,6 +294,7 @@ public class TestTypeValidator
                 SINGLE,
                 Optional.empty(),
                 0,
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);

@@ -100,9 +100,18 @@ public class EffectivePredicateExtractor
     @Override
     public Expression visitAggregation(AggregationNode node, Void context)
     {
+        // GROUP BY () always produces a group, regardless of whether there's any
+        // input (unlike the case where there are group by keys, which produce
+        // no output if there's no input).
+        // Therefore, we can't say anything about the effective predicate of the
+        // output of such an aggregation.
+        if (node.getGroupingKeys().isEmpty()) {
+            return TRUE_LITERAL;
+        }
+
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupBy());
+        return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupingKeys());
     }
 
     @Override

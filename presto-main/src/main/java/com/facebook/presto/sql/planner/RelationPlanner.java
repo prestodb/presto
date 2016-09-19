@@ -666,7 +666,6 @@ class RelationPlanner
     {
         return new AggregationNode(idAllocator.getNextId(),
                 node,
-                node.getOutputSymbols(),
                 ImmutableMap.<Symbol, FunctionCall>of(),
                 ImmutableMap.<Symbol, Signature>of(),
                 ImmutableMap.<Symbol, Symbol>of(),
@@ -674,6 +673,7 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 1.0,
+                Optional.empty(),
                 Optional.empty());
     }
 

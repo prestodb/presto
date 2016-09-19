@@ -132,8 +132,8 @@ public class HashGenerationOptimizer
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
-            if (!canSkipHashGeneration(node.getGroupBy())) {
-                groupByHash = computeHash(node.getGroupBy());
+            if (!canSkipHashGeneration(node.getGroupingKeys())) {
+                groupByHash = computeHash(node.getGroupingKeys());
             }
 
             // aggregation does not pass through preferred hash symbols
@@ -146,7 +146,6 @@ public class HashGenerationOptimizer
                     new AggregationNode(
                             idAllocator.getNextId(),
                             child.getNode(),
-                            node.getGroupBy(),
                             node.getAggregations(),
                             node.getFunctions(),
                             node.getMasks(),
@@ -154,7 +153,8 @@ public class HashGenerationOptimizer
                             node.getStep(),
                             node.getSampleWeight(),
                             node.getConfidence(),
-                            hashSymbol),
+                            hashSymbol,
+                            node.getGroupIdSymbol()),
                     hashSymbol.isPresent() ? ImmutableMap.of(groupByHash.get(), hashSymbol.get()) : ImmutableMap.of());
         }
 

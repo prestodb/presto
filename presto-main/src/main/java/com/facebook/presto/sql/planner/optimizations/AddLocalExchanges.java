@@ -314,7 +314,6 @@ public class AddLocalExchanges
                     new AggregationNode(
                             idAllocator.getNextId(),
                             newChild.getNode(),
-                            node.getGroupBy(),
                             intermediateCalls,
                             intermediateFunctions,
                             intermediateMask,
@@ -322,7 +321,8 @@ public class AddLocalExchanges
                             Step.PARTIAL,
                             node.getSampleWeight(),
                             node.getConfidence(),
-                            node.getHashSymbol()),
+                            node.getHashSymbol(),
+                            node.getGroupIdSymbol()),
                     newChild.getProperties());
 
             if (exchanger != null) {
@@ -333,7 +333,6 @@ public class AddLocalExchanges
                     new AggregationNode(
                             node.getId(),
                             source.getNode(),
-                            node.getGroupBy(),
                             finalCalls,
                             node.getFunctions(),
                             ImmutableMap.of(),
@@ -341,7 +340,8 @@ public class AddLocalExchanges
                             Step.FINAL,
                             Optional.empty(),
                             node.getConfidence(),
-                            node.getHashSymbol()),
+                            node.getHashSymbol(),
+                            node.getGroupIdSymbol()),
                     source.getProperties());
         }
 

@@ -389,7 +389,7 @@ public class IndexJoinOptimizer
         {
             // Lookup symbols can only be passed through if they are part of the group by columns
             Set<Symbol> groupByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getGroupBy()::contains)
+                    .filter(node.getGroupingKeys()::contains)
                     .collect(toImmutableSet());
 
             if (groupByLookupSymbols.isEmpty()) {
@@ -506,7 +506,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitAggregation(AggregationNode node, Set<Symbol> lookupSymbols)
             {
                 Set<Symbol> groupByLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getGroupBy()::contains)
+                        .filter(node.getGroupingKeys()::contains)
                         .collect(toImmutableSet());
                 checkState(!groupByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
                 return node.getSource().accept(this, groupByLookupSymbols);

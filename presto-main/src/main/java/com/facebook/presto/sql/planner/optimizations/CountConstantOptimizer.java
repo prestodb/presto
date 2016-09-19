@@ -80,7 +80,6 @@ public class CountConstantOptimizer
             return new AggregationNode(
                     node.getId(),
                     source,
-                    node.getGroupBy(),
                     aggregations,
                     functions,
                     node.getMasks(),
@@ -88,7 +87,8 @@ public class CountConstantOptimizer
                     node.getStep(),
                     node.getSampleWeight(),
                     node.getConfidence(),
-                    node.getHashSymbol());
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol());
         }
 
         public static boolean isCountConstant(ProjectNode projectNode, FunctionCall functionCall, Signature signature)
