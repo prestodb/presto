@@ -15,17 +15,29 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;
 
+import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
 {
+    public static final String TESTING_CATALOG = "testing_catalog";
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
 
     private TestingSession() {}
@@ -47,5 +59,42 @@ public final class TestingSession
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")
                 .setUserAgent("agent");
+    }
+
+    public static Catalog createBogusTestingCatalog(String catalogName)
+    {
+        ConnectorId connectorId = new ConnectorId(catalogName);
+        return new Catalog(
+                catalogName,
+                connectorId,
+                createTestSessionConnector(),
+                createInformationSchemaConnectorId(connectorId),
+                createTestSessionConnector(),
+                createSystemTablesConnectorId(connectorId),
+                createTestSessionConnector());
+    }
+
+    private static Connector createTestSessionConnector()
+    {
+        return new Connector()
+        {
+            @Override
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            {
+                return new ConnectorTransactionHandle() {};
+            }
+
+            @Override
+            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+            {
+                return new SystemTablesMetadata(new ConnectorId("test_session_connector"), ImmutableSet.of());
+            }
+
+            @Override
+            public ConnectorSplitManager getSplitManager()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 }

@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.ProcedureRegistry;
+import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.testing.ProcedureTester;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -30,25 +37,45 @@ import static org.testng.Assert.fail;
 public class TestProcedureCall
         extends AbstractTestQueryFramework
 {
+    private static final String PROCEDURE_SCHEMA = "procedure_schema";
     private final ProcedureTester tester;
+    private final Session session;
 
     public TestProcedureCall()
             throws Exception
     {
         super(createQueryRunner());
-        tester = ((DistributedQueryRunner) queryRunner).getCoordinator().getProcedureTester();
+
+        TestingPrestoServer coordinator = ((DistributedQueryRunner) queryRunner).getCoordinator();
+        tester = coordinator.getProcedureTester();
+
+        // register procedures in the bogus testing catalog
+        TypeManager typeManager = coordinator.getMetadata().getTypeManager();
+        ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
+        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester(), typeManager);
+        procedureRegistry.addProcedures(
+                new ConnectorId(TESTING_CATALOG),
+                procedures.getProcedures(PROCEDURE_SCHEMA));
+
+        session = testSessionBuilder()
+                .setCatalog(TESTING_CATALOG)
+                .setSchema(PROCEDURE_SCHEMA)
+                .build();
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        return session;
     }
 
     @Test
     public void testProcedureCall()
             throws Exception
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
-
         assertCall("CALL test_simple()", "simple");
-        assertCall(format("CALL %s.test_simple()", schema), "simple");
-        assertCall(format("CALL %s.%s.test_simple()", catalog, schema), "simple");
+        assertCall(format("CALL %s.test_simple()", PROCEDURE_SCHEMA), "simple");
+        assertCall(format("CALL %s.%s.test_simple()", TESTING_CATALOG, PROCEDURE_SCHEMA), "simple");
 
         assertCall("CALL test_args(123, 4.5, 'hello', true)", "args", 123L, 4.5, "hello", true);
         assertCall("CALL test_args(-5, nan(), 'bye', false)", "args", -5L, Double.NaN, "bye", false);

@@ -215,9 +215,6 @@ public class ConnectorManager
         catalogManager.registerCatalog(catalog);
 
         // todo the following managers currently need access to catalog name, so they must be handled specially
-        for (Procedure procedure : connector.getProcedures()) {
-            metadataManager.getProcedureRegistry().addProcedure(catalogName, procedure);
-        }
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(connectorId, catalogName, accessControl));
 
@@ -248,6 +245,8 @@ public class ConnectorManager
 
         connector.getPartitioningProvider()
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(connectorId, partitioningProvider));
+
+        metadataManager.getProcedureRegistry().addProcedures(connectorId, connector.getProcedures());
     }
 
     private Connector createConnector(ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)

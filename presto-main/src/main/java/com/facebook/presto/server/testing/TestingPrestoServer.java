@@ -23,6 +23,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -96,6 +97,7 @@ public class TestingPrestoServer
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
+    private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
@@ -245,6 +247,7 @@ public class TestingPrestoServer
         connectorManager = injector.getInstance(ConnectorManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
+        catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
@@ -327,6 +330,11 @@ public class TestingPrestoServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromParts(getBaseUrl().getHost(), getBaseUrl().getPort());
+    }
+
+    public CatalogManager getCatalogManager()
+    {
+        return catalogManager;
     }
 
     public TransactionManager getTransactionManager()
