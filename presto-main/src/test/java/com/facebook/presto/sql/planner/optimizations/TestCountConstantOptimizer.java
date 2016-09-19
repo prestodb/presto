@@ -59,7 +59,6 @@ public class TestCountConstantOptimizer
                                 planNodeIdAllocator.getNextId(),
                                 valuesNode,
                                 ImmutableMap.of(new Symbol("expr"), new LongLiteral("42"))),
-                        ImmutableList.of(),
                         aggregations,
                         functions,
                         ImmutableMap.of(),
@@ -67,6 +66,7 @@ public class TestCountConstantOptimizer
                         AggregationNode.Step.INTERMEDIATE,
                         Optional.empty(),
                         1.0,
+                        Optional.empty(),
                         Optional.empty());
 
         assertTrue(((AggregationNode) optimizer.optimize(eligiblePlan, TEST_SESSION, ImmutableMap.of(), new SymbolAllocator(), new PlanNodeIdAllocator()))
@@ -81,7 +81,6 @@ public class TestCountConstantOptimizer
                                 planNodeIdAllocator.getNextId(),
                                 valuesNode,
                                 ImmutableMap.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x")))))),
-                        ImmutableList.of(),
                         aggregations,
                         functions,
                         ImmutableMap.of(),
@@ -89,6 +88,7 @@ public class TestCountConstantOptimizer
                         AggregationNode.Step.INTERMEDIATE,
                         Optional.empty(),
                         1.0,
+                        Optional.empty(),
                         Optional.empty());
 
         assertFalse(((AggregationNode) optimizer.optimize(ineligiblePlan, TEST_SESSION, ImmutableMap.of(), new SymbolAllocator(), new PlanNodeIdAllocator()))
