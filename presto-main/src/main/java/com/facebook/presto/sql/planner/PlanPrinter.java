@@ -493,8 +493,8 @@ public class PlanPrinter
                 type = format("(%s)", node.getStep().toString());
             }
             String key = "";
-            if (!node.getGroupBy().isEmpty()) {
-                key = node.getGroupBy().toString();
+            if (!node.getGroupingKeys().isEmpty()) {
+                key = node.getGroupingKeys().toString();
             }
             String sampleWeight = "";
             if (node.getSampleWeight().isPresent()) {

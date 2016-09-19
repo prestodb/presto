@@ -238,7 +238,6 @@ public class ImplementIntersectAndExceptAsUnion
 
             return new AggregationNode(idAllocator.getNextId(),
                     sourceNode,
-                    originalColumns,
                     aggregations.build(),
                     signatures.build(),
                     ImmutableMap.of(),
@@ -246,6 +245,7 @@ public class ImplementIntersectAndExceptAsUnion
                     Step.SINGLE,
                     Optional.empty(),
                     1.0,
+                    Optional.empty(),
                     Optional.empty());
         }
 

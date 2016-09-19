@@ -105,13 +105,13 @@ public class EffectivePredicateExtractor
         // no output if there's no input).
         // Therefore, we can't say anything about the effective predicate of the
         // output of such an aggregation.
-        if (node.getGroupBy().isEmpty()) {
+        if (node.getGroupingKeys().isEmpty()) {
             return TRUE_LITERAL;
         }
 
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupBy());
+        return pullExpressionThroughSymbols(underlyingPredicate, node.getGroupingKeys());
     }
 
     @Override

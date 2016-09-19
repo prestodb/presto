@@ -36,11 +36,9 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -115,7 +113,6 @@ public class PartialAggregationPushDown
             AggregationNode partial = new AggregationNode(
                     idAllocator.getNextId(),
                     node.getSource(),
-                    node.getGroupBy(),
                     intermediateCalls,
                     intermediateFunctions,
                     intermediateMask,
@@ -123,12 +120,12 @@ public class PartialAggregationPushDown
                     PARTIAL,
                     node.getSampleWeight(),
                     node.getConfidence(),
-                    node.getHashSymbol());
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol());
 
             return new AggregationNode(
                     node.getId(),
                     context.rewrite(node.getSource(), partial),
-                    node.getGroupBy(),
                     finalCalls,
                     node.getFunctions(),
                     ImmutableMap.of(),
@@ -136,7 +133,8 @@ public class PartialAggregationPushDown
                     FINAL,
                     Optional.empty(),
                     node.getConfidence(),
-                    node.getHashSymbol());
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol());
         }
 
         @Override
@@ -243,27 +241,19 @@ public class PartialAggregationPushDown
                 layoutMap.put(entry.getKey(), symbol);
             }
 
-            // translate group by keys, also remove the duplicate
-            ImmutableList.Builder<Symbol> groupBy = ImmutableList.builder();
-            Set<Symbol> groupBySet = new HashSet<>();
-            for (Symbol groupBySymbol : node.getGroupBy()) {
+            // put group by keys in map
+            for (Symbol groupBySymbol : node.getGroupingKeys()) {
                 Symbol newGroupBySymbol = exchangeMap.get(groupBySymbol);
-                if (groupBySet.add(newGroupBySymbol)) {
-                    groupBy.add(newGroupBySymbol);
-                }
                 layoutMap.put(groupBySymbol, newGroupBySymbol);
             }
 
-            // translate grouping sets, also remove the duplicate
+            // translate grouping sets
             ImmutableList.Builder<List<Symbol>> groupingSets = ImmutableList.builder();
             for (List<Symbol> symbols : node.getGroupingSets()) {
-                Set<Symbol> symbolSet = new HashSet<>();
                 ImmutableList.Builder<Symbol> symbolList = ImmutableList.builder();
                 for (Symbol symbol : symbols) {
                     Symbol translated = exchangeMap.get(symbol);
-                    if (symbolSet.add(translated)) {
-                        symbolList.add(translated);
-                    }
+                    symbolList.add(translated);
                 }
                 groupingSets.add(symbolList.build());
             }
@@ -271,7 +261,6 @@ public class PartialAggregationPushDown
             AggregationNode partial = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    groupBy.build(),
                     functionCallMap,
                     signatureMap,
                     mask,
@@ -279,7 +268,8 @@ public class PartialAggregationPushDown
                     PARTIAL,
                     node.getSampleWeight(),
                     node.getConfidence(),
-                    node.getHashSymbol());
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol().map(exchangeMap::get));
 
             // generate the output layout according to the order of pre-pushed aggregation's output
             List<Symbol> layout = node.getOutputSymbols().stream()
