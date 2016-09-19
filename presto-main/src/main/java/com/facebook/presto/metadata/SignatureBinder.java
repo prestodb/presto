@@ -61,6 +61,15 @@ public class SignatureBinder
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
     }
 
+    public Optional<Signature> bind(List<? extends Type> actualArgumentTypes, Type actualReturnType)
+    {
+        Optional<BoundVariables> boundVariables = bindVariables(actualArgumentTypes, actualReturnType);
+        if (!boundVariables.isPresent()) {
+            return Optional.empty();
+        }
+        return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
+    }
+
     public Optional<BoundVariables> bindVariables(List<? extends Type> actualArgumentTypes)
     {
         List<TypeSignature> expectedArgumentSignatures = declaredSignature.getArgumentTypes();
