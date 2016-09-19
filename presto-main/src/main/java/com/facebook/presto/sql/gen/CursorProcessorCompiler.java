@@ -50,6 +50,7 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
+import static com.facebook.presto.sql.gen.TryExpressionExtractor.extractTryExpressions;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -181,9 +182,7 @@ public class CursorProcessorCompiler
             RowExpression projection,
             String methodPrefix)
     {
-        TryExpressionExtractor tryExtractor = new TryExpressionExtractor();
-        projection.accept(tryExtractor, null);
-        List<CallExpression> tryExpressions = tryExtractor.getTryExpressionsPreOrder();
+        List<CallExpression> tryExpressions = extractTryExpressions(projection);
 
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
 

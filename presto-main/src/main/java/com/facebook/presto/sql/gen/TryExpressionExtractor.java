@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.bytecode.BytecodeNode;
-import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -29,42 +27,60 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class TryExpressionExtractor
-        implements RowExpressionVisitor<Scope, BytecodeNode>
 {
-    private final ImmutableList.Builder<CallExpression> tryExpressions = ImmutableList.builder();
-
-    @Override
-    public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
+    private TryExpressionExtractor()
     {
-        // TODO: change such that CallExpressions only capture the inputs they actually depend on
-        return null;
     }
 
-    @Override
-    public BytecodeNode visitCall(CallExpression call, Scope scope)
+    public static List<CallExpression> extractTryExpressions(RowExpression expression)
     {
-        if (call.getSignature().getName().equals(TRY)) {
-            checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
-            checkState(getOnlyElement(call.getArguments()) instanceof CallExpression, "try call expression argument must be a call expression");
+        Visitor tryOrLambdaExtractor = new Visitor();
+        expression.accept(tryOrLambdaExtractor, new Context());
+        return tryOrLambdaExtractor.getTryExpressionsPreOrder();
+    }
 
-            tryExpressions.add((CallExpression) getOnlyElement(call.getArguments()));
+    private static class Visitor
+            implements RowExpressionVisitor<Context, Void>
+    {
+        private final ImmutableList.Builder<CallExpression> tryExpressions = ImmutableList.builder();
+
+        @Override
+        public Void visitInputReference(InputReferenceExpression node, Context context)
+        {
+            // TODO: change such that CallExpressions only capture the inputs they actually depend on
+            return null;
         }
 
-        for (RowExpression rowExpression : call.getArguments()) {
-            rowExpression.accept(this, null);
+        @Override
+        public Void visitCall(CallExpression call, Context context)
+        {
+            if (call.getSignature().getName().equals(TRY)) {
+                checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
+                checkState(getOnlyElement(call.getArguments()) instanceof CallExpression, "try call expression argument must be a call expression");
+
+                tryExpressions.add((CallExpression) getOnlyElement(call.getArguments()));
+            }
+
+            for (RowExpression rowExpression : call.getArguments()) {
+                rowExpression.accept(this, null);
+            }
+
+            return null;
         }
 
-        return null;
+        @Override
+        public Void visitConstant(ConstantExpression literal, Context context)
+        {
+            return null;
+        }
+
+        public List<CallExpression> getTryExpressionsPreOrder()
+        {
+            return tryExpressions.build().reverse();
+        }
     }
 
-    @Override
-    public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
+    private static class Context
     {
-        return null;
-    }
-
-    public List<CallExpression> getTryExpressionsPreOrder()
-    {
-        return tryExpressions.build().reverse();
     }
 }

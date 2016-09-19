@@ -58,6 +58,7 @@ import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
+import static com.facebook.presto.sql.gen.TryExpressionExtractor.extractTryExpressions;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -200,9 +201,7 @@ public class JoinFilterFunctionCompiler
             int leftBlocksSize,
             RowExpression filter)
     {
-        TryExpressionExtractor tryExtractor = new TryExpressionExtractor();
-        filter.accept(tryExtractor, null);
-        List<CallExpression> tryExpressions = tryExtractor.getTryExpressionsPreOrder();
+        List<CallExpression> tryExpressions = extractTryExpressions(filter);
 
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
 
