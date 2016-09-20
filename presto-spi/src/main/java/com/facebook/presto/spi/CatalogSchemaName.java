@@ -11,25 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
 
-import javax.annotation.concurrent.Immutable;
+package com.facebook.presto.spi;
 
 import java.util.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class QualifiedSchemaName
+public final class CatalogSchemaName
 {
     private final String catalogName;
     private final String schemaName;
 
-    public QualifiedSchemaName(String catalogName, String schemaName)
+    public CatalogSchemaName(String catalogName, String schemaName)
     {
-        this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = checkSchemaName(schemaName);
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
+        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
     }
 
     public String getCatalogName()
@@ -45,15 +43,15 @@ public class QualifiedSchemaName
     @Override
     public boolean equals(Object obj)
     {
-        if (obj == this) {
+        if (this == obj) {
             return true;
         }
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        QualifiedSchemaName o = (QualifiedSchemaName) obj;
-        return Objects.equals(catalogName, o.catalogName) &&
-                Objects.equals(schemaName, o.schemaName);
+        CatalogSchemaName that = (CatalogSchemaName) obj;
+        return Objects.equals(catalogName, that.catalogName) &&
+                Objects.equals(schemaName, that.schemaName);
     }
 
     @Override
