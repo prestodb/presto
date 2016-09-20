@@ -18,12 +18,12 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-public class NoSecurityModule
+public class LegacySecurityModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(ConnectorAccessControl.class).to(NoAccessControl.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorAccessControl.class).to(LegacyAccessControl.class).in(Scopes.SINGLETON);
     }
 }

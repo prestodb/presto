@@ -34,7 +34,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameC
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static java.util.Objects.requireNonNull;
 
-public class NoAccessControl
+public class LegacyAccessControl
         implements ConnectorAccessControl
 {
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
@@ -44,7 +44,7 @@ public class NoAccessControl
     private final boolean allowRenameColumn;
 
     @Inject
-    public NoAccessControl(
+    public LegacyAccessControl(
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
             HiveClientConfig hiveClientConfig)
     {
