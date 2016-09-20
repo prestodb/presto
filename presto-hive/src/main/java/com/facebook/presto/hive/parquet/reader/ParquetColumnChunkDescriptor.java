@@ -20,18 +20,15 @@ public class ParquetColumnChunkDescriptor
 {
     private final ColumnDescriptor columnDescriptor;
     private final ColumnChunkMetaData columnChunkMetaData;
-    private final long fileOffset;
     private final int size;
 
     public ParquetColumnChunkDescriptor(
             ColumnDescriptor columnDescriptor,
             ColumnChunkMetaData columnChunkMetaData,
-            long fileOffset,
             int size)
     {
         this.columnDescriptor = columnDescriptor;
         this.columnChunkMetaData = columnChunkMetaData;
-        this.fileOffset = fileOffset;
         this.size = size;
     }
 
@@ -48,10 +45,5 @@ public class ParquetColumnChunkDescriptor
     public ColumnChunkMetaData getColumnChunkMetaData()
     {
         return columnChunkMetaData;
-    }
-
-    public long getFileOffset()
-    {
-        return fileOffset;
     }
 }
