@@ -13,16 +13,13 @@
  */
 package com.facebook.presto.hive.security;
 
-import com.facebook.presto.hive.NoSecurityModule;
-import com.facebook.presto.hive.SecurityConfig;
-import com.facebook.presto.hive.SqlStandardSecurityModule;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
-import static com.facebook.presto.hive.SecurityConfig.ALLOW_ALL_ACCESS_CONTROL;
+import static com.facebook.presto.hive.security.SecurityConfig.ALLOW_ALL_ACCESS_CONTROL;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class HiveSecurityModule
