@@ -179,7 +179,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                ImmutableList.of(),
+                ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 1.0,
