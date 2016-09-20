@@ -98,7 +98,9 @@ public class AggregationNode
         for (Symbol mask : masks.keySet()) {
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
-        this.groupingSets = ImmutableList.copyOf(requireNonNull(groupingSets, "groupingSets is null"));
+        requireNonNull(groupingSets, "groupingSets is null");
+        checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
+        this.groupingSets = ImmutableList.copyOf(groupingSets);
         this.step = step;
         this.sampleWeight = requireNonNull(sampleWeight, "sampleWeight is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
