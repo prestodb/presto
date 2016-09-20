@@ -18,12 +18,15 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
 public class LegacySecurityModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(LegacySecurityConfig.class);
         binder.bind(ConnectorAccessControl.class).to(LegacyAccessControl.class).in(Scopes.SINGLETON);
     }
 }
