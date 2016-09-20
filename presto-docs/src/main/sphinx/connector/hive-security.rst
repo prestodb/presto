@@ -314,7 +314,7 @@ HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
 .. code-block:: none
 
     hive.hdfs.authentication.type=NONE
-    hive.hdfs.impersonation=true
+    hive.hdfs.impersonation.enabled=true
 
 When using ``NONE`` authentication with impersonation, Presto impersonates
 the user who is running the query when accessing HDFS. The user Presto is
