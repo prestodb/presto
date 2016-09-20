@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -92,7 +93,7 @@ public final class MetadataUtil
         return null;
     }
 
-    public static QualifiedSchemaName createQualifiedSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
@@ -115,7 +116,7 @@ public final class MetadataUtil
             throw new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set");
         }
 
-        return new QualifiedSchemaName(catalogName, schemaName);
+        return new CatalogSchemaName(catalogName, schemaName);
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)

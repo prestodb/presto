@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -262,7 +263,7 @@ public class MetadataManager
     }
 
     @Override
-    public boolean schemaExists(Session session, QualifiedSchemaName schema)
+    public boolean schemaExists(Session session, CatalogSchemaName schema)
     {
         for (ConnectorEntry entry : allConnectorsFor(schema.getCatalogName())) {
             ConnectorMetadata metadata = entry.getMetadata(session);
