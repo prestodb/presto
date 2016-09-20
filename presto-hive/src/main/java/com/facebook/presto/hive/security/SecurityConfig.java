@@ -11,19 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.security;
 
-import com.facebook.presto.spi.connector.ConnectorAccessControl;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import io.airlift.configuration.Config;
 
-public class NoSecurityModule
-        implements Module
+import javax.validation.constraints.NotNull;
+
+public class SecurityConfig
 {
-    @Override
-    public void configure(Binder binder)
+    public static final String ALLOW_ALL_ACCESS_CONTROL = "allow-all";
+
+    private String securitySystem = ALLOW_ALL_ACCESS_CONTROL;
+
+    @NotNull
+    public String getSecuritySystem()
     {
-        binder.bind(ConnectorAccessControl.class).to(NoAccessControl.class).in(Scopes.SINGLETON);
+        return securitySystem;
+    }
+
+    @Config("hive.security")
+    public SecurityConfig setSecuritySystem(String securitySystem)
+    {
+        this.securitySystem = securitySystem;
+        return this;
     }
 }
