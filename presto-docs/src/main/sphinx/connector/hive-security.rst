@@ -12,7 +12,7 @@ property must be one of the following values:
 ================================================== ============================================================
 Property Value                                     Description
 ================================================== ============================================================
-``allow-all`` (default value)                      No authorization checks are enforced, thus allowing any
+``legacy`` (default value)                         No authorization checks are enforced, thus allowing any
                                                    operation.
 
 ``read-only``                                      Operations that read data or metadata, such as ``SELECT``,

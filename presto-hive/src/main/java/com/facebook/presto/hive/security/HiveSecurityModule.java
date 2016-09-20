@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
-import static com.facebook.presto.hive.security.SecurityConfig.ALLOW_ALL_ACCESS_CONTROL;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class HiveSecurityModule
@@ -28,7 +27,7 @@ public class HiveSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        bindSecurityModule(ALLOW_ALL_ACCESS_CONTROL, new NoSecurityModule());
+        bindSecurityModule("legacy", new LegacySecurityModule());
         bindSecurityModule("file", new FileBasedAccessControlModule());
         bindSecurityModule("read-only", new ReadOnlySecurityModule());
         bindSecurityModule("sql-standard", new SqlStandardSecurityModule());

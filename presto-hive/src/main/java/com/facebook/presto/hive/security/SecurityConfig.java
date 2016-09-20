@@ -19,9 +19,7 @@ import javax.validation.constraints.NotNull;
 
 public class SecurityConfig
 {
-    public static final String ALLOW_ALL_ACCESS_CONTROL = "allow-all";
-
-    private String securitySystem = ALLOW_ALL_ACCESS_CONTROL;
+    private String securitySystem = "legacy";
 
     @NotNull
     public String getSecuritySystem()
