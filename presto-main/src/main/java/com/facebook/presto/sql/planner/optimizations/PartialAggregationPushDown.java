@@ -220,6 +220,8 @@ public class PartialAggregationPushDown
         // generate new partial aggregation for each exchange branch with renamed symbols
         private AggregationWithLayout generateNewPartial(AggregationNode node, PlanNode source, Map<Symbol, Symbol> exchangeMap)
         {
+            checkState(!node.getHashSymbol().isPresent(), "PartialAggregationPushDown optimizer must run before HashGenerationOptimizer");
+
             // Store the symbol mapping from old aggregation output to new aggregation output
             Map<Symbol, Symbol> layoutMap = new HashMap<>();
 

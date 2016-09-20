@@ -5354,6 +5354,29 @@ public abstract class AbstractTestQueries
                         "        SELECT custkey,orderkey,orderkey+1 from orders where orderkey<>0) " +
                         "    GROUP BY orderkey)"
         );
+
+        assertQuery(
+                "SELECT count(orderkey), sum(sc) FROM (\n" +
+                        "    SELECT sum(custkey) sc, orderkey FROM (\n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey=0\n" +
+                        "        UNION ALL \n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey<>0) \n" +
+                        "    GROUP BY GROUPING SETS ((orderkey, orderstatus), (orderkey)))",
+                "SELECT count(orderkey), sum(sc) FROM (\n" +
+                        "    SELECT sum(custkey) sc, orderkey FROM (\n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey=0\n" +
+                        "        UNION ALL \n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey<>0) \n" +
+                        "    GROUP BY orderkey, orderstatus \n" +
+                        "    \n" +
+                        "    UNION ALL \n" +
+                        "    \n" +
+                        "    SELECT sum(custkey) sc, orderkey FROM (\n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey=0\n" +
+                        "        UNION ALL \n" +
+                        "        SELECT custkey, orderkey, orderkey+1, orderstatus from orders where orderkey<>0) \n" +
+                        "    GROUP BY orderkey)"
+        );
     }
 
     @Test
