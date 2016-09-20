@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.security;
 
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveConnectorId;
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -67,23 +66,16 @@ public class SqlStandardAccessControl
     // Transaction handle is not available for checkCanSetCatalogSessionProperty.
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
     private final ExtendedHiveMetastore metastore;
-    private final boolean allowDropTable;
-    private final boolean allowRenameTable;
 
     @Inject
     public SqlStandardAccessControl(
             HiveConnectorId connectorId,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
-            ExtendedHiveMetastore metastore,
-            HiveClientConfig hiveClientConfig)
+            ExtendedHiveMetastore metastore)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
-
-        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
-        allowDropTable = hiveClientConfig.getAllowDropTable();
-        allowRenameTable = hiveClientConfig.getAllowRenameTable();
     }
 
     @Override
@@ -97,7 +89,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanDropTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName)
     {
-        if (!allowDropTable || !checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyDropTable(tableName.toString());
         }
     }
@@ -105,7 +97,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanRenameTable(ConnectorTransactionHandle transaction, Identity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        if (!allowRenameTable || !checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(transaction, identity, tableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
     }
