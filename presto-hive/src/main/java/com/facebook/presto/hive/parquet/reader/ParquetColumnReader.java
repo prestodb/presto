@@ -233,7 +233,7 @@ public abstract class ParquetColumnReader
             int offset = rlReader.getNextOffset();
             dlReader.initFromPage(pageValueCount, bytes, offset);
             offset = dlReader.getNextOffset();
-            return initDataReader(page.getValueEncoding(), bytes, offset, page.getValueCount());
+            return initDataReader(page.getValueEncoding(), bytes, offset);
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Error reading parquet page " + page + " in column " + columnDescriptor, e);
@@ -244,7 +244,7 @@ public abstract class ParquetColumnReader
     {
         repetitionReader = buildLevelRLEReader(columnDescriptor.getMaxRepetitionLevel(), page.getRepetitionLevels());
         definitionReader = buildLevelRLEReader(columnDescriptor.getMaxDefinitionLevel(), page.getDefinitionLevels());
-        return initDataReader(page.getDataEncoding(), page.getSlice().getBytes(), 0, page.getValueCount());
+        return initDataReader(page.getDataEncoding(), page.getSlice().getBytes(), 0);
     }
 
     private ParquetLevelReader buildLevelRLEReader(int maxLevel, Slice slice)
@@ -255,7 +255,7 @@ public abstract class ParquetColumnReader
         return new ParquetLevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), new ByteArrayInputStream(slice.getBytes())));
     }
 
-    private ValuesReader initDataReader(ParquetEncoding dataEncoding, byte[] bytes, int offset, int valueCount)
+    private ValuesReader initDataReader(ParquetEncoding dataEncoding, byte[] bytes, int offset)
     {
         ValuesReader valuesReader;
         if (dataEncoding.usesDictionary()) {

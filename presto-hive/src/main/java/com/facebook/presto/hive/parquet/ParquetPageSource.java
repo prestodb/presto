@@ -128,16 +128,14 @@ class ParquetPageSource
         this.requestedSchema = requestedSchema;
         this.totalBytes = totalBytes;
 
-        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(requireNonNull(partitionKeys, "partitionKeys is null"), HivePartitionKey::getName);
-
-        int size = requireNonNull(columns, "columns is null").size();
-
+        int size = columns.size();
         this.constantBlocks = new Block[size];
         this.hiveColumnIndexes = new int[size];
 
+        Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
-        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+        for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
 
             String name = column.getName();

@@ -30,13 +30,16 @@ public class ParquetDictionaryPage
 
     public ParquetDictionaryPage(Slice slice, int dictionarySize, ParquetEncoding encoding)
     {
-        this(slice, slice.length(), dictionarySize, encoding);
+        this(requireNonNull(slice, "slice is null"),
+                slice.length(),
+                dictionarySize,
+                requireNonNull(encoding, "encoding is null"));
     }
 
     public ParquetDictionaryPage(Slice slice, int uncompressedSize, int dictionarySize, ParquetEncoding encoding)
     {
-        super(slice.length(), uncompressedSize);
-        this.slice = requireNonNull(slice, "slice is null");
+        super(requireNonNull(slice, "slice is null").length(), uncompressedSize);
+        this.slice = slice;
         this.dictionarySize = dictionarySize;
         this.encoding = requireNonNull(encoding, "encoding is null");
     }

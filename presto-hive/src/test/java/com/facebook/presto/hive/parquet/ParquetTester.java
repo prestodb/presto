@@ -64,6 +64,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static parquet.hadoop.metadata.CompressionCodecName.GZIP;
+import static parquet.hadoop.metadata.CompressionCodecName.LZO;
 import static parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
 import static parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 
@@ -86,7 +87,7 @@ public class ParquetTester
     public static ParquetTester fullParquetTester()
     {
         ParquetTester parquetTester = new ParquetTester();
-        parquetTester.compressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY);
+        parquetTester.compressions = ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO);
         parquetTester.versions = ImmutableSet.copyOf(WriterVersion.values());
         return parquetTester;
     }
@@ -172,10 +173,7 @@ public class ParquetTester
         ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
 
         ParquetReader parquetReader = new ParquetReader(fileSchema,
-                                                        fileMetaData.getKeyValueMetaData(),
-                                                        fileSchema,
                                                         parquetMetadata.getBlocks(),
-                                                        jobConf,
                                                         dataSource);
         assertEquals(parquetReader.getPosition(), 0);
 

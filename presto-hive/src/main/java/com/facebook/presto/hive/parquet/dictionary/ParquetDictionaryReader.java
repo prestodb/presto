@@ -48,74 +48,49 @@ public class ParquetDictionaryReader
     @Override
     public int readValueDictionaryId()
     {
-        try {
-            return decoder.readInt();
-        }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        return readInt();
     }
 
     @Override
     public Binary readBytes()
     {
-        try {
-            return dictionary.decodeToBinary(decoder.readInt());
-        }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        return dictionary.decodeToBinary(readInt());
     }
 
     @Override
     public float readFloat()
     {
-        try {
-            return dictionary.decodeToFloat(decoder.readInt());
-        }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        return dictionary.decodeToFloat(readInt());
     }
 
     @Override
     public double readDouble()
     {
-        try {
-            return dictionary.decodeToDouble(decoder.readInt());
-        }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        return dictionary.decodeToDouble(readInt());
     }
 
     @Override
     public int readInteger()
     {
-        try {
-            return dictionary.decodeToInt(decoder.readInt());
-        }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        return dictionary.decodeToInt(readInt());
     }
 
     @Override
     public long readLong()
     {
-        try {
-            return dictionary.decodeToLong(decoder.readInt());
-        }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        return dictionary.decodeToLong(readInt());
     }
 
     @Override
     public void skip()
     {
+        readInt();
+    }
+
+    private int readInt()
+    {
         try {
-            decoder.readInt();
+            return decoder.readInt();
         }
         catch (IOException e) {
             throw new ParquetDecodingException(e);

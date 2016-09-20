@@ -17,6 +17,7 @@ import com.facebook.presto.hive.parquet.ParquetDataPage;
 import com.facebook.presto.hive.parquet.ParquetDataPageV1;
 import com.facebook.presto.hive.parquet.ParquetDataPageV2;
 import com.facebook.presto.hive.parquet.ParquetDictionaryPage;
+import parquet.Ints;
 import parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
@@ -74,6 +75,10 @@ class ParquetPageReader
                 if (!dataPageV2.isCompressed()) {
                     return dataPageV2;
                 }
+                int uncompressedSize = Ints.checkedCast(
+                        dataPageV2.getUncompressedSize()
+                                - dataPageV2.getDefinitionLevels().length()
+                                - dataPageV2.getRepetitionLevels().length());
                 return new ParquetDataPageV2(
                         dataPageV2.getRowCount(),
                         dataPageV2.getNullCount(),
@@ -81,7 +86,7 @@ class ParquetPageReader
                         dataPageV2.getRepetitionLevels(),
                         dataPageV2.getDefinitionLevels(),
                         dataPageV2.getDataEncoding(),
-                        decompress(codec, dataPageV2.getSlice(), dataPageV2.getUncompressedSize()),
+                        decompress(codec, dataPageV2.getSlice(), uncompressedSize),
                         dataPageV2.getUncompressedSize(),
                         dataPageV2.getStatistics(),
                         false);
