@@ -15,8 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
-import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
+import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -44,10 +43,8 @@ import javax.management.MBeanServer;
 import java.lang.management.ManagementFactory;
 import java.util.Map;
 
-import static com.facebook.presto.hive.SecurityConfig.ALLOW_ALL_ACCESS_CONTROL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;
 
 public class HiveConnectorFactory
@@ -92,22 +89,7 @@ public class HiveConnectorFactory
                             context.getTypeManager(),
                             context.getPageIndexerFactory(),
                             context.getNodeManager()),
-                    installModuleIf(
-                            SecurityConfig.class,
-                            security -> ALLOW_ALL_ACCESS_CONTROL.equalsIgnoreCase(security.getSecuritySystem()),
-                            new NoSecurityModule()),
-                    installModuleIf(
-                            SecurityConfig.class,
-                            security -> "file".equalsIgnoreCase(security.getSecuritySystem()),
-                            new FileBasedAccessControlModule()),
-                    installModuleIf(
-                            SecurityConfig.class,
-                            security -> "read-only".equalsIgnoreCase(security.getSecuritySystem()),
-                            new ReadOnlySecurityModule()),
-                    installModuleIf(
-                            SecurityConfig.class,
-                            security -> "sql-standard".equalsIgnoreCase(security.getSecuritySystem()),
-                            new SqlStandardSecurityModule()),
+                    new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     binder -> {
                         MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
