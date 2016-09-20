@@ -12,8 +12,10 @@ property must be one of the following values:
 ================================================== ============================================================
 Property Value                                     Description
 ================================================== ============================================================
-``legacy`` (default value)                         No authorization checks are enforced, thus allowing any
-                                                   operation.
+``legacy`` (default value)                         Few authorization checks are enforced, thus allowing most
+                                                   operations. The config properties ``hive.allow-drop-table``,
+                                                   ``hive.allow-rename-table``, ``hive.allow-add-column`` and
+                                                   ``hive.allow-rename-column`` are used.
 
 ``read-only``                                      Operations that read data or metadata, such as ``SELECT``,
                                                    are permitted, but none of the operations that write data or

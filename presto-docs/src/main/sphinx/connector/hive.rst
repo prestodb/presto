@@ -137,10 +137,6 @@ Property Name                                      Description                  
                                                    installations where Presto is collocated with every
                                                    DataNode.
 
-``hive.allow-drop-table``                          Allow the Hive connector to drop tables.                     ``false``
-
-``hive.allow-rename-table``                        Allow the Hive connector to rename tables.                   ``false``
-
 ``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
                                                    format or the default Presto format?
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.security;
 
-import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
@@ -46,14 +45,15 @@ public class LegacyAccessControl
     @Inject
     public LegacyAccessControl(
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
-            HiveClientConfig hiveClientConfig)
+            LegacySecurityConfig securityConfig)
     {
-        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
-        allowDropTable = hiveClientConfig.getAllowDropTable();
-        allowRenameTable = hiveClientConfig.getAllowRenameTable();
-        allowAddColumn = hiveClientConfig.getAllowAddColumn();
-        allowRenameColumn = hiveClientConfig.getAllowRenameColumn();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
+
+        requireNonNull(securityConfig, "securityConfig is null");
+        allowDropTable = securityConfig.getAllowDropTable();
+        allowRenameTable = securityConfig.getAllowRenameTable();
+        allowAddColumn = securityConfig.getAllowAddColumn();
+        allowRenameColumn = securityConfig.getAllowRenameColumn();
     }
 
     @Override

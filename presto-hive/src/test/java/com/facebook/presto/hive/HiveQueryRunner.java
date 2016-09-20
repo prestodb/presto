@@ -101,10 +101,6 @@ public final class HiveQueryRunner
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .putAll(extraHiveProperties)
                     .put("hive.metastore.uri", "thrift://localhost:8080")
-                    .put("hive.allow-add-column", "true")
-                    .put("hive.allow-drop-table", "true")
-                    .put("hive.allow-rename-table", "true")
-                    .put("hive.allow-rename-column", "true")
                     .put("hive.time-zone", TIME_ZONE.getID())
                     .put("hive.security", security)
                     .build();
