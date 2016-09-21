@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveUtil;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiTable;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -139,6 +141,11 @@ public class BridgingHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        for (FieldSchema fieldSchema : table.getPartitionKeys()) {
+            if (fieldSchema.getName().equals(oldColumnName)) {
+                throw new PrestoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
+            }
+        }
         for (FieldSchema fieldSchema : table.getSd().getCols()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
                 fieldSchema.setName(newColumnName);
