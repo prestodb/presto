@@ -492,6 +492,17 @@ public class HiveMetadata
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         HiveColumnHandle sourceHandle = checkType(source, HiveColumnHandle.class, "columnHandle");
 
+        Optional<Table> table = metastore.getTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(schemaTableName(hiveTableHandle));
+        }
+
+        for (Column column : table.get().getPartitionColumns()) {
+            if (column.getName().equals(sourceHandle.getName())) {
+                throw new PrestoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
+            }
+        }
+
         metastore.renameColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
     }
 
