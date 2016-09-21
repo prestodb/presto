@@ -22,6 +22,7 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
+import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
@@ -100,6 +101,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -1739,6 +1741,19 @@ public class LocalExecutionPlanner
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
 
             OperatorFactory operatorFactory = new EnforceSingleRowOperator.EnforceSingleRowOperatorFactory(context.getNextOperatorId(), node.getId(), types);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), source);
+        }
+
+        @Override
+        public PhysicalOperation visitAssignUniqueId(AssignUniqueId node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+
+            OperatorFactory operatorFactory = new AssignUniqueIdOperator.AssignUniqueIdOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    types);
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
         }
 
