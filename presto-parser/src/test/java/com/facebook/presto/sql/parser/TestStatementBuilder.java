@@ -214,6 +214,8 @@ public class TestStatementBuilder
         printStatement("revoke grant option for select on foo from alice");
         printStatement("revoke all privileges on foo from alice");
         printStatement("revoke insert, delete on foo from public"); //check support for public
+
+        printStatement("prepare p from select * from (select * from T) \"A B\"");
     }
 
     @Test
