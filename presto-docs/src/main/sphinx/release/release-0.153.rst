@@ -8,6 +8,7 @@ General Changes
 * Make resource group configuration more flexible. See "SPI Changes" below, and the
   :doc:`resource groups documentation </admin/resource-groups>`.
 * Improve performance of :ref:`array_type` when underlying data is dictionary encoded.
+* Improve performance of ORC reader when decoding dictionary encoded :ref:`map_type`.
 
 SPI Changes
 -----------
