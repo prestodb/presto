@@ -2,7 +2,7 @@ version: '2'
 services:
 
   java-8-base:
-    image: 'teradatalabs/centos6-java8-oracle:jdk1.8.0_92-80a011f'
+    image: 'teradatalabs/centos6-java8-oracle:${DOCKER_IMAGES_VERSION}'
     volumes:
       - ../..:/docker/volumes/conf
 
