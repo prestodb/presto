@@ -382,8 +382,7 @@ public final class SqlFormatter
             process(node.getRelation(), indent);
 
             builder.append(' ')
-                    .append(node.getAlias());
-
+                    .append(formatName(node.getAlias()));
             appendAliasColumns(builder, node.getColumnNames());
 
             return null;
