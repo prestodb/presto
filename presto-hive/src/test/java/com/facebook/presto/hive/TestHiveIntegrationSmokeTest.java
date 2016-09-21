@@ -1469,6 +1469,35 @@ public class TestHiveIntegrationSmokeTest
         assertEqualsIgnoreOrder(actualAfterTransaction, expected);
     }
 
+    @Test
+    public void testRenameColumn()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            testRenameColumn(storageFormat);
+        }
+    }
+
+    private void testRenameColumn(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_rename_column\n" +
+                "WITH (\n" +
+                "  format = '" + storageFormat + "',\n" +
+                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                ")\n" +
+                "AS\n" +
+                "SELECT orderkey, orderstatus FROM orders";
+
+        assertUpdate(createTable, "SELECT count(*) FROM orders");
+        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN orderkey TO new_orderkey");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus", "com.facebook.presto.spi.PrestoException: Renaming partition columns is not supported");
+        assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
+        assertUpdate("DROP TABLE test_rename_column");
+    }
+
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
