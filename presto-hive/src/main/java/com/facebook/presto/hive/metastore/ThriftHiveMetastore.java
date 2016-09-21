@@ -661,8 +661,11 @@ public class ThriftHiveMetastore
                                 if (userPrivileges != null) {
                                     privileges.addAll(toGrants(userPrivileges.get(user)));
                                 }
-                                for (List<PrivilegeGrantInfo> rolePrivileges : privilegeSet.getRolePrivileges().values()) {
-                                    privileges.addAll(toGrants(rolePrivileges));
+                                Map<String, List<PrivilegeGrantInfo>> rolePrivilegesMap = privilegeSet.getRolePrivileges();
+                                if (rolePrivilegesMap != null) {
+                                    for (List<PrivilegeGrantInfo> rolePrivileges : rolePrivilegesMap.values()) {
+                                        privileges.addAll(toGrants(rolePrivileges));
+                                    }
                                 }
                                 // We do not add the group permissions as Hive does not seem to process these
                             }
