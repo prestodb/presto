@@ -16,7 +16,8 @@ function canonical_path() {
 
 source ${BASH_SOURCE%/*}/../../../bin/locations.sh
 
-export HADOOP_MASTER_IMAGE=${HADOOP_MASTER_IMAGE:-'teradatalabs/cdh5-hive:4'}
+export DOCKER_IMAGES_VERSION=7
+export HADOOP_MASTER_IMAGE=${HADOOP_MASTER_IMAGE:-"teradatalabs/cdh5-hive:${DOCKER_IMAGES_VERSION}"}
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
 # and without building the project. The `presto.env` file should only be sourced if any of the variables
