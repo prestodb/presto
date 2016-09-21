@@ -32,8 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class AssignUniqueIdOperator
         implements Operator
 {
-    private static final long ROW_IDS_PER_REQUEST = 1 << 20;
-    private static final long MAX_ROW_ID = 1 << 40;
+    private static final long ROW_IDS_PER_REQUEST = 1L << 20L;
+    private static final long MAX_ROW_ID = 1L << 40L;
 
     public static class AssignUniqueIdOperatorFactory
             implements OperatorFactory

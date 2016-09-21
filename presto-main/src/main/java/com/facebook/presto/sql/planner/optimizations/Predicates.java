@@ -20,8 +20,22 @@ public class Predicates
 {
     private Predicates() {}
 
+    public static Predicate isInstanceOfAny(Class... classes)
+    {
+        Predicate predicate = alwaysFalse();
+        for (Class clazz : classes) {
+            predicate = predicate.or(clazz::isInstance);
+        }
+        return predicate;
+    }
+
     public static <T> Predicate<T> alwaysTrue()
     {
         return x -> true;
+    }
+
+    public static <T> Predicate<T> alwaysFalse()
+    {
+        return x -> false;
     }
 }

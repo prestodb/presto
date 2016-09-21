@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -214,6 +215,24 @@ public class TestLogicalPlanner
                                                         tableScan("lineitem").withSymbol("orderkey", "L"),
                                                         node(EnforceSingleRowNode.class,
                                                                 project(
+                                                                        node(ValuesNode.class)
+                                                                ))))))));
+    }
+
+    @Test
+    public void testCorrelatedScalarAggregationRewriteToLeftOuterJoin()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) = 1
+                anyTree(
+                        filter("count > 0",
+                                anyTree(
+                                        node(AggregationNode.class,
+                                                anyTree(
+                                                        join(LEFT, ImmutableList.of(),
+                                                                anyTree(
+                                                                        tableScan("orders")),
+                                                                anyTree(
                                                                         node(ValuesNode.class)
                                                                 ))))))));
     }
