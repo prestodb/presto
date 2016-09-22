@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: false; types: LONGNVARCHAR|LONGNVARCHAR
+-- delimiter: |; ignoreOrder: false; types: BIGINT|BIGINT
 0|50005|
 9|6641|
 10|6532|
