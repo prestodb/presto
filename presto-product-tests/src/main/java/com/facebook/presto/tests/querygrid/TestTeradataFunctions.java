@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Timestamp;
 
-import static com.facebook.presto.tests.querygrid.QuerygridTestGroups.FUNCTIONS;
+import static com.facebook.presto.tests.TestGroups.FUNCTIONS;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
