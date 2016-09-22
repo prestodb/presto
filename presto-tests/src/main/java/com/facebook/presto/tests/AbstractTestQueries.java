@@ -5179,6 +5179,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT COUNT(CAST(orderkey AS VARCHAR) || TRY(to_base(100, CAST(round(totalprice/100) AS BIGINT)))) FROM orders",
                 "SELECT SUM(CASE WHEN CAST(round(totalprice/100) AS BIGINT) BETWEEN 2 AND 36 THEN 1 ELSE 0 END) FROM orders");
+
+        // missing function argument
+        assertQueryFails("SELECT TRY()", "line 1:8: The 'try' function must have exactly one argument");
     }
 
     // no regexp specified because the JVM optimizes away exception message constructor if run enough times
