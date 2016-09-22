@@ -24,7 +24,8 @@ import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 
-public class ProductTestTeradataFunctions extends ProductTest
+public class TestTeradataFunctions
+        extends ProductTest
 {
     @Test(groups = FUNCTIONS)
     public void testIndex()
