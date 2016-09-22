@@ -2314,6 +2314,22 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTryPushedDownLeftJoinClause()
+            throws Exception
+    {
+        // this pushdowns TRY function to the sub filters
+        assertQuery("SELECT * FROM " +
+                        "(SELECT regionkey FROM region WHERE regionkey < 1) t1 " +
+                        "   LEFT OUTER JOIN " +
+                        "(SELECT TRY(from_base(name, 36)) AS id FROM nation WHERE name IS NOT NULL) t2 " +
+                        "     ON t1.regionkey = t2.id " +
+                        "   LEFT OUTER JOIN " +
+                        "(SELECT TRY(from_base(name, 36)) AS id FROM nation WHERE name IS NOT NULL) t3 " +
+                        "     ON t2.id = t3.id",
+                "VALUES (0, NULL, NULL)");
+    }
+
+    @Test
     public void testLeftJoinWithEmptyInnerTable()
             throws Exception
     {
