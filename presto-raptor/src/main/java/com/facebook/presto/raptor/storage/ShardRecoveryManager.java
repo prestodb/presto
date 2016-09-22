@@ -142,7 +142,9 @@ public class ShardRecoveryManager
     {
         missingShardExecutor.scheduleWithFixedDelay(() -> {
             try {
-                SECONDS.sleep(ThreadLocalRandom.current().nextInt(1, 30));
+                // jitter to avoid overloading database
+                long interval = missingShardDiscoveryInterval.roundTo(SECONDS);
+                SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
                 for (ShardMetadata shard : getMissingShards()) {
                     stats.incrementBackgroundShardRecovery();
                     Futures.addCallback(
