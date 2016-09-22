@@ -1170,6 +1170,7 @@ class AstBuilder
             return new CoalesceExpression(getLocation(context), visit(context.expression(), Expression.class));
         }
         if (name.toString().equalsIgnoreCase("try")) {
+            check(context.expression().size() == 1, "The 'try' function must have exactly one argument", context);
             check(!window.isPresent(), "OVER clause not valid for 'try' function", context);
             check(!distinct, "DISTINCT not valid for 'try' function", context);
 
