@@ -1,8 +1,8 @@
 -- database: presto; groups: tpch,quarantine; tables: lineitem,supplier
-CREATE VIEW revenue (supplier_no, total_revenue) AS
+CREATE OR REPLACE VIEW revenue AS
   SELECT
-    l_suppkey,
-    sum(l_extendedprice * (1 - l_discount))
+    l_suppkey AS supplier_no,
+    sum(l_extendedprice * (1 - l_discount)) AS total_revenue
   FROM
     lineitem
   WHERE
@@ -29,5 +29,3 @@ WHERE
   )
 ORDER BY
   s_suppkey;
-
-DROP VIEW revenue;
