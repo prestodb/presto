@@ -56,6 +56,7 @@ Array Functions
 .. function:: array_sort(x) -> array
 
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
+    Null elements will be placed at the end of the returned array.
 
 .. function:: cardinality(x) -> bigint
 
