@@ -44,6 +44,7 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -74,6 +75,7 @@ import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.airlift.tpch.TpchTable.tableNameGetter;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertEquals;
@@ -7036,6 +7038,25 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual("SELECT DATE '2013-03-22', TIME '3:04:05', TIME '3:04:05 +06:00', TIMESTAMP '1960-01-22 3:04:05', TIMESTAMP '1960-01-22 3:04:05 +06:00'");
 
         assertEquals(actual, builder.build());
+    }
+
+    @Test
+    public void testArrayShuffle()
+            throws Exception
+    {
+        List<Integer> expected = asList(2, 8, 7, 5, 4, 6, 3);
+        Set<List<Integer>> resultSet = new HashSet<>();
+
+        resultSet.add(expected);
+        for (int i = 0; i < 10; i++) {
+            List<Integer> result = (List<Integer>) computeActual("SELECT shuffle(array[2, 8, 7, 5, 4, 6, 3])").getOnlyValue();
+
+            // check if the result is a correct permutation
+            assertEqualsIgnoreOrder(result, expected);
+
+            // check if there is any duplicated result
+            assertTrue(resultSet.add(result));
+        }
     }
 
     @Test

@@ -101,6 +101,10 @@ Array Functions
     Generate a sequence of timestamps from ``start`` to ``stop``, incrementing by ``step``.
     The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
 
+.. function:: shuffle(x) -> array
+
+    Generate a random permutation of the given array ``x``.
+
 .. function:: slice(x, start, length) -> array
 
     Subsets array ``x`` starting from index ``start`` (or starting from the end
