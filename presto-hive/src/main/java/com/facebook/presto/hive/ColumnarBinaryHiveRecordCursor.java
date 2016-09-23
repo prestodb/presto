@@ -36,7 +36,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapred.RecordReader;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -126,7 +125,6 @@ class ColumnarBinaryHiveRecordCursor<K>
             long totalBytes,
             Properties splitSchema,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
     {
         requireNonNull(recordReader, "recordReader is null");

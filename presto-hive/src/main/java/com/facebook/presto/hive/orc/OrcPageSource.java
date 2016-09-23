@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.List;
@@ -65,7 +64,6 @@ public class OrcPageSource
             OrcRecordReader recordReader,
             OrcDataSource orcDataSource,
             List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             AggregatedMemoryContext systemMemoryContext)
     {

@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import org.joda.time.DateTimeZone;
 import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
 
@@ -74,7 +73,6 @@ public class ParquetPageSource
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean useParquetColumnNames)
     {
