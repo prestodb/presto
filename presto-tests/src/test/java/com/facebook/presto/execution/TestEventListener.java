@@ -89,6 +89,8 @@ public class TestEventListener
         EventsBuilder events = generateEvents("SELECT 1", 3);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(events.getQueryCreatedEvents());
+        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
+        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
 
@@ -111,6 +113,8 @@ public class TestEventListener
         EventsBuilder events = generateEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(events.getQueryCreatedEvents());
+        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
+        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT sum(linenumber) FROM lineitem");
 
