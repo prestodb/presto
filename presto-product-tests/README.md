@@ -228,6 +228,8 @@ be any one of the available profiles:
 
 ### Running from IntelliJ
 
+### Running from IntelliJ
+
 For running Java based tests from IntelliJ see the section on
 [Debugging Java based tests](#debugging-java-based-tests).
 
