@@ -165,7 +165,6 @@ public class HiveMetadataFactory
                 locationService,
                 tableParameterCodec,
                 partitionUpdateCodec,
-                renameExecution,
                 typeTranslator,
                 prestoVersion);
     }

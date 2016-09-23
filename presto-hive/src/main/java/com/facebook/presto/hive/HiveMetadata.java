@@ -72,7 +72,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -145,7 +144,6 @@ public class HiveMetadata
     private final LocationService locationService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
-    private final Executor renameExecutor;
     private final boolean respectTableFormat;
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
@@ -170,7 +168,6 @@ public class HiveMetadata
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            Executor renameExecutor,
             TypeTranslator typeTranslator,
             String prestoVersion)
     {
@@ -191,7 +188,6 @@ public class HiveMetadata
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
-        this.renameExecutor = requireNonNull(renameExecutor, "renameExecution is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
     }
