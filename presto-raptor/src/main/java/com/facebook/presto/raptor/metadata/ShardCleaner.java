@@ -81,6 +81,7 @@ public class ShardCleaner
     private final Duration backupCleanTime;
     private final ScheduledExecutorService scheduler;
     private final ExecutorService backupExecutor;
+    private final Duration maxCompletedTransactionAge;
 
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -116,7 +117,8 @@ public class ShardCleaner
                 config.getLocalCleanTime(),
                 config.getBackupCleanerInterval(),
                 config.getBackupCleanTime(),
-                config.getBackupDeletionThreads());
+                config.getBackupDeletionThreads(),
+                config.getMaxCompletedTransactionAge());
     }
 
     public ShardCleaner(
@@ -132,7 +134,8 @@ public class ShardCleaner
             Duration localCleanTime,
             Duration backupCleanerInterval,
             Duration backupCleanTime,
-            int backupDeletionThreads)
+            int backupDeletionThreads,
+            Duration maxCompletedTransactionAge)
     {
         this.dao = shardDaoSupplier.onDemand();
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
@@ -148,6 +151,7 @@ public class ShardCleaner
         this.backupCleanTime = requireNonNull(backupCleanTime, "backupCleanTime is null");
         this.scheduler = newScheduledThreadPool(2, daemonThreadsNamed("shard-cleaner-%s"));
         this.backupExecutor = newFixedThreadPool(backupDeletionThreads, daemonThreadsNamed("shard-cleaner-backup-%s"));
+        this.maxCompletedTransactionAge = requireNonNull(maxCompletedTransactionAge, "maxCompletedTransactionAge is null");
     }
 
     @PostConstruct
@@ -229,6 +233,7 @@ public class ShardCleaner
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 abortOldTransactions();
+                deleteOldCompletedTransactions();
                 deleteOldShards();
             }
             catch (Throwable t) {
@@ -288,6 +293,12 @@ public class ShardCleaner
             dao.deleteCreatedShards(shards);
             backupShardsQueued.update(shards.size());
         }
+    }
+
+    @VisibleForTesting
+    void deleteOldCompletedTransactions()
+    {
+        dao.deleteOldCompletedTransactions(maxTimestamp(maxCompletedTransactionAge));
     }
 
     @VisibleForTesting
