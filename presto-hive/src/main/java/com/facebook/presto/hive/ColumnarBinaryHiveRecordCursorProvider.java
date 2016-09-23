@@ -69,7 +69,6 @@ public class ColumnarBinaryHiveRecordCursorProvider
                 length,
                 schema,
                 columns,
-                hiveStorageTimeZone,
                 typeManager));
     }
 

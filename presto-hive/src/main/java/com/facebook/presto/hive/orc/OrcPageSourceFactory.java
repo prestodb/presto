@@ -183,7 +183,6 @@ public class OrcPageSourceFactory
                     recordReader,
                     orcDataSource,
                     physicalColumns,
-                    hiveStorageTimeZone,
                     typeManager,
                     systemMemoryUsage);
         }

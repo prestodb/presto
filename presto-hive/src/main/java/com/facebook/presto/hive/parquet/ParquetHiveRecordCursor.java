@@ -36,7 +36,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
-import org.joda.time.DateTimeZone;
 import parquet.column.Dictionary;
 import parquet.hadoop.ParquetFileReader;
 import parquet.hadoop.ParquetInputSplit;
@@ -126,7 +125,6 @@ public class ParquetHiveRecordCursor
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -135,7 +133,6 @@ public class ParquetHiveRecordCursor
         checkArgument(length >= 0, "length is negative");
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
 
         this.totalBytes = length;
 
