@@ -131,7 +131,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
 
         int size = columns.size();
 
-        String[] names = new String[size];
         this.types = new Type[size];
         this.hiveTypes = new HiveType[size];
 
@@ -151,7 +150,6 @@ class GenericHiveRecordCursor<K, V extends Writable>
             HiveColumnHandle column = columns.get(i);
             checkState(column.getColumnType() == REGULAR, "column type must be regular");
 
-            names[i] = column.getName();
             types[i] = typeManager.getType(column.getTypeSignature());
             hiveTypes[i] = column.getHiveType();
 
