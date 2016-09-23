@@ -862,6 +862,19 @@ public class RaptorMetadata
         return RaptorColumnIdentity.deserialize(bytes);
     }
 
+    @Override
+    public void updateMaterializedQueryTableInfo(ConnectorTableHandle tableHandle, MaterializedQueryTableInfo materializedQueryTableInfo)
+    {
+        RaptorTableHandle raptorTableHandle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+        requireNonNull(materializedQueryTableInfo, "materializedQueryTableInfo is null");
+
+        runTransaction(dbi, (handle, status) -> {
+            MetadataDao dao = handle.attach(MetadataDao.class);
+            dao.updateMaterializedQueryTableInfo(raptorTableHandle.getTableId(), materializedQueryTableInfoJsonCodec.toJson(materializedQueryTableInfo));
+            return null;
+        });
+    }
+
     private RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)
     {
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());

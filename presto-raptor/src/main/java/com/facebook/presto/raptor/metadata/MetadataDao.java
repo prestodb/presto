@@ -164,6 +164,13 @@ public interface MetadataDao
             @Bind("bucketOrdinalPosition") Integer bucketOrdinalPosition);
 
     @SqlUpdate("UPDATE tables SET\n" +
+            "  materialized_query_table_info = :materializedQueryTableInfo\n" +
+            "WHERE table_id = :tableId")
+    void updateMaterializedQueryTableInfo(
+            @Bind("tableId") long tableId,
+            @Bind("materializedQueryTableInfo") String materializedQueryTableInfo);
+
+    @SqlUpdate("UPDATE tables SET\n" +
             "  schema_name = :newSchemaName\n" +
             ", table_name = :newTableName\n" +
             "WHERE table_id = :tableId")
