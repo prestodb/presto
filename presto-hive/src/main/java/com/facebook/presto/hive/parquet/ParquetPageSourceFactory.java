@@ -134,7 +134,6 @@ public class ParquetPageSourceFactory
                 schema,
                 columns,
                 useParquetColumnNames,
-                hiveStorageTimeZone,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate));
@@ -150,7 +149,6 @@ public class ParquetPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -201,7 +199,6 @@ public class ParquetPageSourceFactory
                     schema,
                     columns,
                     effectivePredicate,
-                    hiveStorageTimeZone,
                     typeManager,
                     useParquetColumnNames);
         }

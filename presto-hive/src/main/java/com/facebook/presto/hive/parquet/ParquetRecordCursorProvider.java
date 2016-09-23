@@ -88,7 +88,6 @@ public class ParquetRecordCursorProvider
                 schema,
                 columns,
                 useParquetColumnNames,
-                hiveStorageTimeZone,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate
