@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -64,6 +65,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
@@ -381,8 +383,8 @@ class SubqueryPlanner
                         maxValue, new FunctionCall(max, outputColumnReference)
                 ),
                 ImmutableMap.of(
-                        minValue, functionRegistry.resolveFunction(min, outputColumnTypeSignature),
-                        maxValue, functionRegistry.resolveFunction(max, outputColumnTypeSignature)
+                        minValue, functionRegistry.resolveFunction(min, fromTypeSignatures(outputColumnTypeSignature)),
+                        maxValue, functionRegistry.resolveFunction(max, fromTypeSignatures(outputColumnTypeSignature))
                 ),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
@@ -417,7 +419,7 @@ class SubqueryPlanner
                 idAllocator.getNextId(),
                 subqueryPlan,
                 ImmutableMap.of(subValue, new FunctionCall(aggregationFunction, ImmutableList.of(outputColumn.toSymbolReference()))),
-                ImmutableMap.of(subValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(outputColumnType.getTypeSignature()))),
+                ImmutableMap.of(subValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(new TypeSignatureProvider(outputColumnType.getTypeSignature())))),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.SINGLE,

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +36,8 @@ import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -1059,7 +1062,7 @@ public class TestSignatureBinder
     private class BindSignatureAssertion
     {
         private final Signature function;
-        private List<Type> argumentTypes = null;
+        private List<TypeSignatureProvider> argumentTypes = null;
         private Type returnType = null;
         private boolean allowCoercion = false;
 
@@ -1076,13 +1079,31 @@ public class TestSignatureBinder
 
         public BindSignatureAssertion boundTo(String... arguments)
         {
-            this.argumentTypes = types(arguments);
+            this.argumentTypes = fromTypes(types(arguments));
+            return this;
+        }
+
+        public BindSignatureAssertion boundTo(Object... arguments)
+        {
+            ImmutableList.Builder<TypeSignatureProvider> builder = ImmutableList.builder();
+            for (Object argument : arguments) {
+                if (argument instanceof String) {
+                    builder.add(new TypeSignatureProvider(TypeSignature.parseTypeSignature((String) argument)));
+                    continue;
+                }
+                if (argument instanceof TypeSignatureProvider) {
+                    builder.add((TypeSignatureProvider) argument);
+                    continue;
+                }
+                throw new IllegalArgumentException(format("argument is of type %s. It should be String or TypeSignatureProvider", argument.getClass()));
+            }
+            this.argumentTypes = builder.build();
             return this;
         }
 
         public BindSignatureAssertion boundTo(List<String> arguments, String returnType)
         {
-            this.argumentTypes = types(arguments.toArray(new String[arguments.size()]));
+            this.argumentTypes = fromTypes(types(arguments.toArray(new String[arguments.size()])));
             this.returnType = type(returnType);
             return this;
         }

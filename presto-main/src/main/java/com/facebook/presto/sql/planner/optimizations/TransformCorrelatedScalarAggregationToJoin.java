@@ -55,6 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
@@ -237,7 +238,9 @@ public class TransformCorrelatedScalarAggregationToJoin
                             ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())));
                     List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                             symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
-                    functions.put(symbol, functionRegistry.resolveFunction(count, scalarAggregationSourceTypeSignatures));
+                    functions.put(symbol, functionRegistry.resolveFunction(
+                            count,
+                            fromTypeSignatures(scalarAggregationSourceTypeSignatures)));
                 }
                 else {
                     aggregations.put(symbol, entry.getValue());
