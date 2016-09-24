@@ -87,6 +87,7 @@ inconsistent state, we write a heap dump (for debugging) and forcibly
 terminate the process when this occurs.
 
 
+
 .. _config_properties:
 
 Config Properties
@@ -173,6 +174,14 @@ These properties require some explanation:
 
 * ``query.queue-config-file``:
   Specifies the file to read the :doc:`/admin/queue` from.
+
+In addition, it is useful to collect metrics which is exposed by JMX interface.
+Presto enables us to achieve it by defining ``jmx.rmiserver.port`` in
+`config.properties`.
+
+* ``jmx.rmiserver.port=7199``:
+  Specifes the port number which exposes JMX metrics of Presto cluster.
+  In this case, it specifies 7199 as JMX port.
 
 Log Levels
 ^^^^^^^^^^
