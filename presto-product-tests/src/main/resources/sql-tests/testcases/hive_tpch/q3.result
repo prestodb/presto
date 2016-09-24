@@ -1,4 +1,4 @@
--- delimiter: |; ignoreOrder: false; types: BIGINT|DOUBLE|DATE|INTEGER
+-- delimiter: |; ignoreOrder: false; types: BIGINT|DECIMAL|DATE|INTEGER
 2456423|406181.0111|1995-03-05|0|
 3459808|405838.6989|1995-03-04|0|
 492164|390324.061|1995-02-19|0|
