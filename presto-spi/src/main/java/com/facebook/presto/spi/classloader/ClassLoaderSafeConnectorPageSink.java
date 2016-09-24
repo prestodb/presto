@@ -43,7 +43,7 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.finish();

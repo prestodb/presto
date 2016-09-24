@@ -38,6 +38,7 @@ import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateHandle;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class TableWriterOperator
@@ -208,7 +209,8 @@ public class TableWriterOperator
         }
         state = State.FINISHED;
 
-        Collection<Slice> fragments = pageSink.finish();
+        // TODO: wait asynchronously
+        Collection<Slice> fragments = getFutureValue(pageSink.finish());
         committed = true;
 
         PageBuilder page = new PageBuilder(TYPES);

@@ -42,6 +42,7 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -188,9 +189,9 @@ public class TestTableWriterOperator
         }
 
         @Override
-        public Collection<Slice> finish()
+        public CompletableFuture<Collection<Slice>> finish()
         {
-            return ImmutableList.of();
+            return completedFuture(ImmutableList.of());
         }
 
         @Override

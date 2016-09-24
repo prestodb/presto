@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 public class HivePageSink
@@ -136,11 +137,12 @@ public class HivePageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
         // Must be wrapped in doAs entirely
         // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        return hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+        Collection<Slice> result = hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+        return completedFuture(result);
     }
 
     private ImmutableList<Slice> doFinish()

@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
@@ -130,7 +131,7 @@ public class RaptorPageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
         List<ShardInfo> shards = new ArrayList<>();
         for (PageBuffer pageBuffer : pageWriter.getPageBuffers()) {
@@ -142,7 +143,8 @@ public class RaptorPageSink
         for (ShardInfo shard : shards) {
             fragments.add(Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(shard)));
         }
-        return fragments.build();
+        // TODO: process asynchronously
+        return completedFuture(fragments.build());
     }
 
     @Override

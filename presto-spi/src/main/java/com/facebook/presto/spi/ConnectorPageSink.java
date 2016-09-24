@@ -29,7 +29,7 @@ public interface ConnectorPageSink
      */
     CompletableFuture<?> appendPage(Page page);
 
-    Collection<Slice> finish();
+    CompletableFuture<Collection<Slice>> finish();
 
     void abort();
 }

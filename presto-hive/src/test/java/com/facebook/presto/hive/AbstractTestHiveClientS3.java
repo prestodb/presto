@@ -82,6 +82,7 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
@@ -357,7 +358,7 @@ public abstract class AbstractTestHiveClientS3
             // write the records
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
             sink.appendPage(data.toPage());
-            Collection<Slice> fragments = sink.finish();
+            Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // commit the table
             metadata.finishCreateTable(session, outputHandle, fragments);
