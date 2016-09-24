@@ -78,6 +78,8 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private String s3Endpoint;
+    private PrestoS3SignerType s3SignerType;
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
@@ -555,6 +557,30 @@ public class HiveClientConfig
     public HiveClientConfig setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
+        return this;
+    }
+
+    public String getS3Endpoint()
+    {
+        return s3Endpoint;
+    }
+
+    @Config("hive.s3.endpoint")
+    public HiveClientConfig setS3Endpoint(String s3Endpoint)
+    {
+        this.s3Endpoint = s3Endpoint;
+        return this;
+    }
+
+    public PrestoS3SignerType getS3SignerType()
+    {
+        return s3SignerType;
+    }
+
+    @Config("hive.s3.signer-type")
+    public HiveClientConfig setS3SignerType(PrestoS3SignerType s3SignerType)
+    {
+        this.s3SignerType = s3SignerType;
         return this;
     }
 
