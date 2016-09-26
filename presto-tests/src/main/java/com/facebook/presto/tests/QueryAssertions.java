@@ -78,11 +78,23 @@ public final class QueryAssertions
             throws Exception
     {
         long start = System.nanoTime();
-        MaterializedResult actualResults = actualQueryRunner.execute(session, actual).toJdbcTypes();
+        MaterializedResult actualResults = null;
+        try {
+            actualResults = actualQueryRunner.execute(session, actual).toJdbcTypes();
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of 'actual' query failed: " + actual, ex);
+        }
         Duration actualTime = nanosSince(start);
 
         long expectedStart = System.nanoTime();
-        MaterializedResult expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
+        MaterializedResult expectedResults = null;
+        try {
+            expectedResults = h2QueryRunner.execute(session, expected, actualResults.getTypes());
+        }
+        catch (RuntimeException ex) {
+            fail("Execution of 'expected' query failed: " + actual, ex);
+        }
         log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), nanosSince(start));
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {
