@@ -427,6 +427,13 @@ public final class UnscaledDecimal128Arithmetic
         }
     }
 
+    public static void throwIfOverflows(Slice value, int precision)
+    {
+        if (overflows(value, precision)) {
+            throwOverflowException();
+        }
+    }
+
     private static void scaleDownRoundUp(Slice decimal, int scaleFactor, Slice result)
     {
         // optimized path for smaller values
