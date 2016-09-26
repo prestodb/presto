@@ -625,6 +625,44 @@ public final class UnscaledDecimal128Arithmetic
         setRawInt(result, 7, (int) z7);
     }
 
+    public static Slice multiply(Slice decimal, int multiplier)
+    {
+        Slice result = Slices.copyOf(decimal);
+        multiplyDestructive(result, multiplier);
+        return result;
+    }
+
+    private static void multiplyDestructive(Slice decimal, int multiplier)
+    {
+        long l0 = getInt(decimal, 0) & LONG_MASK;
+        long l1 = getInt(decimal, 1) & LONG_MASK;
+        long l2 = getInt(decimal, 2) & LONG_MASK;
+        long l3 = getInt(decimal, 3) & LONG_MASK;
+
+        long r0 = Math.abs(multiplier) & LONG_MASK;
+
+        long product;
+
+        product = r0 * l0;
+        int z0 = (int) product;
+
+        product = r0 * l1 + (product >>> 32);
+        int z1 = (int) product;
+
+        product = r0 * l2 + (product >>> 32);
+        int z2 = (int) product;
+
+        product = r0 * l3 + (product >>> 32);
+        int z3 = (int) product;
+
+        if ((product >>> 32) != 0) {
+            throwOverflowException();
+        }
+
+        boolean negative = isNegative(decimal) ^ (multiplier < 0);
+        pack(decimal, z0, z1, z2, z3, negative);
+    }
+
     public static int compare(Slice left, Slice right)
     {
         boolean leftStrictlyNegative = isStrictlyNegative(left);
@@ -825,6 +863,19 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     /**
+     * Scale up the value for 5**fiveScale (decimal := decimal * 5**fiveScale).
+     */
+    private static void scaleUpFiveDestructive(Slice decimal, int fiveScale)
+    {
+        while (fiveScale > 0) {
+            int powerFive = Math.min(fiveScale, MAX_POWER_OF_FIVE_INT);
+            fiveScale -= powerFive;
+            int multiplier = POWERS_OF_FIVES_INT[powerFive];
+            multiplyDestructive(decimal, multiplier);
+        }
+    }
+
+    /**
      * Scale down the value for 10**tenScale (this := this / 5**tenScale). This
      * method rounds-up, eg 44/10=4, 44/10=5.
      */
@@ -926,6 +977,84 @@ public final class UnscaledDecimal128Arithmetic
         }
 
         pack(result, low, high, negative);
+    }
+
+    /**
+     * shift right array of 8 ints (rounding up) and ensure that result fits in unscaledDecimal
+     */
+    public static void shiftRightArray8(int[] values, int rightShifts, Slice result)
+    {
+        if (values.length != NUMBER_OF_INTS * 2) {
+            throw new IllegalArgumentException("Incorrect values length");
+        }
+        if (rightShifts == 0) {
+            for (int i = NUMBER_OF_INTS; i < 2 * NUMBER_OF_INTS; i++) {
+                if (values[i] != 0) {
+                    throwOverflowException();
+                }
+            }
+            for (int i = 0; i < NUMBER_OF_INTS; i++) {
+                setRawInt(result, i, values[i]);
+            }
+            return;
+        }
+
+        int wordShifts = rightShifts / 32;
+        int bitShiftsInWord = rightShifts % 32;
+        int shiftRestore = 32 - bitShiftsInWord;
+
+        // check round-ups before settings values to result.
+        // be aware that result could be the same object as decimal.
+        boolean roundCarry;
+        if (bitShiftsInWord == 0) {
+            roundCarry = values[wordShifts - 1] < 0;
+        }
+        else {
+            roundCarry = (values[wordShifts] & (1 << (bitShiftsInWord - 1))) != 0;
+        }
+
+        int r0 = values[0 + wordShifts];
+        int r1 = values[1 + wordShifts];
+        int r2 = values[2 + wordShifts];
+        int r3 = values[3 + wordShifts];
+        int r4 = wordShifts >= 4 ? 0 : values[4 + wordShifts];
+        int r5 = wordShifts >= 3 ? 0 : values[5 + wordShifts];
+        int r6 = wordShifts >= 2 ? 0 : values[6 + wordShifts];
+        int r7 = wordShifts >= 1 ? 0 : values[7 + wordShifts];
+
+        if (bitShiftsInWord > 0) {
+            r0 = (r0 >>> bitShiftsInWord) | (r1 << shiftRestore);
+            r1 = (r1 >>> bitShiftsInWord) | (r2 << shiftRestore);
+            r2 = (r2 >>> bitShiftsInWord) | (r3 << shiftRestore);
+            r3 = (r3 >>> bitShiftsInWord) | (r4 << shiftRestore);
+        }
+
+        if ((r4 >>> bitShiftsInWord) != 0 || r5 != 0 || r6 != 0 || r7 != 0) {
+            throwOverflowException();
+        }
+
+        if (r3 < 0) {
+            throwOverflowException();
+        }
+
+        // increment
+        if (roundCarry) {
+            r0++;
+            if (r0 == 0) {
+                r1++;
+                if (r1 == 0) {
+                    r2++;
+                    if (r2 == 0) {
+                        r3++;
+                        if (r3 < 0) {
+                            throwOverflowException();
+                        }
+                    }
+                }
+            }
+        }
+
+        pack(result, r0, r1, r2, r3, false);
     }
 
     public static Slice divideRoundUp(long dividend, int dividendScaleFactor, long divisor)
@@ -1449,6 +1578,14 @@ public final class UnscaledDecimal128Arithmetic
         throw new ArithmeticException("Division by zero");
     }
 
+    private static void multiplyShiftDestructive(Slice decimal, Slice multiplier, int rightShifts)
+    {
+        int[] product = new int[NUMBER_OF_INTS * 2];
+        Slice multiplicationResult = Slices.wrappedIntArray(product);
+        multiply256(decimal, multiplier, multiplicationResult);
+        shiftRightArray8(product, rightShifts, decimal);
+    }
+
     private static void setNegative(Slice decimal, boolean negative)
     {
         setRawInt(decimal, SIGN_INT_INDEX, getInt(decimal, SIGN_INT_INDEX) | (negative ? SIGN_INT_MASK : 0));
@@ -1605,4 +1742,84 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     private UnscaledDecimal128Arithmetic() {}
+
+    public static Slice doubleToLongDecimal(double value, long precision, int scale)
+    {
+        if (Double.isInfinite(value) || Double.isNaN(value)) {
+            throwOverflowException();
+        }
+
+        // Translate the double into sign, exponent and significand, according
+        // to the formulae in JLS, Section 20.10.22.
+        long valBits = Double.doubleToLongBits(value);
+        int sign = ((valBits >> 63) == 0 ? 1 : -1);
+        int exponent = (int) ((valBits >> 52) & 0x7ffL);
+        long significand = (exponent == 0
+                ? (valBits & ((1L << 52) - 1)) << 1
+                : (valBits & ((1L << 52) - 1)) | (1L << 52));
+        exponent -= 1075;
+        // At this point, value == sign * significand * 2**exponent.
+
+        // zero check
+        if (significand == 0) {
+            return unscaledDecimal();
+        }
+
+        // Normalize
+        while ((significand & 1) == 0) { // i.e., significand is even
+            significand >>= 1;
+            exponent++;
+        }
+
+        // so far same as java.math.BigDecimal, but the scaling below is
+        // specific to ANSI SQL Numeric.
+
+        // first, underflow is NOT an error in ANSI SQL Numeric.
+        // CAST(0.000000000....0001 AS DECIMAL(38,1)) is "0.0" without an error.
+
+        // second, overflow IS an error in ANSI SQL Numeric.
+        // CAST(10000 AS DECIMAL(38,38)) throws overflow error.
+
+        // value == sign * significand * 2**exponent.
+        // decimal == sign * unscaledValue / 10**scale.
+        // so, to make value == decimal, we need to scale it up/down such that:
+        // unscaledValue = significand * 2**exponent * 10**scale
+        // Notice that we must do the scaling carefully to check overflow and
+        // preserve precision.
+
+        Slice unscaledValue = UnscaledDecimal128Arithmetic.unscaledDecimal(significand);
+
+        if (exponent >= 0) {
+            // both parts are scaling up. easy. Just check overflow.
+            shiftLeftDestructive(unscaledValue, exponent);
+            rescale(unscaledValue, scale, unscaledValue);
+        }
+        else {
+            // 2**exponent part is scaling down while 10**scale is scaling up.
+            // Now it's tricky.
+            // unscaledValue = significand * 10**scale / 2**twoScaleDown
+            short twoScaleDown = (short) -exponent;
+
+            if (scale >= twoScaleDown) {
+                // make both scaling up as follows
+                // unscaledValue = significand * 5**(scale) *
+                // 2**(scale-twoScaleDown)
+                shiftLeftDestructive(unscaledValue, scale - twoScaleDown);
+                scaleUpFiveDestructive(unscaledValue, scale);
+            }
+            else {
+                // Gosh, really both scaling up and down.
+                // unscaledValue = significand * 5**(scale) /
+                // 2**(twoScaleDown-scale)
+                // To check overflow while preserving precision, we need to do a
+                // real multiplication
+
+                multiplyShiftDestructive(unscaledValue, POWERS_OF_FIVE[scale], (twoScaleDown - scale));
+            }
+        }
+
+        setNegative(unscaledValue, sign < 0);
+
+        return unscaledValue;
+    }
 }
