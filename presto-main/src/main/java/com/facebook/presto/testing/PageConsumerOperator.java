@@ -74,7 +74,7 @@ public class PageConsumerOperator
         }
 
         @Override
-        public PageConsumerOperator createOperator(DriverContext driverContext)
+        public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, PageConsumerOperator.class.getSimpleName());
