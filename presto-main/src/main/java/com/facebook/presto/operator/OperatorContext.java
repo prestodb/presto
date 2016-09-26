@@ -30,7 +30,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -359,6 +358,11 @@ public class OperatorContext
         systemMemoryRevokingRequestedFuture.compareAndSet(currentFuture, SettableFuture.create());
         // if we do not change the value of currentFuture we are still good as this means other thread
         // changed it to SettableFuture.create in exactly same method.
+    }
+
+    public SettableFuture<?> getSystemMemoryRevokingRequestedFuture()
+    {
+        return systemMemoryRevokingRequestedFuture.get();
     }
 
     public void setInfoSupplier(Supplier<?> infoSupplier)
