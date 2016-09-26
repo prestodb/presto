@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
@@ -38,11 +39,13 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class TestTimestamp
+        extends AbstractTestFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Europe/Berlin");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
@@ -51,8 +54,6 @@ public class TestTimestamp
     private static final TimeZoneKey ORAL_TIME_ZONE_KEY = getTimeZoneKey("Asia/Oral");
     private static final DateTimeZone ORAL_ZONE = getDateTimeZone(ORAL_TIME_ZONE_KEY);
 
-    private FunctionAssertions functionAssertions;
-
     @BeforeClass
     public void setUp()
     {
@@ -60,11 +61,6 @@ public class TestTimestamp
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .build();
         functionAssertions = new FunctionAssertions(session);
-    }
-
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
     }
 
     @Test
@@ -282,5 +278,52 @@ public class TestTimestamp
         assertFunction("least(TIMESTAMP '2013-03-30 01:05', TIMESTAMP '2012-03-30 01:05', TIMESTAMP '2012-05-01 01:05')",
                 TIMESTAMP,
                 new SqlTimestamp(new DateTime(2012, 3, 30, 1, 5, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
+    }
+
+    @Test
+    public void timestampCanBeImplicitlyCastedFromVarchar()
+            throws Exception
+    {
+        assertFunction("'2000-01-01 05:30:00.0' < TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN, false);
+        assertFunction("TIMESTAMP '2000-01-01 05:30:00.0' < '2000-01-01 05:00:00.0'", BOOLEAN, false);
+
+        assertFunction("'1999-01-01 05:30:00.0' < TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN, true);
+        assertFunction("TIMESTAMP '1999-01-01 05:30:00.0' < '2000-01-01 05:00:00.0'", BOOLEAN, true);
+
+        assertFunction("'2000-01-01 05:00' = TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN, true);
+        assertFunction("TIMESTAMP '2000-01-01 05:30:00.0' = '2000-01-01 05:00'", BOOLEAN, false);
+    }
+
+    @Test
+    public void timestampIsNotImplicitlyCastToVarchar()
+            throws Exception
+    {
+        assertFunction("'999-01-01 05:30:00.0' < TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN, true);
+        assertFunction("TIMESTAMP '999-01-01 05:30:00.0' < '2000-01-01 05:00:00.0'", BOOLEAN, true);
+    }
+
+    @Test
+    public void timestampIsImplicitlyCastedForCompareOperators()
+    {
+        assertEvaluates("'2000-01-01 05:30:00.0' < TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN);
+        assertEvaluates("'2000-01-01 05:30:00.0' = TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN);
+        assertEvaluates("'2000-01-01 05:30:00.0' > TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN);
+        assertEvaluates("'2000-01-01 05:30:00.0' <> TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN);
+        assertEvaluates("'2000-01-01 05:30:00.0' <= TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN);
+        assertEvaluates("'2000-01-01 05:30:00.0' >= TIMESTAMP '2000-01-01 05:00:00.0'", BOOLEAN);
+    }
+
+    @Test
+    public void timestampIsNotImplicitlyCastedForAmbiguousFunctionCalls()
+    {
+        assertInvalidFunction("hour('2000-01-01 05:30:00.0')", AMBIGUOUS_FUNCTION_CALL);
+    }
+
+    @Test
+    public void timestampIsImplicitlyCastedForMostSpecificFunction()
+    {
+        // Test if there is a possibility of solving ambiguity by selecting
+        // most specific function it's done for timestamp format varchar.
+        assertFunction("day('2000-01-01 05:30:00.0')", BIGINT, 1L);
     }
 }
