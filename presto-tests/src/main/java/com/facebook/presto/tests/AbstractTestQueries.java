@@ -6294,6 +6294,114 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCorrelatedScalarSubqueriesWithCountScalarAggregationAndEqualityPredicatesInWhere()
+            throws Exception
+    {
+        assertQuery("SELECT (SELECT count(*) WHERE o.orderkey = 1) FROM orders o");
+        assertQuery("SELECT count(*) FROM orders o WHERE 1 = (SELECT count(*) WHERE o.orderkey = 0)");
+        assertQuery("SELECT * FROM orders o ORDER BY (SELECT count(*) WHERE o.orderkey = 0)");
+        assertQuery(
+                "SELECT count(*) FROM nation n WHERE " +
+                        "(SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey) > 1");
+        assertQueryFails(
+                "SELECT count(*) FROM nation n WHERE " +
+                        "(SELECT count(*) FROM (SELECT count(*) FROM region r WHERE n.regionkey = r.regionkey)) > 1",
+                "Unsupported correlated subquery type");
+
+        // with duplicated rows
+        assertQuery(
+                "SELECT (SELECT count(*) WHERE a = 1) FROM (VALUES 1, 1, 2, 3) t(a)",
+                "VALUES true, true, false, false");
+
+        // group by
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey, (SELECT count(*) WHERE o.orderkey = 0) " +
+                        "FROM orders o GROUP BY o.orderkey");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey " +
+                        "FROM orders o GROUP BY o.orderkey HAVING 1 = (SELECT count(*) WHERE o.orderkey = 0)");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, (SELECT count(*) WHERE o.orderkey = 0)");
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT 1 = (SELECT count(*) WHERE o1.orderkey = o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE 1 = (SELECT * FROM (SELECT (SELECT count(*) WHERE o.orderkey = 0)))",
+                "SELECT count(*) FROM orders o WHERE o.orderkey = 0");
+    }
+
+    @Test
+    public void testCorrelatedScalarSubqueriesWithScalarAggregation()
+            throws Exception
+    {
+        // projection
+        assertQuery(
+                "SELECT (SELECT round(3 * avg(i.a)) FROM (VALUES 1, 1, 1, 2, 2, 3, 4) i(a) WHERE i.a < o.a AND i.a < 4) " +
+                        "FROM (VALUES 0, 3, 3, 5) o(a)",
+                "VALUES null, 4, 4, 5");
+
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT avg(i.orderkey) FROM orders i " +
+                        "WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) > 100",
+                "VALUES 14999"); // h2 is slow
+
+        // order by
+        assertQuery(
+                "SELECT orderkey FROM orders o ORDER BY " +
+                        "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)");
+
+        // group by
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey, " +
+                        "(SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
+                        "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1, 40000.0)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey " +
+                        "FROM orders o " +
+                        "GROUP BY o.orderkey " +
+                        "HAVING 40000 < (SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-07-24', 20000)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, (SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1)"); // h2 is slow
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT 1 = (SELECT avg(i.orderkey) FROM orders i WHERE o1.orderkey < o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE 100 < (SELECT * " +
+                        "FROM (SELECT (SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)))",
+                "VALUES 14999"); // h2 is slow
+    }
+
+    @Test
     public void testCorrelatedInPredicateSubqueries()
     {
         String errorMsg = "Unsupported correlated subquery type";
@@ -6347,24 +6455,156 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCorrelatedExistsSubqueriesWithEqualityPredicatesInWhere()
+            throws Exception
+    {
+        assertQuery("SELECT EXISTS(SELECT 1 WHERE o.orderkey = 1) FROM orders o");
+        assertQuery("SELECT EXISTS(SELECT null WHERE o.orderkey = 1) FROM orders o");
+        assertQuery("SELECT count(*) FROM orders o WHERE EXISTS(SELECT 1 WHERE o.orderkey = 0)");
+        assertQuery("SELECT * FROM orders o ORDER BY EXISTS(SELECT 1 WHERE o.orderkey = 0)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders " +
+                        "WHERE EXISTS (SELECT count(*) FROM lineitem WHERE orders.orderkey = lineitem.orderkey)",
+                "Unsupported correlated subquery type");
+
+        // with duplicated rows
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 WHERE a = 1) FROM (VALUES 1, 1, 2, 3) t(a)",
+                "VALUES true, true, false, false");
+
+        // group by
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey, EXISTS(SELECT 1 WHERE o.orderkey = 0) " +
+                        "FROM orders o GROUP BY o.orderkey");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey " +
+                        "FROM orders o GROUP BY o.orderkey HAVING EXISTS (SELECT 1 WHERE o.orderkey = 0)");
+        assertQuery(
+                "SELECT max(o.totalprice), o.orderkey " +
+                        "FROM orders o GROUP BY o.orderkey, EXISTS (SELECT 1 WHERE o.orderkey = 0)");
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT EXISTS(SELECT 1 WHERE o1.orderkey = o2.orderkey)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT EXISTS(SELECT 1 WHERE o1.orderkey = o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE o.orderkey = 0)))",
+                "SELECT count(*) FROM orders o WHERE o.orderkey = 0");
+    }
+
+    @Test
     public void testCorrelatedExistsSubqueries()
+            throws Exception
+    {
+        // projection
+        assertQuery(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES 1, 1, 1, 2, 2, 3, 4) i(a) WHERE i.a < o.a AND i.a < 4) " +
+                        "FROM (VALUES 0, 3, 3, 5) o(a)",
+                "VALUES false, true, true, true");
+
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 1000 = 0)",
+                "VALUES 14999"); // h2 is slow
+
+        // order by
+        assertQuery(
+                "SELECT orderkey FROM orders o ORDER BY " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "LIMIT 1",
+                "VALUES 60000"); // h2 is slow
+
+        // group by
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey, " +
+                        "EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0) " +
+                        "FROM orders o GROUP BY o.orderkey ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1, true)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey " +
+                        "FROM orders o " +
+                        "GROUP BY o.orderkey " +
+                        "HAVING EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1)"); // h2 is slow
+        assertQuery(
+                "SELECT max(o.orderdate), o.orderkey FROM orders o " +
+                        "GROUP BY o.orderkey, EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)" +
+                        "ORDER BY o.orderkey LIMIT 1",
+                "VALUES ('1996-01-02', 1)"); // h2 is slow
+
+        // join
+        assertQuery(
+                "SELECT count(*) " +
+                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o1 " +
+                        "JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey AND i.orderkey % 10000 = 0)");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o1 LEFT JOIN orders o2 " +
+                        "ON NOT EXISTS(SELECT 1 FROM orders i WHERE o1.orderkey < o2.orderkey)",
+                "line .*: Correlated subquery in given context is not supported");
+
+        // subrelation
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)))",
+                "VALUES 14999"); // h2 is slow
+    }
+
+    @Test
+    public void testUnsupportedCorrelatedExistsSubqueries()
     {
         String errorMsg = "Unsupported correlated subquery type";
 
-        assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+        assertQueryFails("SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l", errorMsg);
+        assertQueryFails("SELECT count(*) FROM lineitem l WHERE EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l ORDER BY EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT 1 WHERE l.orderkey > 0) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT 1 WHERE l.orderkey > 0)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT 1 WHERE l.orderkey > 0)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey, EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3) FROM lineitem l GROUP BY l.orderkey", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
+        assertQueryFails("SELECT max(l.quantity), l.orderkey FROM lineitem l GROUP BY l.orderkey, EXISTS (SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)", errorMsg);
 
         // join
-        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON NOT EXISTS(SELECT 1 WHERE l1.orderkey = l2.orderkey)", errorMsg);
+        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON NOT EXISTS(SELECT 1 WHERE l1.orderkey != l2.orderkey OR l1.orderkey = 3)", errorMsg);
 
         // subrelation
-        assertQueryFails("SELECT count(*) FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0)))", errorMsg);
+        assertQueryFails("SELECT count(*) FROM lineitem l WHERE (SELECT * FROM (SELECT EXISTS(SELECT 1 WHERE l.orderkey > 0 OR l.orderkey != 3)))", errorMsg);
+    }
+
+    @Test
+    public void testTwoCorrelatedExistsSubqueries()
+            throws Exception
+    {
+        // This is simpliefied TPC-H q21
+        assertQuery("SELECT\n" +
+                "  count(*) AS numwait\n" +
+                "FROM\n" +
+                "  orders l1\n" +
+                "WHERE\n" +
+                "  EXISTS(\n" +
+                "    SELECT *\n" +
+                "    FROM\n" +
+                "      orders l2\n" +
+                "    WHERE\n" +
+                "      l2.orderkey = l1.orderkey\n" +
+                "  )\n" +
+                "  AND NOT EXISTS(\n" +
+                "    SELECT *\n" +
+                "    FROM\n" +
+                "      orders l3\n" +
+                "    WHERE\n" +
+                "      l3.orderkey = l1.orderkey\n" +
+                "  )\n",
+                "VALUES 0"); // EXISTS predicates are contradictory
     }
 
     @Test
