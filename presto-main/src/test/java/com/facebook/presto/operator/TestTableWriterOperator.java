@@ -42,7 +42,6 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -180,6 +179,7 @@ public class TestTableWriterOperator
             implements ConnectorPageSink
     {
         private CompletableFuture<?> future = new CompletableFuture<>();
+        private CompletableFuture<Collection<Slice>> finishFuture = new CompletableFuture<>();
 
         @Override
         public CompletableFuture<?> appendPage(Page page)
@@ -191,7 +191,8 @@ public class TestTableWriterOperator
         @Override
         public CompletableFuture<Collection<Slice>> finish()
         {
-            return completedFuture(ImmutableList.of());
+            finishFuture = new CompletableFuture<>();
+            return finishFuture;
         }
 
         @Override
@@ -202,6 +203,7 @@ public class TestTableWriterOperator
         public void complete()
         {
             future.complete(null);
+            finishFuture.complete(ImmutableList.of());
         }
     }
 }
