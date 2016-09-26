@@ -185,7 +185,14 @@ class AstBuilder
     @Override
     public Node visitCreateTableAsSelect(SqlBaseParser.CreateTableAsSelectContext context)
     {
-        return new CreateTableAsSelect(getLocation(context), getQualifiedName(context.qualifiedName()), (Query) visit(context.query()), context.EXISTS() != null, processTableProperties(context.tableProperties()), context.NO() == null);
+        return new CreateTableAsSelect(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (Query) visit(context.query()),
+                context.EXISTS() != null,
+                processTableProperties(context.tableProperties()),
+                context.NO() == null,
+                context.REFRESH() != null);
     }
 
     @Override

@@ -16,9 +16,12 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
@@ -26,6 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.transaction.TransactionId;
 import io.airlift.slice.Slice;
 
 import javax.validation.constraints.NotNull;
@@ -119,6 +123,29 @@ public interface Metadata
      */
     @NotNull
     Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Gets the TableIdentity for the specified table.
+     */
+    @NotNull
+    TableIdentity getTableIdentity(Session session, TableHandle tableHandle);
+
+    /**
+     * Deserialize the bytes to TableIdentity
+     */
+    TableIdentity deserializeTableIdentity(Session session, String catalogName, byte[] bytes);
+
+    /**
+     * Gets the ColumnIdentity for the specified column.
+     */
+    @NotNull
+    ColumnIdentity getColumnIdentity(Session session, TableHandle tableHandle, ColumnHandle columnHandle);
+
+    /**
+     * Deserialize the bytes to ColumnIdentity
+     */
+    @NotNull
+    ColumnIdentity deserializeColumnIdentity(Session session, String catalogName, byte[] bytes);
 
     /**
      * Creates a table using the specified table metadata.
@@ -234,6 +261,11 @@ public interface Metadata
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Updates the materialized query table info
+     */
+    void updateMaterializedQueryTableInfo(TransactionId transactionId, TableHandle tableHandle, MaterializedQueryTableInfo materializedQueryTableInfo);
 
     /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.

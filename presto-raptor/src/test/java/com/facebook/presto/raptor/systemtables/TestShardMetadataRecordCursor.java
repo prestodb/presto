@@ -20,6 +20,7 @@ import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -69,6 +70,7 @@ public class TestShardMetadataRecordCursor
 {
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+    private static final JsonCodec<MaterializedQueryTableInfo> MATERIALIZED_QUERY_TABLE_INFO_JSON_CODEC = jsonCodec(MaterializedQueryTableInfo.class);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
 
     private Handle dummyHandle;
@@ -80,7 +82,7 @@ public class TestShardMetadataRecordCursor
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         this.dummyHandle = dbi.open();
-        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC, MATERIALIZED_QUERY_TABLE_INFO_JSON_CODEC);
         createTablesWithRetry(dbi);
 
         // Create table

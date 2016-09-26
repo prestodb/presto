@@ -35,6 +35,8 @@ public interface QueryManager
 
     QueryInfo createQuery(Session session, String query);
 
+    QueryInfo createQuery(Session session, String query, QueryId queryId);
+
     void cancelQuery(QueryId queryId);
 
     void cancelStage(StageId stageId);

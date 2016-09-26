@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import io.airlift.json.JsonCodec;
 import org.skife.jdbi.v2.IDBI;
 
@@ -31,6 +32,7 @@ public class RaptorMetadataFactory
     private final ShardManager shardManager;
     private final JsonCodec<ShardInfo> shardInfoCodec;
     private final JsonCodec<ShardDelta> shardDeltaCodec;
+    private final JsonCodec<MaterializedQueryTableInfo> materializedQueryTableInfoJsonCodec;
 
     @Inject
     public RaptorMetadataFactory(
@@ -38,17 +40,19 @@ public class RaptorMetadataFactory
             @ForMetadata IDBI dbi,
             ShardManager shardManager,
             JsonCodec<ShardInfo> shardInfoCodec,
-            JsonCodec<ShardDelta> shardDeltaCodec)
+            JsonCodec<ShardDelta> shardDeltaCodec,
+            JsonCodec<MaterializedQueryTableInfo> materializedQueryTableInfoJsonCodec)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
+        this.materializedQueryTableInfoJsonCodec = requireNonNull(materializedQueryTableInfoJsonCodec, "materializedQueryTableInfoJsonCodec is null");
     }
 
     public RaptorMetadata create()
     {
-        return new RaptorMetadata(connectorId, dbi, shardManager, shardInfoCodec, shardDeltaCodec);
+        return new RaptorMetadata(connectorId, dbi, shardManager, shardInfoCodec, shardDeltaCodec, materializedQueryTableInfoJsonCodec);
     }
 }

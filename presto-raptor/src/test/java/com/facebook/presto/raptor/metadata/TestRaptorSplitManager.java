@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.BigintType;
@@ -75,6 +76,7 @@ public class TestRaptorSplitManager
 {
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+    private static final JsonCodec<MaterializedQueryTableInfo> MATERIALIZED_QUERY_TABLE_INFO_JSON_CODEC = jsonCodec(MaterializedQueryTableInfo.class);
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
             .column("ds", createVarcharType(10))
             .column("foo", createVarcharType(10))
@@ -107,7 +109,7 @@ public class TestRaptorSplitManager
         nodeManager.addNode(new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC, MATERIALIZED_QUERY_TABLE_INFO_JSON_CODEC);
 
         metadata.createTable(SESSION, TEST_TABLE);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());

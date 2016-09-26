@@ -32,7 +32,8 @@ statement
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         (WITH tableProperties)? AS query
-        (WITH (NO)? DATA)?                                             #createTableAsSelect
+        (WITH (NO)? DATA)?
+        (REFRESH ON DEMAND)?                                           #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         '(' tableElement (',' tableElement)* ')'
         (WITH tableProperties)?                                        #createTable
@@ -532,6 +533,8 @@ REPLACE: 'REPLACE';
 INSERT: 'INSERT';
 DELETE: 'DELETE';
 INTO: 'INTO';
+REFRESH: 'REFRESH';
+DEMAND: 'DEMAND';
 CONSTRAINT: 'CONSTRAINT';
 DESCRIBE: 'DESCRIBE';
 GRANT: 'GRANT';

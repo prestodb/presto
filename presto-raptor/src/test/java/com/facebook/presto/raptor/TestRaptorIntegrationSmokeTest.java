@@ -549,4 +549,247 @@ public class TestRaptorIntegrationSmokeTest
         // cleanup
         assertUpdate("DROP TABLE test_table_stats");
     }
+
+    @Test
+    public void testRefreshMaterializedQueryTable()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_refresh_base AS " +
+                "SELECT a, b, c FROM (VALUES (1, 2, 3), (1, 2, 4), (2, 3, 4), (3, 4, 5), (10, 20, 30)) t(a, b, c)", 5);
+
+        // Create two materialized query tables. One without filtering and one with.
+        assertUpdate("CREATE TABLE test_refresh_mqt1 AS " +
+                "SELECT a, b, SUM(c) as c from test_refresh_base " +
+                "GROUP BY a, b " +
+                "WITH NO DATA " +
+                "REFRESH ON DEMAND", 0);
+        assertUpdate("CREATE TABLE test_refresh_mqt2 AS " +
+                "SELECT a, b, SUM(c) as c from test_refresh_base " +
+                "WHERE b < 10 " +
+                "GROUP BY a, b " +
+                "WITH NO DATA " +
+                "REFRESH ON DEMAND", 0);
+
+        // Refresh both materialized tables with no predicate
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh('raptor.tpch.test_refresh_mqt1', '', '')");
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh('raptor.tpch.test_refresh_mqt2', '', '')");
+
+        MaterializedResult materializedRows1 = computeActual("SELECT a, b, c FROM test_refresh_mqt1 ORDER BY a, b");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), 1);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(1), 2);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(0), 2);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(1), 3);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(2), 4L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(0), 3);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(1), 4);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(2), 5L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(0), 10);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(1), 20);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(2), 30L);
+
+        assertEquals(materializedRows1.getMaterializedRows().size(), 4);
+
+        MaterializedResult materializedRows2 = computeActual("SELECT a, b, c FROM test_refresh_mqt2 ORDER BY a, b");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), 1);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(1), 2);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(0), 2);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(1), 3);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(2), 4L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(0), 3);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(1), 4);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(2), 5L);
+
+        assertEquals(materializedRows2.getMaterializedRows().size(), 3);
+
+        queryRunner.execute(getSession(), "INSERT INTO test_refresh_base values (1, 2, 10), (2, 3, 5), (10, 20, 5)");
+
+        // Refresh both materialized tables with predicate
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh('raptor.tpch.test_refresh_mqt1', '{\"tpch.test_refresh_base\":\"a > 1\"}', 'a > 1')");
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh('raptor.tpch.test_refresh_mqt2', '{\"test_refresh_base\":\"a > 1\"}', 'a > 1')");
+
+        materializedRows1 = computeActual("SELECT a, b, c FROM test_refresh_mqt1 ORDER BY a, b");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), 1);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(1), 2);
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(0), 2);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(1), 3);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(2), 9L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(0), 3);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(1), 4);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(2), 5L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(0), 10);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(1), 20);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(2), 35L);
+
+        assertEquals(materializedRows1.getMaterializedRows().size(), 4);
+
+        materializedRows2 = computeActual("SELECT a, b, c FROM test_refresh_mqt2 ORDER BY a, b");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), 1);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(1), 2);
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(2), 7L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(0), 2);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(1), 3);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(2), 9L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(0), 3);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(1), 4);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(2), 5L);
+
+        assertEquals(materializedRows2.getMaterializedRows().size(), 3);
+    }
+
+    @Test
+    public void testRefreshMaterializedQueryTableWithJoin()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_mqt_fact AS " +
+                "SELECT id, cust_id, ds, value " +
+                "FROM (VALUES (0, 100, '2015-02-01', 10), (1, 100, '2015-02-01', 11), (2, 200, '2015-02-01', 12), (3, 100, '2015-02-02', 13), (4, 300, '2015-02-02', 14)) t(id, cust_id, ds, value)", 5);
+
+        assertUpdate("CREATE TABLE test_mqt_cust AS " +
+                "SELECT cust_id, name " +
+                "FROM (VALUES (100, 'Customer1'), (200, 'Customer2'), (300, 'Customer3')) t(cust_id, name)", 3);
+
+        // Create two materialized query tables. One without filtering and one with.
+        assertUpdate("CREATE TABLE test_refresh_mqt_join_1 AS " +
+                "SELECT test_mqt_cust.name, test_mqt_fact.ds, SUM(test_mqt_fact.value) as sum " +
+                "FROM test_mqt_fact INNER JOIN test_mqt_cust ON test_mqt_fact.cust_id = test_mqt_cust.cust_id " +
+                "GROUP BY test_mqt_cust.name, test_mqt_fact.ds " +
+                "WITH DATA " +
+                "REFRESH ON DEMAND", 4);
+        assertUpdate("CREATE TABLE test_refresh_mqt_join_2 AS " +
+                "SELECT test_mqt_cust.name, test_mqt_fact.ds, SUM(test_mqt_fact.value) as sum " +
+                "FROM test_mqt_fact INNER JOIN test_mqt_cust ON test_mqt_fact.cust_id = test_mqt_cust.cust_id " +
+                "WHERE test_mqt_fact.cust_id < 300 " +
+                "GROUP BY test_mqt_cust.name, test_mqt_fact.ds " +
+                "WITH DATA " +
+                "REFRESH ON DEMAND", 3);
+
+        MaterializedResult materializedRows1 = computeActual("SELECT name, ds, sum FROM test_refresh_mqt_join_1 ORDER BY name, ds");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), "Customer1");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(1), "2015-02-01");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(2), 21L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(0), "Customer1");
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(2), 13L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(0), "Customer2");
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(1), "2015-02-01");
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(2), 12L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(0), "Customer3");
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(2), 14L);
+
+        assertEquals(materializedRows1.getMaterializedRows().size(), 4);
+
+        MaterializedResult materializedRows2 = computeActual("SELECT name, ds, sum FROM test_refresh_mqt_join_2 ORDER BY name, ds");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), "Customer1");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(1), "2015-02-01");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(2), 21L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(0), "Customer1");
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(1), "2015-02-02");
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(2), 13L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(0), "Customer2");
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(1), "2015-02-01");
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(2), 12L);
+
+        assertEquals(materializedRows2.getMaterializedRows().size(), 3);
+
+        queryRunner.execute(getSession(), "INSERT INTO test_mqt_fact values (10, 100, '2015-02-01', 22), (11, 100, '2015-02-02', 22), (12, 200, '2015-02-02', 23)");
+
+        // Refresh both materialized tables with predicate
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh(" +
+                "'raptor.tpch.test_refresh_mqt_join_1', " +
+                "'{\"raptor.tpch.test_mqt_fact\":\"ds > ''2015-02-01''\"}', " +
+                "'ds > ''2015-02-01''')");
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh(" +
+                "'raptor.tpch.test_refresh_mqt_join_2', " +
+                "'{\"test_mqt_fact\":\"ds > ''2015-02-01''\"}', " +
+                "'ds > ''2015-02-01''')");
+
+        materializedRows1 = computeActual("SELECT name, ds, sum FROM test_refresh_mqt_join_1 ORDER BY name, ds");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), "Customer1");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(1), "2015-02-01");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(2), 21L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(0), "Customer1");
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(2), 35L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(0), "Customer2");
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(1), "2015-02-01");
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(2), 12L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(0), "Customer2");
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(2), 23L);
+        assertEquals(materializedRows1.getMaterializedRows().get(4).getField(0), "Customer3");
+        assertEquals(materializedRows1.getMaterializedRows().get(4).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(4).getField(2), 14L);
+
+        assertEquals(materializedRows1.getMaterializedRows().size(), 5);
+
+        materializedRows2 = computeActual("SELECT name, ds, sum FROM test_refresh_mqt_join_2 ORDER BY name, ds");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), "Customer1");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(1), "2015-02-01");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(2), 21L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(0), "Customer1");
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(1), "2015-02-02");
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(2), 35L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(0), "Customer2");
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(1), "2015-02-01");
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(2), 12L);
+        assertEquals(materializedRows2.getMaterializedRows().get(3).getField(0), "Customer2");
+        assertEquals(materializedRows2.getMaterializedRows().get(3).getField(1), "2015-02-02");
+        assertEquals(materializedRows2.getMaterializedRows().get(3).getField(2), 23L);
+
+        assertEquals(materializedRows2.getMaterializedRows().size(), 4);
+
+        queryRunner.execute(getSession(), "INSERT INTO test_mqt_fact values (20, 100, '2015-02-01', 100), (21, 100, '2015-02-02', 122), (22, 200, '2015-02-03', 123)");
+
+        // Refresh both materialized tables with predicate
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh(" +
+                "'raptor.tpch.test_refresh_mqt_join_1', " +
+                "'{\"raptor.tpch.test_mqt_fact\":\"ds = ''2015-02-02'' OR ds = ''2015-02-03''\"}', " +
+                "'ds > ''2015-02-01''')");
+        queryRunner.execute(getSession(), "CALL system.mqt.admin_refresh(" +
+                "'raptor.tpch.test_refresh_mqt_join_2', " +
+                "'{\"raptor.tpch.test_mqt_fact\":\"ds = ''2015-02-02''\", \"raptor.tpch.test_mqt_cust\":\"cust_id = 100\"}', " +
+                "'ds = ''2015-02-02'' AND name = ''Customer1''')");
+
+        materializedRows1 = computeActual("SELECT name, ds, sum FROM test_refresh_mqt_join_1 ORDER BY name, ds");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(0), "Customer1");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(1), "2015-02-01");
+        assertEquals(materializedRows1.getMaterializedRows().get(0).getField(2), 21L);
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(0), "Customer1");
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(1).getField(2), 157L);
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(0), "Customer2");
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(1), "2015-02-01");
+        assertEquals(materializedRows1.getMaterializedRows().get(2).getField(2), 12L);
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(0), "Customer2");
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(3).getField(2), 23L);
+        assertEquals(materializedRows1.getMaterializedRows().get(4).getField(0), "Customer2");
+        assertEquals(materializedRows1.getMaterializedRows().get(4).getField(1), "2015-02-03");
+        assertEquals(materializedRows1.getMaterializedRows().get(4).getField(2), 123L);
+        assertEquals(materializedRows1.getMaterializedRows().get(5).getField(0), "Customer3");
+        assertEquals(materializedRows1.getMaterializedRows().get(5).getField(1), "2015-02-02");
+        assertEquals(materializedRows1.getMaterializedRows().get(5).getField(2), 14L);
+
+        assertEquals(materializedRows1.getMaterializedRows().size(), 6);
+
+        materializedRows2 = computeActual("SELECT name, ds, sum FROM test_refresh_mqt_join_2 ORDER BY name, ds");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(0), "Customer1");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(1), "2015-02-01");
+        assertEquals(materializedRows2.getMaterializedRows().get(0).getField(2), 21L);
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(0), "Customer1");
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(1), "2015-02-02");
+        assertEquals(materializedRows2.getMaterializedRows().get(1).getField(2), 157L);
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(0), "Customer2");
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(1), "2015-02-01");
+        assertEquals(materializedRows2.getMaterializedRows().get(2).getField(2), 12L);
+        assertEquals(materializedRows2.getMaterializedRows().get(3).getField(0), "Customer2");
+        assertEquals(materializedRows2.getMaterializedRows().get(3).getField(1), "2015-02-02");
+        assertEquals(materializedRows2.getMaterializedRows().get(3).getField(2), 23L);
+
+        assertEquals(materializedRows2.getMaterializedRows().size(), 4);
+    }
 }

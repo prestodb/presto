@@ -334,6 +334,8 @@ class StatementAnalyzer
 
         analysis.setCreateTableAsSelectWithData(node.isWithData());
 
+        analysis.setCreateMaterializedQueryTable(node.isMaterializedQueryTable());
+
         // analyze the query that creates the table
         Scope queryScope = process(node.getQuery(), scope);
 
@@ -558,15 +560,20 @@ class StatementAnalyzer
 
         // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType(), column.isHidden());
             fields.add(field);
             ColumnHandle columnHandle = columnHandles.get(column.getName());
             checkArgument(columnHandle != null, "Unknown field %s", field);
             analysis.setColumn(field, columnHandle);
+            columnNames.add(column.getName());
         }
 
         analysis.registerTable(table, tableHandle.get());
+        if (analysis.isCreateMaterializedQueryTable()) {
+            analysis.addTableColumns(name, columnNames.build());
+        }
 
         return createScope(table, scope, fields.build());
     }

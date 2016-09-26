@@ -23,6 +23,7 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
+import com.facebook.presto.spi.MaterializedQueryTableInfo;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.type.Type;
@@ -65,6 +66,7 @@ public class TestShardOrganizerUtil
 {
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+    private static final JsonCodec<MaterializedQueryTableInfo> MATERIALIZED_QUERY_TABLE_INFO_JSON_CODEC = jsonCodec(MaterializedQueryTableInfo.class);
 
     private static final List<ColumnInfo> COLUMNS = ImmutableList.of(
             new ColumnInfo(1, TIMESTAMP),
@@ -86,7 +88,7 @@ public class TestShardOrganizerUtil
         dummyHandle = dbi.open();
         dataDir = Files.createTempDir();
 
-        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC, MATERIALIZED_QUERY_TABLE_INFO_JSON_CODEC);
         createTablesWithRetry(dbi);
 
         metadataDao = dbi.onDemand(MetadataDao.class);
