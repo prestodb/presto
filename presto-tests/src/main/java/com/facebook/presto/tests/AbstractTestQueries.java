@@ -1483,6 +1483,17 @@ public abstract class AbstractTestQueries
     public void testGroupingSetsWithSingleDistinctAndUnion()
             throws Exception
     {
+        assertQuery("SELECT suppkey, COUNT(DISTINCT linenumber) FROM " +
+                        "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
+                        "GROUP BY GROUPING SETS ((suppkey), ())",
+                "SELECT suppkey, COUNT(DISTINCT linenumber) FROM lineitem GROUP BY suppkey UNION ALL " +
+                        "SELECT NULL, COUNT(DISTINCT linenumber) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsWithSingleDistinctAndUnionGroupedArguments()
+            throws Exception
+    {
         assertQuery("SELECT linenumber, COUNT(DISTINCT linenumber) FROM " +
                         "(SELECT * FROM lineitem WHERE linenumber%2 = 0 UNION ALL SELECT * FROM lineitem WHERE linenumber%2 = 1) " +
                         "GROUP BY GROUPING SETS ((linenumber), ())",

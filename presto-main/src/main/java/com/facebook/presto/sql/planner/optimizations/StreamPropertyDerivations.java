@@ -290,6 +290,28 @@ final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties).translate(translateGroupIdSymbols(node));
+        }
+
+        private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
+        {
+            List<Symbol> commonGroupingColumns = node.getCommonGroupingColumns();
+            return symbol -> {
+                if (node.getIdentityMappings().containsKey(symbol)) {
+                    return Optional.of(node.getIdentityMappings().get(symbol));
+                }
+
+                if (commonGroupingColumns.contains(symbol)) {
+                    return Optional.of(symbol);
+                }
+
+                return Optional.empty();
+            };
+        }
+
+        @Override
         public StreamProperties visitAggregation(AggregationNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
@@ -380,12 +402,6 @@ final class StreamPropertyDerivations
 
         @Override
         public StreamProperties visitMarkDistinct(MarkDistinctNode node, List<StreamProperties> inputProperties)
-        {
-            return Iterables.getOnlyElement(inputProperties);
-        }
-
-        @Override
-        public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties);
         }

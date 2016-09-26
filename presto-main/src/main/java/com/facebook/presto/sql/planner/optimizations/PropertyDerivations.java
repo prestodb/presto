@@ -214,9 +214,7 @@ class PropertyDerivations
         @Override
         public ActualProperties visitGroupId(GroupIdNode node, List<ActualProperties> inputProperties)
         {
-            ActualProperties properties = Iterables.getOnlyElement(inputProperties);
-
-            return properties.translate(translateGroupIdSymbols(node));
+            return Iterables.getOnlyElement(inputProperties).translate(translateGroupIdSymbols(node));
         }
 
         private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
