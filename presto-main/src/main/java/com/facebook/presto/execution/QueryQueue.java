@@ -88,7 +88,7 @@ public class QueryQueue
 
         private QueueEntry(QueuedExecution queuedExecution, Runnable onDequeue)
         {
-            requireNonNull(queuedExecution, "queueableExecution is null");
+            requireNonNull(queuedExecution, "queuedExecution is null");
             this.queryExecution = new AtomicReference<>(queuedExecution);
             this.onDequeue = requireNonNull(onDequeue, "onDequeue is null");
         }
