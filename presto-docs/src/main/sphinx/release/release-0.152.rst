@@ -59,7 +59,7 @@ SPI Changes
   Dependencies like ``TypeManager`` are now provided directly rather
   than being injected into ``Plugin``.
 * Add first-class support for functions in the SPI. This replaces the old
-  ``FunctionFactory`` interface. Pugins can return a list of classes from the
+  ``FunctionFactory`` interface. Plugins can return a list of classes from the
   ``getFunctions()`` method:
 
   * Scalar functions are methods or classes annotated with ``@ScalarFunction``.
