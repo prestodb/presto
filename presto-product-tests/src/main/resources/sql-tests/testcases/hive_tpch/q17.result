@@ -1,2 +1,2 @@
--- delimiter: |; ignoreOrder: false; types: LONGNVARCHAR
+-- delimiter: |; ignoreOrder: false; types: DOUBLE 
 348406.05|
