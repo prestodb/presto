@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
@@ -56,6 +58,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -230,6 +233,12 @@ class SubqueryPlanner
 
         PlanNode subqueryPlan = createRelationPlan(existsPredicate.getSubquery()).getRoot();
 
+        Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
+        if (isAggregationWithEmptyGroupBy(subqueryPlan)) {
+            subPlan.getTranslations().put(existsPredicate, BooleanLiteral.TRUE_LITERAL);
+            return subPlan;
+        }
+
         subqueryPlan = new LimitNode(idAllocator.getNextId(), subqueryPlan, 1, false);
 
         FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
@@ -248,7 +257,6 @@ class SubqueryPlanner
                 Optional.empty(),
                 Optional.empty());
 
-        Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         ComparisonExpression countGreaterThanZero = new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()));
         subqueryPlan = new EnforceSingleRowNode(
                 idAllocator.getNextId(),
@@ -258,6 +266,17 @@ class SubqueryPlanner
                         ImmutableMap.of(exists, countGreaterThanZero)));
 
         return appendSubqueryApplyNode(subPlan, existsPredicate, existsPredicate.getSubquery(), subqueryPlan, correlationAllowed);
+    }
+
+    private boolean isAggregationWithEmptyGroupBy(PlanNode subqueryPlan)
+    {
+        return searchFrom(subqueryPlan)
+                .skipOnlyWhen(Predicates.isInstanceOfAny(ProjectNode.class))
+                .where(AggregationNode.class::isInstance)
+                .findFirst()
+                .map(AggregationNode.class::cast)
+                .map(aggregation -> aggregation.getGroupingKeys().isEmpty())
+                .orElse(false);
     }
 
     private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Query subquery, PlanNode subqueryNode, boolean correlationAllowed)
