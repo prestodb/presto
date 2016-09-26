@@ -732,3 +732,46 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
     FROM nation
     CROSS JOIN region;
 
+Subqueries
+----------
+
+A subquery is an expression which is composed of a query. The subquery
+is correlated when it refers to columns outside of the subquery.
+Logically, the subquery will be evaluated for each row in the surrounding
+query. The referenced columns will thus be constant during any single
+evaluation of the subquery.
+
+.. note:: Support for correlated subqueries is limited. Not every standard form is supported.
+
+EXISTS
+^^^^^^
+
+The ``EXISTS`` predicate determines if a subquery returns any rows::
+
+    SELECT name
+    FROM nation
+    WHERE EXISTS (SELECT * FROM region WHERE region.regionkey = nation.regionkey)
+
+IN
+^^
+
+The ``IN`` predicate determines if any values produced by the subquery
+are equal to the provided expression. The result of ``IN`` follows the
+standard rules for nulls. The subquery must produce exactly one column::
+
+    SELECT name
+    FROM nation
+    WHERE regionkey IN (SELECT regionkey FROM region)
+
+Scalar Subquery
+^^^^^^^^^^^^^^^
+
+A scalar subquery is a non-correlated subquery that returns zero or
+one row. It is an error for the subquery to produce more than one
+row. The returned value is ``NULL`` if the subquery produces no rows::
+
+    SELECT name
+    FROM nation
+    WHERE regionkey = (SELECT max(regionkey) FROM region)
+
+.. note:: Currently only single column can be returned from the scalar subquery.
