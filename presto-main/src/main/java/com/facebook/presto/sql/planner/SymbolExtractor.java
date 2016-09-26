@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -361,6 +362,16 @@ public final class SymbolExtractor
 
         @Override
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        {
+            node.getSource().accept(this, context);
+
+            builder.addAll(node.getOutputSymbols());
+
+            return null;
+        }
+
+        @Override
+        public Void visitAssignUniqueId(AssignUniqueId node, Void context)
         {
             node.getSource().accept(this, context);
 

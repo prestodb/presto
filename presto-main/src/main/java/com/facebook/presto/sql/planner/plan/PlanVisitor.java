@@ -184,4 +184,9 @@ public class PlanVisitor<C, R>
     {
         return visitPlan(node, context);
     }
+
+    public R visitAssignUniqueId(AssignUniqueId node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }
