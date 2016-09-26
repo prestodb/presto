@@ -50,6 +50,7 @@ import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static java.util.Objects.requireNonNull;
 
 //
@@ -359,6 +360,16 @@ public class Driver
     private ListenableFuture<?> processInternal()
     {
         checkLockHeld("Lock must be held to call processInternal");
+
+        // revoke operators memory
+        // do this synchronously for now
+        for (int i = 0; i < operators.size() && !driverContext.isDone(); i++) {
+            Operator current = operators.get(i);
+            if (current.getOperatorContext().isSystemMemoryRevokingRequested()) {
+                getUnchecked(current.revokeMemory());
+                current.getOperatorContext().resetSystemMemoryRevokingRequested();
+            }
+        }
 
         try {
             if (!newSources.isEmpty()) {
