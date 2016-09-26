@@ -130,11 +130,11 @@ public abstract class AbstractTestQueries
         super(queryRunner);
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:16: no viable alternative at input.*")
+    @Test
     public void testParsingError()
             throws Exception
     {
-        computeActual("SELECT foo FROM");
+        assertQueryFails("SELECT foo FROM", "line 1:16: no viable alternative at input.*");
     }
 
     @Test
@@ -431,11 +431,13 @@ public abstract class AbstractTestQueries
                 "WHERE orders.custkey > orders.orderkey AND orders.custkey < 200.3");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:8: '\"a\".\"col0\"' must be an aggregate expression or appear in GROUP BY clause")
+    @Test
     public void testMissingRowFieldInGroupBy()
             throws Exception
     {
-        assertQuery("SELECT a.col0, count(*) FROM (VALUES ROW(cast(ROW(1, 1) as ROW(col0 integer, col1 integer)))) t(a)");
+        assertQueryFails(
+                "SELECT a.col0, count(*) FROM (VALUES ROW(cast(ROW(1, 1) as ROW(col0 integer, col1 integer)))) t(a)",
+                "line 1:8: '\"a\".\"col0\"' must be an aggregate expression or appear in GROUP BY clause");
     }
 
     @Test
@@ -947,11 +949,13 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
     }
 
-    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list")
+    @Test
     public void testDistinctWithOrderByNotInSelect()
             throws Exception
     {
-        assertQueryOrdered("SELECT DISTINCT custkey FROM orders ORDER BY orderkey LIMIT 10");
+        assertQueryFails(
+                "SELECT DISTINCT custkey FROM orders ORDER BY orderkey LIMIT 10",
+                "line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
     }
 
     @Test
@@ -4425,20 +4429,24 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:8: Cannot cast integer to date")
+    @Test
     public void testInvalidCast()
             throws Exception
     {
-        assertQuery("SELECT CAST(1 AS DATE) FROM orders");
+        assertQueryFails(
+                "SELECT CAST(1 AS DATE) FROM orders",
+                "line 1:8: Cannot cast integer to date");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 2:1: Cannot cast integer to date")
+    @Test
     public void testInvalidCastInMultilineQuery()
             throws Exception
     {
-        assertQuery("SELECT CAST(totalprice AS BIGINT),\n" +
-                "CAST(2015 AS DATE),\n" +
-                "CAST(orderkey AS DOUBLE) FROM orders");
+        assertQueryFails(
+                "SELECT CAST(totalprice AS BIGINT),\n" +
+                        "CAST(2015 AS DATE),\n" +
+                        "CAST(orderkey AS DOUBLE) FROM orders",
+                "line 2:1: Cannot cast integer to date");
     }
 
     @Test
@@ -4463,11 +4471,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:39: Column 'orderkey_1' cannot be resolved")
+    @Test
     public void testInvalidColumn()
             throws Exception
     {
-        computeActual("select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1");
+        assertQueryFails(
+                "select * from lineitem l join (select orderkey_1, custkey from orders) o on l.orderkey = o.orderkey_1",
+                "line 1:39: Column 'orderkey_1' cannot be resolved");
     }
 
     @Test
@@ -4619,11 +4629,13 @@ public abstract class AbstractTestQueries
         );
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "line 1:1: Recursive WITH queries are not supported")
+    @Test
     public void testWithRecursive()
             throws Exception
     {
-        computeActual("WITH RECURSIVE a AS (SELECT 123) SELECT * FROM a");
+        assertQueryFails(
+                "WITH RECURSIVE a AS (SELECT 123) SELECT * FROM a",
+                "line 1:1: Recursive WITH queries are not supported");
     }
 
     @Test
@@ -4633,11 +4645,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' END FROM orders");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:67: All CASE results must be the same type: varchar(1)\\E")
+    @Test
     public void testCaseNoElseInconsistentResultType()
         throws Exception
     {
-        computeActual("SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' WHEN '1' THEN 2 END FROM orders");
+        assertQueryFails(
+                "SELECT orderkey, CASE orderstatus WHEN 'O' THEN 'a' WHEN '1' THEN 2 END FROM orders",
+                "\\Qline 1:67: All CASE results must be the same type: varchar(1)\\E");
     }
 
     @Test
@@ -5235,13 +5249,12 @@ public abstract class AbstractTestQueries
         assertQueryFails("SELECT TRY()", "line 1:8: The 'try' function must have exactly one argument");
     }
 
-    // no regexp specified because the JVM optimizes away exception message constructor if run enough times
-    @Test(expectedExceptions = RuntimeException.class)
+    @Test
     public void testTryNoMergeProjections()
         throws Exception
     {
-        computeActual(
-                "SELECT TRY(x) FROM (SELECT 1/y as x FROM (VALUES 1, 2, 3, 0, 4) t(y))");
+        // no regexp specified because the JVM optimizes away exception message constructor if run enough times
+        assertQueryFails("SELECT TRY(x) FROM (SELECT 1/y as x FROM (VALUES 1, 2, 3, 0, 4) t(y))", ".*");
     }
 
     @Test
@@ -6715,49 +6728,53 @@ public abstract class AbstractTestQueries
         assertTrue(stats.getVariance() > 0, "Samples all had the exact same size");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:8: Unexpected parameters (integer) for function length. Expected:\\E.*")
+    @Test
     public void testFunctionNotRegistered()
     {
-        computeActual("SELECT length(1)");
+        assertQueryFails(
+                "SELECT length(1)",
+                "\\Qline 1:8: Unexpected parameters (integer) for function length. Expected:\\E.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:8: Unexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*")
+    @Test
     public void testFunctionArgumentTypeConstraint()
     {
-        computeActual("SELECT greatest(rgb(255, 0, 0))");
+        assertQueryFails(
+                "SELECT greatest(rgb(255, 0, 0))",
+                "\\Qline 1:8: Unexpected parameters (color) for function greatest. Expected: greatest(E) E:orderable\\E.*");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:10: '<>' cannot be applied to integer, varchar(1)\\E")
+    @Test
     public void testTypeMismatch()
     {
-        computeActual("SELECT 1 <> 'x'");
+        assertQueryFails("SELECT 1 <> 'x'", "\\Qline 1:10: '<>' cannot be applied to integer, varchar(1)\\E");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:8: Unknown type: ARRAY(FOO)\\E")
+    @Test
     public void testInvalidType()
     {
-        computeActual("SELECT CAST(null AS array(foo))");
+        assertQueryFails("SELECT CAST(null AS array(foo))", "\\Qline 1:8: Unknown type: ARRAY(FOO)\\E");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: '+' cannot be applied to varchar, integer\\E")
+    @Test
     public void testInvalidTypeInfixOperator()
     {
         // Comment on why error message references varchar(214783647) instead of varchar(2) which seems expected result type for concatenation in expression.
         // Currently variable argument functions do not play well with arguments using parametrized types.
         // The variable argument functions mechanism requires that all the arguments are of exactly same type. We cannot enforce that base must match but parameters may differ.
-        computeActual("SELECT ('a' || 'z') + (3 * 4) / 5");
+        assertQueryFails("SELECT ('a' || 'z') + (3 * 4) / 5", "\\Qline 1:21: '+' cannot be applied to varchar, integer\\E");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E")
+    @Test
     public void testInvalidTypeBetweenOperator()
     {
-        computeActual("SELECT 'a' BETWEEN 3 AND 'z'");
+        assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: All ARRAY elements must be the same type: integer\\E")
+    @Test
     public void testInvalidTypeArray()
     {
-        computeActual("SELECT ARRAY[1, 2, 'a']");
+        assertQueryFails("SELECT ARRAY[1, 2, 'a']", "\\Qline 1:20: All ARRAY elements must be the same type: integer\\E");
     }
 
     @Test
