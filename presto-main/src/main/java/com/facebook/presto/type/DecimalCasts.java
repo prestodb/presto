@@ -22,6 +22,7 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
@@ -68,6 +69,7 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -471,25 +473,40 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long doubleToShortDecimal(double value, long precision, long scale, long tenToScale)
     {
-        BigDecimal decimal = doubleToBigDecimal(value, precision, scale);
-        decimal = decimal.setScale(intScale(scale), HALF_UP);
-        if (overflows(decimal, precision)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        // TODO: implement specialized version for short decimals
+        Slice decimal = internalDoubleToLongDecimal(value, precision, scale);
+
+        long low = UnscaledDecimal128Arithmetic.getLong(decimal, 0);
+        long high = UnscaledDecimal128Arithmetic.getLong(decimal, 1);
+
+        checkState(high == 0 && low >= 0, "Unexpected long decimal");
+
+        if (UnscaledDecimal128Arithmetic.isNegative(decimal)) {
+            return -low;
         }
-        return decimal.unscaledValue().longValue();
+        else {
+            return low;
+        }
     }
 
     @UsedByGeneratedCode
     public static Slice doubleToLongDecimal(double value, long precision, long scale, BigInteger tenToScale)
     {
-        // TODO: optimize
-        BigDecimal decimal = doubleToBigDecimal(value, precision, scale);
-        decimal = decimal.setScale(intScale(scale), HALF_UP);
-        if (overflows(decimal, precision)) {
+        return internalDoubleToLongDecimal(value, precision, scale);
+    }
+
+    private static Slice internalDoubleToLongDecimal(double value, long precision, long scale)
+    {
+        try {
+            Slice decimal = UnscaledDecimal128Arithmetic.doubleToLongDecimal(value, precision, intScale(scale));
+            if (overflows(decimal, intScale(precision))) {
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            }
+            return decimal;
+        }
+        catch (ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
-        BigInteger decimalBigInteger = decimal.unscaledValue();
-        return encodeUnscaledValue(decimalBigInteger);
     }
 
     @UsedByGeneratedCode
