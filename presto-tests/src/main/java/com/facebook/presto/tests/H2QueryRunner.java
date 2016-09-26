@@ -28,6 +28,7 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Joiner;
+import io.airlift.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 import org.skife.jdbi.v2.DBI;
@@ -70,7 +71,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
+import static io.airlift.tpch.TpchTable.NATION;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static io.airlift.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
@@ -95,8 +98,7 @@ public class H2QueryRunner
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
         handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
-        TpchTableHandle ordersHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, ORDERS.getTableName()));
-        insertRows(tpchMetadata.getTableMetadata(null, ordersHandle), handle, createTpchRecordSet(ORDERS, ordersHandle.getScaleFactor()));
+        insertRows(tpchMetadata, ORDERS);
 
         handle.execute("CREATE TABLE lineitem (\n" +
                 "  orderkey BIGINT,\n" +
@@ -117,8 +119,28 @@ public class H2QueryRunner
                 "  comment VARCHAR(44) NOT NULL,\n" +
                 "  PRIMARY KEY (orderkey, linenumber)" +
                 ")");
-        TpchTableHandle lineItemHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, LINE_ITEM.getTableName()));
-        insertRows(tpchMetadata.getTableMetadata(null, lineItemHandle), handle, createTpchRecordSet(LINE_ITEM, lineItemHandle.getScaleFactor()));
+        insertRows(tpchMetadata, LINE_ITEM);
+
+        handle.execute("CREATE TABLE nation (\n" +
+                "  nationkey BIGINT PRIMARY KEY,\n" +
+                "  name VARCHAR(25) NOT NULL,\n" +
+                "  regionkey BIGINT NOT NULL,\n" +
+                "  comment VARCHAR(114) NOT NULL\n" +
+                ")");
+        insertRows(tpchMetadata, NATION);
+
+        handle.execute("CREATE TABLE region(\n" +
+                "  regionkey BIGINT PRIMARY KEY,\n" +
+                "  name VARCHAR(25) NOT NULL,\n" +
+                "  comment VARCHAR(115) NOT NULL\n" +
+                ")");
+        insertRows(tpchMetadata, REGION);
+    }
+
+    private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)
+    {
+        TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, tpchTable.getTableName()));
+        insertRows(tpchMetadata.getTableMetadata(null, tableHandle), handle, createTpchRecordSet(tpchTable, tableHandle.getScaleFactor()));
     }
 
     public void close()
