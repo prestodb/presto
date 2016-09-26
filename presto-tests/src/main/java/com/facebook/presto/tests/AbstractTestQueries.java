@@ -1681,16 +1681,43 @@ public abstract class AbstractTestQueries
     public void testIntersect()
             throws Exception
     {
-        assertQuery("SELECT regionkey FROM nation WHERE nationkey < 7 INTERSECT select regionkey FROM nation WHERE nationkey > 21");
-        assertQuery("SELECT regionkey FROM nation WHERE nationkey < 7 INTERSECT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21");
-        assertQuery("WITH wnation AS (SELECT nationkey, regionkey FROM nation) SELECT regionkey FROM wnation WHERE nationkey < 7 INTERSECT SELECT regionkey FROM wnation WHERE nationkey > 21");
-        assertQuery("SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 INTERSECT SELECT 1 FROM nation WHERE nationkey=20) T");
-        assertQuery("SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 INTERSECT SELECT nationkey FROM nation WHERE nationkey > 4) T WHERE nationkey % 2 = 0");
-        assertQuery("SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) UNION SELECT 4");
-        assertQuery("SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 UNION SELECT regionkey FROM nation WHERE nationkey > 21) INTERSECT SELECT 1");
-        assertQuery("SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) UNION ALL SELECT 3");
-        assertQuery("SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) UNION ALL SELECT 3");
-        assertQuery("SELECT * FROM (VALUES 1, 2) INTERSECT SELECT * FROM (VALUES 1.0, 2)");
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT select regionkey FROM nation WHERE nationkey > 21");
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21",
+                "VALUES 1, 3");
+        assertQuery(
+                "WITH wnation AS (SELECT nationkey, regionkey FROM nation) " +
+                        "SELECT regionkey FROM wnation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM wnation WHERE nationkey > 21", "VALUES 1, 3");
+        assertQuery(
+                "SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 " +
+                        "INTERSECT SELECT 1 FROM nation WHERE nationkey=20) T");
+        assertQuery(
+                "SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 " +
+                        "INTERSECT SELECT nationkey FROM nation WHERE nationkey > 4) T WHERE nationkey % 2 = 0");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION SELECT 4");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "UNION SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "INTERSECT SELECT 1");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION ALL SELECT 3");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "INTERSECT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION ALL SELECT 3");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) " +
+                        "INTERSECT SELECT * FROM (VALUES 1.0, 2)",
+                "VALUES 1.0, 2.0");
 
         MaterializedResult emptyResult = computeActual("SELECT 100 INTERSECT (SELECT regionkey FROM nation WHERE nationkey <10)");
         assertEquals(emptyResult.getMaterializedRows().size(), 0);
@@ -1718,15 +1745,39 @@ public abstract class AbstractTestQueries
     public void testExcept()
             throws Exception
     {
-        assertQuery("SELECT regionkey FROM nation WHERE nationkey < 7 EXCEPT select regionkey FROM nation WHERE nationkey > 21");
-        assertQuery("SELECT regionkey FROM nation WHERE nationkey < 7 EXCEPT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21");
-        assertQuery("WITH wnation AS (SELECT nationkey, regionkey FROM nation) SELECT regionkey FROM wnation WHERE nationkey < 7 EXCEPT SELECT regionkey FROM wnation WHERE nationkey > 21");
-        assertQuery("SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 EXCEPT SELECT 2 FROM nation WHERE nationkey=20) T");
-        assertQuery("SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 EXCEPT SELECT nationkey FROM nation WHERE nationkey > 4) T WHERE nationkey % 2 = 0");
-        assertQuery("SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 EXCEPT SELECT regionkey FROM nation WHERE nationkey > 21) UNION SELECT 3");
-        assertQuery("SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 UNION SELECT regionkey FROM nation WHERE nationkey > 21) EXCEPT SELECT 1");
-        assertQuery("SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 EXCEPT SELECT regionkey FROM nation WHERE nationkey > 21) UNION ALL SELECT 4");
-        assertQuery("SELECT * FROM (VALUES 1, 2) EXCEPT SELECT * FROM (VALUES 3.0, 2)");
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT select regionkey FROM nation WHERE nationkey > 21");
+        assertQuery(
+                "SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT DISTINCT SELECT regionkey FROM nation WHERE nationkey > 21",
+                "VALUES 0, 4");
+        assertQuery(
+                "WITH wnation AS (SELECT nationkey, regionkey FROM nation) " +
+                        "SELECT regionkey FROM wnation WHERE nationkey < 7 " +
+                        "EXCEPT SELECT regionkey FROM wnation WHERE nationkey > 21",
+                "VALUES 0, 4");
+        assertQuery(
+                "SELECT num FROM (SELECT 1 as num FROM nation WHERE nationkey=10 " +
+                        "EXCEPT SELECT 2 FROM nation WHERE nationkey=20) T");
+        assertQuery(
+                "SELECT nationkey, nationkey / 2 FROM (SELECT nationkey FROM nation WHERE nationkey < 10 " +
+                        "EXCEPT SELECT nationkey FROM nation WHERE nationkey > 4) T WHERE nationkey % 2 = 0");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION SELECT 3");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "UNION SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "EXCEPT SELECT 1");
+        assertQuery(
+                "SELECT regionkey FROM (SELECT regionkey FROM nation WHERE nationkey < 7 " +
+                        "EXCEPT SELECT regionkey FROM nation WHERE nationkey > 21) " +
+                        "UNION ALL SELECT 4");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) " +
+                        "EXCEPT SELECT * FROM (VALUES 3.0, 2)");
 
         MaterializedResult emptyResult = computeActual("SELECT 0 EXCEPT (SELECT regionkey FROM nation WHERE nationkey <10)");
         assertEquals(emptyResult.getMaterializedRows().size(), 0);
