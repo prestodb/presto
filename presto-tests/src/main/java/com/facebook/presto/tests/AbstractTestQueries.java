@@ -2641,7 +2641,7 @@ public abstract class AbstractTestQueries
                 queryTemplate.replace(condition.of("(x+y in (VALUES 4,5)) AND (x in (VALUES 4,5)) != (y in (VALUES 4,5))")),
                 "VALUES (4,1)");
 
-        for (QueryTemplate.Parameter joinType : ImmutableList.of(type.of("left"), type.of("right"), type.of("full"))) {
+        for (QueryTemplate.Parameter joinType : type.of("left", "right", "full")) {
             assertQueryFails(
                     queryTemplate.replace(
                             joinType,
@@ -2757,8 +2757,7 @@ public abstract class AbstractTestQueries
         QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
         QueryTemplate queryTemplate = new QueryTemplate(
                 "SELECT * FROM (" + noOutputQuery + ") t(x) %type% JOIN (VALUES 1) t2(y) ON %condition%",
-                type,
-                condition);
+                type);
 
         QueryTemplate.Parameter xPlusYEqualsSubqueryJoinCondition = condition.of("(x+y = (SELECT 4))");
         assertQuery(queryTemplate.replace(xPlusYEqualsSubqueryJoinCondition), noOutputQuery);
@@ -6153,19 +6152,25 @@ public abstract class AbstractTestQueries
                 "WHERE EXISTS(SELECT avg(orderkey) FROM orders)");
 
         // subqueries used with joins
-        assertQuery("SELECT o1.orderkey, COUNT(*) " +
-                "FROM orders o1 INNER JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
-                "GROUP BY o1.orderkey");
-        assertQuery("SELECT o1.orderkey, COUNT(*) " +
-                "FROM orders o1 LEFT OUTER JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
-                "GROUP BY o1.orderkey");
-        assertQuery("SELECT o1.orderkey, COUNT(*) " +
-                "FROM orders o1 RIGHT OUTER JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
-                "GROUP BY o1.orderkey");
-        assertQuery("SELECT o1.orderkey, COUNT(*) " +
-                "FROM orders o1 FULL JOIN (SELECT * FROM orders LIMIT 10) o2 ON EXISTS(SELECT avg(orderkey) FROM orders) " +
-                "GROUP BY o1.orderkey ORDER BY o1.orderkey LIMIT 5",
-                "VALUES (1, 10), (2, 10), (3, 10), (4, 10), (5, 10)");
+        QueryTemplate.Parameter joinType = new QueryTemplate.Parameter("join_type");
+        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
+        QueryTemplate queryTemplate = new QueryTemplate(
+                "SELECT o1.orderkey, COUNT(*) " +
+                        "FROM orders o1 %join_type% JOIN (SELECT * FROM orders LIMIT 10) o2 ON %condition% " +
+                        "GROUP BY o1.orderkey ORDER BY o1.orderkey LIMIT 5",
+                joinType,
+                condition);
+        List<QueryTemplate.Parameter> conditions = condition.of(
+            "EXISTS(SELECT avg(orderkey) FROM ORDERS)",
+            "(SELECT avg(orderkey) FROM ORDERS) > 3");
+        for (QueryTemplate.Parameter actualCondition : conditions) {
+            for (QueryTemplate.Parameter actualJoinType : joinType.of("", "LEFT", "RIGHT")) {
+                assertQuery(queryTemplate.replace(actualJoinType, actualCondition));
+            }
+            assertQuery(
+                    queryTemplate.replace(joinType.of("FULL"), actualCondition),
+                    "VALUES (1, 10), (2, 10), (3, 10), (4, 10), (5, 10)");
+        }
 
         // subqueries with ORDER BY
         assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY EXISTS(SELECT 2)");
@@ -6464,9 +6469,16 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT EXISTS(SELECT null WHERE o.orderkey = 1) FROM orders o");
         assertQuery("SELECT count(*) FROM orders o WHERE EXISTS(SELECT 1 WHERE o.orderkey = 0)");
         assertQuery("SELECT * FROM orders o ORDER BY EXISTS(SELECT 1 WHERE o.orderkey = 0)");
+        assertQuery(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE EXISTS (SELECT avg(l.orderkey) FROM lineitem l WHERE o.orderkey = l.orderkey)");
         assertQueryFails(
-                "SELECT count(*) FROM orders " +
-                        "WHERE EXISTS (SELECT count(*) FROM lineitem WHERE orders.orderkey = lineitem.orderkey)",
+                "SELECT count(*) FROM orders o " +
+                        "WHERE EXISTS (SELECT avg(l.orderkey) FROM lineitem l WHERE o.orderkey = l.orderkey GROUP BY l.linenumber)",
+                "Unsupported correlated subquery type");
+        assertQueryFails(
+                "SELECT count(*) FROM orders o " +
+                        "WHERE EXISTS (SELECT count(*) FROM lineitem l WHERE o.orderkey = l.orderkey HAVING count(*) > 3)",
                 "Unsupported correlated subquery type");
 
         // with duplicated rows

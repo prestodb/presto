@@ -14,8 +14,10 @@
 
 package com.facebook.presto.tests;
 
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -38,7 +40,6 @@ public class QueryTemplate
                     queryTemplate.contains(queryParameterKey),
                     "Query template does not contain: %s", queryParameterKey);
         }
-
         this.queryTemplate = queryTemplate;
         this.defaultParameters = ImmutableList.copyOf(parameters);
     }
@@ -137,6 +138,13 @@ public class QueryTemplate
         public Parameter of(String value)
         {
             return new Parameter(key, value);
+        }
+
+        public List<Parameter> of(String... values)
+        {
+            return Arrays.stream(values)
+                    .map(this::of)
+                    .collect(ImmutableCollectors.toImmutableList());
         }
     }
 }
