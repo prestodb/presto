@@ -51,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -191,11 +190,16 @@ class SubqueryPlanner
 
     private PlanBuilder appendScalarSubqueryApplyNode(PlanBuilder subPlan, SubqueryExpression scalarSubquery, boolean correlationAllowed)
     {
+        if (subPlan.canTranslate(scalarSubquery)) {
+            // given subquery is already appended
+            return subPlan;
+        }
+
         return appendSubqueryApplyNode(
                 subPlan,
                 scalarSubquery,
                 scalarSubquery.getQuery(),
-                subquery -> new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(subquery).getRoot()),
+                new EnforceSingleRowNode(idAllocator.getNextId(), createRelationPlan(scalarSubquery.getQuery()).getRoot()),
                 correlationAllowed);
     }
 
@@ -219,47 +223,45 @@ class SubqueryPlanner
      */
     private PlanBuilder appendExistSubqueryApplyNode(PlanBuilder subPlan, ExistsPredicate existsPredicate, boolean correlationAllowed)
     {
-        return appendSubqueryApplyNode(subPlan, existsPredicate, existsPredicate.getSubquery(), subquery -> {
-            PlanNode subqueryPlan = createRelationPlan(subquery).getRoot();
-
-            subqueryPlan = new LimitNode(idAllocator.getNextId(), subqueryPlan, 1, false);
-
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            QualifiedName countFunction = QualifiedName.of("count");
-            Symbol count = symbolAllocator.newSymbol(countFunction.toString(), BIGINT);
-            subqueryPlan = new AggregationNode(
-                    idAllocator.getNextId(),
-                    subqueryPlan,
-                    ImmutableMap.of(count, new FunctionCall(countFunction, ImmutableList.of())),
-                    ImmutableMap.of(count, functionRegistry.resolveFunction(countFunction, ImmutableList.of(), false)),
-                    ImmutableMap.of(),
-                    ImmutableList.of(ImmutableList.of()),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    1.0,
-                    Optional.empty(),
-                    Optional.empty());
-
-            Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
-            ComparisonExpression countGreaterThanZero = new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()));
-            return new EnforceSingleRowNode(
-                    idAllocator.getNextId(),
-                    new ProjectNode(
-                            idAllocator.getNextId(),
-                            subqueryPlan,
-                            ImmutableMap.of(exists, countGreaterThanZero)));
-        }, correlationAllowed);
-    }
-
-    private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Query subquery, Function<Query, PlanNode> subqueryPlanner, boolean correlationAllowed)
-    {
-        if (subPlan.canTranslate(subqueryExpression)) {
+        if (subPlan.canTranslate(existsPredicate)) {
             // given subquery is already appended
             return subPlan;
         }
 
-        PlanNode subqueryNode = subqueryPlanner.apply(subquery);
+        PlanNode subqueryPlan = createRelationPlan(existsPredicate.getSubquery()).getRoot();
 
+        subqueryPlan = new LimitNode(idAllocator.getNextId(), subqueryPlan, 1, false);
+
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        QualifiedName countFunction = QualifiedName.of("count");
+        Symbol count = symbolAllocator.newSymbol(countFunction.toString(), BIGINT);
+        subqueryPlan = new AggregationNode(
+                idAllocator.getNextId(),
+                subqueryPlan,
+                ImmutableMap.of(count, new FunctionCall(countFunction, ImmutableList.of())),
+                ImmutableMap.of(count, functionRegistry.resolveFunction(countFunction, ImmutableList.of(), false)),
+                ImmutableMap.of(),
+                ImmutableList.of(ImmutableList.of()),
+                AggregationNode.Step.SINGLE,
+                Optional.empty(),
+                1.0,
+                Optional.empty(),
+                Optional.empty());
+
+        Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
+        ComparisonExpression countGreaterThanZero = new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()));
+        subqueryPlan = new EnforceSingleRowNode(
+                idAllocator.getNextId(),
+                new ProjectNode(
+                        idAllocator.getNextId(),
+                        subqueryPlan,
+                        ImmutableMap.of(exists, countGreaterThanZero)));
+
+        return appendSubqueryApplyNode(subPlan, existsPredicate, existsPredicate.getSubquery(), subqueryPlan, correlationAllowed);
+    }
+
+    private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Query subquery, PlanNode subqueryNode, boolean correlationAllowed)
+    {
         Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
             throwNotSupportedException(subquery, "Correlated subquery in given context");
