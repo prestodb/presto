@@ -198,7 +198,7 @@ public class PredicatePushDown
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toSet());
 
-            java.util.function.Predicate<Expression> deterministic = conjunct -> DependencyExtractor.extractAll(conjunct).stream()
+            Predicate<Expression> deterministic = conjunct -> DependencyExtractor.extractAll(conjunct).stream()
                     .allMatch(deterministicSymbols::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(deterministic));
@@ -221,7 +221,7 @@ public class PredicatePushDown
             checkState(!DependencyExtractor.extractUnique(context.get()).contains(node.getGroupIdSymbol()), "groupId symbol cannot be referenced in predicate");
 
             List<Symbol> commonGroupingSymbols = node.getCommonGroupingColumns();
-            java.util.function.Predicate<Expression> pushdownEligiblePredicate = conjunct -> DependencyExtractor.extractAll(conjunct).stream()
+            Predicate<Expression> pushdownEligiblePredicate = conjunct -> DependencyExtractor.extractAll(conjunct).stream()
                     .allMatch(commonGroupingSymbols::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(pushdownEligiblePredicate));
