@@ -91,6 +91,7 @@ class TranslationMap
     public void putExpressionMappingsFrom(TranslationMap other)
     {
         expressionToSymbols.putAll(other.expressionToSymbols);
+        expressionToExpressions.putAll(other.expressionToExpressions);
     }
 
     public Expression rewrite(Expression expression)
