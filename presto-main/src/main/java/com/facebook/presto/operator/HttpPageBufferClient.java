@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.server.InputStreamSliceInputAdapter;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
@@ -31,7 +32,6 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -584,7 +584,7 @@ public final class HttpPageBufferClient
                 long nextToken = getNextToken(response);
                 boolean complete = getComplete(response);
 
-                try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
+                try (SliceInput input = new InputStreamSliceInputAdapter(response.getInputStream(), 128 * 1024)) {
                     List<Page> pages = ImmutableList.copyOf(readPages(blockEncodingSerde, input));
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
                 }
