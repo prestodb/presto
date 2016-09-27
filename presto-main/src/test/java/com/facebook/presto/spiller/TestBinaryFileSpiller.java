@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToLongBits;
 import static org.testng.Assert.assertEquals;
 
+@Test(singleThreaded = true)
 public class TestBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
@@ -95,12 +96,15 @@ public class TestBinaryFileSpiller
     private void testSpiller(List<Type> types, Spiller spiller, List<Page>... spills)
             throws ExecutionException, InterruptedException
     {
+        long spilledBytesBefore = factory.getSpilledBytes();
+        long spilledBytes = 0;
         for (List<Page> spill : spills) {
+            spilledBytes += spill.stream().mapToLong(Page::getSizeInBytes).sum();
             spiller.spill(spill.iterator()).get();
         }
+        assertEquals(factory.getSpilledBytes() - spilledBytesBefore, spilledBytes);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
-
         assertEquals(actualSpills.size(), spills.length);
 
         for (int i = 0; i < actualSpills.size(); i++) {
