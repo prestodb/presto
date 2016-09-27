@@ -443,6 +443,7 @@ public class PipelineContext
 
                 succinctBytes(memoryReservation.get()),
                 succinctBytes(systemMemoryReservation.get() + revocableSystemMemoryReservation.get()),
+                succinctBytes(revocableSystemMemoryReservation.get()),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),

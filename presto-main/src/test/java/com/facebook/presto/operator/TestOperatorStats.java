@@ -57,8 +57,9 @@ public class TestOperatorStats
 
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
+            new DataSize(20, BYTE),
             Optional.empty(),
-            "20");
+            "21");
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             41,
@@ -88,8 +89,9 @@ public class TestOperatorStats
 
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
+            new DataSize(20, BYTE),
             Optional.empty(),
-            new LongMergeable(20));
+            new LongMergeable(21));
 
     @Test
     public void testJson()
@@ -130,7 +132,8 @@ public class TestOperatorStats
 
         assertEquals(actual.getMemoryReservation(), new DataSize(18, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(19, BYTE));
-        assertEquals(actual.getInfo(), "20");
+        assertEquals(actual.getRevocableSystemMemoryReservation(), new DataSize(20, BYTE));
+        assertEquals(actual.getInfo(), "21");
     }
 
     @Test
@@ -163,6 +166,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 19, BYTE));
+        assertEquals(actual.getRevocableSystemMemoryReservation(), new DataSize(3 * 20, BYTE));
         assertEquals(actual.getInfo(), null);
     }
 
@@ -196,7 +200,8 @@ public class TestOperatorStats
         assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 19, BYTE));
-        assertEquals(actual.getInfo(), new LongMergeable(20 * 3));
+        assertEquals(actual.getRevocableSystemMemoryReservation(), new DataSize(3 * 20, BYTE));
+        assertEquals(actual.getInfo(), new LongMergeable(21 * 3));
     }
 
     private static class LongMergeable

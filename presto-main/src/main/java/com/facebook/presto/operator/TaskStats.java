@@ -52,6 +52,7 @@ public class TaskStats
     private final double cumulativeMemory;
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
+    private final DataSize revocableSystemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -89,6 +90,7 @@ public class TaskStats
                 0.0,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -124,6 +126,7 @@ public class TaskStats
             @JsonProperty("cumulativeMemory") double cumulativeMemory,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("revocableSystemMemoryReservation") DataSize revocableSystemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -169,6 +172,7 @@ public class TaskStats
         this.cumulativeMemory = requireNonNull(cumulativeMemory, "cumulativeMemory is null");
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+        this.revocableSystemMemoryReservation = requireNonNull(revocableSystemMemoryReservation, "revocableSystemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -281,6 +285,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public DataSize getRevocableSystemMemoryReservation()
+    {
+        return revocableSystemMemoryReservation;
+    }
+
+    @JsonProperty
     public Duration getTotalScheduledTime()
     {
         return totalScheduledTime;
@@ -389,6 +399,7 @@ public class TaskStats
                 cumulativeMemory,
                 memoryReservation,
                 systemMemoryReservation,
+                revocableSystemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
                 totalUserTime,
