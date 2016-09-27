@@ -27,6 +27,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.spiller.SpillerFactoryWithStats;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -491,7 +492,7 @@ public class TestHashAggregationOperator
     }
 
     private static class DummySpillerFactory
-            implements SpillerFactory
+            extends SpillerFactoryWithStats
     {
         @Override
         public Spiller create(List<Type> types)

@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class BinarySpillerFactory
-        implements SpillerFactory
+        extends SpillerFactoryWithStats
 {
     public static final String SPILLER_THREAD_NAME_PREFIX = "binary-spiller";
 
