@@ -37,22 +37,26 @@ public final class PagesSerde
 {
     private PagesSerde() {}
 
-    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Page... pages)
+    public static long writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Page... pages)
     {
-        writePages(blockEncodingSerde, sliceOutput, asList(pages).iterator());
+        return writePages(blockEncodingSerde, sliceOutput, asList(pages).iterator());
     }
 
-    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterable<Page> pages)
+    public static long writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterable<Page> pages)
     {
-        writePages(blockEncodingSerde, sliceOutput, pages.iterator());
+        return writePages(blockEncodingSerde, sliceOutput, pages.iterator());
     }
 
-    public static void writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterator<Page> pages)
+    public static long writePages(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Iterator<Page> pages)
     {
+        long size = 0;
         PagesWriter pagesWriter = new PagesWriter(blockEncodingSerde, sliceOutput);
         while (pages.hasNext()) {
-            pagesWriter.append(pages.next());
+            Page page = pages.next();
+            pagesWriter.append(page);
+            size += page.getSizeInBytes();
         }
+        return size;
     }
 
     public static Iterator<Page> readPages(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
