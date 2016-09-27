@@ -28,21 +28,19 @@ public class HiveBucketFunction
 {
     private final int bucketCount;
     private final List<TypeInfo> typeInfos;
-    private final boolean forceIntegralToBigint;
 
-    public HiveBucketFunction(int bucketCount, List<HiveType> hiveTypes, boolean forceIntegralToBigint)
+    public HiveBucketFunction(int bucketCount, List<HiveType> hiveTypes)
     {
         this.bucketCount = bucketCount;
         this.typeInfos = requireNonNull(hiveTypes, "hiveTypes is null").stream()
                 .map(HiveType::getTypeInfo)
                 .collect(Collectors.toList());
-        this.forceIntegralToBigint = forceIntegralToBigint;
     }
 
     @Override
     public int getBucket(Page page, int position)
     {
-        return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount, forceIntegralToBigint);
+        return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount);
     }
 
     @Override

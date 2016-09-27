@@ -97,7 +97,6 @@ import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.HiveType.isForceBigintWritableType;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
@@ -150,7 +149,6 @@ public class HiveMetadata
     private final boolean respectTableFormat;
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
-    private final boolean forceIntegralToBigint;
     private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
@@ -165,7 +163,6 @@ public class HiveMetadata
             boolean respectTableFormat,
             boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
-            boolean forceIntegralToBigint,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
@@ -189,7 +186,6 @@ public class HiveMetadata
         this.respectTableFormat = respectTableFormat;
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
-        this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
@@ -234,7 +230,7 @@ public class HiveMetadata
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager);
         boolean sampled = false;
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
             if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 sampled = true;
             }
@@ -308,7 +304,7 @@ public class HiveMetadata
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
             if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 return columnHandle;
             }
@@ -331,7 +327,7 @@ public class HiveMetadata
             throw new TableNotFoundException(tableName);
         }
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
             if (!columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 columnHandles.put(columnHandle.getName(), columnHandle);
             }
@@ -736,16 +732,14 @@ public class HiveMetadata
         checkTableIsWritable(table.get());
 
         for (Column column : table.get().getDataColumns()) {
-            HiveType columnType = column.getType();
-            if (!isWritableType(columnType) || (forceIntegralToBigint && !isForceBigintWritableType(columnType.getTypeInfo()))) {
+            if (!isWritableType(column.getType())) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         format("Inserting into Hive table %s.%s with column type %s not supported", table.get().getDatabaseName(), table.get().getTableName(), column.getType()));
             }
         }
 
-        // forceIntegralToBigint is set to false here because we would have already failed the query if there were any non-integral bigint types
-        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get(), false).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get()).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 

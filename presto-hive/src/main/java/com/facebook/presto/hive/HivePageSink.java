@@ -82,14 +82,12 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static com.facebook.presto.hive.HiveType.isForceBigintWritableType;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -146,7 +144,6 @@ public class HivePageSink
     private final Table table;
     private final boolean immutablePartitions;
     private final boolean compress;
-    private final boolean forceIntegralToBigint;
 
     private HiveRecordWriter[] writers;
     private final List<Int2ObjectMap<HiveRecordWriter>> bucketWriters;
@@ -171,7 +168,6 @@ public class HivePageSink
             HdfsEnvironment hdfsEnvironment,
             int maxOpenPartitions,
             boolean immutablePartitions,
-            boolean forceIntegralToBigint,
             boolean compress,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ConnectorSession session)
@@ -197,7 +193,6 @@ public class HivePageSink
         this.maxOpenPartitions = maxOpenPartitions;
         this.immutablePartitions = immutablePartitions;
         this.compress = compress;
-        this.forceIntegralToBigint = forceIntegralToBigint;
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         // divide input columns into partition and data columns
@@ -205,17 +200,12 @@ public class HivePageSink
         ImmutableList.Builder<Type> partitionColumnTypes = ImmutableList.builder();
         ImmutableList.Builder<DataColumn> dataColumns = ImmutableList.builder();
         for (HiveColumnHandle column : inputColumns) {
-            HiveType hiveType = column.getHiveType();
-            if (forceIntegralToBigint && !isForceBigintWritableType(hiveType.getTypeInfo())) {
-                throw new PrestoException(NOT_SUPPORTED, format("Writing to a Hive table with column type %s not supported", hiveType));
-            }
-
             if (column.isPartitionKey()) {
                 partitionColumnNames.add(column.getName());
                 partitionColumnTypes.add(typeManager.getType(column.getTypeSignature()));
             }
             else {
-                dataColumns.add(new DataColumn(column.getName(), typeManager.getType(column.getTypeSignature()), hiveType));
+                dataColumns.add(new DataColumn(column.getName(), typeManager.getType(column.getTypeSignature()), column.getHiveType()));
             }
         }
         this.partitionColumnNames = partitionColumnNames.build();
@@ -425,7 +415,7 @@ public class HivePageSink
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int writerIndex = indexes[position];
                 Int2ObjectMap<HiveRecordWriter> writers = bucketWriters.get(writerIndex);
-                int bucket = HiveBucketing.getHiveBucket(bucketColumnTypes, bucketColumnsPage, position, bucketCount, forceIntegralToBigint);
+                int bucket = HiveBucketing.getHiveBucket(bucketColumnTypes, bucketColumnsPage, position, bucketCount);
                 HiveRecordWriter writer = writers.get(bucket);
                 if (writer == null) {
                     if (bucketWriterCount >= maxOpenPartitions) {
@@ -712,9 +702,8 @@ public class HivePageSink
             serializer = initializeSerializer(conf, schema, serDe);
             recordWriter = HiveWriteUtils.createRecordWriter(new Path(writePath, fileName), conf, compress, schema, outputFormat);
 
-            // forceIntegralToBigint is set to false here because we would have already failed the query if there were any non-integral bigint types
             List<Type> fileColumnTypes = fileColumnHiveTypes.stream()
-                    .map(hiveType -> hiveType.getType(typeManager, false))
+                    .map(hiveType -> hiveType.getType(typeManager))
                     .collect(toList());
             tableInspector = getStandardStructObjectInspector(fileColumnNames, getRowColumnInspectors(fileColumnTypes));
 

@@ -81,22 +81,22 @@ final class HiveBucketing
 
     private HiveBucketing() {}
 
-    public static int getHiveBucket(List<TypeInfo> types, Page page, int position, int bucketCount, boolean forceIntegralToBigint)
+    public static int getHiveBucket(List<TypeInfo> types, Page page, int position, int bucketCount)
     {
-        return (getBucketHashCode(types, page, position, forceIntegralToBigint) & Integer.MAX_VALUE) % bucketCount;
+        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position, boolean forceIntegralToBigint)
+    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
     {
         int result = 0;
         for (int i = 0; i < page.getChannelCount(); i++) {
-            int fieldHash = hash(types.get(i), page.getBlock(i), position, forceIntegralToBigint);
+            int fieldHash = hash(types.get(i), page.getBlock(i), position);
             result = result * 31 + fieldHash;
         }
         return result;
     }
 
-    private static int hash(TypeInfo type, Block block, int position, boolean forceIntegralToBigint)
+    private static int hash(TypeInfo type, Block block, int position)
     {
         // This function mirrors the behavior of function hashCode in
         // HIVE-12025 ba83fd7bff serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java
@@ -112,7 +112,7 @@ final class HiveBucketing
             case PRIMITIVE: {
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo, forceIntegralToBigint));
+                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
                 switch (primitiveCategory) {
                     case BOOLEAN:
                         return prestoType.getBoolean(block, position) ? 1 : 0;
@@ -152,7 +152,7 @@ final class HiveBucketing
                 Block elementsBlock = block.getObject(position, Block.class);
                 int result = 0;
                 for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
-                    result = result * 31 + hash(elementTypeInfo, elementsBlock, i, forceIntegralToBigint);
+                    result = result * 31 + hash(elementTypeInfo, elementsBlock, i);
                 }
                 return result;
             }
@@ -163,7 +163,7 @@ final class HiveBucketing
                 Block elementsBlock = block.getObject(position, Block.class);
                 int result = 0;
                 for (int i = 0; i < elementsBlock.getPositionCount(); i += 2) {
-                    result += hash(keyTypeInfo, elementsBlock, i, forceIntegralToBigint) ^ hash(valueTypeInfo, elementsBlock, i + 1, forceIntegralToBigint);
+                    result += hash(keyTypeInfo, elementsBlock, i) ^ hash(valueTypeInfo, elementsBlock, i + 1);
                 }
                 return result;
             }
@@ -182,14 +182,14 @@ final class HiveBucketing
         return result;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table, boolean forceIntegralToBigint)
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(String connectorId, Table table)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getRegularColumnHandles(connectorId, table, forceIntegralToBigint).stream()
+        Map<String, HiveColumnHandle> map = getRegularColumnHandles(connectorId, table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getBucketedBy().stream()

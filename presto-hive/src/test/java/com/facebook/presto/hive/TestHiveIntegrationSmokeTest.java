@@ -1528,7 +1528,7 @@ public class TestHiveIntegrationSmokeTest
     private Type canonicalizeType(Type type)
     {
         HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
-        return typeManager.getType(hiveType.getTypeSignature(false));
+        return typeManager.getType(hiveType.getTypeSignature());
     }
 
     private String canonicalizeTypeName(String type)
