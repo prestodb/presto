@@ -29,6 +29,7 @@ import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
@@ -576,7 +577,8 @@ public class TestHiveFileFormats
                 getColumnHandles(testColumns),
                 partitionKeys,
                 DateTimeZone.getDefault(),
-                TYPE_MANAGER);
+                TYPE_MANAGER,
+                ImmutableMap.of());
 
         RecordCursor cursor = checkType(pageSource.get(), RecordPageSource.class, "pageSource").getCursor();
 
@@ -619,7 +621,8 @@ public class TestHiveFileFormats
                 columnHandles,
                 partitionKeys,
                 DateTimeZone.getDefault(),
-                TYPE_MANAGER);
+                TYPE_MANAGER,
+                ImmutableMap.of());
 
         assertTrue(pageSource.isPresent());
 

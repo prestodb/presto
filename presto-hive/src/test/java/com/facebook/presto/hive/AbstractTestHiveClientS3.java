@@ -190,6 +190,7 @@ public abstract class AbstractTestHiveClientS3
                 hdfsEnvironment,
                 new HadoopDirectoryLister(),
                 new BoundedExecutor(executor, hiveClientConfig.getMaxSplitIteratorThreads()),
+                new HiveCoercionPolicy(typeManager),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),

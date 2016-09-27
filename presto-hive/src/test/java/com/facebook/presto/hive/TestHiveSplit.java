@@ -16,12 +16,14 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
 import java.util.Properties;
 
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit
@@ -35,7 +37,7 @@ public class TestHiveSplit
         schema.setProperty("foo", "bar");
         schema.setProperty("bar", "baz");
 
-        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", HiveType.HIVE_STRING, "apple"), new HivePartitionKey("b", HiveType.HIVE_LONG, "42"));
+        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", HIVE_STRING, "apple"), new HivePartitionKey("b", HiveType.HIVE_LONG, "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
         HiveSplit expected = new HiveSplit(
                 "clientId",
@@ -50,7 +52,8 @@ public class TestHiveSplit
                 addresses,
                 OptionalInt.empty(),
                 true,
-                TupleDomain.<HiveColumnHandle>all());
+                TupleDomain.<HiveColumnHandle>all(),
+                ImmutableMap.of(1, HIVE_STRING));
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -65,6 +68,7 @@ public class TestHiveSplit
         assertEquals(actual.getSchema(), expected.getSchema());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
+        assertEquals(actual.getColumnCoercions(), expected.getColumnCoercions());
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
     }
 }

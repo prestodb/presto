@@ -41,6 +41,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
@@ -397,7 +398,8 @@ public class TestOrcPageSourceMemoryTracking
                     columns,
                     partitionKeys,
                     DateTimeZone.UTC,
-                    TYPE_MANAGER)
+                    TYPE_MANAGER,
+                    ImmutableMap.of())
                     .get();
         }
 

@@ -48,6 +48,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -236,7 +237,8 @@ public class BackgroundHiveSplitLoader
                             files.getInputFormat(),
                             files.getSchema(),
                             files.getPartitionKeys(),
-                            files.getEffectivePredicate());
+                            files.getEffectivePredicate(),
+                            files.getColumnCoercions());
                     fileIterators.add(fileIterator);
                 }
             }
@@ -254,7 +256,8 @@ public class BackgroundHiveSplitLoader
                         splittable,
                         session,
                         OptionalInt.empty(),
-                        files.getEffectivePredicate()));
+                        files.getEffectivePredicate(),
+                        files.getColumnCoercions()));
                 if (!future.isDone()) {
                     fileIterators.addFirst(files);
                     return future;
@@ -311,7 +314,8 @@ public class BackgroundHiveSplitLoader
                             false,
                             session,
                             OptionalInt.empty(),
-                            effectivePredicate));
+                            effectivePredicate,
+                            partition.getColumnCoercions()));
                     if (stopped) {
                         return;
                     }
@@ -321,7 +325,7 @@ public class BackgroundHiveSplitLoader
         }
 
         // If only one bucket could match: load that one file
-        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate);
+        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
         if (bucket.isPresent()) {
             List<LocatedFileStatus> locatedFileStatuses = listAndSortBucketFiles(iterator, bucket.get().getBucketCount());
             FileStatus file = locatedFileStatuses.get(bucket.get().getBucketNumber());
@@ -339,7 +343,8 @@ public class BackgroundHiveSplitLoader
                     splittable,
                     session,
                     OptionalInt.of(bucket.get().getBucketNumber()),
-                    effectivePredicate));
+                    effectivePredicate,
+                    partition.getColumnCoercions()));
             return;
         }
 
@@ -364,7 +369,8 @@ public class BackgroundHiveSplitLoader
                         splittable,
                         session,
                         OptionalInt.of(bucketIndex),
-                        iterator.getEffectivePredicate()));
+                        iterator.getEffectivePredicate(),
+                        partition.getColumnCoercions()));
             }
 
             return;
@@ -426,7 +432,8 @@ public class BackgroundHiveSplitLoader
             boolean splittable,
             ConnectorSession session,
             OptionalInt bucketNumber,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Map<Integer, HiveType> columnCoercions)
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
@@ -476,7 +483,8 @@ public class BackgroundHiveSplitLoader
                             addresses,
                             bucketNumber,
                             forceLocalScheduling && hasRealAddress(addresses),
-                            effectivePredicate));
+                            effectivePredicate,
+                            columnCoercions));
 
                     chunkOffset += chunkLength;
                 }
@@ -502,7 +510,8 @@ public class BackgroundHiveSplitLoader
                     addresses,
                     bucketNumber,
                     forceLocalScheduling && hasRealAddress(addresses),
-                    effectivePredicate));
+                    effectivePredicate,
+                    columnCoercions));
         }
         return builder.build();
     }
