@@ -21,7 +21,7 @@ import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestJmxStatsHolder
+public class TestJmxHistoricalData
 {
     private static final String TABLE_NAME = "test";
     private static final String NOT_EXISTING_TABLE_NAME = "not-existing-test";
