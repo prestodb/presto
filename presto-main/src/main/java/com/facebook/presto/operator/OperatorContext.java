@@ -427,6 +427,7 @@ public class OperatorContext
 
                 succinctBytes(memoryReservation.get()),
                 succinctBytes(systemMemoryContext.getReservedBytes()),
+                succinctBytes(systemMemoryContext.getReservedRevocableBytes()),
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
     }
