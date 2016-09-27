@@ -27,7 +27,6 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -95,7 +94,7 @@ public class DeleteOperator
     private State state = State.RUNNING;
     private long rowCount;
     private boolean closed;
-    private CompletableFuture<Collection<Slice>> finishFuture;
+    private ListenableFuture<Collection<Slice>> finishFuture;
     private Supplier<Optional<UpdatablePageSource>> pageSource = Optional::empty;
 
     public DeleteOperator(OperatorContext operatorContext, int rowIdChannel)
@@ -121,8 +120,7 @@ public class DeleteOperator
     {
         if (state == State.RUNNING) {
             state = State.FINISHING;
-            finishFuture = pageSource().finish();
-            requireNonNull(finishFuture, "finishFuture is null");
+            finishFuture = toListenableFuture(pageSource().finish());
         }
     }
 
@@ -155,8 +153,7 @@ public class DeleteOperator
         if (finishFuture == null) {
             return NOT_BLOCKED;
         }
-
-        return toListenableFuture(finishFuture);
+        return finishFuture;
     }
 
     @Override
