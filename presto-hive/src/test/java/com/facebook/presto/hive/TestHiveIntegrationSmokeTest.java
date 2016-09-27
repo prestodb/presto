@@ -1034,14 +1034,6 @@ public class TestHiveIntegrationSmokeTest
     public void testMetadataDelete()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            testMetadataDelete(storageFormat);
-        }
-    }
-
-    private void testMetadataDelete(HiveStorageFormat storageFormat)
-            throws Exception
-    {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_metadata_delete " +
                 "(" +
@@ -1050,7 +1042,6 @@ public class TestHiveIntegrationSmokeTest
                 "  LINE_STATUS VARCHAR" +
                 ") " +
                 "WITH (" +
-                STORAGE_FORMAT_PROPERTY + " = '" + storageFormat + "', " +
                 PARTITIONED_BY_PROPERTY + " = ARRAY[ 'LINE_NUMBER', 'LINE_STATUS' ]" +
                 ") ";
 
@@ -1497,18 +1488,9 @@ public class TestHiveIntegrationSmokeTest
     public void testRenameColumn()
             throws Exception
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            testRenameColumn(storageFormat);
-        }
-    }
-
-    private void testRenameColumn(HiveStorageFormat storageFormat)
-            throws Exception
-    {
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_rename_column\n" +
                 "WITH (\n" +
-                "  format = '" + storageFormat + "',\n" +
                 "  partitioned_by = ARRAY ['orderstatus']\n" +
                 ")\n" +
                 "AS\n" +
