@@ -20,6 +20,7 @@ import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.RuntimeIOException;
+import io.airlift.slice.SliceOutput;
 
 import javax.inject.Inject;
 import javax.ws.rs.Produces;
@@ -88,7 +89,10 @@ public class PagesResponseWriter
             throws IOException, WebApplicationException
     {
         try {
-            PagesSerde.writePages(blockEncodingSerde, new OutputStreamSliceOutput(output), pages);
+            SliceOutput sliceOutput = new OutputStreamSliceOutput(output);
+            PagesSerde.writePages(blockEncodingSerde, sliceOutput, pages);
+            // We use flush instead of close, because the underlying stream would be closed and that is not allowed.
+            sliceOutput.flush();
         }
         catch (RuntimeIOException e) {
             // EOF exception occurs when the client disconnects while writing data
