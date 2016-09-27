@@ -41,14 +41,12 @@ public class HiveNodePartitioningProvider
 {
     private final String connectorId;
     private final NodeManager nodeManager;
-    private final boolean forceIntegralToBigint;
 
     @Inject
-    public HiveNodePartitioningProvider(HiveConnectorId connectorId, HiveClientConfig hiveClientConfig, NodeManager nodeManager)
+    public HiveNodePartitioningProvider(HiveConnectorId connectorId, NodeManager nodeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.forceIntegralToBigint = requireNonNull(hiveClientConfig, "hiveClientConfig is null").isForceIntegralToBigint();
     }
 
     @Override
@@ -61,7 +59,7 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
         List<HiveType> hiveTypes = handle.getHiveTypes();
-        return new HiveBucketFunction(bucketCount, hiveTypes, forceIntegralToBigint);
+        return new HiveBucketFunction(bucketCount, hiveTypes);
     }
 
     @Override

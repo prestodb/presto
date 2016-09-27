@@ -103,8 +103,7 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab(null)
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
-                .setBucketWritingEnabled(true)
-                .setForceIntegralToBigint(false));
+                .setBucketWritingEnabled(true));
     }
 
     @Test
@@ -179,7 +178,6 @@ public class TestHiveClientConfig
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
-                .put("deprecated.hive.integral-types-as-bigint", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -250,8 +248,7 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab("/tmp/presto.keytab")
                 .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
-                .setBucketWritingEnabled(false)
-                .setForceIntegralToBigint(true);
+                .setBucketWritingEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

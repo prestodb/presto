@@ -37,7 +37,6 @@ public class HiveMetadataFactory
     private final boolean respectTableFormat;
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
-    private final boolean forceIntegralToBigint;
     private final boolean skipDeletionForAlter;
     private final HiveStorageFormat defaultStorageFormat;
     private final ExtendedHiveMetastore metastore;
@@ -79,7 +78,6 @@ public class HiveMetadataFactory
                 hiveClientConfig.isSkipDeletionForAlter(),
                 hiveClientConfig.isBucketExecutionEnabled(),
                 hiveClientConfig.isBucketWritingEnabled(),
-                hiveClientConfig.isForceIntegralToBigint(),
                 hiveClientConfig.getHiveStorageFormat(),
                 typeManager,
                 locationService,
@@ -102,7 +100,6 @@ public class HiveMetadataFactory
             boolean skipDeletionForAlter,
             boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
-            boolean forceIntegralToBigint,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
@@ -119,7 +116,6 @@ public class HiveMetadataFactory
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
-        this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
 
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -159,7 +155,6 @@ public class HiveMetadataFactory
                 respectTableFormat,
                 bucketExecutionEnabled,
                 bucketWritingEnabled,
-                forceIntegralToBigint,
                 defaultStorageFormat,
                 typeManager,
                 locationService,

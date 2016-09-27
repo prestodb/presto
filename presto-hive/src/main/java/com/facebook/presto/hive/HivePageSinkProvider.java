@@ -39,7 +39,6 @@ public class HivePageSinkProvider
     private final TypeManager typeManager;
     private final int maxOpenPartitions;
     private final boolean immutablePartitions;
-    private final boolean forceIntegralToBigint;
     private final boolean compressed;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
@@ -62,7 +61,6 @@ public class HivePageSinkProvider
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
-        this.forceIntegralToBigint = config.isForceIntegralToBigint();
         this.compressed = config.getHiveCompressionCodec() != HiveCompressionCodec.NONE;
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
@@ -101,7 +99,6 @@ public class HivePageSinkProvider
                 hdfsEnvironment,
                 maxOpenPartitions,
                 immutablePartitions,
-                forceIntegralToBigint,
                 compressed,
                 partitionUpdateCodec,
                 session);

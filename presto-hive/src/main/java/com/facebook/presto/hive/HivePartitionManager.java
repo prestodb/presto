@@ -63,7 +63,6 @@ public class HivePartitionManager
     private final String connectorId;
     private final DateTimeZone timeZone;
     private final boolean assumeCanonicalPartitionKeys;
-    private final boolean forceIntegralToBigint;
     private final int domainCompactionThreshold;
     private final TypeManager typeManager;
 
@@ -78,7 +77,6 @@ public class HivePartitionManager
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                hiveClientConfig.isForceIntegralToBigint(),
                 hiveClientConfig.getDomainCompactionThreshold());
     }
 
@@ -88,14 +86,12 @@ public class HivePartitionManager
             DateTimeZone timeZone,
             int maxOutstandingSplits,
             boolean assumeCanonicalPartitionKeys,
-            boolean forceIntegralToBigint,
             int domainCompactionThreshold)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
-        this.forceIntegralToBigint = forceIntegralToBigint;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -108,9 +104,9 @@ public class HivePartitionManager
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
         Table table = getTable(metastore, tableName);
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(connectorId, table, forceIntegralToBigint);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(connectorId, table);
 
-        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table, forceIntegralToBigint);
+        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
         Optional<HiveBucketing.HiveBucket> bucket = getHiveBucket(table, TupleDomain.extractFixedValues(effectivePredicate).get());
 
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
