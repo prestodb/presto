@@ -518,25 +518,36 @@ public class SqlQueryManager
 
     private void addStatsListener(QueryExecution queryExecution)
     {
+        Object lock = new Object();
+
         AtomicBoolean started = new AtomicBoolean();
         queryExecution.addStateChangeListener(newValue -> {
-            if (newValue == RUNNING && started.compareAndSet(false, true)) {
+            synchronized (lock) {
+                if (newValue == RUNNING && !started.getAndSet(true)) {
+                    stats.queryStarted();
+                }
+            }
+        });
+        synchronized (lock) {
+            // Need to do this check in case the state changed before we added the previous state change listener
+            if (queryExecution.getState() == RUNNING && !started.getAndSet(true)) {
                 stats.queryStarted();
             }
-        });
-        // Need to do this check in case the state changed before we added the previous state change listener
-        if (queryExecution.getState() == RUNNING && started.compareAndSet(false, true)) {
-            stats.queryStarted();
         }
+
         AtomicBoolean stopped = new AtomicBoolean();
         queryExecution.addStateChangeListener(newValue -> {
-            if (newValue.isDone() && stopped.compareAndSet(false, true) && started.get()) {
-                stats.queryStopped();
+            synchronized (lock) {
+                if (newValue.isDone() && !stopped.getAndSet(true) && started.get()) {
+                    stats.queryStopped();
+                }
             }
         });
-        // Need to do this check in case the state changed before we added the previous state change listener
-        if (queryExecution.getState().isDone() && stopped.compareAndSet(false, true) && started.get()) {
-            stats.queryStopped();
+        synchronized (lock) {
+            // Need to do this check in case the state changed before we added the previous state change listener
+            if (queryExecution.getState().isDone() && !stopped.getAndSet(true) && started.get()) {
+                stats.queryStopped();
+            }
         }
     }
 
