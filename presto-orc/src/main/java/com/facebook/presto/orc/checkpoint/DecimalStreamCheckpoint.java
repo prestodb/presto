@@ -15,10 +15,10 @@ package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
 
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class DecimalStreamCheckpoint
         implements StreamCheckpoint
@@ -38,7 +38,7 @@ public final class DecimalStreamCheckpoint
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("inputStreamCheckpoint", inputStreamCheckpointToString(inputStreamCheckpoint))
                 .toString();
     }

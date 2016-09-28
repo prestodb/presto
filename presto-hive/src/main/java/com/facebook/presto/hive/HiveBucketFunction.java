@@ -15,12 +15,12 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Page;
-import com.google.common.base.MoreObjects;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketFunction
@@ -48,7 +48,7 @@ public class HiveBucketFunction
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("bucketCount", bucketCount)
                 .add("typeInfos", typeInfos)
                 .toString();

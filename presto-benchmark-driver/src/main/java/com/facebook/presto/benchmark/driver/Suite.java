@@ -15,7 +15,6 @@ package com.facebook.presto.benchmark.driver;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -30,6 +29,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static java.util.Objects.requireNonNull;
@@ -103,7 +103,7 @@ public class Suite
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("sessionProperties", sessionProperties)
                 .add("queryNamePatterns", queryNamePatterns)

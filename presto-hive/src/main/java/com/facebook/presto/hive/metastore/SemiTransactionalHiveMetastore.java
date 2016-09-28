@@ -27,7 +27,6 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -71,6 +70,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toGrants;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -1671,7 +1671,7 @@ public class SemiTransactionalHiveMetastore
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("type", type)
                     .add("data", data)
                     .toString();
@@ -1720,7 +1720,7 @@ public class SemiTransactionalHiveMetastore
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("table", table)
                     .add("principalPrivilegeSet", principalPrivilegeSet)
                     .add("currentLocation", currentLocation)
@@ -1826,7 +1826,7 @@ public class SemiTransactionalHiveMetastore
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("mode", mode)
                     .add("user", user)
                     .add("filePrefix", filePrefix)
@@ -1867,7 +1867,7 @@ public class SemiTransactionalHiveMetastore
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("user", user)
                     .add("path", path)
                     .add("deleteEmptyDirectory", deleteEmptyDirectory)
@@ -1899,7 +1899,7 @@ public class SemiTransactionalHiveMetastore
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("user", user)
                     .add("path", path)
                     .toString();
@@ -1937,7 +1937,7 @@ public class SemiTransactionalHiveMetastore
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("user", user)
                     .add("renameFrom", renameFrom)
                     .add("renameTo", renameTo)

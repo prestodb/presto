@@ -15,11 +15,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.MoreObjects;
-
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class Isolation
@@ -96,7 +95,7 @@ public final class Isolation
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("level", level)
                 .toString();
     }

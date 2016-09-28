@@ -19,7 +19,6 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
@@ -66,6 +65,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class TestingAccessControlManager
@@ -370,7 +370,7 @@ public class TestingAccessControlManager
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("userName", userName)
                     .add("entityName", entityName)
                     .add("type", type)
