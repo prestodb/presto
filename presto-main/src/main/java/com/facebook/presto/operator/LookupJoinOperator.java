@@ -32,22 +32,13 @@ import static java.util.Objects.requireNonNull;
 public class LookupJoinOperator
         implements Operator, Closeable
 {
+    private final LookupJoiner lookupJoiner;
     private final OperatorContext operatorContext;
     private final List<Type> types;
-    private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
-    private final JoinProbeFactory joinProbeFactory;
+
     private final Runnable onClose;
 
-    private final PageBuilder pageBuilder;
-
-    private final boolean probeOnOuterSide;
-
-    private LookupSource lookupSource;
-    private JoinProbe probe;
-
     private boolean closed;
-    private boolean finishing;
-    private long joinPosition = -1;
 
     public LookupJoinOperator(
             OperatorContext operatorContext,
@@ -61,14 +52,10 @@ public class LookupJoinOperator
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 
         requireNonNull(joinType, "joinType is null");
-        // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
-        probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
 
-        this.lookupSourceFuture = requireNonNull(lookupSourceFuture, "lookupSourceFuture is null");
-        this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.onClose = requireNonNull(onClose, "onClose is null");
 
-        this.pageBuilder = new PageBuilder(types);
+        this.lookupJoiner = new LookupJoiner(types, lookupSourceFuture, joinProbeFactory, joinType == PROBE_OUTER || joinType == FULL_OUTER);
     }
 
     @Override
@@ -86,13 +73,13 @@ public class LookupJoinOperator
     @Override
     public void finish()
     {
-        finishing = true;
+        lookupJoiner.finish();
     }
 
     @Override
     public boolean isFinished()
     {
-        boolean finished = finishing && probe == null && pageBuilder.isEmpty();
+        boolean finished = lookupJoiner.isFinished();
 
         // if finished drop references so memory is freed early
         if (finished) {
@@ -104,64 +91,25 @@ public class LookupJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return lookupSourceFuture;
+        return lookupJoiner.isBlocked();
     }
 
     @Override
     public boolean needsInput()
     {
-        if (finishing) {
-            return false;
-        }
-
-        if (lookupSource == null) {
-            lookupSource = tryGetFutureValue(lookupSourceFuture).orElse(null);
-        }
-        return lookupSource != null && probe == null;
+        return lookupJoiner.needsInput();
     }
 
     @Override
     public void addInput(Page page)
     {
-        requireNonNull(page, "page is null");
-        checkState(!finishing, "Operator is finishing");
-        checkState(lookupSource != null, "Lookup source has not been built yet");
-        checkState(probe == null, "Current page has not been completely processed yet");
-
-        // create probe
-        probe = joinProbeFactory.createJoinProbe(lookupSource, page);
-
-        // initialize to invalid join position to force output code to advance the cursors
-        joinPosition = -1;
+        lookupJoiner.addInput(page);
     }
 
     @Override
     public Page getOutput()
     {
-        if (lookupSource == null) {
-            return null;
-        }
-
-        // join probe page with the lookup source
-        if (probe != null) {
-            while (joinCurrentPosition()) {
-                if (!advanceProbePosition()) {
-                    break;
-                }
-                if (!outerJoinCurrentPosition()) {
-                    break;
-                }
-            }
-        }
-
-        // only flush full pages unless we are done
-        if (pageBuilder.isFull() || (finishing && !pageBuilder.isEmpty() && probe == null)) {
-            Page page = pageBuilder.build();
-            pageBuilder.reset();
-            return page;
-        }
-
-        return null;
+        return lookupJoiner.getOutput();
     }
 
     @Override
@@ -172,65 +120,169 @@ public class LookupJoinOperator
             return;
         }
         closed = true;
-        probe = null;
-        pageBuilder.reset();
-        // closing lookup source is only here for index join
-        if (lookupSource != null) {
-            lookupSource.close();
-        }
+        lookupJoiner.close();
         onClose.run();
     }
 
-    private boolean joinCurrentPosition()
+    public static class LookupJoiner
+            implements Closeable
     {
-        // while we have a position to join against...
-        while (joinPosition >= 0) {
-            pageBuilder.declarePosition();
+        private final ListenableFuture<? extends LookupSource> lookupSourceFuture;
+        private final JoinProbeFactory joinProbeFactory;
 
-            // write probe columns
-            probe.appendTo(pageBuilder);
+        private final PageBuilder pageBuilder;
 
-            // write build columns
-            lookupSource.appendTo(joinPosition, pageBuilder, probe.getOutputChannelCount());
+        private final boolean probeOnOuterSide;
 
-            // get next join position for this row
-            joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
-            if (pageBuilder.isFull()) {
+        private LookupSource lookupSource;
+        private JoinProbe probe;
+
+        private long joinPosition = -1;
+        private boolean finishing;
+
+        public LookupJoiner(
+                List<Type> types,
+                ListenableFuture<LookupSource> lookupSourceFuture,
+                JoinProbeFactory joinProbeFactory,
+                boolean probeOnOuterSide)
+        {
+            this.pageBuilder = new PageBuilder(types);
+            this.lookupSourceFuture = requireNonNull(lookupSourceFuture, "lookupSourceFuture is null");
+            this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
+            this.probeOnOuterSide = probeOnOuterSide;
+        }
+
+        public boolean needsInput()
+        {
+            if (finishing) {
                 return false;
             }
-        }
-        return true;
-    }
 
-    private boolean advanceProbePosition()
-    {
-        if (!probe.advanceNextPosition()) {
+            if (lookupSource == null) {
+                lookupSource = tryGetFutureValue(lookupSourceFuture).orElse(null);
+            }
+            return lookupSource != null && probe == null;
+        }
+
+        public ListenableFuture<?> isBlocked()
+        {
+            return lookupSourceFuture;
+        }
+
+        public void finish()
+        {
+            finishing = true;
+        }
+
+        public boolean isFinished()
+        {
+            return finishing && probe == null && pageBuilder.isEmpty();
+        }
+
+        public void addInput(Page page)
+        {
+            requireNonNull(page, "page is null");
+            checkState(!finishing, "Operator is finishing");
+            checkState(lookupSource != null, "Lookup source has not been built yet");
+            checkState(probe == null, "Current page has not been completely processed yet");
+
+            // create probe
+            probe = joinProbeFactory.createJoinProbe(lookupSource, page);
+
+            // initialize to invalid join position to force output code to advance the cursors
+            joinPosition = -1;
+        }
+
+        public Page getOutput()
+        {
+            if (lookupSource == null) {
+                return null;
+            }
+
+            // join probe page with the lookup source
+            if (probe != null) {
+                while (joinCurrentPosition()) {
+                    if (!advanceProbePosition()) {
+                        break;
+                    }
+                    if (!outerJoinCurrentPosition()) {
+                        break;
+                    }
+                }
+            }
+
+            // only flush full pages unless we are done
+            if (pageBuilder.isFull() || (finishing && !pageBuilder.isEmpty() && probe == null)) {
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return page;
+            }
+
+            return null;
+        }
+
+        @Override
+        public void close()
+        {
             probe = null;
-            return false;
+            pageBuilder.reset();
+            // closing lookup source is only here for index join
+            if (lookupSource != null) {
+                lookupSource.close();
+            }
         }
 
-        // update join position
-        joinPosition = probe.getCurrentJoinPosition();
-        return true;
-    }
+        private boolean joinCurrentPosition()
+        {
+            // while we have a position to join against...
+            while (joinPosition >= 0) {
+                pageBuilder.declarePosition();
 
-    private boolean outerJoinCurrentPosition()
-    {
-        if (probeOnOuterSide && joinPosition < 0) {
-            // write probe columns
-            pageBuilder.declarePosition();
-            probe.appendTo(pageBuilder);
+                // write probe columns
+                probe.appendTo(pageBuilder);
 
-            // write nulls into build columns
-            int outputIndex = probe.getOutputChannelCount();
-            for (int buildChannel = 0; buildChannel < lookupSource.getChannelCount(); buildChannel++) {
-                pageBuilder.getBlockBuilder(outputIndex).appendNull();
-                outputIndex++;
+                // write build columns
+                lookupSource.appendTo(joinPosition, pageBuilder, probe.getOutputChannelCount());
+
+                // get next join position for this row
+                joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
+                if (pageBuilder.isFull()) {
+                    return false;
+                }
             }
-            if (pageBuilder.isFull()) {
+            return true;
+        }
+
+        private boolean advanceProbePosition()
+        {
+            if (!probe.advanceNextPosition()) {
+                probe = null;
                 return false;
             }
+
+            // update join position
+            joinPosition = probe.getCurrentJoinPosition();
+            return true;
         }
-        return true;
+
+        private boolean outerJoinCurrentPosition()
+        {
+            if (probeOnOuterSide && joinPosition < 0) {
+                // write probe columns
+                pageBuilder.declarePosition();
+                probe.appendTo(pageBuilder);
+
+                // write nulls into build columns
+                int outputIndex = probe.getOutputChannelCount();
+                for (int buildChannel = 0; buildChannel < lookupSource.getChannelCount(); buildChannel++) {
+                    pageBuilder.getBlockBuilder(outputIndex).appendNull();
+                    outputIndex++;
+                }
+                if (pageBuilder.isFull()) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }
