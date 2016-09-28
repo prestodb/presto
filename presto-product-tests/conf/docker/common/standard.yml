@@ -40,5 +40,6 @@ services:
     volumes:
       - ${PRESTO_CLI_JAR}:/docker/volumes/presto-cli/presto-cli-executable.jar
       - ${PRODUCT_TESTS_JAR}:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar
-      - ../../../conf/tempto/tempto-configuration-for-docker-default.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+      - ${TEMPTO_CONFIG_YAML}:/docker/volumes/tempto/tempto-configuration-local.yaml
+      - ${PRESTO_JDBC_DRIVER_JAR}:/docker/volumes/jdbc/driver.jar
       - ../../../target/test-reports:/docker/volumes/test-reports

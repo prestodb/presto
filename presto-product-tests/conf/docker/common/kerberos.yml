@@ -18,5 +18,3 @@ services:
 
   application-runner:
     image: 'teradatalabs/cdh5-hive-kerberized:${DOCKER_IMAGES_VERSION}'
-    volumes:
-      - ../../../conf/tempto/tempto-configuration-for-docker-kerberos.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml

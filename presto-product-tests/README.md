@@ -264,13 +264,15 @@ For running Java based tests from IntelliJ see the section on
 
 ### Running with custom / downloaded artifacts
 
-To run with custom versions of presto / presto-cli / product tests, just set the appropriate
-environment variables:
+To run with custom versions of presto / presto-cli / product tests / JDBC driver / Tempto config yaml, 
+just set the appropriate environment variables:
 
 ```
 export PRESTO_SERVER_DIR=/tmp/presto-server-dir      #unpacked presto-server.tar.gz
 export PRESTO_CLI_JAR=/tmp/artifacts/presto-cli-executable.jar
 export PRODUCT_TESTS_JAR=/tmp/artifacts/presto-product-tests-executable.jar
+export PRESTO_JDBC_DRIVER_JAR=/tmp/simba/PrestoJDBC_1.0.9.1017/PrestoJDBC42.jar
+export TEMPTO_CONFIG_YAML=${PRODUCT_TESTS_ROOT}/conf/tempto/tempto-configuration-for-docker-simba.yaml
 presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,profile_specific_tests
 ```
 
