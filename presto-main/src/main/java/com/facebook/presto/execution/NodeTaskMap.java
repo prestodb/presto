@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.util.FinalizerService;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 
@@ -27,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.IntConsumer;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -163,7 +163,7 @@ public class NodeTaskMap
             @Override
             public String toString()
             {
-                return MoreObjects.toStringHelper(this)
+                return toStringHelper(this)
                         .add("taskId", taskId)
                         .add("splits", localPartitionedSplitCount)
                         .toString();

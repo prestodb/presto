@@ -21,7 +21,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -47,6 +46,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
@@ -320,7 +320,7 @@ public class TupleDomainParquetPredicate<C>
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("column", column)
                     .add("ordinal", ordinal)
                     .add("type", type)

@@ -79,7 +79,6 @@ import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.ImmutableCollectors;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -172,6 +171,7 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
@@ -3279,7 +3279,7 @@ public abstract class AbstractTestHiveClient
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("tag", tag)
                     .add("conflictTrigger", conflictTrigger.map(conflictTrigger -> conflictTrigger.getClass().getName()))
                     .add("expectCommitedData", expectCommitedData)

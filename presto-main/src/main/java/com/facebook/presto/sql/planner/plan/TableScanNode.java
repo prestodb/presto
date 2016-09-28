@@ -21,7 +21,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -32,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -138,7 +138,7 @@ public class TableScanNode
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("table", table)
                 .add("tableLayout", tableLayout)
                 .add("outputSymbols", outputSymbols)

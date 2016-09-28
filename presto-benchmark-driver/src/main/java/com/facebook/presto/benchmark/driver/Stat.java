@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.google.common.base.MoreObjects;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.apache.commons.math3.stat.descriptive.rank.Median;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class Stat
 {
@@ -49,7 +50,7 @@ public class Stat
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("mean", mean)
                 .add("standardDeviation", standardDeviation)
                 .add("median", median)

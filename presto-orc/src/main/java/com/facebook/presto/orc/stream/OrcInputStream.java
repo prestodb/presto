@@ -17,7 +17,6 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.LocalMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
@@ -36,6 +35,7 @@ import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDec
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.util.Objects.requireNonNull;
@@ -250,7 +250,7 @@ public final class OrcInputStream
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("source", source)
                 .add("compressedOffset", compressedSliceInput.position())
                 .add("uncompressedOffset", current == null ? null : current.position())

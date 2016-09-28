@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.google.common.base.MoreObjects;
-
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ValueStreamSource<S extends ValueStream<?>> implements StreamSource<S>
@@ -47,7 +46,7 @@ public class ValueStreamSource<S extends ValueStream<?>> implements StreamSource
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("stream", stream)
                 .toString();
     }

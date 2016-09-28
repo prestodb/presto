@@ -16,11 +16,11 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartitioningHandle
@@ -62,7 +62,7 @@ public class HivePartitioningHandle
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("clientId", clientId)
                 .add("bucketCount", bucketCount)
                 .add("hiveTypes", hiveTypes)

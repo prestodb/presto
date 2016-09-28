@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
-import com.google.common.base.MoreObjects;
-
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 final class AliasPair
@@ -31,7 +30,7 @@ final class AliasPair
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("left", left)
                 .add("right", right)
                 .toString();

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.StandardSystemProperty;
 
 import java.util.Objects;
@@ -22,6 +21,7 @@ import java.util.OptionalInt;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 
 // TODO: remove this when we upgrade to Java 9 (replace with java.lang.Runtime.getVersion())
@@ -127,7 +127,7 @@ public class JavaVersion
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("major", major)
                 .add("minor", minor)
                 .add("update", update)

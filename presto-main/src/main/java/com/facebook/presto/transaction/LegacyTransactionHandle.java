@@ -16,11 +16,11 @@ package com.facebook.presto.transaction;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 
 import java.util.Objects;
 import java.util.UUID;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class LegacyTransactionHandle
@@ -67,7 +67,7 @@ public class LegacyTransactionHandle
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("uuid", uuid)
                 .toString();
     }

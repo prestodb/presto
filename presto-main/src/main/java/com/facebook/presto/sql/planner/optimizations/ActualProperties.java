@@ -19,7 +19,6 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Symbol;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +37,7 @@ import java.util.function.Function;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
@@ -267,7 +267,7 @@ class ActualProperties
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("globalProperties", global)
                 .add("localProperties", localProperties)
                 .add("constants", constants)
@@ -456,7 +456,7 @@ class ActualProperties
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("nodePartitioning", nodePartitioning)
                     .add("streamPartitioning", streamPartitioning)
                     .add("nullsReplicated", nullsReplicated)

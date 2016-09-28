@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.TimeZoneKey;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -31,6 +30,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -117,7 +117,7 @@ public class TestingConnectorSession
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("user", getUser())
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)

@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
@@ -38,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +80,7 @@ public class LimitPushDown
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("count", count)
                     .add("partial", partial)
                     .toString();

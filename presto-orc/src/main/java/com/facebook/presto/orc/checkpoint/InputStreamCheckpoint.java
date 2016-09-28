@@ -15,9 +15,9 @@ package com.facebook.presto.orc.checkpoint;
 
 import com.facebook.presto.orc.checkpoint.Checkpoints.ColumnPositionsList;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.base.MoreObjects;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
  * InputStreamCheckpoint is represented as a packed long to avoid object creation in inner loops.
@@ -56,7 +56,7 @@ public final class InputStreamCheckpoint
 
     public static String inputStreamCheckpointToString(long inputStreamCheckpoint)
     {
-        return MoreObjects.toStringHelper(InputStreamCheckpoint.class)
+        return toStringHelper(InputStreamCheckpoint.class)
                 .add("decompressedOffset", decodeDecompressedOffset(inputStreamCheckpoint))
                 .add("compressedBlockOffset", decodeCompressedBlockOffset(inputStreamCheckpoint))
                 .toString();

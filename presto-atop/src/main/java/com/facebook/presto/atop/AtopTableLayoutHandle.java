@@ -17,12 +17,12 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.predicate.Domain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -86,7 +86,7 @@ public class AtopTableLayoutHandle
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .add("startTimeConstraint", startTimeConstraint)
                 .add("endTimeConstraint", endTimeConstraint)

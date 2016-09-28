@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.teradata.tempto.ProductTest;
@@ -30,6 +29,7 @@ import java.util.Map;
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
 import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
@@ -272,7 +272,7 @@ public class TestHiveStorageFormats
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("name", name)
                     .add("sessionProperties", sessionProperties)
                     .toString();

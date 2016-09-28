@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.MoreObjects;
-
 import java.util.Objects;
 import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class TransactionAccessMode
         extends TransactionMode
@@ -72,7 +72,7 @@ public final class TransactionAccessMode
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("readOnly", readOnly)
                 .toString();
     }
