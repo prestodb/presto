@@ -85,14 +85,10 @@ public class TestHashJoinOperator
     public static Object[][] hashEnabledValuesProvider()
     {
         return new Object[][] {
-                {true, true, true},
-                {true, true, false},
-                {true, false, true},
-                {true, false, false},
-                {false, true, true},
-                {false, true, false},
-                {false, false, true},
-                {false, false, false}};
+                {true, true},
+                {true, false},
+                {false, true},
+                {false, false}};
     }
 
     @DataProvider(name = "hashEnabledValuesWithSpill")
@@ -671,7 +667,7 @@ public class TestHashJoinOperator
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of.*", dataProvider = "hashEnabledValues")
-    public void testMemoryLimit(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
             throws Exception
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, TEST_SESSION, new DataSize(100, BYTE));
