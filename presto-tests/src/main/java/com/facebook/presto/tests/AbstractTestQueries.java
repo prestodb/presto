@@ -3746,6 +3746,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testSameWindowFunctionsTwoCoerces()
+            throws Exception
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT 12.0 * row_number() OVER ()/row_number() OVER(),\n" +
+                "row_number() OVER()\n" +
+                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                "ORDER BY 2 DESC\n" +
+                "LIMIT 5");
+
+        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+                .row(12.0, 10L)
+                .row(12.0, 9L)
+                .row(12.0, 8L)
+                .row(12.0, 7L)
+                .row(12.0, 6L)
+                .build();
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testRowNumberNoOptimization()
             throws Exception
     {

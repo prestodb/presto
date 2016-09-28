@@ -52,6 +52,7 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SortItem.NullOrdering;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
@@ -521,7 +522,8 @@ class QueryPlanner
 
     private PlanBuilder window(PlanBuilder subPlan, QuerySpecification node)
     {
-        Set<FunctionCall> windowFunctions = ImmutableSet.copyOf(analysis.getWindowFunctions(node));
+        List<FunctionCall> windowFunctions = ImmutableList.copyOf(analysis.getWindowFunctions(node));
+
         if (windowFunctions.isEmpty()) {
             return subPlan;
         }
@@ -597,6 +599,12 @@ class QueryPlanner
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), windowFunction);
             outputTranslations.addIntermediateMapping(windowFunction, parametersReplaced);
             Expression rewritten = subPlan.rewrite(parametersReplaced);
+
+            // If refers to existing symbol, don't create another PlanNode
+            if (rewritten instanceof SymbolReference) {
+                continue;
+            }
+
             Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
 
             boolean needCoercion = rewritten instanceof Cast;
