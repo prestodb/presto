@@ -26,6 +26,7 @@ import java.sql.Statement;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestPostgreSqlIntegrationSmokeTest
@@ -67,6 +68,16 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
         assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
         assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Test
+    public void testMaterializedView()
+            throws Exception
+    {
+        execute("CREATE MATERIALIZED VIEW tpch.test_mv as SELECT * FROM tpch.orders");
+        assertTrue(queryRunner.tableExists(getSession(), "test_mv"));
+        assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
+        execute("DROP MATERIALIZED VIEW tpch.test_mv");
     }
 
     private void execute(String sql)
