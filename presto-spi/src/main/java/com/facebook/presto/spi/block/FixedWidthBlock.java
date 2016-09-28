@@ -19,10 +19,10 @@ import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-import java.util.Objects;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
+import static java.util.Objects.requireNonNull;
 
 public class FixedWidthBlock
         extends AbstractFixedWidthBlock
@@ -42,7 +42,7 @@ public class FixedWidthBlock
         }
         this.positionCount = positionCount;
 
-        this.slice = Objects.requireNonNull(slice, "slice is null");
+        this.slice = requireNonNull(slice, "slice is null");
         if (slice.length() < fixedSize * positionCount) {
             throw new IllegalArgumentException("slice length is less n positionCount * fixedSize");
         }

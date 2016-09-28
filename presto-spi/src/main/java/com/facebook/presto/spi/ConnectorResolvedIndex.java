@@ -15,7 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.predicate.TupleDomain;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
 
 public class ConnectorResolvedIndex
 {
@@ -24,8 +24,8 @@ public class ConnectorResolvedIndex
 
     public ConnectorResolvedIndex(ConnectorIndexHandle indexHandle, TupleDomain<ColumnHandle> unresolvedTupleDomain)
     {
-        this.indexHandle = Objects.requireNonNull(indexHandle, "indexHandle is null");
-        this.unresolvedTupleDomain = Objects.requireNonNull(unresolvedTupleDomain, "unresolvedTupleDomain is null");
+        this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
+        this.unresolvedTupleDomain = requireNonNull(unresolvedTupleDomain, "unresolvedTupleDomain is null");
     }
 
     public ConnectorIndexHandle getIndexHandle()
