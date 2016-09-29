@@ -62,6 +62,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -157,8 +158,18 @@ final class StreamPropertyDerivations
                     // partitioning but the other properties of the left will be maintained.
                     return leftProperties.withUnspecifiedPartitioning();
                 case RIGHT:
-                    // all of the "nulls" from the right are produced from a separate stream, so the
-                    // partitioning still holds, but we will always have multiple streams
+                    // since this is a right join, none of the matched output rows will contain nulls
+                    // in the left partitioning columns, and all of the unmatched rows will have
+                    // null for all left columns.  therefore, the output is still partitioned on the
+                    // left columns.  the only change is there will be at least two streams so the
+                    // output is multiple
+                    // There is one exception to this.  If the left is partitioned on empty set, we
+                    // we can't say that the output is partitioned on empty set, but we can say that
+                    // it is partitioned on the left join symbols
+                    if (leftProperties.getPartitioningColumns().isPresent() && leftProperties.getPartitioningColumns().get().isEmpty()) {
+                        List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+                        return new StreamProperties(MULTIPLE, false, Optional.of(leftSymbols), false);
+                    }
                     return new StreamProperties(MULTIPLE, false, leftProperties.getPartitioningColumns(), false);
                 case FULL:
                     // the left can contain nulls in any stream so we can't say anything about the
