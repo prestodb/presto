@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.spi.type.CharType.createCharType;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static io.airlift.tpch.TpchTable.getTables;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveDistributedQueries
         extends AbstractTestDistributedQueries
@@ -49,5 +54,29 @@ public class TestHiveDistributedQueries
     public void testRenameTable()
     {
         // Hive connector currently does not support table rename
+    }
+
+    @Test
+    public void testOrderByChar()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE char_order_by (c_char char(2))");
+        assertUpdate("INSERT INTO char_order_by (c_char) VALUES" +
+                "(CAST('a' as CHAR(2)))," +
+                "(CAST('a\0' as CHAR(2)))," +
+                "(CAST('a  ' as CHAR(2)))", 3);
+
+        MaterializedResult actual = computeActual(getSession(),
+                "SELECT * FROM char_order_by ORDER BY c_char ASC");
+
+        assertUpdate("DROP TABLE char_order_by");
+
+        MaterializedResult expected = resultBuilder(getSession(), createCharType(2))
+                .row("a\0")
+                .row("a ")
+                .row("a ")
+                .build();
+
+        assertEquals(actual, expected);
     }
 }
