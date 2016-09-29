@@ -64,12 +64,12 @@ public class PostgreSqlClient
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setFetchSize(1000);
         return statement;
-   }
+    }
 
-   @Override
-   protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+    @Override
+    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
             throws SQLException
-   {
+    {
         DatabaseMetaData metadata = connection.getMetaData();
         String escape = metadata.getSearchStringEscape();
         return metadata.getTables(
@@ -77,5 +77,5 @@ public class PostgreSqlClient
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW"});
-   }
+    }
 }
