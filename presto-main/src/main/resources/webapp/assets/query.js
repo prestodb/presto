@@ -815,7 +815,7 @@ var QueryDetail = React.createClass({
                 if (query.queryStats.fullyBlocked) {
                     summary = "BLOCKED";
                     if (query.queryStats.blockedReasons.length > 0) {
-                        summary += " (" + query.blockedReasons.join() + ")";
+                        summary += " (" + query.queryStats.blockedReasons.join() + ")";
                     }
                 }
                 else {
