@@ -401,7 +401,7 @@ pre {
 }
 
 .stage-id {
-    font-size:72px;
+    font-size: 90px;
     color: #b5b5b5;
     text-align: center;
 }
@@ -472,11 +472,11 @@ pre {
 }
 
 .table > tbody > tr > td .expand-charts-container {
-    padding-top: 40px;
+    padding-top: 50px;
 }
 
 .expand-charts-button {
-    padding: 34px 3px 34px 4px;
+    padding: 45px 3px 45px 4px;
     background-color: #3A3F4C;
 }
 

@@ -171,7 +171,7 @@ var BAR_CHART_WIDTH = 800;
 var BAR_CHART_PROPERTIES = {
     type: 'bar',
     barSpacing: '0',
-    height: '60px',
+    height: '80px',
     barColor: '#747F96',
     zeroColor: '#8997B3',
     tooltipClassname: 'sparkline-tooltip',
@@ -184,7 +184,7 @@ var HISTOGRAM_WIDTH = 175;
 var HISTOGRAM_PROPERTIES = {
     type: 'bar',
     barSpacing: '0',
-    height: '60px',
+    height: '80px',
     barColor: '#747F96',
     zeroColor: '#747F96',
     zeroAxis: true,
@@ -339,6 +339,14 @@ var StageDetail = React.createClass({
                                             </tr>
                                             <tr>
                                                 <td className="stage-table-stat-title">
+                                                    Wall
+                                                </td>
+                                                <td className="stage-table-stat-text">
+                                                    { stage.stageStats.totalUserTime }
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="stage-table-stat-title">
                                                     CPU
                                                 </td>
                                                 <td className="stage-table-stat-text">
@@ -377,6 +385,14 @@ var StageDetail = React.createClass({
                                             </tr>
                                             <tr>
                                                 <td className="stage-table-stat-title">
+                                                    Buffers
+                                                </td>
+                                                <td className="stage-table-stat-text">
+                                                    { formatDataSize(totalBufferedBytes) }
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="stage-table-stat-title">
                                                     Peak
                                                 </td>
                                                 <td className="stage-table-stat-text">
@@ -397,6 +413,14 @@ var StageDetail = React.createClass({
                                             </tr>
                                         </thead>
                                         <tbody>
+                                            <tr>
+                                                <td className="stage-table-stat-title">
+                                                    Pending
+                                                </td>
+                                                <td className="stage-table-stat-text">
+                                                    { stage.tasks.filter(function(task) { return task.taskStatus.state == "PLANNED" }).length }
+                                                </td>
+                                            </tr>
                                             <tr>
                                                 <td className="stage-table-stat-title">
                                                     Running
