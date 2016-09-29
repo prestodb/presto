@@ -444,15 +444,15 @@ See below for an example.
         {
           "user": "admin",
           "schema": ".*",
-          "owner": true,
+          "owner": true
         },
         {
           "user": "guest",
-          "owner": false,
+          "owner": false
         },
         {
           "schema": "default",
-          "owner": true,
+          "owner": true
         }
       ],
       "tables": [
@@ -480,6 +480,6 @@ See below for an example.
           "property": "max_split_size",
           "allow": true
         }
-      ],
+      ]
     }
 
