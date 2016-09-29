@@ -317,6 +317,9 @@ public class HashAggregationOperator
             }
         }
 
+        if (output.isEmpty()) {
+            return null;
+        }
         return output.build();
     }
 
