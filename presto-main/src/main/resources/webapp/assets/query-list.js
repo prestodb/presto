@@ -52,57 +52,21 @@
     render: function()
     {
         var query = this.props.query;
-        var summary = query.state;
-        var progress = 0;
-
-        var completedDrivers = query.completedDrivers;
-        var runningDrivers = query.runningDrivers;
-        var queuedDrivers = query.queuedDrivers;
-
-        // construct query summary and compute progress
-        switch (query.state) {
-            case "FAILED":
-                progress = 100;
-                summary = getReadableErrorCode(query.errorType, query.errorCode);
-                runningDrivers = 0;
-                queuedDrivers = 0;
-                break;
-            case "RUNNING":
-                progress = query.totalDrivers == 0 ? 0 : Math.round((completedDrivers * 100) / query.totalDrivers);
-                if (query.isFullyBlocked) {
-                    summary = "BLOCKED";
-                    if (query.blockedReasons.length > 0) {
-                        summary += " (" + query.blockedReasons.join() + ")";
-                    }
-                }
-                else {
-                    summary = (progress == 0 ? summary : summary + " (" + progress + "%" + ")");
-                }
-                if (query.memoryPool == "reserved") {
-                    summary += " (RESERVED mem pool)";
-                }
-                break;
-            case "FINISHED":
-                progress = 100;
-                runningDrivers = 0;
-                queuedDrivers = 0;
-                break;
-        }
-        var progressBarStyle = { width: (progress == 0 ? 100 : progress) + "%", backgroundColor: getQueryStateColor(query.state, query.errorType, query.errorCode) };
+        var progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
 
         var splitDetails = (
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Completed splits">
                     <span className="glyphicon glyphicon-ok" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { completedDrivers }
+                    { query.queryStats.completedDrivers }
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Running splits">
                     <span className="glyphicon glyphicon-play" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { runningDrivers }
+                    { (query.state == "FINISHED" || query.state == "FAILED") ? 0 : query.queryStats.runningDrivers }
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Queued splits">
                     <span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { queuedDrivers }
+                    { (query.state == "FINISHED" || query.state == "FAILED") ? 0 : query.queryStats.queuedDrivers }
                     </span>
             </div> );
 
@@ -110,15 +74,15 @@
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Wall time spent executing the query (not including queued time)">
                     <span className="glyphicon glyphicon-hourglass" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { formatDuration(query.executionTimeMillis) }
+                    { query.queryStats.executionTime }
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Total query wall time">
                     <span className="glyphicon glyphicon-time" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { formatDuration(query.elapsedTimeMillis) }
+                    { query.queryStats.elapsedTime }
                 </span>
                 <span className="tinystat"  data-toggle="tooltip" data-placement="top" title="CPU time spent by this query">
                     <span className="glyphicon glyphicon-dashboard" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { formatDuration(query.cpuTimeMillis) }
+                    { query.queryStats.totalCpuTime }
                 </span>
             </div> );
 
@@ -126,15 +90,15 @@
             <div className="col-xs-12 tinystat-row">
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current reserved memory">
                     <span className="glyphicon glyphicon-scale" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { formatDataSize(query.currentMemoryBytes) }
+                    { query.queryStats.totalMemoryReservation }
                 </span>
                 <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak memory">
                     <span className="glyphicon glyphicon-fire" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { formatDataSize(query.peakMemoryBytes) }
+                    { query.queryStats.peakMemoryReservation }
                 </span>
                 <span className="tinystat"  data-toggle="tooltip" data-placement="top" title="Cumulative memory">
                     <span className="glyphicon glyphicon-equalizer" style={ GLYPHICON_HIGHLIGHT }></span>&nbsp;&nbsp;
-                    { formatDataSizeBytes(query.cumulativeMemory) }
+                    { formatDataSizeBytes(query.queryStats.cumulativeMemory) }
                 </span>
             </div> );
 
@@ -154,7 +118,7 @@
                                 <a href={ "query.html?" + query.queryId } target="_blank">{ query.queryId }</a>
                             </div>
                             <div className="col-xs-3 stat-header-queryid" data-toggle="tooltip" data-placement="bottom" title="Submit time">
-                                <span>{ formatShortTime(new Date(Date.parse(query.createTime))) }</span>
+                                <span>{ formatShortTime(new Date(Date.parse(query.queryStats.createTime))) }</span>
                             </div>
                         </div>
                         <div className="row stat-row">
@@ -187,8 +151,8 @@
                         <div className="row query-row-middle">
                             <div className="col-xs-12">
                                 <div className="progress">
-                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ progress } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                                        { summary }
+                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
+                                        { getProgressBarTitle(query) }
                                     </div>
                                 </div>
                             </div>
@@ -232,12 +196,12 @@ var FILTER_TYPE = {
 };
 
 var SORT_TYPE = {
-    CREATED: function(query) {return Date.parse(query.createTime)},
-    ELAPSED: function(query) {return query.elapsedTimeMillis},
-    EXECUTION: function(query) {return query.executionTimeMillis},
-    CPU: function(query) {return query.cpuTimeMillis},
-    CUMULATIVE_MEMORY: function(query) {return query.cumulativeMemory},
-    CURRENT_MEMORY: function(query) {return query.currentMemoryBytes},
+    CREATED: function(query) {return Date.parse(query.queryStats.createTime)},
+    ELAPSED: function(query) {return parseDuration(query.queryStats.elapsedTime)},
+    EXECUTION: function(query) {return parseDuration(query.queryStats.executionTime)},
+    CPU: function(query) {return parseDuration(query.queryStats.totalCpuTime)},
+    CUMULATIVE_MEMORY: function(query) {return query.queryStats.cumulativeMemory},
+    CURRENT_MEMORY: function(query) {return parseDataSize(query.queryStats.totalMemoryReservation)},
 };
 
 var SORT_ORDER = {

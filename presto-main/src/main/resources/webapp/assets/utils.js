@@ -31,31 +31,9 @@ var QUERY_STATE_COLOR_MAP = {
     UNKNOWN_ERROR: '#943524'
 };
 
-function getReadableErrorCode(errorType, errorCode)
+function getQueryStateColor(query)
 {
-    if (typeof errorType === 'undefined') {
-        return "UNKNOWN ERROR";
-    }
-
-    switch (errorType) {
-        case "USER_ERROR":
-            if (errorCode.name === 'USER_CANCELED') {
-                return "USER CANCELED";
-            }
-            return "USER ERROR";
-        case "INTERNAL_ERROR":
-            return "INTERNAL ERROR";
-        case "INSUFFICIENT_RESOURCES":
-            return "INSUFFICIENT RESOURCES";
-        case "EXTERNAL":
-            return "EXTERNAL ERROR";
-    }
-    return errorType;
-}
-
-function getQueryStateColor(state, errorType, errorCode)
-{
-    switch (state) {
+    switch (query.state) {
         case "QUEUED":
             return QUERY_STATE_COLOR_MAP.QUEUED;
         case "PLANNING":
@@ -65,9 +43,9 @@ function getQueryStateColor(state, errorType, errorCode)
         case "FINISHING":
             return QUERY_STATE_COLOR_MAP.RUNNING;
         case "FAILED":
-            switch (errorType) {
+            switch (query.errorType) {
                 case "USER_ERROR":
-                    if (errorCode.name === 'USER_CANCELED') {
+                    if (query.errorCode.name === 'USER_CANCELED') {
                         return QUERY_STATE_COLOR_MAP.USER_CANCELED;
                     }
                     return QUERY_STATE_COLOR_MAP.USER_ERROR;
@@ -84,6 +62,67 @@ function getQueryStateColor(state, errorType, errorCode)
             return QUERY_STATE_COLOR_MAP.QUEUED;
     }
 };
+
+// This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
+// necessary to compute this string, and that these fields are consistently named.
+function getHumanReadableState(query)
+{
+    if (query.state == "RUNNING") {
+        if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
+            return "RUNNING";
+        }
+
+        if (query.queryStats.fullyBlocked) {
+            return "BLOCKED (" + query.queryStats.blockedReasons.join(", ") + ")";
+        }
+
+        if (query.memoryPool === "reserved") {
+            return "RUNNING (RESERVED)";
+        }
+    }
+
+    if (query.state == "FAILED") {
+        switch (query.errorType) {
+            case "USER_ERROR":
+                if (query.errorCode.name === "USER_CANCELED") {
+                    return "USER CANCELED";
+                }
+                return "USER ERROR";
+            case "INTERNAL_ERROR":
+                return "INTERNAL ERROR";
+            case "INSUFFICIENT_RESOURCES":
+                return "INSUFFICIENT RESOURCES";
+            case "EXTERNAL":
+                return "EXTERNAL ERROR";
+        }
+    }
+
+    return query.state;
+}
+
+function isProgressMeaningful(query)
+{
+    return query.scheduled && query.state == "RUNNING" && query.queryStats.totalDrivers > 0 && query.queryStats.completedDrivers > 0;
+}
+
+function getProgressBarPercentage(query)
+{
+    if (isProgressMeaningful(query)) {
+        return Math.round((query.queryStats.completedDrivers * 100.0) / query.queryStats.totalDrivers);
+    }
+
+    // progress bars should appear 'full' when query progress is not meaningful
+    return 100;
+}
+
+function getProgressBarTitle(query)
+{
+    if (isProgressMeaningful(query)) {
+        return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
+    }
+
+    return getHumanReadableState(query)
+}
 
 // Sparkline-related functions
 // ===========================

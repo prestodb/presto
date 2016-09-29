@@ -802,33 +802,12 @@ var QueryDetail = React.createClass({
     },
     renderProgressBar: function() {
         var query = this.state.query;
-        var summary = query.state;
-        var progress = 100;
-
-        // construct query summary and compute progress
-        switch (query.state) {
-            case "FAILED":
-                summary = getReadableErrorCode(query.errorType, query.errorCode);
-                break;
-            case "RUNNING":
-                progress = query.queryStats.totalDrivers == 0 ? 0 : Math.round((query.queryStats.completedDrivers * 100) / query.queryStats.totalDrivers);
-                if (query.queryStats.fullyBlocked) {
-                    summary = "BLOCKED";
-                    if (query.queryStats.blockedReasons.length > 0) {
-                        summary += " (" + query.queryStats.blockedReasons.join() + ")";
-                    }
-                }
-                else {
-                    summary = (progress == 0 ? summary : summary + " (" + progress + "%" + ")");
-                }
-                break;
-        }
-        var progressBarStyle = {width: (progress == 0 ? 100 : progress) + "%", backgroundColor: getQueryStateColor(query.state, query.errorType, query.errorCode)};
+        var progressBarStyle = { width: getProgressBarPercentage(query) + "%", backgroundColor: getQueryStateColor(query) };
 
         return (
             <div className="progress-large">
-                <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ progress } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
-                    { summary }
+                <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
+                    { getProgressBarTitle(query) }
                 </div>
             </div>
         )
