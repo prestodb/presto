@@ -18,7 +18,7 @@
 var GLYPHICON_DEFAULT = {color: '#1edcff'};
 var GLYPHICON_HIGHLIGHT = {color: '#999999'};
 
-var QUERY_STATE_COLOR_MAP = {
+var STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
     RUNNING: '#19874e',
     PLANNING: '#824b98',
@@ -35,33 +35,55 @@ function getQueryStateColor(query)
 {
     switch (query.state) {
         case "QUEUED":
-            return QUERY_STATE_COLOR_MAP.QUEUED;
+            return STATE_COLOR_MAP.QUEUED;
         case "PLANNING":
-            return QUERY_STATE_COLOR_MAP.PLANNING;
+            return STATE_COLOR_MAP.PLANNING;
         case "STARTING":
         case "RUNNING":
         case "FINISHING":
-            return QUERY_STATE_COLOR_MAP.RUNNING;
+            return STATE_COLOR_MAP.RUNNING;
         case "FAILED":
             switch (query.errorType) {
                 case "USER_ERROR":
                     if (query.errorCode.name === 'USER_CANCELED') {
-                        return QUERY_STATE_COLOR_MAP.USER_CANCELED;
+                        return STATE_COLOR_MAP.USER_CANCELED;
                     }
-                    return QUERY_STATE_COLOR_MAP.USER_ERROR;
+                    return STATE_COLOR_MAP.USER_ERROR;
                 case "EXTERNAL":
-                    return QUERY_STATE_COLOR_MAP.EXTERNAL_ERROR;
+                    return STATE_COLOR_MAP.EXTERNAL_ERROR;
                 case "INSUFFICIENT_RESOURCES":
-                    return QUERY_STATE_COLOR_MAP.INSUFFICIENT_RESOURCES;
+                    return STATE_COLOR_MAP.INSUFFICIENT_RESOURCES;
                 default:
-                    return QUERY_STATE_COLOR_MAP.UNKNOWN_ERROR;
+                    return STATE_COLOR_MAP.UNKNOWN_ERROR;
             }
         case "FINISHED":
-            return QUERY_STATE_COLOR_MAP.FINISHED;
+            return STATE_COLOR_MAP.FINISHED;
         default:
-            return QUERY_STATE_COLOR_MAP.QUEUED;
+            return STATE_COLOR_MAP.QUEUED;
     }
 };
+
+function getStageStateColor(state)
+{
+    switch (state) {
+        case "PLANNED":
+            return STATE_COLOR_MAP.QUEUED;
+        case "SCHEDULING":
+        case "SCHEDULING_SPLITS":
+        case "SCHEDULED":
+            return STATE_COLOR_MAP.PLANNING;
+        case "RUNNING":
+            return STATE_COLOR_MAP.RUNNING;
+        case "FINISHED":
+            return STATE_COLOR_MAP.FINISHED;
+        case "CANCELED":
+        case "ABORTED":
+        case "FAILED":
+            return STATE_COLOR_MAP.UNKNOWN_ERROR
+        default:
+            return "#b5b5b5"
+    }
+}
 
 // This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
 // necessary to compute this string, and that these fields are consistently named.

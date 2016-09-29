@@ -305,7 +305,9 @@ var StageDetail = React.createClass({
 
         return (
             <tr>
-                <td className="stage-id">{ stage.plan.id }</td>
+                <td className="stage-id">
+                    <div className="stage-state-color"  style={ { borderLeftColor: getStageStateColor(stage.state) } }>{ stage.plan.id }</div>
+                </td>
                 <td>
                     <table className="table single-stage-table">
                         <tbody>
