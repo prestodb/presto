@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups;
 
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import io.airlift.units.DataSize;
@@ -47,7 +48,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testMissing()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        ResourceGroup missing = new TestingResourceGroup("missing");
+        ResourceGroup missing = new TestingResourceGroup(new ResourceGroupId("missing"));
         manager.configure(missing, new SelectionContext(true, "user", Optional.empty(), 1));
     }
 
@@ -55,7 +56,7 @@ public class TestFileResourceGroupConfigurationManager
     public void testConfiguration()
     {
         ResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
-        ResourceGroup global = new TestingResourceGroup("global");
+        ResourceGroup global = new TestingResourceGroup(new ResourceGroupId("global"));
         manager.configure(global, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
@@ -67,7 +68,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getSchedulingWeight(), 0);
         assertEquals(global.getJmxExport(), true);
 
-        ResourceGroup sub = new TestingResourceGroup("global.sub");
+        ResourceGroup sub = new TestingResourceGroup(new ResourceGroupId(new ResourceGroupId("global"), "sub"));
         manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getMaxRunningQueries(), 3);

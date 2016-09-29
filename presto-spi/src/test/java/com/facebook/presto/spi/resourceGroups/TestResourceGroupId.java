@@ -15,26 +15,12 @@ package com.facebook.presto.spi.resourceGroups;
 
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-
 public class TestResourceGroupId
 {
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalid()
-    {
-        new ResourceGroupId("test.test");
-    }
-
     @Test
     public void testBasic()
     {
+        new ResourceGroupId("test.test");
         new ResourceGroupId(new ResourceGroupId("test"), "test");
-    }
-
-    @Test
-    public void testFromString()
-    {
-        ResourceGroupId id = new ResourceGroupId(new ResourceGroupId("test"), "test");
-        assertEquals(ResourceGroupId.fromString("test.test"), id);
     }
 }

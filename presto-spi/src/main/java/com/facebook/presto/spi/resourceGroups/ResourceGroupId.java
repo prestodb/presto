@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -50,9 +49,6 @@ public final class ResourceGroupId
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
         for (String segment : segments) {
             checkArgument(!segment.isEmpty(), "Empty segment in resource group id");
-            String id = segments.stream()
-                    .collect(joining("."));
-            checkArgument(segment.indexOf('.') < 0, "Invalid resource group id. '%s' contains a '.'", id);
         }
         this.segments = segments;
     }
@@ -73,12 +69,6 @@ public final class ResourceGroupId
             return Optional.empty();
         }
         return Optional.of(new ResourceGroupId(segments.subList(0, segments.size() - 1)));
-    }
-
-    public static ResourceGroupId fromString(String value)
-    {
-        requireNonNull(value, "value is null");
-        return new ResourceGroupId(asList(value.split("\\.")));
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)

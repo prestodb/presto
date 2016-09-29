@@ -36,7 +36,7 @@ public class TestResourceGroupIntegration
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             while (true) {
                 TimeUnit.SECONDS.sleep(1);
-                ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(ResourceGroupId.fromString("global"));
+                ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(new ResourceGroupId("global"));
                 if (global.getSoftMemoryLimit().toBytes() > 0) {
                     break;
                 }

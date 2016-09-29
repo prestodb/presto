@@ -19,6 +19,8 @@ import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import static java.util.Objects.requireNonNull;
+
 public class TestingResourceGroup
         implements ResourceGroup
 {
@@ -33,9 +35,9 @@ public class TestingResourceGroup
     private SchedulingPolicy policy;
     private boolean jmxExport;
 
-    public TestingResourceGroup(String id)
+    public TestingResourceGroup(ResourceGroupId id)
     {
-        this.id = ResourceGroupId.fromString(id);
+        this.id = requireNonNull(id, "id is null");
     }
 
     @Override
