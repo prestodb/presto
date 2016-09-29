@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -603,6 +604,21 @@ public class TestArrayOperators
         assertFunction("ARRAY_UNION(ARRAY [8.3, 1.6, 4.1, 5.2], ARRAY [4.0, 5.2, 8.3, 9.7, 3.5])", new ArrayType(DOUBLE), ImmutableList.of(8.3, 1.6, 4.1, 5.2, 4.0, 9.7, 3.5));
         assertFunction("ARRAY_UNION(ARRAY [5.1, 7, 3.0, 4.8, 10], ARRAY [6.5, 10.0, 1.9, 5.1, 3.9, 4.8])", new ArrayType(DOUBLE), ImmutableList.of(5.1, 7.0, 3.0, 4.8, 10.0, 6.5, 1.9, 3.9));
         assertFunction("ARRAY_UNION(ARRAY [ARRAY [4, 5], ARRAY [6, 7]], ARRAY [ARRAY [4, 5], ARRAY [6, 8]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(4, 5), ImmutableList.of(6, 7), ImmutableList.of(6, 8)));
+    }
+
+    @Test
+    public void testArrayDifference()
+            throws Exception
+    {
+        List<Integer> integerArrayOfNull = new ArrayList<>();
+        integerArrayOfNull.add(null);
+        assertFunction("ARRAY_DIFF(ARRAY [1, 2], ARRAY [2, 3])", new ArrayType(INTEGER), ImmutableList.of(1));
+        assertFunction("ARRAY_DIFF(ARRAY [1, 2], ARRAY [1, 2])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("ARRAY_DIFF(ARRAY [1, 2], ARRAY [2, 1])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("ARRAY_DIFF(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'cat', 'bar'])", new ArrayType(createVarcharType(3)), ImmutableList.of("baz"));
+        assertFunction("ARRAY_DIFF(ARRAY [NULL, 1, 2], ARRAY [1, 3])", new ArrayType(INTEGER), asList(null, 2));
+        assertFunction("ARRAY_DIFF(ARRAY [1, 2], ARRAY [1, NULL])", new ArrayType(INTEGER), integerArrayOfNull);
+        assertFunction("ARRAY_DIFF(ARRAY [1, 1, 2, 4], ARRAY [1, 1, 4, 4])", new ArrayType(INTEGER), ImmutableList.of(2));
     }
 
     @Test
