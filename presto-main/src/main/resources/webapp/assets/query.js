@@ -648,7 +648,7 @@ var QueryDetail = React.createClass({
                 lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
 
                 initialized: true,
-                ended: query.state != "RUNNING",
+                ended: query.finalQueryInfo,
 
                 lastRefresh: nowMillis,
             });
