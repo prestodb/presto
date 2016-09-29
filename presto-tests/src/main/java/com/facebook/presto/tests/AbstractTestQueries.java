@@ -7662,6 +7662,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testEmptyInputForUnnest()
+            throws Exception
+    {
+        assertQuery("select val from (select distinct vals from (values (array[2])) t(vals) where false) tmp cross join unnest(tmp.vals) tt(val)", "select 1 where 1=2");
+    }
+
+    @Test
     public void testCoercions()
             throws Exception
     {
