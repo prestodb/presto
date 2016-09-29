@@ -61,7 +61,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -166,11 +165,8 @@ final class StreamPropertyDerivations
                     // There is one exception to this.  If the left is partitioned on empty set, we
                     // we can't say that the output is partitioned on empty set, but we can say that
                     // it is partitioned on the left join symbols
-                    if (leftProperties.getPartitioningColumns().isPresent() && leftProperties.getPartitioningColumns().get().isEmpty()) {
-                        List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
-                        return new StreamProperties(MULTIPLE, false, Optional.of(leftSymbols), false);
-                    }
-                    return new StreamProperties(MULTIPLE, false, leftProperties.getPartitioningColumns(), false);
+                    // todo do something smarter after https://github.com/prestodb/presto/pull/5877 is merged
+                    return new StreamProperties(MULTIPLE, false, Optional.empty(), false);
                 case FULL:
                     // the left can contain nulls in any stream so we can't say anything about the
                     // partitioning, and nulls from the right are produced from a extra new stream
@@ -227,6 +223,12 @@ final class StreamPropertyDerivations
             Optional<Set<Symbol>> partitionSymbols = layout.getPartitioningColumns()
                     .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants));
 
+            // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
+            // the connector does not guarantee a single split in this case (since it might not understand
+            // that the value is a constant).
+            if (partitionSymbols.isPresent() && partitionSymbols.get().isEmpty()) {
+                return new StreamProperties(MULTIPLE, false, Optional.empty(), false);
+            }
             return new StreamProperties(MULTIPLE, false, partitionSymbols, false);
         }
 
@@ -534,6 +536,8 @@ final class StreamPropertyDerivations
 
             checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
                     "Single stream must be partitioned on empty set");
+            checkArgument(distribution == SINGLE || !this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
+                    "Multiple streams must not be partitioned on empty set");
 
             this.ordered = ordered;
             checkArgument(!ordered || distribution == SINGLE, "Ordered must be a single stream");
