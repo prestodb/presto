@@ -3249,6 +3249,37 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAggregationOverRigthJoinOverSingleStreamProbe()
+            throws Exception
+    {
+        // this should return one row since value is always 'value'
+        // this test verifies that the two streams produced by the right join
+        // are handled gathered for the aggergation operator
+        assertQueryOrdered("" +
+                "SELECT\n" +
+                "  value\n" +
+                "FROM\n" +
+                "(\n" +
+                "    SELECT\n" +
+                "        key\n" +
+                "    FROM\n" +
+                "        (VALUES 'match') as a(key)\n" +
+                "        LEFT JOIN (SELECT * FROM (VALUES (0)) limit 0) AS x(ignored)\n" +
+                "        ON TRUE\n" +
+                "    GROUP BY 1\n" +
+                ") a\n" +
+                "RIGHT JOIN\n" +
+                "(\n" +
+                "    VALUES\n" +
+                "    ('match', 'value'),\n" +
+                "    ('no-match', 'value')\n" +
+                ") AS b(key, value)\n" +
+                "ON a.key = b.key\n" +
+                "GROUP BY 1\n",
+                "VALUES 'value'");
+    }
+
+    @Test
     public void testOrderBy()
             throws Exception
     {
