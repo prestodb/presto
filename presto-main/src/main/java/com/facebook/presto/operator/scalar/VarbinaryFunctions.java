@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -49,8 +50,9 @@ public final class VarbinaryFunctions
 
     @Description("decode base64 encoded binary data")
     @ScalarFunction("from_base64")
+    @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice fromBase64Varchar(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice fromBase64Varchar(@SqlType("varchar(x)") Slice slice)
     {
         try {
             return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));

@@ -41,13 +41,11 @@ import static java.util.Objects.requireNonNull;
 public class LegacyTransactionConnector
         implements Connector
 {
-    private final String connectorId;
     private final com.facebook.presto.spi.Connector connector;
     private final ConcurrentMap<ConnectorTransactionHandle, LegacyConnectorMetadata> metadatas = new ConcurrentHashMap<>();
 
-    public LegacyTransactionConnector(String connectorId, com.facebook.presto.spi.Connector connector)
+    public LegacyTransactionConnector(com.facebook.presto.spi.Connector connector)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connector = requireNonNull(connector, "connector is null");
     }
 
@@ -55,7 +53,7 @@ public class LegacyTransactionConnector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
         checkConnectorSupports(connector.getIsolationLevel(), isolationLevel);
-        return LegacyTransactionHandle.create(connectorId);
+        return LegacyTransactionHandle.create();
     }
 
     @Override

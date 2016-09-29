@@ -61,11 +61,6 @@ public class HiveClientConfig
 
     private int maxConcurrentFileRenames = 20;
 
-    private boolean allowAddColumn;
-    private boolean allowDropTable;
-    private boolean allowRenameTable;
-    private boolean allowRenameColumn;
-
     private boolean allowCorruptWritesForTesting;
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
@@ -83,6 +78,8 @@ public class HiveClientConfig
 
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private String s3Endpoint;
+    private PrestoS3SignerType s3SignerType;
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
@@ -116,6 +113,7 @@ public class HiveClientConfig
     private boolean assumeCanonicalPartitionKeys;
 
     private boolean useOrcColumnNames;
+    private boolean orcBloomFiltersEnabled;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
@@ -130,8 +128,11 @@ public class HiveClientConfig
     private String hdfsPrestoPrincipal;
     private String hdfsPrestoKeytab;
 
+    private boolean skipDeletionForAlter;
+
     private boolean bucketExecutionEnabled = true;
     private boolean bucketWritingEnabled = true;
+    private boolean forceIntegralToBigint = false;
 
     public int getMaxInitialSplits()
     {
@@ -268,32 +269,6 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean getAllowRenameTable()
-    {
-        return this.allowRenameTable;
-    }
-
-    @Config("hive.allow-rename-table")
-    @ConfigDescription("Allow hive connector to rename table")
-    public HiveClientConfig setAllowRenameTable(boolean allowRenameTable)
-    {
-        this.allowRenameTable = allowRenameTable;
-        return this;
-    }
-
-    public boolean getAllowRenameColumn()
-    {
-        return this.allowRenameColumn;
-    }
-
-    @Config("hive.allow-rename-column")
-    @ConfigDescription("Allow hive connector to rename column")
-    public HiveClientConfig setAllowRenameColumn(boolean allowRenameColumn)
-    {
-        this.allowRenameColumn = allowRenameColumn;
-        return this;
-    }
-
     @Deprecated
     public boolean getAllowCorruptWritesForTesting()
     {
@@ -309,38 +284,13 @@ public class HiveClientConfig
         return this;
     }
 
-    public boolean getAllowAddColumn()
-    {
-        return this.allowAddColumn;
-    }
-
-    @Config("hive.allow-add-column")
-    @ConfigDescription("Allow Hive connector to add column")
-    public HiveClientConfig setAllowAddColumn(boolean allowAddColumn)
-    {
-        this.allowAddColumn = allowAddColumn;
-        return this;
-    }
-
-    public boolean getAllowDropTable()
-    {
-        return this.allowDropTable;
-    }
-
-    @Config("hive.allow-drop-table")
-    @ConfigDescription("Allow Hive connector to drop table")
-    public HiveClientConfig setAllowDropTable(boolean allowDropTable)
-    {
-        this.allowDropTable = allowDropTable;
-        return this;
-    }
-
     @NotNull
     public Duration getMetastoreCacheTtl()
     {
         return metastoreCacheTtl;
     }
 
+    @MinDuration("0ms")
     @Config("hive.metastore-cache-ttl")
     public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
@@ -354,6 +304,7 @@ public class HiveClientConfig
         return metastoreRefreshInterval;
     }
 
+    @MinDuration("1ms")
     @Config("hive.metastore-refresh-interval")
     public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
@@ -608,6 +559,30 @@ public class HiveClientConfig
     public HiveClientConfig setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
+        return this;
+    }
+
+    public String getS3Endpoint()
+    {
+        return s3Endpoint;
+    }
+
+    @Config("hive.s3.endpoint")
+    public HiveClientConfig setS3Endpoint(String s3Endpoint)
+    {
+        this.s3Endpoint = s3Endpoint;
+        return this;
+    }
+
+    public PrestoS3SignerType getS3SignerType()
+    {
+        return s3SignerType;
+    }
+
+    @Config("hive.s3.signer-type")
+    public HiveClientConfig setS3SignerType(PrestoS3SignerType s3SignerType)
+    {
+        this.s3SignerType = s3SignerType;
         return this;
     }
 
@@ -906,6 +881,18 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isOrcBloomFiltersEnabled()
+    {
+        return orcBloomFiltersEnabled;
+    }
+
+    @Config("hive.orc.bloom-filters.enabled")
+    public HiveClientConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
+    {
+        this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
+        return this;
+    }
+
     public boolean isAssumeCanonicalPartitionKeys()
     {
         return assumeCanonicalPartitionKeys;
@@ -1047,6 +1034,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isSkipDeletionForAlter()
+    {
+        return skipDeletionForAlter;
+    }
+
+    @Config("hive.skip-deletion-for-alter")
+    @ConfigDescription("Skip deletion of old partition data when a partition is deleted and then inserted in the same transaction")
+    public HiveClientConfig setSkipDeletionForAlter(boolean skipDeletionForAlter)
+    {
+        this.skipDeletionForAlter = skipDeletionForAlter;
+        return this;
+    }
+
     public boolean isBucketExecutionEnabled()
     {
         return bucketExecutionEnabled;
@@ -1070,6 +1070,19 @@ public class HiveClientConfig
     public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
     {
         this.bucketWritingEnabled = bucketWritingEnabled;
+        return this;
+    }
+
+    public boolean isForceIntegralToBigint()
+    {
+        return forceIntegralToBigint;
+    }
+
+    @Config("deprecated.hive.integral-types-as-bigint")
+    @ConfigDescription("Convert all hive integral types to BIGINT")
+    public HiveClientConfig setForceIntegralToBigint(boolean forceIntegralToBigint)
+    {
+        this.forceIntegralToBigint = forceIntegralToBigint;
         return this;
     }
 }

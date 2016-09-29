@@ -15,6 +15,7 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import org.testng.annotations.Test;
@@ -72,7 +73,7 @@ public class TestScalarValidation
         public static void bad() {}
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has wrapper return type Long but is missing @Nullable")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has wrapper return type Long but is missing @SqlNullable")
     public void testPrimitiveWrapperReturnWithoutNullable()
     {
         extractScalars(PrimitiveWrapperReturnWithoutNullable.class);
@@ -88,7 +89,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @Nullable has primitive return type long")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @SqlNullable has primitive return type long")
     public void testPrimitiveReturnWithNullable()
     {
         extractScalars(PrimitiveReturnWithNullable.class);
@@ -96,9 +97,8 @@ public class TestScalarValidation
 
     public static final class PrimitiveReturnWithNullable
     {
-        @SuppressWarnings("NullableProblems")
         @ScalarFunction
-        @Nullable
+        @SqlNullable
         @SqlType(StandardTypes.BIGINT)
         public static long bad()
         {
@@ -106,7 +106,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has parameter with wrapper type Boolean that is missing @Nullable")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has parameter with wrapper type Boolean that is missing @SqlNullable")
     public void testPrimitiveWrapperParameterWithoutNullable()
     {
         extractScalars(PrimitiveWrapperParameterWithoutNullable.class);
@@ -122,7 +122,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has parameter with primitive type double annotated with @Nullable")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has parameter with primitive type double annotated with @SqlNullable")
     public void testPrimitiveParameterWithNullable()
     {
         extractScalars(PrimitiveParameterWithNullable.class);
@@ -130,10 +130,9 @@ public class TestScalarValidation
 
     public static final class PrimitiveParameterWithNullable
     {
-        @SuppressWarnings("NullableProblems")
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
-        public static long bad(@Nullable @SqlType(StandardTypes.DOUBLE) double primitive)
+        public static long bad(@SqlNullable @SqlType(StandardTypes.DOUBLE) double primitive)
         {
             return 0;
         }
@@ -166,6 +165,39 @@ public class TestScalarValidation
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         private static long bad()
+        {
+            return 0;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* is annotated with @Nullable but not @SqlNullable")
+    public void testMethodWithLegacyNullable()
+    {
+        extractScalars(MethodWithLegacyNullable.class);
+    }
+
+    public static final class MethodWithLegacyNullable
+    {
+        @ScalarFunction
+        @Nullable
+        @SqlType(StandardTypes.BIGINT)
+        public static Long bad()
+        {
+            return 0L;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has parameter annotated with @Nullable but not @SqlNullable")
+    public void testParameterWithLegacyNullable()
+    {
+        extractScalars(ParameterWithLegacyNullable.class);
+    }
+
+    public static final class ParameterWithLegacyNullable
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bad(@Nullable @SqlType(StandardTypes.DOUBLE) Double value)
         {
             return 0;
         }

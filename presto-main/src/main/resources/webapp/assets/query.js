@@ -20,6 +20,10 @@ var Table = Reactable.Table,
 
 var TaskList = React.createClass({
     getTasks: function (stage) {
+        if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
+            return []
+        }
+
         return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasks));
     },
     compareTaskId: function(taskA, taskB) {
@@ -29,20 +33,50 @@ var TaskList = React.createClass({
         if (taskIdArrA.length > taskIdArrB.length) {
             return 1;
         }
-
-        for (i = 0; i < taskIdArrA.length; i++) {
-            return Number.parseInt(taskIdArrA[i]) > Number.parseInt(taskIdArrB[i]) ? 1 : -1;
+        for (var i = 0; i < taskIdArrA.length; i++) {
+            var anum = Number.parseInt(taskIdArrA[i]);
+            var bnum = Number.parseInt(taskIdArrB[i]);
+            if(anum != bnum) return anum > bnum ? 1 : -1;
         }
 
         return 0;
     },
+    showPortNumbers: function(tasks) {
+        // check if any host has multiple port numbers
+        var hostToPortNumber = {};
+        for (var i = 0; i < tasks.length; i++) {
+            var taskUri = tasks[i].taskStatus.self;
+            var hostname = getHostname(taskUri);
+            var port = getPort(taskUri);
+            if ((hostname in hostToPortNumber) && (hostToPortNumber[hostname] != port)) {
+                return true;
+            }
+            hostToPortNumber[hostname] = port;
+        }
+
+        return false;
+    },
     render: function() {
         var tasks = this.getTasks(this.props.outputStage);
+
+        if (tasks === undefined || tasks.length == 0) {
+            return (
+                <div className="row">
+                    <div className="col-xs-12">
+                        No task information available.
+                    </div>
+                </div>
+            );
+        }
+
+        var showPortNumbers = this.showPortNumbers(tasks);
+
         var renderedTasks = tasks.map(function (task) {
             var elapsedTime = parseDuration(task.stats.elapsedTime);
             if (elapsedTime == 0) {
                 elapsedTime = Date.now() - Date.parse(task.stats.createTime);
             }
+
             return (
                     <Tr key={ task.taskStatus.taskId }>
                         <Td column="id" value={ task.taskStatus.taskId }>
@@ -51,7 +85,8 @@ var TaskList = React.createClass({
                             </a>
                         </Td>
                         <Td column="host" value={ getHostname(task.taskStatus.self) }>
-                            { getHostname(task.taskStatus.self) }</Td>
+                            { showPortNumbers ? getHostAndPort(task.taskStatus.self) : getHostname(task.taskStatus.self) }
+                        </Td>
                         <Td column="state" value={ formatState(task.taskStatus.state, task.stats.fullyBlocked) }>
                             { formatState(task.taskStatus.state, task.stats.fullyBlocked) }
                         </Td>
@@ -90,21 +125,40 @@ var TaskList = React.createClass({
         }.bind(this));
 
         return (
-            <Table id="tasks" className="table table-striped sortable" sortable={ true } defaultSort={ {column: 'id', direction: 'asc'} }>
+            <Table id="tasks" className="table table-striped sortable" sortable=
+                {[
+                    {
+                        column: 'id',
+                        sortFunction: this.compareTaskId
+                    },
+                    'host',
+                    'state',
+                    'splitsPending',
+                    'splitsRunning',
+                    'splitsDone',
+                    'rows',
+                    'rowsSec',
+                    'bytes',
+                    'bytesSec',
+                    'elapsedTime',
+                    'cpuTime',
+                    'bufferedBytes',
+                ]}
+                defaultSort={ {column: 'id', direction: 'asc'} }>
                 <Thead>
-                        <Th column="id" sortFunction={this.compareTaskId}>ID</Th>
+                        <Th column="id">ID</Th>
                         <Th column="host">Host</Th>
                         <Th column="state">State</Th>
+                        <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Pending splits"></span></Th>
+                        <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Running splits"></span></Th>
+                        <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Completed splits"></span></Th>
                         <Th column="rows">Rows</Th>
                         <Th column="rowsSec">Rows/s</Th>
                         <Th column="bytes">Bytes</Th>
                         <Th column="bytesSec">Bytes/s</Th>
-                        <Th column="splitsPending">Pending</Th>
-                        <Th column="splitsRunning">Running</Th>
-                        <Th column="splitsDone">Done</Th>
-                        <Th column="elapsedTime">Elapsed Time</Th>
+                        <Th column="elapsedTime">Elapsed</Th>
                         <Th column="cpuTime">CPU Time</Th>
-                        <Th column="bufferedBytes">Buffered Bytes</Th>
+                        <Th column="bufferedBytes">Buffered</Th>
                 </Thead>
                 { renderedTasks }
             </Table>
@@ -235,6 +289,13 @@ var StageDetail = React.createClass({
     },
     render: function() {
         var stage = this.props.stage;
+
+        if (stage === undefined || !stage.hasOwnProperty('plan')) {
+            return (
+                <tr>
+                    <td>Information about this stage is unavailable.</td>
+                </tr>);
+        }
 
         var totalBufferedBytes = stage.tasks.map(function(task) {
             return task.outputBuffers.totalBufferedBytes;
@@ -450,10 +511,25 @@ var StageDetail = React.createClass({
 
 var StageList = React.createClass({
     getStages: function (stage) {
+        if (stage === undefined || !stage.hasOwnProperty('subStages')) {
+            return []
+        }
+
         return [].concat.apply(stage, stage.subStages.map(this.getStages));
     },
     render: function() {
         var stages = this.getStages(this.props.outputStage);
+
+        if (stages === undefined || stages.length == 0) {
+            return (
+                <div className="row">
+                    <div className="col-xs-12">
+                        No stage information available.
+                    </div>
+                </div>
+            );
+        }
+
         var renderedStages = stages.map(function (stage) {
             return (
                     <StageDetail key={ stage.stageId } stage={ stage } />
@@ -563,18 +639,18 @@ var QueryDetail = React.createClass({
                 lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
             }
 
-            var elapsedMillisLastRefresh = nowMillis - lastRefresh;
-
-            var currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedMillisLastRefresh;
-            var currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedMillisLastRefresh;
-            var currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedMillisLastRefresh;
-
-            this.setState({
-                cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
-                rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
-                byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
-            });
+            var elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000;
+            if (elapsedSecsSinceLastRefresh != 0) {
+                var currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedSecsSinceLastRefresh;
+                var currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
+                var currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                this.setState({
+                    cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
+                    rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
+                    byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
+                });
+            }
             this.resetTimer();
         }.bind(this))
         .error(function() {

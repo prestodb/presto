@@ -41,3 +41,8 @@ Create a view that replaces an existing view::
     CREATE OR REPLACE VIEW test AS
     SELECT orderkey, orderstatus, totalprice / 4 AS quarter
     FROM orders
+
+See Also
+--------
+
+:doc:`drop-view`, :doc:`show-create-view`

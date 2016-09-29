@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.transaction.TransactionManager;
 import io.airlift.units.Duration;
 
@@ -32,11 +33,13 @@ public class FailedQueryExecution
 {
     private final QueryInfo queryInfo;
     private final Session session;
+    private final Executor executor;
 
     public FailedQueryExecution(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Throwable cause)
     {
         requireNonNull(cause, "cause is null");
         this.session = requireNonNull(session, "session is null");
+        this.executor = requireNonNull(executor, "executor is null");
         QueryStateMachine queryStateMachine = QueryStateMachine.failed(queryId, query, session, self, transactionManager, executor, cause);
 
         queryInfo = queryStateMachine.getQueryInfo(Optional.empty());
@@ -106,7 +109,13 @@ public class FailedQueryExecution
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        stateChangeListener.stateChanged(QueryState.FAILED);
+        executor.execute(() -> stateChangeListener.stateChanged(QueryState.FAILED));
+    }
+
+    @Override
+    public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        executor.execute(() -> stateChangeListener.stateChanged(queryInfo));
     }
 
     @Override

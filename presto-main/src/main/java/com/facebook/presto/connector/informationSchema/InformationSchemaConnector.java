@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -32,7 +32,7 @@ public class InformationSchemaConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
 
-    public InformationSchemaConnector(String catalogName, NodeManager nodeManager, Metadata metadata)
+    public InformationSchemaConnector(String catalogName, InternalNodeManager nodeManager, Metadata metadata)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(nodeManager, "nodeManager is null");

@@ -25,7 +25,8 @@ import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static java.util.Collections.unmodifiableList;
 
 public abstract class DecimalType
-        extends AbstractFixedWidthType
+        extends AbstractType
+        implements FixedWidthType
 {
     public static final int DEFAULT_SCALE = 0;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
@@ -53,9 +54,9 @@ public abstract class DecimalType
     private final int precision;
     private final int scale;
 
-    DecimalType(int precision, int scale, Class<?> javaType, int fixedSize)
+    DecimalType(int precision, int scale, Class<?> javaType)
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, buildTypeParameters(precision, scale)), javaType, fixedSize);
+        super(new TypeSignature(StandardTypes.DECIMAL, buildTypeParameters(precision, scale)), javaType);
         this.precision = precision;
         this.scale = scale;
     }

@@ -19,6 +19,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import de.bwaldvogel.mongo.MongoServer;
@@ -54,11 +55,11 @@ public class TestMongoPlugin
             throws Exception
     {
         MongoPlugin plugin = new MongoPlugin();
-        plugin.setTypeManager(new TestingTypeManager());
-        ConnectorFactory factory = getOnlyElement(plugin.getServices(ConnectorFactory.class));
-        Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed));
 
-        Type type = getOnlyElement(plugin.getServices(Type.class));
+        ConnectorFactory factory = getOnlyElement(plugin.getLegacyConnectorFactories());
+        Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new TestingConnectorContext());
+
+        Type type = getOnlyElement(plugin.getTypes());
         assertEquals(type, OBJECT_ID);
 
         connector.shutdown();

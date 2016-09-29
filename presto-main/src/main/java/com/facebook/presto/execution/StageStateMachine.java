@@ -19,7 +19,6 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
@@ -46,6 +45,7 @@ import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.execution.StageState.SCHEDULING;
 import static com.facebook.presto.execution.StageState.SCHEDULING_SPLITS;
 import static com.facebook.presto.execution.StageState.TERMINAL_STAGE_STATES;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
@@ -321,7 +321,7 @@ public class StageStateMachine
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("stageId", stageId)
                 .add("stageState", stageState)
                 .toString();

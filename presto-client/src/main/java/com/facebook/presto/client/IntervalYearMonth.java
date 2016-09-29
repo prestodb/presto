@@ -16,20 +16,20 @@ package com.facebook.presto.client;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.lang.Long.parseLong;
+import static java.lang.Integer.parseInt;
 import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 
 public final class IntervalYearMonth
 {
-    private static final String LONG_MIN_VALUE = "-768614336404564650-8";
+    private static final String INT_MIN_VALUE = "-178956970-8";
 
     private static final Pattern FORMAT = Pattern.compile("(\\d+)-(\\d+)");
 
     private IntervalYearMonth() {}
 
-    public static long toMonths(long year, long months)
+    public static int toMonths(int year, int months)
     {
         try {
             return addExact(multiplyExact(year, 12), months);
@@ -39,10 +39,10 @@ public final class IntervalYearMonth
         }
     }
 
-    public static String formatMonths(long months)
+    public static String formatMonths(int months)
     {
-        if (months == Long.MIN_VALUE) {
-            return LONG_MIN_VALUE;
+        if (months == Integer.MIN_VALUE) {
+            return INT_MIN_VALUE;
         }
 
         String sign = "";
@@ -54,13 +54,13 @@ public final class IntervalYearMonth
         return format("%s%d-%d", sign, months / 12, months % 12);
     }
 
-    public static long parseMonths(String value)
+    public static int parseMonths(String value)
     {
-        if (value.equals(LONG_MIN_VALUE)) {
-            return Long.MIN_VALUE;
+        if (value.equals(INT_MIN_VALUE)) {
+            return Integer.MIN_VALUE;
         }
 
-        long signum = 1;
+        int signum = 1;
         if (value.startsWith("-")) {
             signum = -1;
             value = value.substring(1);
@@ -71,8 +71,8 @@ public final class IntervalYearMonth
             throw new IllegalArgumentException("Invalid year-month interval: " + value);
         }
 
-        long years = parseLong(matcher.group(1));
-        long months = parseLong(matcher.group(2));
+        int years = parseInt(matcher.group(1));
+        int months = parseInt(matcher.group(2));
 
         return toMonths(years, months) * signum;
     }

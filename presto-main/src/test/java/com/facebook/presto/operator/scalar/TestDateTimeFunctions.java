@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTime;
@@ -28,11 +27,11 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
 import org.joda.time.ReadableInstant;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -53,6 +52,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeUtils.getInstantChronology;
 import static org.joda.time.Days.daysBetween;
 import static org.joda.time.DurationFieldType.millis;
@@ -65,6 +65,7 @@ import static org.joda.time.Years.yearsBetween;
 import static org.testng.Assert.assertEquals;
 
 public class TestDateTimeFunctions
+        extends AbstractTestFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
@@ -89,17 +90,18 @@ public class TestDateTimeFunctions
     private static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
     private static final String WEIRD_TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+07:09";
 
-    private static final TimeZoneKey WEIRD_TIME_ZONE_KEY = getTimeZoneKeyForOffset(7 * 60 + 9);
-    private Session session;
-    private FunctionAssertions functionAssertions;
+    private final Session session;
 
-    @BeforeClass
-    public void setUp()
+    @Test
+    public TestDateTimeFunctions()
     {
-        session = testSessionBuilder()
-                .setTimeZoneKey(TIME_ZONE_KEY)
-                .build();
-        functionAssertions = new FunctionAssertions(session);
+        this(testSessionBuilder().setTimeZoneKey(TIME_ZONE_KEY).build());
+    }
+
+    private TestDateTimeFunctions(Session session)
+    {
+        super(session);
+        this.session = session;
     }
 
     @Test
@@ -107,7 +109,7 @@ public class TestDateTimeFunctions
             throws Exception
     {
         // current date is the time at midnight in the session time zone
-        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate((int) epochDaysInZone(TIME_ZONE_KEY, session.getStartTime())));
+        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(Ints.checkedCast(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
     }
 
     @Test
@@ -183,7 +185,7 @@ public class TestDateTimeFunctions
         int timeZoneHoursOffset = 1;
         int timezoneMinutesOffset = 10;
 
-        DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset(timeZoneHoursOffset * 60 + timezoneMinutesOffset)));
+        DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset((timeZoneHoursOffset * 60L) + timezoneMinutesOffset)));
         assertFunction("from_unixtime(" + seconds + ", " + timeZoneHoursOffset + ", " + timezoneMinutesOffset + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
     }
 
@@ -636,12 +638,6 @@ public class TestDateTimeFunctions
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forOffsetHours(5))));
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Both printing and parsing not supported")
-    public void testInvalidDateParseFormat()
-    {
-        assertFunction("date_parse('%Y-%M-%d', '')", BIGINT, 0);
-    }
-
     @Test
     public void testFormatDatetime()
     {
@@ -678,7 +674,6 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + dateTimeLiteral + ", '%T')", VARCHAR, "13:04:05");
         assertFunction("date_format(" + dateTimeLiteral + ", '%v')", VARCHAR, "02");
         assertFunction("date_format(" + dateTimeLiteral + ", '%W')", VARCHAR, "Tuesday");
-        assertFunction("date_format(" + dateTimeLiteral + ", '%w')", VARCHAR, "2");
         assertFunction("date_format(" + dateTimeLiteral + ", '%Y')", VARCHAR, "2001");
         assertFunction("date_format(" + dateTimeLiteral + ", '%y')", VARCHAR, "01");
         assertFunction("date_format(" + dateTimeLiteral + ", '%%')", VARCHAR, "%");
@@ -711,7 +706,6 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%T')", VARCHAR, "13:04:05");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%v')", VARCHAR, "02");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%W')", VARCHAR, "Tuesday");
-        assertFunction("date_format(" + wierdDateTimeLiteral + ", '%w')", VARCHAR, "2");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%Y')", VARCHAR, "2001");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%y')", VARCHAR, "01");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%%')", VARCHAR, "%");
@@ -722,6 +716,13 @@ public class TestDateTimeFunctions
 
         assertFunction("date_format(TIMESTAMP '2001-01-09 13:04:05.32', '%f')", VARCHAR, "320000");
         assertFunction("date_format(TIMESTAMP '2001-01-09 00:04:05.32', '%k')", VARCHAR, "0");
+
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%D')", "%D not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%U')", "%U not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%u')", "%u not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%V')", "%V not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%w')", "%w not supported in date format string");
+        assertInvalidFunction("date_format(DATE '2001-01-09', '%X')", "%X not supported in date format string");
     }
 
     @Test
@@ -790,14 +791,16 @@ public class TestDateTimeFunctions
         assertFunction("date_parse('31-MAY-69 04.59.59.999000 AM','%d-%b-%y %l.%i.%s.%f %p')",
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(2069, 5, 31, 4, 59, 59, 999, DATE_TIME_ZONE)));
-    }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Invalid format: \"3.0123456789\" is malformed at \"9\"")
-    public void testTooManyFractionsInSeconds()
-    {
-        assertFunction("date_parse('3.0123456789', '%s.%f')",
-                TimestampType.TIMESTAMP,
-                null);
+        assertInvalidFunction("date_parse('', '%D')", "%D not supported in date format string");
+        assertInvalidFunction("date_parse('', '%U')", "%U not supported in date format string");
+        assertInvalidFunction("date_parse('', '%u')", "%u not supported in date format string");
+        assertInvalidFunction("date_parse('', '%V')", "%V not supported in date format string");
+        assertInvalidFunction("date_parse('', '%w')", "%w not supported in date format string");
+        assertInvalidFunction("date_parse('', '%X')", "%X not supported in date format string");
+
+        assertInvalidFunction("date_parse('3.0123456789', '%s.%f')", "Invalid format: \"3.0123456789\" is malformed at \"9\"");
+        assertInvalidFunction("date_parse('%Y-%M-%d', '')", "Both printing and parsing not supported");
     }
 
     @Test
@@ -876,20 +879,15 @@ public class TestDateTimeFunctions
         assertFunctionString("timestamp '2333-02-23 23:59:59.999 Asia/Tokyo'", TIMESTAMP_WITH_TIME_ZONE, "2333-02-23 23:59:59.999 Asia/Tokyo");
     }
 
-    private void assertFunction(String projection, Type expectedType, Object expected)
-    {
-        functionAssertions.assertFunction(projection, expectedType, expected);
-    }
-
     private void assertFunctionString(String projection, Type expectedType, String expected)
     {
         functionAssertions.assertFunctionString(projection, expectedType, expected);
     }
 
-    private SqlDate toDate(DateTime dateDate)
+    private static SqlDate toDate(DateTime dateDate)
     {
         long millis = dateDate.getMillis();
-        return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis));
+        return new SqlDate(Ints.checkedCast(MILLISECONDS.toDays(millis)));
     }
 
     private static long millisBetween(ReadableInstant start, ReadableInstant end)
@@ -909,7 +907,7 @@ public class TestDateTimeFunctions
         return new SqlTime(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
+    private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
     {
         return new SqlTimeWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }
@@ -924,12 +922,12 @@ public class TestDateTimeFunctions
         return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private SqlTimestamp toTimestamp(DateTime dateTime, Session session)
+    private static SqlTimestamp toTimestamp(DateTime dateTime, Session session)
     {
         return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
     }
 
-    private SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
+    private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
     {
         return new SqlTimestampWithTimeZone(dateTime.getMillis(), dateTime.getZone().toTimeZone());
     }

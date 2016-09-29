@@ -17,10 +17,12 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.AddColumnTask;
 import com.facebook.presto.execution.CallTask;
 import com.facebook.presto.execution.CommitTask;
+import com.facebook.presto.execution.CreateSchemaTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
+import com.facebook.presto.execution.DropSchemaTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
@@ -36,6 +38,7 @@ import com.facebook.presto.execution.QueryQueueRule;
 import com.facebook.presto.execution.QueryQueueRuleFactory;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.RenameColumnTask;
+import com.facebook.presto.execution.RenameSchemaTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RevokeTask;
@@ -45,26 +48,29 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.resourceGroups.FileResourceGroupsModule;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
 import com.facebook.presto.memory.ClusterMemoryManager;
-import com.facebook.presto.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
@@ -73,6 +79,7 @@ import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
@@ -102,8 +109,6 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
-import static com.facebook.presto.server.ConditionalModule.conditionalModule;
-import static com.facebook.presto.sql.analyzer.FeaturesConfig.FILE_BASED_RESOURCE_GROUP_MANAGER;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
@@ -150,9 +155,11 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(StageResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
+        binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
+        binder.bind(LegacyResourceGroupConfigurationManagerFactory.class).in(Scopes.SINGLETON);
         if (buildConfigObject(FeaturesConfig.class).isResourceGroupsEnabled()) {
-            binder.bind(ResourceGroupManager.class).in(Scopes.SINGLETON);
-            binder.bind(QueryQueueManager.class).to(ResourceGroupManager.class).in(Scopes.SINGLETON);
+            binder.bind(QueryQueueManager.class).to(InternalResourceGroupManager.class);
         }
         else {
             binder.bind(QueryQueueManager.class).to(SqlQueryQueueManager.class).in(Scopes.SINGLETON);
@@ -170,12 +177,6 @@ public class CoordinatorModule
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 });
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
-
-        // resource group manager
-        install(conditionalModule(
-                FeaturesConfig.class,
-                config -> config.isResourceGroupsEnabled() && FILE_BASED_RESOURCE_GROUP_MANAGER.equalsIgnoreCase(config.getResourceGroupManager()),
-                moduleBinder -> moduleBinder.install(new FileResourceGroupsModule())));
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
@@ -224,6 +225,9 @@ public class CoordinatorModule
         executionBinder.addBinding(Delete.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
+        bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropSchema.class, DropSchemaTask.class);
+        bindDataDefinitionTask(binder, executionBinder, RenameSchema.class, RenameSchemaTask.class);
         bindDataDefinitionTask(binder, executionBinder, AddColumn.class, AddColumnTask.class);
         bindDataDefinitionTask(binder, executionBinder, CreateTable.class, CreateTableTask.class);
         bindDataDefinitionTask(binder, executionBinder, RenameTable.class, RenameTableTask.class);

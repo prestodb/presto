@@ -18,6 +18,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -131,7 +133,7 @@ public class ParallelHashBuildOperator
 
     private final PagesIndex index;
 
-    private boolean finished;
+    private boolean finishing;
 
     public ParallelHashBuildOperator(
             OperatorContext operatorContext,
@@ -168,26 +170,36 @@ public class ParallelHashBuildOperator
     @Override
     public void finish()
     {
-        if (finished) {
+        if (finishing) {
             return;
         }
-        finished = true;
+        finishing = true;
 
-        // After this point the SharedLookupSource will take over our memory reservation, and ours will be zero
         LookupSource lookupSource = index.createLookupSource(hashChannels, preComputedHashChannel, filterFunction);
-        lookupSourceSupplier.setLookupSource(partitionIndex, lookupSource, operatorContext);
+        lookupSourceSupplier.setLookupSource(partitionIndex, lookupSource);
+
+        operatorContext.setMemoryReservation(lookupSource.getInMemorySizeInBytes());
     }
 
     @Override
     public boolean isFinished()
     {
-        return finished;
+        return finishing && lookupSourceSupplier.isDestroyed().isDone();
     }
 
     @Override
     public boolean needsInput()
     {
-        return !finished;
+        return !finishing;
+    }
+
+    @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        if (!finishing) {
+            return NOT_BLOCKED;
+        }
+        return MoreFutures.toListenableFuture(lookupSourceSupplier.isDestroyed());
     }
 
     @Override
@@ -197,8 +209,10 @@ public class ParallelHashBuildOperator
         checkState(!isFinished(), "Operator is already finished");
 
         index.addPage(page);
-
-        operatorContext.setMemoryReservation(page.getPositionCount());
+        if (!operatorContext.trySetMemoryReservation(index.getEstimatedSize().toBytes())) {
+            index.compact();
+        }
+        operatorContext.setMemoryReservation(index.getEstimatedSize().toBytes());
         operatorContext.recordGeneratedOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
@@ -206,5 +220,11 @@ public class ParallelHashBuildOperator
     public Page getOutput()
     {
         return null;
+    }
+
+    @Override
+    public void close()
+    {
+        lookupSourceSupplier.close();
     }
 }

@@ -14,13 +14,13 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import io.airlift.units.DataSize;
 
 import java.util.concurrent.Executor;
@@ -57,7 +57,7 @@ public final class TestingTaskContext
     public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session, DataSize preallocated)
     {
         return queryContext.addTaskContext(
-                new TaskStateMachine(new TaskId("query", "stage", 0), checkNotSameThreadExecutor(executor, "executor is null")),
+                new TaskStateMachine(new TaskId("query", 0, 0), checkNotSameThreadExecutor(executor, "executor is null")),
                 session,
                 preallocated,
                 true,

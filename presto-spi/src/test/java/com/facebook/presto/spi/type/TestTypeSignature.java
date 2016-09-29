@@ -172,6 +172,7 @@ public class TestTypeSignature
         assertSignatureFail("blah()");
         assertSignatureFail("array()");
         assertSignatureFail("map()");
+        assertSignatureFail("x", ImmutableSet.of("x"));
 
         // ensure this is not treated as a row type
         assertSignature("rowxxx<a>", "rowxxx", ImmutableList.of("a"));
@@ -281,6 +282,17 @@ public class TestTypeSignature
     {
         try {
             parseTypeSignature(typeName);
+            fail("Type signatures with zero parameters should fail to parse");
+        }
+        catch (RuntimeException e) {
+            // Expected
+        }
+    }
+
+    private void assertSignatureFail(String typeName, Set<String> literalCalculationParameters)
+    {
+        try {
+            parseTypeSignature(typeName, literalCalculationParameters);
             fail("Type signatures with zero parameters should fail to parse");
         }
         catch (RuntimeException e) {

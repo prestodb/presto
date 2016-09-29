@@ -19,6 +19,7 @@ import com.google.common.io.Resources;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.google.common.base.Strings.repeat;
@@ -68,6 +69,13 @@ public class TestStatementBuilder
         printStatement("select x from unnest(array[1, 2, 3]) with ordinality t(x)");
         printStatement("select * from users cross join unnest(friends) with ordinality");
         printStatement("select id, friend from users cross join unnest(friends) with ordinality t(friend)");
+
+        printStatement("select count(*) x from src group by k, v");
+        printStatement("select count(*) x from src group by cube (k, v)");
+        printStatement("select count(*) x from src group by rollup (k, v)");
+        printStatement("select count(*) x from src group by grouping sets ((k, v))");
+        printStatement("select count(*) x from src group by grouping sets ((k, v), (v))");
+        printStatement("select count(*) x from src group by grouping sets (k, v, k)");
 
         printStatement("" +
                 "select depname, empno, salary\n" +
@@ -169,6 +177,18 @@ public class TestStatementBuilder
 
         printStatement("alter table a.b.c add column x bigint");
 
+        printStatement("create schema test");
+        printStatement("create schema if not exists test");
+        printStatement("create schema test with (a = 'apple', b = 123)");
+
+        printStatement("drop schema test");
+        printStatement("drop schema test cascade");
+        printStatement("drop schema if exists test");
+        printStatement("drop schema if exists test restrict");
+
+        printStatement("alter schema foo rename to bar");
+        printStatement("alter schema foo.bar rename to baz");
+
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
         printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
@@ -206,6 +226,8 @@ public class TestStatementBuilder
         printStatement("revoke grant option for select on foo from alice");
         printStatement("revoke all privileges on foo from alice");
         printStatement("revoke insert, delete on foo from public"); //check support for public
+
+        printStatement("prepare p from select * from (select * from T) \"A B\"");
     }
 
     @Test
@@ -252,7 +274,7 @@ public class TestStatementBuilder
         println(statement.toString());
         println("");
 
-        println(SqlFormatter.formatSql(statement));
+        println(SqlFormatter.formatSql(statement, Optional.empty()));
         println("");
         assertFormattedSql(SQL_PARSER, statement);
 

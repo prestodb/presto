@@ -16,6 +16,17 @@ data warehouse. Hive is a combination of three components:
 Presto only uses the first two components: the data and the metadata.
 It does not use HiveQL or any part of Hive's execution environment.
 
+Supported File Types
+--------------------
+
+The following file types are supported for the Hive connector:
+
+* ORC
+* Parquet
+* RCFile
+* SequenceFile
+* Text
+
 Configuration
 -------------
 
@@ -66,6 +77,20 @@ set of required properties, as additional properties may cause problems.
 The configuration files must exist on all Presto nodes. If you are
 referencing existing Hadoop config files, make sure to copy them to
 any Presto nodes that are not running Hadoop.
+
+HDFS Username
+^^^^^^^^^^^^^
+
+When not using Kerberos with HDFS, Presto will access HDFS using the
+OS user of the Presto process. For example, if Presto is running as
+``nobody``, it will access HDFS as ``nobody``. You can override this
+username by setting the ``HADOOP_USER_NAME`` system property in the
+Presto :ref:`presto_jvm_config`, replacing ``hdfs_user`` with the
+appropriate username:
+
+.. code-block:: none
+
+    -DHADOOP_USER_NAME=hdfs_user
 
 Accessing Hadoop clusters protected with Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -142,6 +167,11 @@ Property Name                                      Description                  
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
+
+``hive.security``                                  See :doc:`hive-security`.
+
+``security.config-file``                           Path of config file to use when ``hive.security=file``.
+                                                   See :ref:`hive-file-based-authorization` for details.
 ================================================== ============================================================ ==========
 
 Querying Hive Tables
@@ -224,6 +254,15 @@ Property Name                                Description                        
 
 ``hive.s3.pin-client-to-current-region``     Pin S3 requests to the same region as the EC2 instance ``false``
                                              where Presto is running.
+
+``hive.s3.sse.enabled``                      Enable S3 server-side encryption.                      ``false``
+
+``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
+                                             connect to an S3-compatible storage system instead of
+                                             AWS.
+
+``hive.s3.signer-type``                      Specify a different signer type for S3-compatible
+                                             storage. Example: ``S3SignerType`` for v2 signer type
 
 ``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API               ``true``
 

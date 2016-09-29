@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
-import com.google.common.base.Function;
+import com.google.common.base.Strings;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Range;
-import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveCharObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.joda.time.DateTimeZone;
@@ -41,8 +43,10 @@ import java.util.Random;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -65,10 +69,13 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestOrcReader
 {
+    private static final int CHAR_LENGTH = 10;
+
     private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_2 =
             new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(2, 1));
     private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_4 =
@@ -81,6 +88,8 @@ public abstract class AbstractTestOrcReader
             new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(18, 8));
     private static final JavaHiveDecimalObjectInspector DECIMAL_INSPECTOR_PRECISION_38 =
             new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(38, 16));
+    private static final JavaHiveCharObjectInspector CHAR_INSPECTOR =
+            new JavaHiveCharObjectInspector(getCharTypeInfo(CHAR_LENGTH));
 
     private static final DecimalType DECIMAL_TYPE_PRECISION_2 = DecimalType.createDecimalType(2, 1);
     private static final DecimalType DECIMAL_TYPE_PRECISION_4 = DecimalType.createDecimalType(4, 2);
@@ -88,6 +97,7 @@ public abstract class AbstractTestOrcReader
     private static final DecimalType DECIMAL_TYPE_PRECISION_17 = DecimalType.createDecimalType(17, 8);
     private static final DecimalType DECIMAL_TYPE_PRECISION_18 = DecimalType.createDecimalType(18, 8);
     private static final DecimalType DECIMAL_TYPE_PRECISION_38 = DecimalType.createDecimalType(38, 16);
+    private static final CharType CHAR = createCharType(CHAR_LENGTH);
 
     private final OrcTester tester;
 
@@ -206,7 +216,21 @@ public abstract class AbstractTestOrcReader
     public void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(javaFloatObjectInspector, doubleSequence(0.0, 0.1, 30_000), DOUBLE);
+        tester.testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), REAL);
+    }
+
+    @Test
+    public void testFloatNaNInfinity()
+            throws Exception
+    {
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(1000.0f, -1.23f, Float.POSITIVE_INFINITY), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(-1000.0f, Float.NEGATIVE_INFINITY, 1.23f), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(0.0f, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), REAL);
+
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, -0.0f, 1.0f), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, -1.0f, Float.POSITIVE_INFINITY), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, 1.0f), REAL);
+        tester.testRoundTrip(javaFloatObjectInspector, ImmutableList.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY), REAL);
     }
 
     @Test
@@ -275,6 +299,32 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000), VARCHAR);
+    }
+
+    @Test
+    public void testCharDirectSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(CHAR_INSPECTOR, transform(intsBetween(0, 30_000), this::toCharValue), CHAR);
+    }
+
+    @Test
+    public void testCharDictionarySequence()
+            throws Exception
+    {
+        tester.testRoundTrip(CHAR_INSPECTOR, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), this::toCharValue)), 30_000), CHAR);
+    }
+
+    @Test
+    public void testEmptyCharSequence()
+            throws Exception
+    {
+        tester.testRoundTrip(CHAR_INSPECTOR, limit(cycle("          "), 30_000), CHAR);
+    }
+
+    private String toCharValue(Object value)
+    {
+        return Strings.padEnd(value.toString(), CHAR_LENGTH, ' ');
     }
 
     @Test
@@ -401,6 +451,17 @@ public abstract class AbstractTestOrcReader
         return values;
     }
 
+    private static List<Float> floatSequence(float start, float step, int items)
+    {
+        Builder<Float> values = ImmutableList.builder();
+        float nextValue = start;
+        for (int i = 0; i < items; i++) {
+            values.add(nextValue);
+            nextValue += step;
+        }
+        return values.build();
+    }
+
     private static List<SqlDecimal> decimalSequence(String start, String step, int items, int precision, int scale)
     {
         BigInteger decimalStep = new BigInteger(step);
@@ -412,30 +473,6 @@ public abstract class AbstractTestOrcReader
             nextValue = nextValue.add(decimalStep);
         }
         return values;
-    }
-
-//    private static Iterable<HiveDecimal> decimalSequence(String start, String step, int items, int scale)
-//    {
-//        HiveDecimal hiveStep = HiveDecimal.create(step);
-//        return () -> new AbstractSequentialIterator<HiveDecimal>(HiveDecimal.create(start))
-//        {
-//            private int item;
-//
-//            @Override
-//            protected HiveDecimal computeNext(HiveDecimal previous)
-//            {
-//                if (item >= items) {
-//                    return null;
-//                }
-//                item++;
-//                return previous.add(hiveStep).setScale(scale);
-//            }
-//        };
-//    }
-
-    private static Function<HiveDecimal, SqlDecimal> toSqlDecimal(int scale)
-    {
-        return hiveDecimal -> new SqlDecimal(hiveDecimal.unscaledValue(), hiveDecimal.precision(), scale);
     }
 
     private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)

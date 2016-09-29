@@ -18,7 +18,7 @@ Description
 
 Revokes the specified privileges from the specified grantee.
 
-Specifying ``ALL PRIVILEGES`` revokes ``DELETE``, ``INSERT`` and ``SELECT`` privileges.
+Specifying ``ALL PRIVILEGES`` revokes :doc:`delete`, :doc:`insert` and :doc:`select` privileges.
 
 Specifying ``PUBLIC`` revokes privileges from all grantees.
 
@@ -37,7 +37,7 @@ Revoke ``SELECT`` privilege on the table ``nation`` from everyone, additionally 
 
     REVOKE GRANT OPTION FOR SELECT ON nation FROM PUBLIC;
 
-REVOKE all privileges on the table ``test`` from user ``alice``::
+Revoke all privileges on the table ``test`` from user ``alice``::
 
     REVOKE ALL PRIVILEGES ON test FROM alice;
 
@@ -46,3 +46,8 @@ Limitations
 
 Some connectors have no support for ``REVOKE``.
 See connector documentation for more details.
+
+See Also
+--------
+
+:doc:`grant`

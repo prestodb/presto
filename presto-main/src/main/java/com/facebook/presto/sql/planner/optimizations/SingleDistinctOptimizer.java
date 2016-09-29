@@ -87,7 +87,6 @@ public class SingleDistinctOptimizer
 
             return new AggregationNode(idAllocator.getNextId(),
                                         source,
-                                        node.getGroupBy(),
                                         aggregations,
                                         node.getFunctions(),
                                         Collections.emptyMap(),
@@ -95,7 +94,8 @@ public class SingleDistinctOptimizer
                                         node.getStep(),
                                         node.getSampleWeight(),
                                         node.getConfidence(),
-                                        node.getHashSymbol());
+                                        node.getHashSymbol(),
+                                        node.getGroupIdSymbol());
         }
 
         @Override
@@ -106,7 +106,6 @@ public class SingleDistinctOptimizer
                 // rewrite Distinct into GroupBy
                 AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(),
                                                                         context.rewrite(node.getSource(), Optional.empty()),
-                                                                        node.getDistinctSymbols(),
                                                                         Collections.emptyMap(),
                                                                         Collections.emptyMap(),
                                                                         Collections.emptyMap(),
@@ -114,7 +113,8 @@ public class SingleDistinctOptimizer
                                                                         SINGLE,
                                                                         Optional.empty(),
                                                                         1.0,
-                                                                        node.getHashSymbol());
+                                                                        node.getHashSymbol(),
+                                                                        Optional.empty());
 
                 ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
                 for (Symbol symbol : aggregationNode.getOutputSymbols()) {

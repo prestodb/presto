@@ -1,0 +1,22 @@
+{
+  "tables": [
+    {
+      "schema": "secret",
+      "privileges": []
+    },
+    {
+      "user": "admin",
+      "schema": ".*",
+      "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+    },
+    {
+      "user": "bob",
+      "schema": "bobschema",
+      "table": "bobtable",
+      "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
+    },
+    {
+      "privileges": ["SELECT"]
+    }
+  ]
+}

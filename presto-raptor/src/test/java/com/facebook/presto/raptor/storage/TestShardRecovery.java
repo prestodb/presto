@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.io.Files;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
@@ -147,7 +147,7 @@ public class TestShardRecovery
         return new ShardRecoveryManager(
                 storageService,
                 backupStore,
-                new InMemoryNodeManager(),
+                new TestingNodeManager(),
                 shardManager,
                 new Duration(5, MINUTES),
                 10);

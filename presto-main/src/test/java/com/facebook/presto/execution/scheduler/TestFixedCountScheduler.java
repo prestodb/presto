@@ -57,8 +57,8 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId("test", "1", 1),
-                        (Node) node, ImmutableList.of(),
+                        new TaskId("test", 1, 1),
+                        node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(1));
 
@@ -66,7 +66,7 @@ public class TestFixedCountScheduler
         assertTrue(result.isFinished());
         assertTrue(result.getBlocked().isDone());
         assertEquals(result.getNewTasks().size(), 1);
-        result.getNewTasks().iterator().next().getNodeId().equals("other 0");
+        assertTrue(result.getNewTasks().iterator().next().getNodeId().equals("other 0"));
     }
 
     @Test
@@ -75,8 +75,8 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> taskFactory.createTableScanTask(
-                        new TaskId("test", "1", 1),
-                        (Node) node, ImmutableList.of(),
+                        new TaskId("test", 1, 1),
+                        node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> { })),
                 generateRandomNodes(5));
 
@@ -91,7 +91,7 @@ public class TestFixedCountScheduler
     {
         ImmutableMap.Builder<Integer, Node> nodes = ImmutableMap.builder();
         for (int i = 0; i < count; i++) {
-            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN));
+            nodes.put(i, new PrestoNode("other " + i, URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false));
         }
         return nodes.build();
     }

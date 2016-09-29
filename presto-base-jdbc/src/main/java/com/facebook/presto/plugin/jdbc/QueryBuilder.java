@@ -21,10 +21,14 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimeType;
 import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
@@ -46,6 +50,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -123,8 +128,20 @@ public class QueryBuilder
             if (typeAndValue.getType().equals(BigintType.BIGINT)) {
                 statement.setLong(i + 1, (long) typeAndValue.getValue());
             }
+            else if (typeAndValue.getType().equals(IntegerType.INTEGER)) {
+                statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
+            }
+            else if (typeAndValue.getType().equals(SmallintType.SMALLINT)) {
+                statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
+            }
+            else if (typeAndValue.getType().equals(TinyintType.TINYINT)) {
+                statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
+            }
             else if (typeAndValue.getType().equals(DoubleType.DOUBLE)) {
                 statement.setDouble(i + 1, (double) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(RealType.REAL)) {
+                statement.setFloat(i + 1, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
             }
             else if (typeAndValue.getType().equals(BooleanType.BOOLEAN)) {
                 statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
@@ -160,7 +177,11 @@ public class QueryBuilder
     {
         Type validType = requireNonNull(type, "type is null");
         return validType.equals(BigintType.BIGINT) ||
+                validType.equals(TinyintType.TINYINT) ||
+                validType.equals(SmallintType.SMALLINT) ||
+                validType.equals(IntegerType.INTEGER) ||
                 validType.equals(DoubleType.DOUBLE) ||
+                validType.equals(RealType.REAL) ||
                 validType.equals(BooleanType.BOOLEAN) ||
                 validType.equals(DateType.DATE) ||
                 validType.equals(TimeType.TIME) ||

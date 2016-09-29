@@ -23,6 +23,8 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -54,12 +56,12 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -80,6 +82,7 @@ import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDeriva
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -155,8 +158,18 @@ final class StreamPropertyDerivations
                     // partitioning but the other properties of the left will be maintained.
                     return leftProperties.withUnspecifiedPartitioning();
                 case RIGHT:
-                    // all of the "nulls" from the right are produced from a separate stream, so the
-                    // partitioning still holds, but we will always have multiple streams
+                    // since this is a right join, none of the matched output rows will contain nulls
+                    // in the left partitioning columns, and all of the unmatched rows will have
+                    // null for all left columns.  therefore, the output is still partitioned on the
+                    // left columns.  the only change is there will be at least two streams so the
+                    // output is multiple
+                    // There is one exception to this.  If the left is partitioned on empty set, we
+                    // we can't say that the output is partitioned on empty set, but we can say that
+                    // it is partitioned on the left join symbols
+                    if (leftProperties.getPartitioningColumns().isPresent() && leftProperties.getPartitioningColumns().get().isEmpty()) {
+                        List<Symbol> leftSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+                        return new StreamProperties(MULTIPLE, false, Optional.of(leftSymbols), false);
+                    }
                     return new StreamProperties(MULTIPLE, false, leftProperties.getPartitioningColumns(), false);
                 case FULL:
                     // the left can contain nulls in any stream so we can't say anything about the
@@ -290,12 +303,34 @@ final class StreamPropertyDerivations
         }
 
         @Override
+        public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties).translate(translateGroupIdSymbols(node));
+        }
+
+        private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
+        {
+            List<Symbol> commonGroupingColumns = node.getCommonGroupingColumns();
+            return symbol -> {
+                if (node.getIdentityMappings().containsKey(symbol)) {
+                    return Optional.of(node.getIdentityMappings().get(symbol));
+                }
+
+                if (commonGroupingColumns.contains(symbol)) {
+                    return Optional.of(symbol);
+                }
+
+                return Optional.empty();
+            };
+        }
+
+        @Override
         public StreamProperties visitAggregation(AggregationNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // Only grouped symbols projected symbols are passed through
-            return properties.translate(symbol -> node.getGroupBy().contains(symbol) ? Optional.of(symbol) : Optional.<Symbol>empty());
+            return properties.translate(symbol -> node.getGroupingKeys().contains(symbol) ? Optional.of(symbol) : Optional.empty());
         }
 
         @Override
@@ -368,6 +403,12 @@ final class StreamPropertyDerivations
             return StreamProperties.singleStream();
         }
 
+        @Override
+        public StreamProperties visitAssignUniqueId(AssignUniqueId node, List<StreamProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties);
+        }
+
         //
         // Simple nodes that pass through stream properties
         //
@@ -380,12 +421,6 @@ final class StreamPropertyDerivations
 
         @Override
         public StreamProperties visitMarkDistinct(MarkDistinctNode node, List<StreamProperties> inputProperties)
-        {
-            return Iterables.getOnlyElement(inputProperties);
-        }
-
-        @Override
-        public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
         {
             return Iterables.getOnlyElement(inputProperties);
         }
@@ -434,6 +469,12 @@ final class StreamPropertyDerivations
 
         @Override
         public StreamProperties visitSemiJoin(SemiJoinNode node, List<StreamProperties> inputProperties)
+        {
+            return inputProperties.get(0);
+        }
+
+        @Override
+        public StreamProperties visitApply(ApplyNode node, List<StreamProperties> inputProperties)
         {
             return inputProperties.get(0);
         }
@@ -614,7 +655,7 @@ final class StreamPropertyDerivations
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("distribution", distribution)
                     .add("partitioningColumns", partitioningColumns)
                     .toString();

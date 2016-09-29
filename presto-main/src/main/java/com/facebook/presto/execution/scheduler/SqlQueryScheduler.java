@@ -16,6 +16,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryState;
@@ -59,8 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
-import static com.facebook.presto.connector.ConnectorManager.INFORMATION_SCHEMA_CONNECTOR_PREFIX;
-import static com.facebook.presto.connector.ConnectorManager.SYSTEM_TABLES_CONNECTOR_PREFIX;
+import static com.facebook.presto.connector.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.execution.StageState.ABORTED;
 import static com.facebook.presto.execution.StageState.CANCELED;
 import static com.facebook.presto.execution.StageState.FAILED;
@@ -195,7 +195,7 @@ public class SqlQueryScheduler
     {
         ImmutableList.Builder<SqlStageExecution> stages = ImmutableList.builder();
 
-        StageId stageId = new StageId(queryStateMachine.getQueryId(), String.valueOf(nextStageId.getAndIncrement()));
+        StageId stageId = new StageId(queryStateMachine.getQueryId(), nextStageId.getAndIncrement());
         SqlStageExecution stage = new SqlStageExecution(
                 stageId,
                 locationFactory.createStageLocation(stageId),
@@ -213,11 +213,11 @@ public class SqlQueryScheduler
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
-            String dataSourceName = entry.getValue().getDataSourceName();
-            if (dataSourceName.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) || dataSourceName.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX)) {
-                dataSourceName = null;
+            ConnectorId connectorId = entry.getValue().getConnectorId();
+            if (isInternalSystemConnector(connectorId)) {
+                connectorId = null;
             }
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(dataSourceName);
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
             stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, entry.getKey(), entry.getValue(), placementPolicy, splitBatchSize));
             bucketToPartition = Optional.of(new int[1]);
@@ -394,7 +394,10 @@ public class SqlQueryScheduler
                 }
                 catch (Throwable t) {
                     queryStateMachine.transitionToFailed(t);
-                    closeError.addSuppressed(t);
+                    // Self-suppression not permitted
+                    if (closeError != t) {
+                        closeError.addSuppressed(t);
+                    }
                 }
             }
             if (closeError.getSuppressed().length > 0) {

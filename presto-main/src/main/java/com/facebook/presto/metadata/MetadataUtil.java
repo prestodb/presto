@@ -14,8 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -28,7 +30,9 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -75,7 +79,7 @@ public final class MetadataUtil
         if (value == null) {
             throw new NullPointerException(format("%s is null", name));
         }
-        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase", name);
+        checkArgument(value.equals(value.toLowerCase(ENGLISH)), "%s is not lowercase: %s", name, value);
         return value;
     }
 
@@ -89,11 +93,39 @@ public final class MetadataUtil
         return null;
     }
 
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    {
+        String catalogName = session.getCatalog().orElse(null);
+        String schemaName = session.getSchema().orElse(null);
+
+        if (schema.isPresent()) {
+            List<String> parts = schema.get().getParts();
+            if (parts.size() > 2) {
+                throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
+            }
+            if (parts.size() == 2) {
+                catalogName = parts.get(0);
+            }
+            schemaName = schema.get().getSuffix();
+        }
+
+        if (catalogName == null) {
+            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+        }
+        if (schemaName == null) {
+            throw new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set");
+        }
+
+        return new CatalogSchemaName(catalogName, schemaName);
+    }
+
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
-        checkArgument(name.getParts().size() <= 3, "Too many dots in table name: %s", name);
+        if (name.getParts().size() > 3) {
+            throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
+        }
 
         List<String> parts = Lists.reverse(name.getParts());
         String objectName = parts.get(0);

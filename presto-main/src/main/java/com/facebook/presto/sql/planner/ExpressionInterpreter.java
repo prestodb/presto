@@ -30,9 +30,8 @@ import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.AnalysisContext;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
@@ -64,6 +63,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Row;
@@ -82,6 +82,7 @@ import com.facebook.presto.type.RowType.RowField;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Defaults;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -150,10 +151,10 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session)
+    public static Object evaluateConstantExpression(Expression expression, Type expectedType, Metadata metadata, Session session, List<Expression> parameters)
     {
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session);
-        analyzer.analyze(expression, new RelationType(), new AnalysisContext());
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
+        analyzer.analyze(expression, Scope.builder().build());
 
         Type actualType = analyzer.getExpressionTypes().get(expression);
         if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
@@ -165,15 +166,19 @@ public class ExpressionInterpreter
         IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
         coercions.putAll(analyzer.getExpressionCoercions());
         coercions.put(expression, expectedType);
-        return evaluateConstantExpression(expression, coercions, metadata, session, ImmutableSet.of());
+        return evaluateConstantExpression(expression, coercions, metadata, session, ImmutableSet.of(), parameters);
     }
 
-    public static Object evaluateConstantExpression(Expression expression, IdentityHashMap<Expression, Type> coercions, Metadata metadata, Session session, Set<Expression> columnReferences)
+    public static Object evaluateConstantExpression(
+            Expression expression,
+            IdentityHashMap<Expression, Type> coercions,
+            Metadata metadata, Session session,
+            Set<Expression> columnReferences,
+            List<Expression> parameters)
     {
         requireNonNull(columnReferences, "columnReferences is null");
 
-        // verify expression is constant
-        new ConstantExpressionVerifierVisitor(columnReferences, expression).process(expression, null);
+        verifyExpressionIsConstant(columnReferences, expression);
 
         // add coercions
         Expression rewrite = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -200,13 +205,18 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session);
-        analyzer.analyze(canonicalized, new RelationType(), new AnalysisContext());
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
+        analyzer.analyze(canonicalized, Scope.builder().build());
 
         // evaluate the expression
         Object result = expressionInterpreter(canonicalized, metadata, session, analyzer.getExpressionTypes()).evaluate(0);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
+    }
+
+    public static void verifyExpressionIsConstant(Set<Expression> columnReferences, Expression expression)
+    {
+        new ConstantExpressionVerifierVisitor(columnReferences, expression).process(expression, null);
     }
 
     private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
@@ -358,6 +368,11 @@ public class ExpressionInterpreter
             }
 
             Object base = process(node.getBase(), context);
+            // if the base part is evaluated to be null, the dereference expression should also be null
+            if (base == null) {
+                return null;
+            }
+
             if (hasUnresolvedValue(base)) {
                 return new DereferenceExpression(toExpression(base, type), node.getFieldName());
             }
@@ -399,6 +414,12 @@ public class ExpressionInterpreter
 
         @Override
         protected Object visitQualifiedNameReference(QualifiedNameReference node, Object context)
+        {
+            return node;
+        }
+
+        @Override
+        protected Object visitParameter(Parameter node, Object context)
         {
             return node;
         }
@@ -1083,7 +1104,7 @@ public class ExpressionInterpreter
                 return new Row(toExpressions(values, parameterTypes));
             }
             else {
-                BlockBuilder blockBuilder =  new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
+                BlockBuilder blockBuilder = new InterleavedBlockBuilder(parameterTypes, new BlockBuilderStatus(), cardinality);
                 for (int i = 0; i < cardinality; ++i) {
                     writeNativeValue(parameterTypes.get(i), blockBuilder, values.get(i));
                 }
@@ -1234,7 +1255,23 @@ public class ExpressionInterpreter
             handle = handle.bindTo(session);
         }
         try {
-            return handle.invokeWithArguments(argumentValues);
+            List<Object> actualArguments = new ArrayList<>();
+            Class<?>[] parameterArray = function.getMethodHandle().type().parameterArray();
+            for (int i = 0; i < argumentValues.size(); i++) {
+                Object argument = argumentValues.get(i);
+                if (function.getNullFlags().get(i)) {
+                    boolean isNull = argument == null;
+                    if (isNull) {
+                        argument = Defaults.defaultValue(parameterArray[actualArguments.size()]);
+                    }
+                    actualArguments.add(argument);
+                    actualArguments.add(isNull);
+                }
+                else {
+                    actualArguments.add(argument);
+                }
+            }
+            return handle.invokeWithArguments(actualArguments);
         }
         catch (Throwable throwable) {
             if (throwable instanceof InterruptedException) {

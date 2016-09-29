@@ -26,6 +26,7 @@ import com.facebook.presto.raptor.storage.organization.JobFactory;
 import com.facebook.presto.raptor.storage.organization.OrganizationJobFactory;
 import com.facebook.presto.raptor.storage.organization.ShardCompactionManager;
 import com.facebook.presto.raptor.storage.organization.ShardCompactor;
+import com.facebook.presto.raptor.storage.organization.ShardOrganizationManager;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizer;
 import com.google.common.base.Ticker;
 import com.google.inject.Binder;
@@ -65,6 +66,7 @@ public class StorageModule
         binder.bind(ShardRecoveryManager.class).in(Scopes.SINGLETON);
         binder.bind(BackupManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(ShardOrganizationManager.class).in(Scopes.SINGLETON);
         binder.bind(ShardOrganizer.class).in(Scopes.SINGLETON);
         binder.bind(JobFactory.class).to(OrganizationJobFactory.class).in(Scopes.SINGLETON);
         binder.bind(ShardCompactor.class).in(Scopes.SINGLETON);
@@ -81,5 +83,6 @@ public class StorageModule
         newExporter(binder).export(ShardCompactor.class).as(generatedNameOf(ShardCompactor.class, connectorId));
         newExporter(binder).export(ShardEjector.class).as(generatedNameOf(ShardEjector.class, connectorId));
         newExporter(binder).export(ShardCleaner.class).as(generatedNameOf(ShardCleaner.class, connectorId));
+        newExporter(binder).export(JobFactory.class).withGeneratedName();
     }
 }

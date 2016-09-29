@@ -15,13 +15,13 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.AbstractLongType;
+import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.StandardTypes;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 
 public final class IntervalYearMonthType
-        extends AbstractLongType
+        extends AbstractIntType
 {
     public static final IntervalYearMonthType INTERVAL_YEAR_MONTH = new IntervalYearMonthType();
 
@@ -36,7 +36,7 @@ public final class IntervalYearMonthType
         if (block.isNull(position)) {
             return null;
         }
-        return new SqlIntervalYearMonth(block.getLong(position, 0));
+        return new SqlIntervalYearMonth(block.getInt(position, 0));
     }
 
     @Override

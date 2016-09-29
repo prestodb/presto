@@ -13,7 +13,7 @@ Synopsis
     [ WHERE condition ]
     [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
     [ HAVING condition]
-    [ UNION [ ALL | DISTINCT ] select ]
+    [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ LIMIT [ count | ALL ] ]
 
@@ -396,25 +396,44 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
-UNION Clause
-------------
+UNION | INTERSECT | EXCEPT Clause
+---------------------------------
 
-The ``UNION`` clause is used to combine the results of more than one
-select statement into a single result set:
+``UNION``  ``INTERSECT`` and ``EXCEPT`` are all set operations.  These clauses are used
+to combine the results of more than one select statement into a single result set:
 
 .. code-block:: none
 
     query UNION [ALL | DISTINCT] query
 
+.. code-block:: none
+
+    query INTERSECT [DISTINCT] query
+
+.. code-block:: none
+
+    query EXCEPT [DISTINCT] query
+
 The argument ``ALL`` or ``DISTINCT`` controls which rows are included in
 the final result set. If the argument ``ALL`` is specified all rows are
 included even if the rows are identical.  If the argument ``DISTINCT``
 is specified only unique rows are included in the combined result set.
-If neither is specified, the behavior defaults to ``DISTINCT``.
+If neither is specified, the behavior defaults to ``DISTINCT``.  The ``ALL``
+argument is not supported for ``INTERSECT`` or ``EXCEPT``.
 
-The following is an example of one of the simplest possible ``UNION``
-clauses. The following query selects the value ``13`` and combines
-this result set with a second query which selects the value ``42``::
+
+Multiple set operations are processed left to right, unless the order is explicitly
+specified via parentheses. Additionally, ``INTERSECT`` binds more tightly
+than ``EXCEPT`` and ``UNION``. That means ``A UNION B INTERSECT C EXCEPT D``
+is the same as ``A UNION (B INTERSECT C) EXCEPT D``.
+
+**UNION**
+
+``UNION`` combines all the rows that are in the result set from the
+first query with those that are in the result set for the second query.
+The following is an example of one of the simplest possible ``UNION`` clauses.
+It selects the value ``13`` and combines this result set with a second query
+that selects the value ``42``::
 
     SELECT 13
     UNION
@@ -428,8 +447,74 @@ this result set with a second query which selects the value ``42``::
         42
     (2 rows)
 
-Multiple unions are processed left to right, unless the order is explicitly
-specified via parentheses.
+The following query demonstrates the difference between ``UNION`` and ``UNION ALL``.
+It selects the value ``13`` and combines this result set with a second query that
+selects the values ``42`` and ``13``::
+
+    SELECT 13
+    UNION
+    SELECT * FROM VALUES(42, 13);
+
+.. code-block:: none
+
+     _col0
+    -------
+        13
+        42
+    (2 rows)
+
+::
+
+    SELECT 13
+    UNION ALL
+    SELECT * FROM VALUES(42, 13);
+
+.. code-block:: none
+
+     _col0
+    -------
+        13
+        42
+        13
+    (2 rows)
+
+**INTERSECT**
+
+``INTERSECT`` returns only the rows that are in the result sets of both the first and
+the second queries. The following is an example of one of the simplest
+possible ``INTERSECT`` clauses. It selects the values ``13`` and ``42`` and combines
+this result set with a second query that selects the value ``13``.  Since ``42``
+is only in the result set of the first query, it is not included in the final results.::
+
+    SELECT * FROM VALUES (13, 42)
+    INTERSECT
+    SELECT 13;
+
+.. code-block:: none
+
+     _col0
+    -------
+        13
+    (2 rows)
+
+**EXCEPT**
+
+``EXCEPT`` returns the rows that are in the result set of the first query,
+but not the second. The following is an example of one of the simplest
+possible ``EXCEPT`` clauses. It selects the values ``13`` and ``42`` and combines
+this result set with a second query that selects the value ``13``.  Since ``13``
+is also in the result set of the second query, it is not included in the final result.::
+
+    SELECT * FROM VALUES (13, 42)
+     EXCEPT
+    SELECT 13;
+
+.. code-block:: none
+
+     _col0
+    -------
+       42
+    (2 rows)
 
 ORDER BY Clause
 ---------------
@@ -646,3 +731,4 @@ The following query will fail with the error ``Column 'name' is ambiguous``::
     SELECT name
     FROM nation
     CROSS JOIN region;
+

@@ -43,6 +43,7 @@ public class TaskInfo
     private final TaskStats stats;
 
     private final boolean needsPlan;
+    private final boolean complete;
 
     @JsonCreator
     public TaskInfo(@JsonProperty("taskStatus") TaskStatus taskStatus,
@@ -50,8 +51,8 @@ public class TaskInfo
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-
-            @JsonProperty("needsPlan") boolean needsPlan)
+            @JsonProperty("needsPlan") boolean needsPlan,
+            @JsonProperty("complete") boolean complete)
     {
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
         this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
@@ -60,6 +61,7 @@ public class TaskInfo
         this.stats = requireNonNull(stats, "stats is null");
 
         this.needsPlan = needsPlan;
+        this.complete = complete;
     }
 
     @JsonProperty
@@ -98,9 +100,15 @@ public class TaskInfo
         return needsPlan;
     }
 
+    @JsonProperty
+    public boolean isComplete()
+    {
+        return complete;
+    }
+
     public TaskInfo summarize()
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), needsPlan);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), needsPlan, complete);
     }
 
     @Override
@@ -120,11 +128,12 @@ public class TaskInfo
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
-                true);
+                true,
+                false);
     }
 
-    public TaskInfo withTaskStatus(TaskStatus taskStatus)
+    public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
+        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan, complete);
     }
 }

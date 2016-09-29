@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.google.common.collect.ImmutableList;
 
-import java.math.BigInteger;
 import java.util.List;
 
 public class TestShortDecimalMinAggregation
@@ -45,7 +44,7 @@ public class TestShortDecimalMinAggregation
         if (length == 0) {
             return null;
         }
-        return new SqlDecimal(BigInteger.valueOf(start), 10, 5);
+        return SqlDecimal.of(start, 10, 5);
     }
 
     @Override

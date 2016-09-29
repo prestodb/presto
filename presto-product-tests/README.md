@@ -96,6 +96,23 @@ VM will have to be re-downloaded when the product tests are kicked
 off. To avoid this unnecessary re-download, do not create new
 VMs often.
 
+## Use the `docker-compose` wrappers
+
+We're using [multiple compose files](https://docs.docker.com/compose/extends/#multiple-compose-files)
+because of the number of overrides needed for different environments,
+and deficiencies of `extends:` syntax (see the note
+[here](https://docs.docker.com/compose/extends/#extending-services)).
+
+
+To ease the pain of passing multiple `-f` arguments to `docker-compose`,
+each environment has a `compose.sh` wrapper script. Thanks to it, instead of e.g.
+
+`docker-compose -f ./docker-compose.yml -f ../common/standard.yml -f ../common/jdbc_db.yml [compose commands]`
+
+one can simply write
+
+`compose.sh [compose commands]`
+
 ## Running the product tests
 
 The Presto product tests must be run explicitly because they do not run
@@ -115,13 +132,12 @@ where [profile](#profile) is one of either:
  single Docker container and a distributed Presto installation running on
  multiple Docker containers. For multinode the default configuration is
  1 coordinator and 1 worker.
-- **singlenode** - pseudo-distributed Hadoop installation running on a
+- **[singlenode](#singlenode)** - pseudo-distributed Hadoop installation running on a
  single Docker container and a single node installation of Presto also running
  on a single Docker container.
-- **singlenode-hdfs-impersonation** - pseudo-distributed Hadoop installation
- running on a single Docker container and a single node installation of Presto
- also running on a single Docker container. Presto impersonates the user who
- is running the query when accessing HDFS.
+- **singlenode-hdfs-impersonation** - HDFS impersonation enabled on top of the
+ environment in [singlenode](#singlenode) profile. Presto impersonates the user
+ who is running the query when accessing HDFS.
 - **singlenode-kerberos-hdfs-impersonation** - pseudo-distributed kerberized
  Hadoop installation running on a single Docker container and a single node
  installation of kerberized Presto also running on a single Docker container.
@@ -132,8 +148,13 @@ where [profile](#profile) is one of either:
  installation of kerberized Presto also running on a single Docker container.
  This profile runs Kerberos without impersonation.
 
+Please keep in mind that if you run tests on Hive of version not greater than 1.0.1, you should exclude test from `post_hive_1_0_1` group by passing the following flag to tempto: `-x post_hive_1_0_1`.
+First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
+
 For more information on the various ways in which Presto can be configured to
 interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.io/docs/current/connector/hive.html).
+
+### Running a single test
 
 The `run_on_docker.sh` script can also run individual product tests. Presto
 product tests are either [Java based](https://github.com/prestodb/tempto#java-based-tests)
@@ -147,6 +168,8 @@ presto-product-tests/bin/run_on_docker.sh <profile> -t com.facebook.presto.tests
 presto-product-tests/bin/run_on_docker.sh <profile> -t sql_tests.testcases.system.selectInformationSchemaTables
 ```
 
+### Running groups of tests
+
 Tests belong to a single or possibly multiple groups. Java based tests are
 tagged with groups in the `@Test` annotation and convention based tests have
 group information in the first line of their test file. Instead of running
@@ -159,32 +182,70 @@ particular group, use the `-g` argument as shown:
 presto-product-tests/bin/run_on_docker.sh <profile> -g string_functions,create_tables
 ```
 
-Some groups of tests can only be run with certain profiles. For example,
-impersonation tests can only be run with profiles where
-impersonation is enabled (`singlenode-hdfs-impersonation` and
-`singlenode-kerberos-hdfs-impersonation`) and no impersonation tests can
-only be run with profiles where impersonation is disabled (`singlenode`
-and `singlenode-kerberos-hdfs-no-impersonation`). Tests that require
-a specific profile to run are called profile specific tests. In addition
-to their respective group, all such tests also belong to a parent group
-called `profile_specific_tests`. To exclude such tests from a run
-make sure to add the `profile_specific_tests` group to the list of
-excluded groups. The examples below illustrate the above concepts:
+Some groups of tests can only be run with certain profiles. Incorrect use of profile
+for such test groups will result in test failures. We call these tests that
+require a specific profile to run as *profile specific tests*. In addition to their
+respective group, all such tests also belong to a parent group called
+`profile_specific_tests`. To exclude such tests from a run, make sure to add the
+`profile_specific_tests` group to the list of excluded groups.
 
-```
-# Run the HDFS impersonation tests, where <profile> is one of either
-# singlenode-hdfs-impersonation or singlenode-kerberos-hdfs-impersonation
-presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_impersonation
-# Run the no HDFS impersonation tests, where <profile> is one of either
-# singlenode or singlenode-kerberos-hdfs-no-impersonation
-presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
-# Run all tests excluding all profile specific tests
-presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
-where <profile> can be any one of the available profiles
-```
+Following table describes the profile specific test categories, the corresponding
+test group names and the profile(s) which must be used to run tests in those test
+groups.
+
+| Tests                 | Test Group                | Profiles                                                                         |
+| ----------------------|---------------------------| -------------------------------------------------------------------------------- |
+| Authorization         | ``authorization``         | ``singlenode-kerberos-hdfs-impersonation``                                       |
+| HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation``    |
+| No HDFS impersonation | ``hdfs_no_impersonation`` | ``singlenode``, ``singlenode-kerberos-hdfs-no_impersonation``                    |
+
+Below is a list of commands that explain how to run these profile specific tests
+and also the entire test suite:
+
+* Run **Authorization** tests:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh singlenode-kerberos-hdfs-impersonation -g authorization
+    ```
+* Run **HDFS impersonation** tests, where &lt;profile> is one of either
+``singlenode-hdfs-impersonation`` or ``singlenode-kerberos-hdfs-impersonation``:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_impersonation
+    ```
+* Run **no HDFS impersonation** tests, where &lt;profile> is one of either
+``singlenode`` or ``singlenode-kerberos-hdfs-no-impersonation``:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh <profile> -g hdfs_no_impersonation
+    ```
+* Run the **entire test suite** excluding all profile specific tests, where &lt;profile> can
+be any one of the available profiles:
+
+    ```
+    presto-product-tests/bin/run_on_docker.sh <profile> -x quarantine,big_query,profile_specific_tests
+    ```
+
+### Running from IntelliJ
 
 For running Java based tests from IntelliJ see the section on
 [Debugging Java based tests](#debugging-java-based-tests).
+
+### Running with custom / downloaded artifacts
+
+To run with custom versions of presto / presto-cli / product tests, just set the appropriate
+environment variables:
+
+```
+export PRESTO_SERVER_DIR=/tmp/presto-server-dir      #unpacked presto-server.tar.gz
+export PRESTO_CLI_JAR=/tmp/artifacts/presto-cli-executable.jar
+export PRODUCT_TESTS_JAR=/tmp/artifacts/presto-product-tests-executable.jar
+presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,profile_specific_tests
+```
+
+All of the variables are optional and fall back to local sources / build artifacts if unspecified.
+
+### Interrupting a test run
 
 To interrupt a product test run, send a single `Ctrl-C` signal. The scripts
 running the tests will gracefully shutdown all containers. Any follow up
@@ -205,31 +266,47 @@ setup outlined below:
     ./mvnw install -DskipTests
     ```
 
-2. Start Hadoop in pseudo-distributed mode in a Docker container:
+2. Start Presto dependant services as Docker containers:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml up -d hadoop-master
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
     ```
     
     Tip: To display container logs run:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml logs
+    presto-product-tests/conf/docker/singlenode/compose.sh logs
     ```
     
-3. Add an IP-to-host mapping for the `hadoop-master` host in `/etc/hosts`.
+3. Add an IP-to-host mapping for the `hadoop-master`, `mysql` and `postgres` hosts in `/etc/hosts`.
 The format of `/etc/hosts` entries is `<ip> <host>`:
 
     - On GNU/Linux add the following mapping: `<container ip> hadoop-master`.
     The container IP can be obtained by running:
 
         ```
-        docker inspect $(docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml ps -q hadoop-master) | grep -i IPAddress
+        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
 
-    - On OS X add the following mapping: `<docker machine ip> hadoop-master`.
+    Similarly add mappings for MySQL and Postgres containers (`mysql` and `postgres` hostnames respectively). To check IPs for those containers run:
+
+        ```
+        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
+        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+
+    Alternatively you can use below script to obtain hosts ip mapping
+
+        ```
+        presto-product-tests/bin/hosts.sh singlenode
+        ```
+
+    Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
+
+    - On OS X add the following mapping: `<docker machine ip> hadoop-master mysql postgres`.
     Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
-    the `hadoop-master` hostname. To obtain the IP of the Linux VM run:
+    the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
 
         ```
         docker-machine ip <machine>
@@ -252,7 +329,7 @@ or debug the respective test(s).
 following command:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/singlenode/docker-compose.yml down
+    presto-product-tests/conf/docker/singlenode/compose.sh down
     ```
 
 ### Debugging convention based tests
@@ -298,13 +375,14 @@ running the debugger.
 
 ## Troubleshooting
 
-Use the `docker-compose` and `docker` utilities to control and troubleshoot
-containers. In the following examples ``<profile>`` is [profile](#profile).
+Use the `docker-compose` (probably using a [wrapper](#use-the-docker-compose-wrappers))
+and `docker` utilities to control and troubleshoot containers.
+In the following examples ``<profile>`` is [profile](#profile).
 
 1. Use the following command to view output from running containers:
 
     ```
-    docker-compose -f presto-product-tests/conf/docker/<profile>/docker-compose.yml logs
+    presto-product-tests/conf/docker/<profile>/compose.sh logs
     ```
 
 2. To connect to a running container in an interactive Bash shell to
@@ -324,8 +402,8 @@ been downloaded:
     ```
     # Stop Hadoop container (the down command stops and removes containers,
     # network, images, and volumes). This effectively resets the container.
-    docker-compose -f presto-product-tests/conf/docker/<profile>/docker-compose.yml down
+    presto-product-tests/conf/docker/<profile>/compose.sh down
     # Pull from Docker Hub to ensure the latest version of the image is
     # downloaded.
-    docker-compose -f presto-product-tests/conf/docker/<profile>/docker-compose.yml pull
+    presto-product-tests/conf/docker/<profile>/compose.sh pull
     ```

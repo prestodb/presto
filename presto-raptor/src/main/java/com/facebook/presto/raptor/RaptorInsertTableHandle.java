@@ -40,6 +40,7 @@ public class RaptorInsertTableHandle
     private final List<SortOrder> sortOrders;
     private final OptionalInt bucketCount;
     private final List<RaptorColumnHandle> bucketColumnHandles;
+    private final Optional<RaptorColumnHandle> temporalColumnHandle;
 
     @JsonCreator
     public RaptorInsertTableHandle(
@@ -52,7 +53,8 @@ public class RaptorInsertTableHandle
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
             @JsonProperty("sortOrders") List<SortOrder> sortOrders,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
-            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
+            @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles,
+            @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle)
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
@@ -67,6 +69,7 @@ public class RaptorInsertTableHandle
         this.sortColumnHandles = ImmutableList.copyOf(requireNonNull(sortColumnHandles, "sortColumnHandles is null"));
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
+        this.temporalColumnHandle = requireNonNull(temporalColumnHandle, "temporalColumnHandle is null");
     }
 
     @JsonProperty
@@ -127,6 +130,12 @@ public class RaptorInsertTableHandle
     public List<RaptorColumnHandle> getBucketColumnHandles()
     {
         return bucketColumnHandles;
+    }
+
+    @JsonProperty
+    public Optional<RaptorColumnHandle> getTemporalColumnHandle()
+    {
+        return temporalColumnHandle;
     }
 
     @Override

@@ -314,6 +314,7 @@ public class TestJsonExtract
         assertInvalidExtract("", "$$", "Invalid JSON path: '$$'");
         assertInvalidExtract("", " ", "Invalid JSON path: ' '");
         assertInvalidExtract("", ".", "Invalid JSON path: '.'");
+        assertInvalidExtract("{ \"store\": { \"book\": [{ \"title\": \"title\" }] } }", "$.store.book[", "Invalid JSON path: '$.store.book['");
     }
 
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)

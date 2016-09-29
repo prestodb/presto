@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.server.testing;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
@@ -31,10 +34,10 @@ import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.split.SplitManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -97,7 +100,7 @@ public class TestingPrestoServer
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
-    private final Optional<ResourceGroupManager> resourceGroupManager;
+    private final Optional<InternalResourceGroupManager> resourceGroupManager;
     private final SplitManager splitManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -169,7 +172,7 @@ public class TestingPrestoServer
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
-                .put("analyzer.experimental-syntax-enabled", "true");
+                .put("experimental-syntax-enabled", "true");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
             serverProperties.put("query.max-memory-per-node", "512MB");
@@ -192,7 +195,9 @@ public class TestingPrestoServer
                 .add(new ServerMainModule(new SqlParserOptions()))
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
@@ -240,17 +245,12 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
-        FeaturesConfig config = injector.getInstance(FeaturesConfig.class);
-        if (config.isResourceGroupsEnabled()) {
-            resourceGroupManager = Optional.of(injector.getInstance(ResourceGroupManager.class));
-        }
-        else {
-            resourceGroupManager = Optional.empty();
-        }
         if (coordinator) {
+            resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
         }
         else {
+            resourceGroupManager = Optional.empty();
             clusterMemoryManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
@@ -292,15 +292,16 @@ public class TestingPrestoServer
         return queryManager;
     }
 
-    public void createCatalog(String catalogName, String connectorName)
+    public ConnectorId createCatalog(String catalogName, String connectorName)
     {
-        createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
+        return createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
-    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public ConnectorId createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        connectorManager.createConnection(catalogName, connectorName, properties);
-        updateDatasourcesAnnouncement(announcer, catalogName);
+        ConnectorId connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
+        updateConnectorIdAnnouncement(announcer, connectorId);
+        return connectorId;
     }
 
     public Path getBaseDataDir()
@@ -348,7 +349,7 @@ public class TestingPrestoServer
         return splitManager;
     }
 
-    public Optional<ResourceGroupManager> getResourceGroupManager()
+    public Optional<InternalResourceGroupManager> getResourceGroupManager()
     {
         return resourceGroupManager;
     }
@@ -391,26 +392,26 @@ public class TestingPrestoServer
         return nodeManager.getAllNodes();
     }
 
-    public Set<Node> getActiveNodesWithConnector(String connectorName)
+    public Set<Node> getActiveNodesWithConnector(ConnectorId connectorId)
     {
-        return nodeManager.getActiveDatasourceNodes(connectorName);
+        return nodeManager.getActiveConnectorNodes(connectorId);
     }
 
-    private static void updateDatasourcesAnnouncement(Announcer announcer, String connectorId)
+    private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId)
     {
         //
-        // This code was copied from PrestoServer, and is a hack that should be removed when the data source property is removed
+        // This code was copied from PrestoServer, and is a hack that should be removed when the connectorId property is removed
         //
 
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
-        // update datasources property
+        // update connectorIds property
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
-        String property = nullToEmpty(properties.get("datasources"));
-        Set<String> datasources = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
-        datasources.add(connectorId);
-        properties.put("datasources", Joiner.on(',').join(datasources));
+        String property = nullToEmpty(properties.get("connectorIds"));
+        Set<String> connectorIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
+        connectorIds.add(connectorId.toString());
+        properties.put("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

@@ -38,6 +38,7 @@ import java.util.Map;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -95,8 +96,7 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            checkFunctionSignature(node.getSignatures());
-            checkFunctionCall(node.getWindowFunctions());
+            checkWindowFunctions(node.getWindowFunctions());
 
             return null;
         }
@@ -113,7 +113,7 @@ public final class TypeValidator
                     verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
                     continue;
                 }
-                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue()).get(entry.getValue());
+                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList() /* parameters already replaced */).get(entry.getValue());
                 verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
             }
 
@@ -137,21 +137,42 @@ public final class TypeValidator
             return null;
         }
 
+        private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
+        {
+            for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
+                Signature signature = entry.getValue().getSignature();
+                FunctionCall call = entry.getValue().getFunctionCall();
+
+                checkSignature(entry.getKey(), signature);
+                checkCall(entry.getKey(), call);
+            }
+        }
+
+        private void checkSignature(Symbol symbol, Signature signature)
+        {
+            TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
+            TypeSignature actualTypeSignature = signature.getReturnType();
+            verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
+        }
+
+        private void checkCall(Symbol symbol, FunctionCall call)
+        {
+            Type expectedType = types.get(symbol);
+            Type actualType = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList() /*parameters already replaced */).get(call);
+            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+        }
+
         private void checkFunctionSignature(Map<Symbol, Signature> functions)
         {
             for (Map.Entry<Symbol, Signature> entry : functions.entrySet()) {
-                TypeSignature expectedTypeSignature = types.get(entry.getKey()).getTypeSignature();
-                TypeSignature actualTypeSignature = entry.getValue().getReturnType();
-                verifyTypeSignature(entry.getKey(), expectedTypeSignature, actualTypeSignature);
+                checkSignature(entry.getKey(), entry.getValue());
             }
         }
 
         private void checkFunctionCall(Map<Symbol, FunctionCall> functionCalls)
         {
             for (Map.Entry<Symbol, FunctionCall> entry : functionCalls.entrySet()) {
-                Type expectedType = types.get(entry.getKey());
-                Type actualType = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue()).get(entry.getValue());
-                verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
+                checkCall(entry.getKey(), entry.getValue());
             }
         }
 

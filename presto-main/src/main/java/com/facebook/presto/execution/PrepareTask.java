@@ -20,11 +20,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Execute;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.inject.Inject;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -51,13 +54,13 @@ public class PrepareTask
     }
 
     @Override
-    public String explain(Prepare statement)
+    public String explain(Prepare statement, List<Expression> parameters)
     {
         return "PREPARE " + statement.getName();
     }
 
     @Override
-    public CompletableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(Prepare prepare, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Statement statement = prepare.getStatement();
         if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {
@@ -65,7 +68,7 @@ public class PrepareTask
             throw new PrestoException(NOT_SUPPORTED, "Invalid statement type for prepared statement: " + type);
         }
 
-        String sql = getFormattedSql(statement, sqlParser);
+        String sql = getFormattedSql(statement, sqlParser, Optional.empty());
         stateMachine.addPreparedStatement(prepare.getName(), sql);
         return completedFuture(null);
     }

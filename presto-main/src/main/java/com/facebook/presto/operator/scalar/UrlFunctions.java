@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.base.Splitter;
@@ -31,6 +33,7 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.util.Iterator;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -42,7 +45,7 @@ public final class UrlFunctions
 
     private UrlFunctions() {}
 
-    @Nullable
+    @SqlNullable
     @Description("extract protocol from url")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -52,7 +55,7 @@ public final class UrlFunctions
         return (uri == null) ? null : slice(uri.getScheme());
     }
 
-    @Nullable
+    @SqlNullable
     @Description("extract host from url")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -62,7 +65,7 @@ public final class UrlFunctions
         return (uri == null) ? null : slice(uri.getHost());
     }
 
-    @Nullable
+    @SqlNullable
     @Description("extract port from url")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
@@ -75,7 +78,7 @@ public final class UrlFunctions
         return (long) uri.getPort();
     }
 
-    @Nullable
+    @SqlNullable
     @Description("extract part from url")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -85,7 +88,7 @@ public final class UrlFunctions
         return (uri == null) ? null : slice(uri.getPath());
     }
 
-    @Nullable
+    @SqlNullable
     @Description("extract query from url")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -95,7 +98,7 @@ public final class UrlFunctions
         return (uri == null) ? null : slice(uri.getQuery());
     }
 
-    @Nullable
+    @SqlNullable
     @Description("extract fragment from url")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -105,7 +108,7 @@ public final class UrlFunctions
         return (uri == null) ? null : slice(uri.getFragment());
     }
 
-    @Nullable
+    @SqlNullable
     @Description("extract query parameter from url")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
@@ -154,6 +157,9 @@ public final class UrlFunctions
         }
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 

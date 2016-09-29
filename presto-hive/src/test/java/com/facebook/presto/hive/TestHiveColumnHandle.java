@@ -17,6 +17,8 @@ import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertEquals;
 
@@ -25,10 +27,28 @@ public class TestHiveColumnHandle
     private final JsonCodec<HiveColumnHandle> codec = JsonCodec.jsonCodec(HiveColumnHandle.class);
 
     @Test
-    public void testRoundTrip()
+    public void testHiddenColumn()
     {
-        HiveColumnHandle expected = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, true);
+        HiveColumnHandle hiddenColumn = HiveColumnHandle.pathColumnHandle("client");
+        testRoundTrip(hiddenColumn);
+    }
 
+    @Test
+    public void testRegularColumn()
+    {
+        HiveColumnHandle expectedPartitionColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, PARTITION_KEY);
+        testRoundTrip(expectedPartitionColumn);
+    }
+
+    @Test
+    public void testPartitionKeyColumn()
+    {
+        HiveColumnHandle expectedRegularColumn = new HiveColumnHandle("client", "name", HiveType.HIVE_FLOAT, parseTypeSignature(StandardTypes.DOUBLE), 88, REGULAR);
+        testRoundTrip(expectedRegularColumn);
+    }
+
+    private void testRoundTrip(HiveColumnHandle expected)
+    {
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);
 

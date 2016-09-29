@@ -105,7 +105,7 @@ class ComparisonBytecodeExpression
             noMatchJumpInstruction = IFLE;
         }
         else {
-            throw new IllegalArgumentException("Less than does not support " + type);
+            throw new IllegalArgumentException("Greater than does not support " + type);
         }
         return new ComparisonBytecodeExpression(">", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
@@ -135,7 +135,7 @@ class ComparisonBytecodeExpression
             noMatchJumpInstruction = IFGT;
         }
         else {
-            throw new IllegalArgumentException("Less than does not support " + type);
+            throw new IllegalArgumentException("Less than or equal does not support " + type);
         }
         return new ComparisonBytecodeExpression("<=", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
@@ -165,7 +165,7 @@ class ComparisonBytecodeExpression
             noMatchJumpInstruction = IFLT;
         }
         else {
-            throw new IllegalArgumentException("Less than does not support " + type);
+            throw new IllegalArgumentException("Greater than or equal does not support " + type);
         }
         return new ComparisonBytecodeExpression(">=", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
@@ -201,7 +201,7 @@ class ComparisonBytecodeExpression
             noMatchJumpInstruction = IF_ACMPNE;
         }
         else {
-            throw new IllegalArgumentException("Less than does not support " + type);
+            throw new IllegalArgumentException("Equal does not support " + type);
         }
         return new ComparisonBytecodeExpression("==", comparisonInstruction, noMatchJumpInstruction, left, right);
     }
@@ -237,7 +237,7 @@ class ComparisonBytecodeExpression
             noMatchJumpInstruction = IF_ACMPEQ;
         }
         else {
-            throw new IllegalArgumentException("Less than does not support " + type);
+            throw new IllegalArgumentException("Not equal than does not support " + type);
         }
         return new ComparisonBytecodeExpression("!=", comparisonInstruction, noMatchJumpInstruction, left, right);
     }

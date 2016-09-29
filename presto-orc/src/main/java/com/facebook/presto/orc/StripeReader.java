@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -57,6 +58,7 @@ import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStream
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.BLOOM_FILTER;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -125,8 +127,11 @@ public class StripeReader
             // read the file regions
             Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
 
+            // read the bloom filter for each column
+            Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
+
             // read the row index for each column
-            Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
+            Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData, bloomFilterIndexes);
 
             // select the row groups matching the tuple domain
             Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
@@ -326,7 +331,21 @@ public class StripeReader
         }
     }
 
-    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
+    private Map<Integer, List<HiveBloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
+            throws IOException
+    {
+        ImmutableMap.Builder<Integer, List<HiveBloomFilter>> bloomFilters = ImmutableMap.builder();
+        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
+            Stream stream = entry.getValue();
+            if (stream.getStreamKind() == BLOOM_FILTER) {
+                OrcInputStream inputStream = streamsData.get(entry.getKey());
+                bloomFilters.put(stream.getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
+            }
+        }
+        return bloomFilters.build();
+    }
+
+    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes)
             throws IOException
     {
         ImmutableMap.Builder<Integer, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
@@ -334,7 +353,19 @@ public class StripeReader
             Stream stream = entry.getValue();
             if (stream.getStreamKind() == ROW_INDEX) {
                 OrcInputStream inputStream = streamsData.get(entry.getKey());
-                columnIndexes.put(stream.getColumn(), metadataReader.readRowIndexes(inputStream));
+                List<HiveBloomFilter> bloomFilters = bloomFilterIndexes.get(stream.getColumn());
+                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(inputStream);
+                if (bloomFilters != null && !bloomFilters.isEmpty()) {
+                    ImmutableList.Builder<RowGroupIndex> newRowGroupIndexes = ImmutableList.builder();
+                    for (int i = 0; i < rowGroupIndexes.size(); i++) {
+                        RowGroupIndex rowGroupIndex = rowGroupIndexes.get(i);
+                        ColumnStatistics columnStatistics = rowGroupIndex.getColumnStatistics()
+                                .withBloomFilter(bloomFilters.get(i));
+                        newRowGroupIndexes.add(new RowGroupIndex(rowGroupIndex.getPositions(), columnStatistics));
+                    }
+                    rowGroupIndexes = newRowGroupIndexes.build();
+                }
+                columnIndexes.put(stream.getColumn(), rowGroupIndexes);
             }
         }
         return columnIndexes.build();
@@ -378,7 +409,7 @@ public class StripeReader
 
     private static boolean isIndexStream(Stream stream)
     {
-        return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT;
+        return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER;
     }
 
     private static boolean isDictionary(Stream stream, ColumnEncodingKind columnEncoding)

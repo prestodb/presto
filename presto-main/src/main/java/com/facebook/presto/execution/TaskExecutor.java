@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.util.CpuTimer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
+import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -493,6 +493,11 @@ public class TaskExecutor
             return finishedFuture;
         }
 
+        public boolean isDestroyed()
+        {
+            return destroyed.get();
+        }
+
         public void destroy()
         {
             destroyed.set(true);
@@ -693,7 +698,10 @@ public class TaskExecutor
                         }
                     }
                     catch (Throwable t) {
-                        if (t instanceof PrestoException) {
+                        if (split.isDestroyed()) {
+                            // ignore random errors due to driver thread interruption
+                        }
+                        else if (t instanceof PrestoException) {
                             PrestoException e = (PrestoException) t;
                             log.error("Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
                         }

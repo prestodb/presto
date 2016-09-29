@@ -20,10 +20,12 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -60,7 +62,7 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.nanosSince;
+import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -70,7 +72,7 @@ public class QueryStateMachine
     private static final Logger log = Logger.get(QueryStateMachine.class);
 
     private final DateTime createTime = DateTime.now();
-    private final long createNanos = System.nanoTime();
+    private final long createNanos;
     private final AtomicLong endNanos = new AtomicLong();
 
     private final QueryId queryId;
@@ -79,6 +81,7 @@ public class QueryStateMachine
     private final URI self;
     private final boolean autoCommit;
     private final TransactionManager transactionManager;
+    private final Ticker ticker;
 
     private final AtomicReference<VersionedMemoryPoolId> memoryPool = new AtomicReference<>(new VersionedMemoryPoolId(GENERAL_POOL, 0));
 
@@ -95,6 +98,7 @@ public class QueryStateMachine
     private final AtomicReference<Long> finishingStartNanos = new AtomicReference<>();
     private final AtomicReference<Duration> finishingTime = new AtomicReference<>();
 
+    private final AtomicReference<Long> totalPlanningStartNanos = new AtomicReference<>();
     private final AtomicReference<Duration> totalPlanningTime = new AtomicReference<>();
 
     private final StateMachine<QueryState> queryState;
@@ -115,8 +119,10 @@ public class QueryStateMachine
     private final AtomicReference<List<String>> outputFieldNames = new AtomicReference<>(ImmutableList.of());
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+    private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
-    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor)
+    private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.query = requireNonNull(query, "query is null");
@@ -124,14 +130,30 @@ public class QueryStateMachine
         this.self = requireNonNull(self, "self is null");
         this.autoCommit = autoCommit;
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.ticker = ticker;
+        this.createNanos = tickerNanos();
 
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
     }
 
     /**
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
     public static QueryStateMachine begin(QueryId queryId, String query, Session session, URI self, boolean transactionControl, TransactionManager transactionManager, Executor executor)
+    {
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, executor, Ticker.systemTicker());
+    }
+
+    static QueryStateMachine beginWithTicker(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            boolean transactionControl,
+            TransactionManager transactionManager,
+            Executor executor,
+            Ticker ticker)
     {
         session.getTransactionId().ifPresent(transactionControl ? transactionManager::trySetActive : transactionManager::checkAndSetActive);
 
@@ -146,7 +168,7 @@ public class QueryStateMachine
             querySession = session;
         }
 
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor);
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, querySession, self, autoCommit, transactionManager, executor, ticker);
         queryStateMachine.addStateChangeListener(newState -> log.debug("Query %s is %s", queryId, newState));
         queryStateMachine.addStateChangeListener(newState -> {
             if (newState.isDone()) {
@@ -162,7 +184,20 @@ public class QueryStateMachine
      */
     public static QueryStateMachine failed(QueryId queryId, String query, Session session, URI self, TransactionManager transactionManager, Executor executor, Throwable throwable)
     {
-        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor);
+        return failedWithTicker(queryId, query, session, self, transactionManager, executor, Ticker.systemTicker(), throwable);
+    }
+
+    static QueryStateMachine failedWithTicker(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            TransactionManager transactionManager,
+            Executor executor,
+            Ticker ticker,
+            Throwable throwable)
+    {
+        QueryStateMachine queryStateMachine = new QueryStateMachine(queryId, query, session, self, false, transactionManager, executor, ticker);
         queryStateMachine.transitionToFailed(throwable);
         return queryStateMachine;
     }
@@ -219,7 +254,7 @@ public class QueryStateMachine
         // don't report failure info is query is marked as success
         FailureInfo failureInfo = null;
         ErrorCode errorCode = null;
-        if (state != FINISHED) {
+        if (state == FAILED) {
             ExecutionFailureInfo failureCause = this.failureCause.get();
             if (failureCause != null) {
                 failureInfo = failureCause.toFailureInfo();
@@ -257,6 +292,7 @@ public class QueryStateMachine
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
             totalTasks += stageStats.getTotalTasks();
@@ -289,6 +325,7 @@ public class QueryStateMachine
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
+            completeInfo = completeInfo && stageInfo.isCompleteInfo();
         }
 
         if (rootStage.isPresent()) {
@@ -355,7 +392,9 @@ public class QueryStateMachine
                 rootStage,
                 failureInfo,
                 errorCode,
-                inputs.get());
+                inputs.get(),
+                output.get(),
+                completeInfo);
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -378,6 +417,12 @@ public class QueryStateMachine
     {
         requireNonNull(inputs, "inputs is null");
         this.inputs.set(ImmutableSet.copyOf(inputs));
+    }
+
+    public void setOutput(Optional<Output> output)
+    {
+        requireNonNull(output, "output is null");
+        this.output.set(output);
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -458,14 +503,15 @@ public class QueryStateMachine
     public boolean transitionToPlanning()
     {
         queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
         return queryState.compareAndSet(QUEUED, PLANNING);
     }
 
     public boolean transitionToStarting()
     {
-        Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
-        queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        queuedTime.compareAndSet(null, nanosSince(createNanos).convertToMostSuccinctTimeUnit());
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
 
         return queryState.setIf(STARTING, currentState -> currentState == QUEUED || currentState == PLANNING);
     }
@@ -474,7 +520,8 @@ public class QueryStateMachine
     {
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
         executionStartTime.compareAndSet(null, DateTime.now());
 
         return queryState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FINISHING && !currentState.isDone());
@@ -484,10 +531,11 @@ public class QueryStateMachine
     {
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
-        finishingStartNanos.compareAndSet(null, System.nanoTime());
+        finishingStartNanos.compareAndSet(null, tickerNanos());
 
         if (!queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
             return false;
@@ -523,8 +571,9 @@ public class QueryStateMachine
 
         recordDoneStats();
 
-        // NOTE: this must be set before triggering the state change, so listeners
-        // can be observe the exception
+        // NOTE: The failure cause must be set before triggering the state change, so
+        // listeners can observe the exception. This is safe because the failure cause
+        // can only be observed if the transition to FAILED is successful.
         failureCause.compareAndSet(null, toFailure(throwable));
 
         boolean failed = queryState.setIf(FAILED, currentState -> !currentState.isDone());
@@ -543,9 +592,13 @@ public class QueryStateMachine
     {
         recordDoneStats();
 
+        // NOTE: The failure cause must be set before triggering the state change, so
+        // listeners can observe the exception. This is safe because the failure cause
+        // can only be observed if the transition to FAILED is successful.
+        failureCause.compareAndSet(null, toFailure(new PrestoException(USER_CANCELED, "Query was canceled")));
+
         boolean canceled = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (canceled) {
-            failureCause.compareAndSet(null, toFailure(new PrestoException(USER_CANCELED, "Query was canceled")));
             session.getTransactionId().ifPresent(autoCommit ? transactionManager::asyncAbort : transactionManager::fail);
         }
 
@@ -556,18 +609,31 @@ public class QueryStateMachine
     {
         Duration durationSinceCreation = nanosSince(createNanos).convertToMostSuccinctTimeUnit();
         queuedTime.compareAndSet(null, durationSinceCreation);
-        totalPlanningTime.compareAndSet(null, durationSinceCreation);
+        totalPlanningStartNanos.compareAndSet(null, tickerNanos());
+        totalPlanningTime.compareAndSet(null, nanosSince(totalPlanningStartNanos.get()));
         DateTime now = DateTime.now();
         executionStartTime.compareAndSet(null, now);
-        finishingStartNanos.compareAndSet(null, System.nanoTime());
+        finishingStartNanos.compareAndSet(null, tickerNanos());
         finishingTime.compareAndSet(null, nanosSince(finishingStartNanos.get()));
         endTime.compareAndSet(null, now);
-        endNanos.compareAndSet(0, System.nanoTime());
+        endNanos.compareAndSet(0, tickerNanos());
     }
 
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
         queryState.addStateChangeListener(stateChangeListener);
+    }
+
+    public void addQueryInfoStateChangeListener(StateChangeListener<QueryInfo> stateChangeListener)
+    {
+        AtomicBoolean done = new AtomicBoolean();
+        StateChangeListener<Optional<QueryInfo>> fireOnceStateChangeListener = finalQueryInfo -> {
+            if (finalQueryInfo.isPresent() && done.compareAndSet(false, true)) {
+                stateChangeListener.stateChanged(finalQueryInfo.get());
+            }
+        };
+        finalQueryInfo.addStateChangeListener(fireOnceStateChangeListener);
+        fireOnceStateChangeListener.stateChanged(finalQueryInfo.get());
     }
 
     public Duration waitForStateChange(QueryState currentState, Duration maxWait)
@@ -599,5 +665,77 @@ public class QueryStateMachine
         return getAllStages(rootStage).stream()
                 .map(StageInfo::getState)
                 .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
+    }
+
+    public Optional<QueryInfo> getFinalQueryInfo()
+    {
+        return finalQueryInfo.get();
+    }
+
+    public QueryInfo updateQueryInfo(Optional<StageInfo> stageInfo)
+    {
+        QueryInfo queryInfo = getQueryInfo(stageInfo);
+        if (queryInfo.isFinalQueryInfo()) {
+            finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
+        }
+        return queryInfo;
+    }
+
+    public void pruneQueryInfo()
+    {
+        Optional<QueryInfo> finalInfo = finalQueryInfo.get();
+        if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
+            return;
+        }
+
+        QueryInfo queryInfo = finalInfo.get();
+        StageInfo outputStage = queryInfo.getOutputStage().get();
+        StageInfo prunedOutputStage = new StageInfo(
+                outputStage.getStageId(),
+                outputStage.getState(),
+                outputStage.getSelf(),
+                null, // Remove the plan
+                outputStage.getTypes(),
+                outputStage.getStageStats(),
+                ImmutableList.of(), // Remove the tasks
+                ImmutableList.of(), // Remove the substages
+                outputStage.getFailureCause()
+        );
+
+        QueryInfo prunedQueryInfo = new QueryInfo(
+                queryInfo.getQueryId(),
+                queryInfo.getSession(),
+                queryInfo.getState(),
+                getMemoryPool().getId(),
+                queryInfo.isScheduled(),
+                queryInfo.getSelf(),
+                queryInfo.getFieldNames(),
+                queryInfo.getQuery(),
+                queryInfo.getQueryStats(),
+                queryInfo.getSetSessionProperties(),
+                queryInfo.getResetSessionProperties(),
+                queryInfo.getAddedPreparedStatements(),
+                queryInfo.getDeallocatedPreparedStatements(),
+                queryInfo.getStartedTransactionId(),
+                queryInfo.isClearTransactionId(),
+                queryInfo.getUpdateType(),
+                Optional.of(prunedOutputStage),
+                queryInfo.getFailureInfo(),
+                queryInfo.getErrorCode(),
+                queryInfo.getInputs(),
+                queryInfo.getOutput(),
+                queryInfo.isCompleteInfo()
+        );
+        finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
+    }
+
+    private long tickerNanos()
+    {
+        return ticker.read();
+    }
+
+    private Duration nanosSince(long start)
+    {
+        return succinctNanos(tickerNanos() - start);
     }
 }

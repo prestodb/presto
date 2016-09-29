@@ -30,6 +30,7 @@ import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
 import static java.lang.String.format;
+import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.math.BigInteger.TEN;
 
 public class Decimals
@@ -48,13 +49,17 @@ public class Decimals
 
     private static final Pattern DECIMAL_PATTERN = Pattern.compile("(\\+?|-?)((0*)(\\d*))(\\.(\\d+))?");
 
-    private static final int POWERS_OF_TEN_TABLE_LENGTH = 100;
-    private static final long[] LONG_POWERS_OF_TEN = new long[POWERS_OF_TEN_TABLE_LENGTH];
-    private static final BigInteger[] BIG_INTEGER_POWERS_OF_TEN = new BigInteger[POWERS_OF_TEN_TABLE_LENGTH];
+    private static final int LONG_POWERS_OF_TEN_TABLE_LENGTH = 18;
+    private static final int BIG_INTEGER_POWERS_OF_TEN_TABLE_LENGTH = 100;
+    private static final long[] LONG_POWERS_OF_TEN = new long[LONG_POWERS_OF_TEN_TABLE_LENGTH];
+    private static final BigInteger[] BIG_INTEGER_POWERS_OF_TEN = new BigInteger[BIG_INTEGER_POWERS_OF_TEN_TABLE_LENGTH];
 
     static {
         for (int i = 0; i < LONG_POWERS_OF_TEN.length; ++i) {
             LONG_POWERS_OF_TEN[i] = round(pow(10, i));
+        }
+
+        for (int i = 0; i < BIG_INTEGER_POWERS_OF_TEN.length; ++i) {
             BIG_INTEGER_POWERS_OF_TEN[i] = TEN.pow(i);
         }
     }
@@ -246,6 +251,21 @@ public class Decimals
     public static void writeBigDecimal(DecimalType decimalType, BlockBuilder blockBuilder, BigDecimal value)
     {
         decimalType.writeSlice(blockBuilder, encodeScaledValue(value));
+    }
+
+    public static BigDecimal rescale(BigDecimal value, DecimalType type)
+    {
+        value = value.setScale(type.getScale(), ROUND_UNNECESSARY);
+
+        if (value.precision() > type.getPrecision()) {
+            throw new IllegalArgumentException("decimal precision larger than column precision");
+        }
+        return value;
+    }
+
+    public static void writeShortDecimal(BlockBuilder blockBuilder, long value)
+    {
+        blockBuilder.writeLong(value).closeEntry();
     }
 
     public static long rescale(long value, int fromScale, int toScale)

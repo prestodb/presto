@@ -16,8 +16,6 @@ package com.facebook.presto.sql.tree;
 import java.util.LinkedList;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
 public class StackableAstVisitor<R, C>
         extends AstVisitor<R, StackableAstVisitor.StackableAstVisitorContext<C>>
 {
@@ -39,7 +37,7 @@ public class StackableAstVisitor<R, C>
 
         public StackableAstVisitorContext(C context)
         {
-            this.context = requireNonNull(context, "context is null");
+            this.context = context;
         }
 
         public C getContext()

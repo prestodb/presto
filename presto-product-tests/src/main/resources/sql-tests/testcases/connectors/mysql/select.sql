@@ -1,6 +1,6 @@
--- database: presto; groups: mysql_connector; tables: mysql.workers_jdbc
+-- database: presto; groups: mysql_connector; tables: mysql.workers_mysql
 --!
-select * from mysql.test.workers_jdbc
+select * from mysql.test.workers_mysql
 --!
 -- delimiter: |; trimValues: true; ignoreOrder: true;
 null|null|null|null|null|1|Marketing|4000|

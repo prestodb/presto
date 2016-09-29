@@ -51,6 +51,15 @@ import static java.util.stream.Collectors.toList;
 public interface ConnectorMetadata
 {
     /**
+     * Checks if a schema exists. The connector may have schemas that exist
+     * but are not enumerable via {@link #listSchemaNames}.
+     */
+    default boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return listSchemaNames(session).contains(schemaName);
+    }
+
+    /**
      * Returns the schemas provided by this connector.
      */
     List<String> listSchemaNames(ConnectorSession session);
@@ -79,6 +88,16 @@ public interface ConnectorMetadata
      * @throws RuntimeException if table handle is no longer valid
      */
     ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table);
+
+    /**
+     * Return the connector-specific metadata for the specified table layout. This is the object that is passed to the event listener framework.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    default Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    {
+        return Optional.empty();
+    }
 
     /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
@@ -121,6 +140,32 @@ public interface ConnectorMetadata
      * Gets the metadata for all columns that match the specified table prefix.
      */
     Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
+
+    /**
+     * Creates a schema.
+     */
+    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+    }
+
+    /**
+     * Drops the specified schema.
+     *
+     * @throws PrestoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
+     */
+    default void dropSchema(ConnectorSession session, String schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
+    }
+
+    /**
+     * Renames the specified schema.
+     */
+    default void renameSchema(ConnectorSession session, String source, String target)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
 
     /**
      * Creates a table using the specified table metadata.

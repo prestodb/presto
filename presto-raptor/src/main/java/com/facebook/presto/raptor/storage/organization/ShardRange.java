@@ -44,6 +44,29 @@ public class ShardRange
         return maxTuple;
     }
 
+    public boolean encloses(ShardRange other)
+    {
+        return this.getMinTuple().compareTo(other.getMinTuple()) <= 0 &&
+                this.getMaxTuple().compareTo(other.getMaxTuple()) >= 0;
+    }
+
+    public boolean overlaps(ShardRange other)
+    {
+        return this.getMinTuple().compareTo(other.getMaxTuple()) <= 0 &&
+                other.getMinTuple().compareTo(this.getMaxTuple()) <= 0;
+    }
+
+    public boolean adjacent(ShardRange other)
+    {
+        Object o1Min = this.getMinTuple().getValues().get(0);
+        Object o1Max = this.getMaxTuple().getValues().get(0);
+
+        Object o2Min = other.getMinTuple().getValues().get(0);
+        Object o2Max = other.getMaxTuple().getValues().get(0);
+
+        return o1Max.equals(o2Min) || o2Max.equals(o1Min);
+    }
+
     @Override
     public boolean equals(Object o)
     {

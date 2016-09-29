@@ -28,3 +28,7 @@ Drop the table ``orders_by_date`` if it exists::
 
     DROP TABLE IF EXISTS orders_by_date
 
+See Also
+--------
+
+:doc:`alter-table`, :doc:`create-table`

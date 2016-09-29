@@ -121,6 +121,12 @@ class ColumnInfo
                 builder.setScale(0);
                 builder.setColumnDisplaySize(4);
                 break;
+            case "real":
+                builder.setSigned(true);
+                builder.setPrecision(9);
+                builder.setScale(0);
+                builder.setColumnDisplaySize(16);
+                break;
             case "double":
                 builder.setSigned(true);
                 builder.setPrecision(17);
@@ -209,10 +215,14 @@ class ColumnInfo
                 return Types.SMALLINT;
             case "tinyint":
                 return Types.TINYINT;
+            case "real":
+                return Types.REAL;
             case "double":
                 return Types.DOUBLE;
             case "varchar":
                 return Types.LONGNVARCHAR;
+            case "char":
+                return Types.CHAR;
             case "varbinary":
                 return Types.LONGVARBINARY;
             case "time":

@@ -66,6 +66,7 @@ public interface ShardDao
             "    JOIN nodes n ON (sn.node_id = n.node_id)\n" +
             "    WHERE n.node_identifier = :nodeIdentifier\n" +
             "      AND s.bucket_number IS NULL\n" +
+            "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
             "  UNION ALL\n" +
             "    SELECT s.*\n" +
             "    FROM shards s\n" +
@@ -76,9 +77,10 @@ public interface ShardDao
             "      s.bucket_number = b.bucket_number)\n" +
             "    JOIN nodes n ON (b.node_id = n.node_id)\n" +
             "    WHERE n.node_identifier = :nodeIdentifier\n" +
+            "      AND (s.table_id = :tableId OR :tableId IS NULL)\n" +
             ") x")
     @Mapper(ShardMetadata.Mapper.class)
-    Set<ShardMetadata> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier);
+    Set<ShardMetadata> getNodeShards(@Bind("nodeIdentifier") String nodeIdentifier, @Bind("tableId") Long tableId);
 
     @SqlQuery("SELECT n.node_identifier, x.bytes\n" +
             "FROM (\n" +

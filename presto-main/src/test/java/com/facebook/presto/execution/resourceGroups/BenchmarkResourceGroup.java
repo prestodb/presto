@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.MockQueryExecution;
-import com.facebook.presto.execution.resourceGroups.ResourceGroup.RootResourceGroup;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -67,16 +67,16 @@ public class BenchmarkResourceGroup
         private int queries = 100;
 
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
-        private RootResourceGroup root;
+        private RootInternalResourceGroup root;
 
         @Setup
         public void setup()
         {
-            root = new RootResourceGroup("root", (group, export) -> { }, executor);
+            root = new RootInternalResourceGroup("root", (group, export) -> { }, executor);
             root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
             root.setMaxQueuedQueries(queries);
             root.setMaxRunningQueries(queries);
-            ResourceGroup group = root;
+            InternalResourceGroup group = root;
             for (int i = 0; i < children; i++) {
                 group = root.getOrCreateSubGroup(String.valueOf(i));
                 group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
@@ -94,7 +94,7 @@ public class BenchmarkResourceGroup
             executor.shutdownNow();
         }
 
-        public RootResourceGroup getRoot()
+        public RootInternalResourceGroup getRoot()
         {
             return root;
         }

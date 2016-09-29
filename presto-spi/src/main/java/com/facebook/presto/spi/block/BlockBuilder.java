@@ -23,7 +23,7 @@ public interface BlockBuilder
      */
     default BlockBuilder writeByte(int value)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -31,7 +31,7 @@ public interface BlockBuilder
      */
     default BlockBuilder writeShort(int value)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -39,7 +39,7 @@ public interface BlockBuilder
      */
     default BlockBuilder writeInt(int value)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -47,7 +47,7 @@ public interface BlockBuilder
      */
     default BlockBuilder writeLong(long value)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -55,7 +55,7 @@ public interface BlockBuilder
      */
     default BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -63,7 +63,7 @@ public interface BlockBuilder
      */
     default BlockBuilder writeObject(Object value)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -72,7 +72,7 @@ public interface BlockBuilder
      */
     default BlockBuilder beginBlockEntry()
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**

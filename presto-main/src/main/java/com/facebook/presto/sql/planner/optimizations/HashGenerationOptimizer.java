@@ -48,7 +48,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.type.TypeUtils;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -76,6 +75,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -129,11 +129,19 @@ public class HashGenerationOptimizer
         }
 
         @Override
+        public PlanWithProperties visitApply(ApplyNode node, HashComputationSet context)
+        {
+            // Apply node is not supported by execution, so do not rewrite it
+            // that way query will fail in sanity checkers
+            return new PlanWithProperties(node, ImmutableMap.of());
+        }
+
+        @Override
         public PlanWithProperties visitAggregation(AggregationNode node, HashComputationSet parentPreference)
         {
             Optional<HashComputation> groupByHash = Optional.empty();
-            if (!canSkipHashGeneration(node.getGroupBy())) {
-                groupByHash = computeHash(node.getGroupBy());
+            if (!canSkipHashGeneration(node.getGroupingKeys())) {
+                groupByHash = computeHash(node.getGroupingKeys());
             }
 
             // aggregation does not pass through preferred hash symbols
@@ -146,7 +154,6 @@ public class HashGenerationOptimizer
                     new AggregationNode(
                             idAllocator.getNextId(),
                             child.getNode(),
-                            node.getGroupBy(),
                             node.getAggregations(),
                             node.getFunctions(),
                             node.getMasks(),
@@ -154,7 +161,8 @@ public class HashGenerationOptimizer
                             node.getStep(),
                             node.getSampleWeight(),
                             node.getConfidence(),
-                            hashSymbol),
+                            hashSymbol,
+                            node.getGroupIdSymbol()),
                     hashSymbol.isPresent() ? ImmutableMap.of(groupByHash.get(), hashSymbol.get()) : ImmutableMap.of());
         }
 
@@ -258,9 +266,7 @@ public class HashGenerationOptimizer
                     new TopNRowNumberNode(
                             idAllocator.getNextId(),
                             child.getNode(),
-                            node.getPartitionBy(),
-                            node.getOrderBy(),
-                            node.getOrderings(),
+                            node.getSpecification(),
                             node.getRowNumberSymbol(),
                             node.getMaxRowCountPerPartition(),
                             node.isPartial(),
@@ -418,7 +424,6 @@ public class HashGenerationOptimizer
                             child.getNode(),
                             node.getSpecification(),
                             node.getWindowFunctions(),
-                            node.getSignatures(),
                             Optional.of(hashSymbol),
                             node.getPrePartitionedInputs(),
                             node.getPreSortedOrderPrefix()),
@@ -688,12 +693,6 @@ public class HashGenerationOptimizer
                     result.getNode().getClass().getSimpleName());
             return result;
         }
-
-        @Override
-        public PlanWithProperties visitApply(ApplyNode node, HashComputationSet context)
-        {
-            throw new UnsupportedOperationException("Apply node is unsupported");
-        }
     }
 
     private static class HashComputationSet
@@ -854,7 +853,7 @@ public class HashGenerationOptimizer
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("fields", fields)
                     .toString();
         }

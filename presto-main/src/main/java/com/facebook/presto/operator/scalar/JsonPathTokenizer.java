@@ -145,7 +145,7 @@ public class JsonPathTokenizer
 
     private boolean tryMatch(char expected)
     {
-        if (peekCharacter() != expected) {
+        if (!hasNextCharacter() || peekCharacter() != expected) {
             return false;
         }
         index++;

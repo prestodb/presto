@@ -36,3 +36,8 @@ Show the SQL that can be run to create the ``orders`` table::
         partitioned_by = ARRAY['orderdate']
      )
     (1 row)
+
+See Also
+--------
+
+:doc:`create-table`

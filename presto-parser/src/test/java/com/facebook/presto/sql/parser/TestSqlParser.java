@@ -25,8 +25,10 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
@@ -37,6 +39,7 @@ import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Execute;
@@ -66,12 +69,14 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
@@ -117,9 +122,11 @@ import static com.facebook.presto.sql.QueryUtil.values;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
+import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -205,6 +212,7 @@ public class TestSqlParser
         assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
+        assertExpression("CHAR 'abc'", new CharLiteral("abc"));
     }
 
     @Test
@@ -269,6 +277,9 @@ public class TestSqlParser
         assertCast("BIGINT");
         assertCast("double");
         assertCast("DOUBLE");
+        assertCast("DOUBLE PRECISION", "DOUBLE");
+        assertCast("DOUBLE   PRECISION", "DOUBLE");
+        assertCast("double precision", "DOUBLE");
         assertCast("boolean");
         assertCast("date");
         assertCast("time");
@@ -1046,6 +1057,50 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCreateSchema()
+    {
+        assertStatement("CREATE SCHEMA test",
+                new CreateSchema(QualifiedName.of("test"), false, ImmutableMap.of()));
+
+        assertStatement("CREATE SCHEMA IF NOT EXISTS test",
+                new CreateSchema(QualifiedName.of("test"), true, ImmutableMap.of()));
+
+        assertStatement("CREATE SCHEMA test WITH (a = 'apple', b = 123)",
+                new CreateSchema(
+                        QualifiedName.of("test"),
+                        false,
+                        ImmutableMap.of(
+                                "a", new StringLiteral("apple"),
+                                "b", new LongLiteral("123"))));
+    }
+
+    @Test
+    public void testDropSchema()
+    {
+        assertStatement("DROP SCHEMA test",
+                new DropSchema(QualifiedName.of("test"), false, false));
+
+        assertStatement("DROP SCHEMA test CASCADE",
+                new DropSchema(QualifiedName.of("test"), false, true));
+
+        assertStatement("DROP SCHEMA IF EXISTS test",
+                new DropSchema(QualifiedName.of("test"), true, false));
+
+        assertStatement("DROP SCHEMA IF EXISTS test RESTRICT",
+                new DropSchema(QualifiedName.of("test"), true, false));
+    }
+
+    @Test
+    public void testRenameSchema()
+    {
+        assertStatement("ALTER SCHEMA foo RENAME TO bar",
+                new RenameSchema(QualifiedName.of("foo"), "bar"));
+
+        assertStatement("ALTER SCHEMA foo.bar RENAME TO baz",
+                new RenameSchema(QualifiedName.of("foo", "bar"), "baz"));
+    }
+
+    @Test
     public void testCreateTable()
             throws Exception
     {
@@ -1473,6 +1528,15 @@ public class TestSqlParser
     }
 
     @Test
+    public void testPrepareWithParameters()
+    {
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo",
+                new Prepare("myquery", simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")))));
+    }
+
+    @Test
     public void testDeallocatePrepare()
     {
         assertStatement("DEALLOCATE PREPARE myquery", new Deallocate("myquery"));
@@ -1481,7 +1545,14 @@ public class TestSqlParser
     @Test
     public void testExecute()
     {
-        assertStatement("EXECUTE myquery", new Execute("myquery"));
+        assertStatement("EXECUTE myquery", new Execute("myquery", emptyList()));
+    }
+
+    @Test
+    public void testExecuteWithUsing()
+    {
+        assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
+                new Execute("myquery", ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new ArrayConstructor(ImmutableList.of(new StringLiteral("hello"))))));
     }
 
     @Test
@@ -1530,6 +1601,7 @@ public class TestSqlParser
     private static void assertStatement(String query, Statement expected)
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query));
+        assertFormattedSql(SQL_PARSER, expected);
     }
 
     private static void assertExpression(String expression, Expression expected)
@@ -1542,8 +1614,8 @@ public class TestSqlParser
         if (!parsed.equals(expected)) {
             fail(format("expected\n\n%s\n\nto parse as\n\n%s\n\nbut was\n\n%s\n",
                     indent(input),
-                    indent(formatSql(expected)),
-                    indent(formatSql(parsed))));
+                    indent(formatSql(expected, Optional.empty())),
+                    indent(formatSql(parsed, Optional.empty()))));
         }
     }
 

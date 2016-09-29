@@ -13,3 +13,8 @@ Description
 -----------
 
 Show the SQL statement that creates the specified view.
+
+See Also
+--------
+
+:doc:`create-view`

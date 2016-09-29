@@ -16,40 +16,60 @@ package com.facebook.presto.tests.hive;
 
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requirement;
+import com.teradata.tempto.Requirements;
 import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.Requires;
 import com.teradata.tempto.configuration.Configuration;
+import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
+import com.teradata.tempto.fulfillment.table.MutableTablesState;
+import com.teradata.tempto.fulfillment.table.TableDefinition;
+import com.teradata.tempto.fulfillment.table.TableHandle;
+import com.teradata.tempto.fulfillment.table.TableInstance;
 import com.teradata.tempto.query.QueryResult;
 import com.teradata.tempto.query.QueryType;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
 import java.sql.SQLException;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.facebook.presto.tests.TestGroups.QUARANTINE;
+import static com.facebook.presto.tests.TestGroups.POST_HIVE_1_0_1;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
 import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.onHive;
+import static com.facebook.presto.tests.hive.AllSimpleTypesTableDefinitions.populateDataToHiveTable;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
+import static com.teradata.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static com.teradata.tempto.fulfillment.table.TableHandle.tableHandle;
 import static com.teradata.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static com.teradata.tempto.util.DateTimeUtils.parseTimestampInUTC;
+import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
+import static java.sql.JDBCType.CHAR;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.DECIMAL;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.LONGNVARCHAR;
 import static java.sql.JDBCType.LONGVARBINARY;
+import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
+import static java.sql.JDBCType.VARBINARY;
+import static java.sql.JDBCType.VARCHAR;
 
 public class TestAllDatatypesFromHiveConnector
         extends ProductTest
@@ -70,7 +90,9 @@ public class TestAllDatatypesFromHiveConnector
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return immutableTable(ALL_HIVE_SIMPLE_TYPES_ORC);
+            return Requirements.compose(
+                    MutableTableRequirement.builder(ALL_HIVE_SIMPLE_TYPES_ORC).withState(CREATED).build(),
+                    immutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE));
         }
     }
 
@@ -80,7 +102,9 @@ public class TestAllDatatypesFromHiveConnector
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return immutableTable(ALL_HIVE_SIMPLE_TYPES_RCFILE);
+            return Requirements.compose(
+                    MutableTableRequirement.builder(ALL_HIVE_SIMPLE_TYPES_RCFILE).withState(CREATED).build(),
+                    immutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE));
         }
     }
 
@@ -90,7 +114,7 @@ public class TestAllDatatypesFromHiveConnector
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return immutableTable(ALL_HIVE_SIMPLE_TYPES_PARQUET);
+            return MutableTableRequirement.builder(ALL_HIVE_SIMPLE_TYPES_PARQUET).withState(CREATED).build();
         }
     }
 
@@ -99,9 +123,10 @@ public class TestAllDatatypesFromHiveConnector
     public void testSelectAllDatatypesTextFile()
             throws SQLException
     {
-        assertProperAllDatatypesSchema("textfile_all_types");
-        QueryResult queryResult = query("SELECT * " +
-                "FROM textfile_all_types");
+        String tableName = ALL_HIVE_SIMPLE_TYPES_TEXTFILE.getName();
+
+        assertProperAllDatatypesSchema(tableName);
+        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
 
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
@@ -110,7 +135,7 @@ public class TestAllDatatypesFromHiveConnector
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.34500122070312, // (double) 123.345f - see limitation #1
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
@@ -118,6 +143,7 @@ public class TestAllDatatypesFromHiveConnector
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
+                        "ala ma    ",
                         true,
                         "kot binarny".getBytes()
                 )
@@ -129,10 +155,13 @@ public class TestAllDatatypesFromHiveConnector
     public void testSelectAllDatatypesOrc()
             throws SQLException
     {
-        assertProperAllDatatypesSchema("orc_all_types");
+        String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_ORC).getNameInDatabase();
 
-        QueryResult queryResult = query("SELECT * " +
-                "FROM orc_all_types");
+        populateDataToHiveTable(tableName);
+
+        assertProperAllDatatypesSchema(tableName);
+
+        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
                 row(
@@ -140,7 +169,7 @@ public class TestAllDatatypesFromHiveConnector
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        (double) 123.345f, // (double) 123.345f - see limitation #1
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
@@ -148,6 +177,7 @@ public class TestAllDatatypesFromHiveConnector
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
+                        "ala ma    ",
                         true,
                         "kot binarny".getBytes()));
     }
@@ -157,10 +187,13 @@ public class TestAllDatatypesFromHiveConnector
     public void testSelectAllDatatypesRcfile()
             throws SQLException
     {
-        assertProperAllDatatypesSchema("rcfile_all_types");
+        String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_RCFILE).getNameInDatabase();
 
-        QueryResult queryResult = query("SELECT * " +
-                "FROM rcfile_all_types");
+        populateDataToHiveTable(tableName);
+
+        assertProperAllDatatypesSchema(tableName);
+
+        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
                 row(
@@ -168,7 +201,7 @@ public class TestAllDatatypesFromHiveConnector
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.345, // for some reason we do not get float/double conversion issue like for text files
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
@@ -176,6 +209,7 @@ public class TestAllDatatypesFromHiveConnector
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
                         "ala ma kot",
+                        "ala ma    ",
                         true,
                         "kot binarny".getBytes()));
     }
@@ -187,7 +221,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
                 row("c_bigint", "bigint"),
-                row("c_float", "double"),
+                row("c_float", "real"),
                 row("c_double", "double"),
                 row("c_decimal", "decimal(10,0)"),
                 row("c_decimal_w_params", "decimal(10,5)"),
@@ -195,6 +229,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_date", "date"),
                 row("c_string", "varchar"),
                 row("c_varchar", "varchar(10)"),
+                row("c_char", "char(10)"),
                 row("c_boolean", "boolean"),
                 row("c_binary", "varbinary")
         );
@@ -202,65 +237,153 @@ public class TestAllDatatypesFromHiveConnector
 
     private void assertColumnTypes(QueryResult queryResult)
     {
-        assertThat(queryResult).hasColumns(
-                TINYINT,
-                SMALLINT,
-                INTEGER,
-                BIGINT,
-                DOUBLE,
-                DOUBLE,
-                DECIMAL,
-                DECIMAL,
-                TIMESTAMP,
-                DATE,
-                LONGNVARCHAR,
-                LONGNVARCHAR,
-                BOOLEAN,
-                LONGVARBINARY
-        );
+        Connection connection = defaultQueryExecutor().getConnection();
+        if (usingPrestoJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    TINYINT,
+                    SMALLINT,
+                    INTEGER,
+                    BIGINT,
+                    REAL,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    LONGNVARCHAR,
+                    LONGNVARCHAR,
+                    CHAR,
+                    BOOLEAN,
+                    LONGVARBINARY
+            );
+        }
+        else if (usingTeradataJdbcDriver(connection)) {
+            assertThat(queryResult).hasColumns(
+                    TINYINT,
+                    SMALLINT,
+                    INTEGER,
+                    BIGINT,
+                    REAL,
+                    DOUBLE,
+                    DECIMAL,
+                    DECIMAL,
+                    TIMESTAMP,
+                    DATE,
+                    VARCHAR,
+                    VARCHAR,
+                    CHAR,
+                    BOOLEAN,
+                    VARBINARY
+            );
+        }
+        else {
+            throw new IllegalStateException();
+        }
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
+    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
     public void testSelectAllDatatypesParquetFile()
             throws SQLException
     {
-        assertThat(query("SHOW COLUMNS FROM parquet_all_types", QueryType.SELECT).project(1, 2)).containsExactly(
+        String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_PARQUET).getNameInDatabase();
+
+        onHive().executeQuery(format("INSERT INTO %s VALUES(" +
+                "127," +
+                "32767," +
+                "2147483647," +
+                "9223372036854775807," +
+                "123.345," +
+                "234.567," +
+                "346," +
+                "345.67800," +
+                "'" + parseTimestampInUTC("2015-05-10 12:15:35.123").toString() + "'," +
+                "'ala ma kota'," +
+                "'ala ma kot'," +
+                "'ala ma    '," +
+                "true," +
+                "'kot binarny'" +
+                ")", tableName));
+
+        assertThat(query(format("SHOW COLUMNS FROM %s", tableName), QueryType.SELECT).project(1, 2)).containsExactly(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
                 row("c_bigint", "bigint"),
-                row("c_float", "double"),
+                row("c_float", "real"),
                 row("c_double", "double"),
                 row("c_decimal", "decimal(10,0)"),
                 row("c_decimal_w_params", "decimal(10,5)"),
                 row("c_timestamp", "timestamp"),
                 row("c_string", "varchar"),
                 row("c_varchar", "varchar(10)"),
+                row("c_char", "char(10)"),
                 row("c_boolean", "boolean"),
                 row("c_binary", "varbinary")
         );
 
-        assertThat(query("SELECT * FROM parquet_all_types")).containsOnly(
+        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        assertThat(queryResult).hasColumns(
+                TINYINT,
+                SMALLINT,
+                INTEGER,
+                BIGINT,
+                REAL,
+                DOUBLE,
+                DECIMAL,
+                DECIMAL,
+                TIMESTAMP,
+                LONGNVARCHAR,
+                LONGNVARCHAR,
+                CHAR,
+                BOOLEAN,
+                LONGVARBINARY
+        );
+
+        assertThat(queryResult).containsOnly(
                 row(
                         127,
                         32767,
                         2147483647,
                         9223372036854775807L,
-                        123.34500122070312, // (double) 123.345f - see limitation #1
+                        123.345f,
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
                         parseTimestampInUTC("2015-05-10 12:15:35.123"),
                         "ala ma kota",
                         "ala ma kot",
+                        "ala ma    ",
                         true,
                         "kot binarny".getBytes()));
     }
-    // presto limitations referenced above:
-    //
-    // #1 we have float column with value in 123.345. But presto exposes this column as DOUBLE.
-    //    As a result it is processed internally and exposed to the user as java double instead java float,
-    //    which have different string representation from what is in hive data file.
-    //    For 123.345 we get 123.34500122070312
+
+    private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition)
+    {
+        if (tableDefinition.getDatabase().isPresent()) {
+            return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
+        }
+        else {
+            return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
+        }
+    }
+
+    private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition, String database)
+    {
+        return mutableTableInstanceOf(tableHandleInSchema(tableDefinition).inDatabase(database));
+    }
+
+    private static TableInstance mutableTableInstanceOf(TableHandle tableHandle)
+    {
+        return testContext().getDependency(MutableTablesState.class).get(tableHandle);
+    }
+
+    private static TableHandle tableHandleInSchema(TableDefinition tableDefinition)
+    {
+        TableHandle tableHandle = tableHandle(tableDefinition.getName());
+        if (tableDefinition.getSchema().isPresent()) {
+            tableHandle = tableHandle.inSchema(tableDefinition.getSchema().get());
+        }
+        return tableHandle;
+    }
 }

@@ -93,8 +93,6 @@ public class Histogram
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType),
                 inputFunction,
-                null,
-                null,
                 COMBINE_FUNCTION,
                 outputFunction,
                 HistogramState.class,

@@ -14,22 +14,21 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
-import com.facebook.presto.util.CpuTimer;
-import com.facebook.presto.util.CpuTimer.CpuDuration;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.stats.CpuTimer;
 import io.airlift.units.DataSize;
 
 import java.util.List;
@@ -37,6 +36,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static io.airlift.stats.CpuTimer.CpuDuration;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -111,7 +111,7 @@ public abstract class AbstractOperatorBenchmark
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
 
         TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
-                .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", 0), executor),
+                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
                         session,
                         new DataSize(1, MEGABYTE),
                         false,

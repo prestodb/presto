@@ -272,6 +272,11 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitCharLiteral(CharLiteral node, C context)
+    {
+        return visitLiteral(node, context);
+    }
+
     protected R visitBinaryLiteral(BinaryLiteral node, C context)
     {
         return visitLiteral(node, context);
@@ -372,6 +377,11 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitParameter(Parameter node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
     {
         return visitExpression(node, context);
@@ -470,6 +480,21 @@ public abstract class AstVisitor<R, C>
     protected R visitTableElement(TableElement node, C context)
     {
         return visitNode(node, context);
+    }
+
+    protected R visitCreateSchema(CreateSchema node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropSchema(DropSchema node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRenameSchema(RenameSchema node, C context)
+    {
+        return visitStatement(node, context);
     }
 
     protected R visitCreateTable(CreateTable node, C context)

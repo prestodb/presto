@@ -1,0 +1,8 @@
+Kerberos Services
+^^^^^^^^^^^^^^^^^
+
+You will need a Kerberos :abbr:`KDC (Key Distribution Center)` running on a
+node that the |subject_node| can reach over the network. The KDC is
+responsible for authenticating principals and issuing session keys that can be
+used with Kerberos-enabled services. KDCs typically run on port 88, which is
+the IANA-assigned port for Kerberos.

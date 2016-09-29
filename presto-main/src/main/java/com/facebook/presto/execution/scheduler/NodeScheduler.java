@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -55,7 +56,7 @@ public class NodeScheduler
     private final NetworkLocationCache networkLocationCache;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
-    private final NodeManager nodeManager;
+    private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
@@ -65,7 +66,7 @@ public class NodeScheduler
     private final boolean useNetworkTopology;
 
     @Inject
-    public NodeScheduler(NetworkTopology networkTopology, NodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
+    public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
         this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, config, nodeTaskMap);
     }
@@ -73,7 +74,7 @@ public class NodeScheduler
     public NodeScheduler(
             NetworkLocationCache networkLocationCache,
             NetworkTopology networkTopology,
-            NodeManager nodeManager,
+            InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap)
     {
@@ -116,7 +117,7 @@ public class NodeScheduler
         return counters.build();
     }
 
-    public NodeSelector createNodeSelector(String dataSourceName)
+    public NodeSelector createNodeSelector(ConnectorId connectorId)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -126,8 +127,8 @@ public class NodeScheduler
             ImmutableSetMultimap.Builder<NetworkLocation, Node> workersByNetworkPath = ImmutableSetMultimap.builder();
 
             Set<Node> nodes;
-            if (dataSourceName != null) {
-                nodes = nodeManager.getActiveDatasourceNodes(dataSourceName);
+            if (connectorId != null) {
+                nodes = nodeManager.getActiveConnectorNodes(connectorId);
             }
             else {
                 nodes = nodeManager.getNodes(ACTIVE);

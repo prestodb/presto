@@ -23,5 +23,5 @@ public interface ConnectorFactory
 
     ConnectorHandleResolver getHandleResolver();
 
-    Connector create(String connectorId, Map<String, String> config);
+    Connector create(String connectorId, Map<String, String> config, ConnectorContext context);
 }

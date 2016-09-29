@@ -14,10 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
@@ -30,7 +27,6 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
-import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -51,22 +47,18 @@ import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
@@ -88,7 +80,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExcha
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -114,13 +106,13 @@ public class AddLocalExchanges
     private class Rewriter
             extends PlanVisitor<StreamPreferredProperties, PlanWithProperties>
     {
-        private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
+        private final Map<Symbol, Type> types;
 
         public Rewriter(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Session session)
         {
-            this.symbolAllocator = symbolAllocator;
+            this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
             this.idAllocator = idAllocator;
             this.session = session;
         }
@@ -245,104 +237,24 @@ public class AddLocalExchanges
             StreamPreferredProperties requiredProperties;
             StreamPreferredProperties preferredChildProperties;
 
-            if (node.getStep() == Step.FINAL || node.getStep() == Step.SINGLE) {
-                // final aggregation requires that all data be partitioned
-                HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
-                for (int i = 1; i < node.getGroupingSets().size(); i++) {
-                    partitioningRequirement.retainAll(node.getGroupingSets().get(i));
-                }
+            checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
 
-                requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(partitioningRequirement);
-                preferredChildProperties = parentPreferences.withDefaultParallelism(session)
-                        .withPartitioning(partitioningRequirement);
-            }
-            else {
-                requiredProperties = parentPreferences.withoutPreference().withDefaultParallelism(session);
-                preferredChildProperties = parentPreferences.withDefaultParallelism(session)
-                        .constrainTo(node.getSource().getOutputSymbols());
+            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
+            // needs to know whether input was received at the query level.
+            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
-            // plan child with the preferred
-            PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
-            if (requiredProperties.isSatisfiedBy(child.getProperties())) {
-                return rebaseAndDeriveProperties(node, ImmutableList.of(child));
+            HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
+            for (int i = 1; i < node.getGroupingSets().size(); i++) {
+                partitioningRequirement.retainAll(node.getGroupingSets().get(i));
             }
 
-            // If the following conditions are satisfied, push down a partial which will be executed in parallel.
-            // * aggregation is decomposable, and
-            // * aggregation is not already decomposed, and
-            // * aggregation is not already parallel
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            boolean decomposable = node.getFunctions()
-                    .values().stream()
-                    .map(functionRegistry::getAggregateFunctionImplementation)
-                    .allMatch(InternalAggregationFunction::isDecomposable);
-            if (decomposable && node.getStep() == Step.SINGLE && !requiredProperties.isParallelPreferred()) {
-                // If child property is single, `child` should have satisfied `requiredProperty` (which prefers single)
-                verify(child.getProperties().getDistribution() != SINGLE);
-                return splitAggregation(node, child, source -> gatheringExchange(idAllocator.getNextId(), LOCAL, source));
-            }
+            requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(partitioningRequirement);
+            preferredChildProperties = parentPreferences.withDefaultParallelism(session)
+                    .withPartitioning(partitioningRequirement);
 
-            return rebaseAndDeriveProperties(node, ImmutableList.of(enforce(child, requiredProperties)));
-        }
-
-        private PlanWithProperties splitAggregation(AggregationNode node, PlanWithProperties newChild, Function<PlanNode, PlanNode> exchanger)
-        {
-            // otherwise, add a partial and final with an exchange in between
-            Map<Symbol, Symbol> masks = node.getMasks();
-
-            Map<Symbol, FunctionCall> finalCalls = new HashMap<>();
-            Map<Symbol, FunctionCall> intermediateCalls = new HashMap<>();
-            Map<Symbol, Signature> intermediateFunctions = new HashMap<>();
-            Map<Symbol, Symbol> intermediateMask = new HashMap<>();
-            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
-                Signature signature = node.getFunctions().get(entry.getKey());
-                InternalAggregationFunction function = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
-
-                Symbol intermediateSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
-                intermediateCalls.put(intermediateSymbol, entry.getValue());
-                intermediateFunctions.put(intermediateSymbol, signature);
-                if (masks.containsKey(entry.getKey())) {
-                    intermediateMask.put(intermediateSymbol, masks.get(entry.getKey()));
-                }
-
-                // rewrite final aggregation in terms of intermediate function
-                finalCalls.put(entry.getKey(), new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(intermediateSymbol.toSymbolReference())));
-            }
-
-            PlanWithProperties source = deriveProperties(
-                    new AggregationNode(
-                            idAllocator.getNextId(),
-                            newChild.getNode(),
-                            node.getGroupBy(),
-                            intermediateCalls,
-                            intermediateFunctions,
-                            intermediateMask,
-                            node.getGroupingSets(),
-                            Step.PARTIAL,
-                            node.getSampleWeight(),
-                            node.getConfidence(),
-                            node.getHashSymbol()),
-                    newChild.getProperties());
-
-            if (exchanger != null) {
-                source = deriveProperties(exchanger.apply(source.getNode()), source.getProperties());
-            }
-
-            return deriveProperties(
-                    new AggregationNode(
-                            node.getId(),
-                            source.getNode(),
-                            node.getGroupBy(),
-                            finalCalls,
-                            node.getFunctions(),
-                            ImmutableMap.of(),
-                            node.getGroupingSets(),
-                            Step.FINAL,
-                            Optional.empty(),
-                            node.getConfidence(),
-                            node.getHashSymbol()),
-                    source.getProperties());
+            return planAndEnforceChildren(node, requiredProperties, preferredChildProperties);
         }
 
         @Override
@@ -385,7 +297,6 @@ public class AddLocalExchanges
                     child.getNode(),
                     node.getSpecification(),
                     node.getWindowFunctions(),
-                    node.getSignatures(),
                     node.getHashSymbol(),
                     prePartitionedInputs,
                     preSortedOrderPrefix);
@@ -663,12 +574,12 @@ public class AddLocalExchanges
 
         private PlanWithProperties deriveProperties(PlanNode result, StreamProperties inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser));
         }
 
         private PlanWithProperties deriveProperties(PlanNode result, List<StreamProperties> inputProperties)
         {
-            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser));
+            return new PlanWithProperties(result, StreamPropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser));
         }
 
         private StreamProperties derivePropertiesRecursively(PlanNode node)
@@ -676,7 +587,7 @@ public class AddLocalExchanges
             List<StreamProperties> inputProperties = node.getSources().stream()
                     .map(this::derivePropertiesRecursively)
                     .collect(toImmutableList());
-            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
+            return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, parser);
         }
     }
 

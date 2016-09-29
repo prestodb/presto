@@ -67,6 +67,18 @@ public final class ArraySortFunction
             @Override
             public int compare(Integer p1, Integer p2)
             {
+                boolean nullLeft = block.isNull(p1);
+                boolean nullRight = block.isNull(p2);
+                if (nullLeft && nullRight) {
+                    return 0;
+                }
+                if (nullLeft) {
+                    return 1;
+                }
+                if (nullRight) {
+                    return -1;
+                }
+
                 //TODO: This could be quite slow, it should use parametric equals
                 return type.compareTo(block, p1, block, p2);
             }

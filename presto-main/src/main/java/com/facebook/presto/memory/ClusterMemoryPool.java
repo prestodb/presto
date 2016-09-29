@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.execution.QueryId;
-import com.google.common.base.MoreObjects;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.collect.ImmutableMap;
 import org.weakref.jmx.Managed;
 
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -149,7 +151,7 @@ public class ClusterMemoryPool
     @Override
     public synchronized String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("id", id)
                 .add("totalDistributedBytes", totalDistributedBytes)
                 .add("freeDistributedBytes", freeDistributedBytes)

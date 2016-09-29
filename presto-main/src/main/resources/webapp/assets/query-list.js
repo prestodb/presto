@@ -78,6 +78,9 @@
                 else {
                     summary = (progress == 0 ? summary : summary + " (" + progress + "%" + ")");
                 }
+                if (query.memoryPool == "reserved") {
+                    summary += " (RESERVED mem pool)";
+                }
                 break;
             case "FINISHED":
                 progress = 100;

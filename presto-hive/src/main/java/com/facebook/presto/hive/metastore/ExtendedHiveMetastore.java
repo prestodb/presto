@@ -37,9 +37,15 @@ public interface ExtendedHiveMetastore
 
     Optional<List<String>> getAllViews(String databaseName);
 
+    void createDatabase(Database database);
+
+    void dropDatabase(String databaseName);
+
+    void renameDatabase(String databaseName, String newDatabaseName);
+
     void createTable(Table table, PrincipalPrivilegeSet principalPrivilegeSet);
 
-    void dropTable(String databaseName, String tableName);
+    void dropTable(String databaseName, String tableName, boolean deleteData);
 
     /**
      * This should only be used if the semantic here is drop and add. Trying to
@@ -69,7 +75,9 @@ public interface ExtendedHiveMetastore
      */
     void addPartitions(String databaseName, String tableName, List<Partition> partitions);
 
-    void dropPartition(String databaseName, String tableName, List<String> parts);
+    void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData);
+
+    void alterPartition(String databaseName, String tableName, Partition partition);
 
     Set<String> getRoles(String user);
 

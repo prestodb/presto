@@ -16,12 +16,12 @@ package com.facebook.presto.atop;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
-import org.joda.time.DateTime;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -33,7 +33,7 @@ public class TestingAtopFactory
         implements AtopFactory
 {
     @Override
-    public Atop create(AtopTable table, DateTime date)
+    public Atop create(AtopTable table, ZonedDateTime date)
     {
         InputStream data = TestingAtopFactory.class.getResourceAsStream(table.name().toLowerCase() + ".txt");
         requireNonNull(data, format("No data found for %s", table));
@@ -44,10 +44,10 @@ public class TestingAtopFactory
             implements Atop
     {
         private final BufferedReader reader;
-        private final DateTime date;
+        private final ZonedDateTime date;
         private String line;
 
-        private TestingAtop(InputStream dataStream, DateTime date)
+        private TestingAtop(InputStream dataStream, ZonedDateTime date)
         {
             this.date = date;
             this.reader = new BufferedReader(new InputStreamReader(dataStream));
@@ -86,7 +86,7 @@ public class TestingAtopFactory
             List<String> fields = new ArrayList<>(Splitter.on(" ").splitToList(currentLine));
 
             // Timestamps in file are delta encoded
-            long secondsSinceEpoch = date.getMillis() / 1000;
+            long secondsSinceEpoch = date.toEpochSecond();
             secondsSinceEpoch += Integer.parseInt(fields.get(2));
             fields.set(2, String.valueOf(secondsSinceEpoch));
 

@@ -200,6 +200,24 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public void createDatabase(Database database)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropDatabase(String databaseName, boolean deleteData, boolean cascade)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterDatabase(String databaseName, Database database)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void createTable(Table table)
     {
         throw new UnsupportedOperationException();
@@ -225,6 +243,13 @@ public class MockHiveMetastoreClient
 
     @Override
     public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterPartition(String databaseName, String tableName, Partition partition)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }

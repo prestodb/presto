@@ -41,11 +41,16 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertContains;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static org.testng.Assert.assertEquals;
@@ -72,7 +77,11 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("test_id", "col_3", VARCHAR),
                 new JdbcColumnHandle("test_id", "col_4", DATE),
                 new JdbcColumnHandle("test_id", "col_5", TIME),
-                new JdbcColumnHandle("test_id", "col_6", TIMESTAMP));
+                new JdbcColumnHandle("test_id", "col_6", TIMESTAMP),
+                new JdbcColumnHandle("test_id", "col_7", TINYINT),
+                new JdbcColumnHandle("test_id", "col_8", SMALLINT),
+                new JdbcColumnHandle("test_id", "col_9", INTEGER),
+                new JdbcColumnHandle("test_id", "col_10", REAL));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
@@ -83,6 +92,10 @@ public class TestJdbcQueryBuilder
                 "\"col_4\" DATE, " +
                 "\"col_5\" TIME, " +
                 "\"col_6\" TIMESTAMP, " +
+                "\"col_7\" TINYINT, " +
+                "\"col_8\" SMALLINT, " +
+                "\"col_9\" INTEGER, " +
+                "\"col_10\" REAL " +
                 ")")) {
             preparedStatement.execute();
             StringBuilder stringBuilder = new StringBuilder("insert into \"test_table\" values ");
@@ -91,14 +104,18 @@ public class TestJdbcQueryBuilder
             for (int i = 0; i < len; i++) {
                 stringBuilder.append(format(
                         Locale.ENGLISH,
-                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s')",
+                        "(%d, %f, %b, 'test_str_%d', '%s', '%s', '%s', %d, %d, %d, %f)",
                         i,
                         200000.0 + i / 2.0,
                         i % 2 == 0,
                         i,
                         Date.valueOf(dateTime.toLocalDate()),
                         Time.valueOf(dateTime.toLocalTime()),
-                        Timestamp.valueOf(dateTime)));
+                        Timestamp.valueOf(dateTime),
+                        i % 128,
+                        -i,
+                        i - 100,
+                        100.0f + i));
                 dateTime = dateTime.plusHours(26);
                 if (i != len - 1) {
                     stringBuilder.append(",");
@@ -121,8 +138,8 @@ public class TestJdbcQueryBuilder
     public void testNormalBuildSql()
             throws SQLException
     {
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(0), Domain.create(SortedRangeSet.copyOf(BIGINT,
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                .put(columns.get(0), Domain.create(SortedRangeSet.copyOf(BIGINT,
                         ImmutableList.of(
                                 Range.equal(BIGINT, 128L),
                                 Range.equal(BIGINT, 180L),
@@ -130,8 +147,8 @@ public class TestJdbcQueryBuilder
                                 Range.lessThan(BIGINT, 25L),
                                 Range.range(BIGINT, 66L, true, 96L, true),
                                 Range.greaterThan(BIGINT, 192L))),
-                        false),
-                columns.get(1), Domain.create(SortedRangeSet.copyOf(DOUBLE,
+                        false))
+                .put(columns.get(1), Domain.create(SortedRangeSet.copyOf(DOUBLE,
                         ImmutableList.of(
                                 Range.equal(DOUBLE, 200011.0),
                                 Range.equal(DOUBLE, 200014.0),
@@ -139,11 +156,27 @@ public class TestJdbcQueryBuilder
                                 Range.equal(DOUBLE, 200116.5),
                                 Range.range(DOUBLE, 200030.0, true, 200036.0, true),
                                 Range.range(DOUBLE, 200048.0, true, 200099.0, true))),
-                        false),
-                columns.get(2), Domain.create(SortedRangeSet.copyOf(BOOLEAN,
+                        false))
+                .put(columns.get(7), Domain.create(SortedRangeSet.copyOf(TINYINT,
+                        ImmutableList.of(
+                                Range.range(TINYINT, 60L, true, 70L, false),
+                                Range.range(TINYINT, 52L, true, 55L, false))),
+                        false))
+                .put(columns.get(8), Domain.create(SortedRangeSet.copyOf(SMALLINT,
+                        ImmutableList.of(
+                                Range.range(SMALLINT, -75L, true, -68L, true),
+                                Range.range(SMALLINT, -200L, true, -100L, false))),
+                        false))
+                .put(columns.get(9), Domain.create(SortedRangeSet.copyOf(INTEGER,
+                        ImmutableList.of(
+                                Range.equal(INTEGER, 80L),
+                                Range.equal(INTEGER, 96L),
+                                Range.lessThan(INTEGER, 0L))),
+                        false))
+                .put(columns.get(2), Domain.create(SortedRangeSet.copyOf(BOOLEAN,
                         ImmutableList.of(Range.equal(BOOLEAN, true))),
-                        false)
-        ));
+                        false))
+                .build());
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
@@ -152,7 +185,34 @@ public class TestJdbcQueryBuilder
             while (resultSet.next()) {
                 builder.add((Long) resultSet.getObject("col_0"));
             }
-            assertEquals(builder.build(), ImmutableSet.of(22L, 66L, 68L, 70L, 72L, 96L, 128L, 180L, 194L, 196L, 198L));
+            assertEquals(builder.build(), ImmutableSet.of(68L, 180L, 196L));
+        }
+    }
+
+    @Test
+    public void testBuildSqlWithFloat()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+                columns.get(10), Domain.create(SortedRangeSet.copyOf(REAL,
+                                ImmutableList.of(
+                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 0)),
+                                        Range.equal(REAL, (long) floatToRawIntBits(100.008f + 0)),
+                                        Range.equal(REAL, (long) floatToRawIntBits(100.0f + 14)))),
+                        false)
+        ));
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, connection, "", "", "test_table", columns, tupleDomain);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+            ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
+            while (resultSet.next()) {
+                longBuilder.add((Long) resultSet.getObject("col_0"));
+                floatBuilder.add((Float) resultSet.getObject("col_10"));
+            }
+            assertEquals(longBuilder.build(), ImmutableSet.of(0L, 14L));
+            assertEquals(floatBuilder.build(), ImmutableSet.of(100.0f, 114.0f));
         }
     }
 

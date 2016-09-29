@@ -68,7 +68,7 @@ public class RelationType
      */
     public int indexOf(Field field)
     {
-        return fieldIndexes.get(field);
+        return requireNonNull(fieldIndexes.get(field));
     }
 
     /**

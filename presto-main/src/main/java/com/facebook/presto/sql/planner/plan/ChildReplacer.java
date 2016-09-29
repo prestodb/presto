@@ -13,20 +13,6 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import com.google.common.collect.Iterables;
 
 import java.util.List;
@@ -168,7 +154,18 @@ public class ChildReplacer
     @Override
     public PlanNode visitAggregation(AggregationNode node, List<PlanNode> newChildren)
     {
-        return new AggregationNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getGroupingSets(), node.getStep(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
+        return new AggregationNode(
+                node.getId(),
+                Iterables.getOnlyElement(newChildren),
+                node.getAggregations(),
+                node.getFunctions(),
+                node.getMasks(),
+                node.getGroupingSets(),
+                node.getStep(),
+                node.getSampleWeight(),
+                node.getConfidence(),
+                node.getHashSymbol(),
+                node.getGroupIdSymbol());
     }
 
     @Override
@@ -191,7 +188,6 @@ public class ChildReplacer
                 Iterables.getOnlyElement(newChildren),
                 node.getSpecification(),
                 node.getWindowFunctions(),
-                node.getSignatures(),
                 node.getHashSymbol(),
                 node.getPrePartitionedInputs(),
                 node.getPreSortedOrderPrefix());
@@ -200,7 +196,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitTopNRowNumber(TopNRowNumberNode node, List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashSymbol());
+        return new TopNRowNumberNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getSpecification(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashSymbol());
     }
 
     @Override
@@ -254,6 +250,12 @@ public class ChildReplacer
     }
 
     @Override
+    public PlanNode visitExcept(ExceptNode node, List<PlanNode> newChildren)
+    {
+        return new ExceptNode(node.getId(), newChildren, node.getSymbolMapping(), node.getOutputSymbols());
+    }
+
+    @Override
     public PlanNode visitDelete(DeleteNode node, List<PlanNode> newChildren)
     {
         return new DeleteNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getTarget(), node.getRowId(), node.getOutputSymbols());
@@ -270,5 +272,12 @@ public class ChildReplacer
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new ApplyNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getCorrelation());
+    }
+
+    @Override
+    public PlanNode visitAssignUniqueId(AssignUniqueId node, List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
+        return new AssignUniqueId(node.getId(), Iterables.getOnlyElement(newChildren), node.getIdColumn());
     }
 }

@@ -17,13 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
 
@@ -51,13 +51,13 @@ public class CreateTableTask
     }
 
     @Override
-    public String explain(CreateTable statement)
+    public String explain(CreateTable statement, List<Expression> parameters)
     {
         return "CREATE TABLE " + statement.getName();
     }
 
     @Override
-    public CompletableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(CreateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -82,15 +82,14 @@ public class CreateTableTask
 
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        Map<String, Object> properties = metadata.getTablePropertyManager().getTableProperties(
+        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 tableName.getCatalogName(),
                 statement.getProperties(),
                 session,
-                metadata);
+                metadata,
+                parameters);
 
-        TableMetadata tableMetadata = new TableMetadata(
-                tableName.getCatalogName(),
-                new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, session.getUser(), false));
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, false);
 
         metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
 

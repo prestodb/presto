@@ -56,6 +56,7 @@ Array Functions
 .. function:: array_sort(x) -> array
 
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
+    Null elements will be placed at the end of the returned array.
 
 .. function:: cardinality(x) -> bigint
 
@@ -99,6 +100,10 @@ Array Functions
 
     Generate a sequence of timestamps from ``start`` to ``stop``, incrementing by ``step``.
     The type of ``step`` can be either ``INTERVAL DAY TO SECOND`` or ``INTERVAL YEAR TO MONTH``.
+
+.. function:: shuffle(x) -> array
+
+    Generate a random permutation of the given array ``x``.
 
 .. function:: slice(x, start, length) -> array
 

@@ -383,7 +383,7 @@ public class SqlTaskExecution
 
                         checkTaskCompletion();
 
-                        queryMonitor.splitCompletionEvent(taskId, getDriverStats());
+                        queryMonitor.splitCompletedEvent(taskId, getDriverStats());
                     }
                 }
 

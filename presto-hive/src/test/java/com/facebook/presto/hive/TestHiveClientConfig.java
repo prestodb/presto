@@ -40,10 +40,6 @@ public class TestHiveClientConfig
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(1_000)
                 .setMaxSplitIteratorThreads(1_000)
-                .setAllowAddColumn(false)
-                .setAllowDropTable(false)
-                .setAllowRenameTable(false)
-                .setAllowRenameColumn(false)
                 .setAllowCorruptWritesForTesting(false)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(1, TimeUnit.SECONDS))
@@ -74,6 +70,8 @@ public class TestHiveClientConfig
                 .setUseOrcColumnNames(false)
                 .setS3AwsAccessKey(null)
                 .setS3AwsSecretKey(null)
+                .setS3Endpoint(null)
+                .setS3SignerType(null)
                 .setS3UseInstanceCredentials(true)
                 .setS3SslEnabled(true)
                 .setS3SseEnabled(false)
@@ -93,6 +91,7 @@ public class TestHiveClientConfig
                 .setParquetPredicatePushdownEnabled(false)
                 .setParquetOptimizedReaderEnabled(false)
                 .setAssumeCanonicalPartitionKeys(false)
+                .setOrcBloomFiltersEnabled(false)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
@@ -104,8 +103,10 @@ public class TestHiveClientConfig
                 .setHdfsImpersonationEnabled(false)
                 .setHdfsPrestoPrincipal(null)
                 .setHdfsPrestoKeytab(null)
+                .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
-                .setBucketWritingEnabled(true));
+                .setBucketWritingEnabled(true)
+                .setForceIntegralToBigint(false));
     }
 
     @Test
@@ -116,10 +117,6 @@ public class TestHiveClientConfig
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-outstanding-splits", "10")
                 .put("hive.max-split-iterator-threads", "10")
-                .put("hive.allow-add-column", "true")
-                .put("hive.allow-drop-table", "true")
-                .put("hive.allow-rename-table", "true")
-                .put("hive.allow-rename-column", "true")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
                 .put("hive.metastore-cache-ttl", "2h")
                 .put("hive.metastore-refresh-interval", "30m")
@@ -151,6 +148,8 @@ public class TestHiveClientConfig
                 .put("hive.orc.use-column-names", "true")
                 .put("hive.s3.aws-access-key", "abc123")
                 .put("hive.s3.aws-secret-key", "secret")
+                .put("hive.s3.endpoint", "endpoint.example.com")
+                .put("hive.s3.signer-type", "S3SignerType")
                 .put("hive.s3.use-instance-credentials", "false")
                 .put("hive.s3.ssl.enabled", "false")
                 .put("hive.s3.sse.enabled", "true")
@@ -169,6 +168,7 @@ public class TestHiveClientConfig
                 .put("hive.s3.pin-client-to-current-region", "true")
                 .put("hive.parquet-predicate-pushdown.enabled", "true")
                 .put("hive.parquet-optimized-reader.enabled", "true")
+                .put("hive.orc.bloom-filters.enabled", "true")
                 .put("hive.orc.max-merge-distance", "22kB")
                 .put("hive.orc.max-buffer-size", "44kB")
                 .put("hive.orc.stream-buffer-size", "55kB")
@@ -180,8 +180,10 @@ public class TestHiveClientConfig
                 .put("hive.hdfs.impersonation.enabled", "true")
                 .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
                 .put("hive.hdfs.presto.keytab", "/tmp/presto.keytab")
+                .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
+                .put("deprecated.hive.integral-types-as-bigint", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -189,10 +191,6 @@ public class TestHiveClientConfig
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxOutstandingSplits(10)
                 .setMaxSplitIteratorThreads(10)
-                .setAllowAddColumn(true)
-                .setAllowDropTable(true)
-                .setAllowRenameTable(true)
-                .setAllowRenameColumn(true)
                 .setAllowCorruptWritesForTesting(true)
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
@@ -223,6 +221,8 @@ public class TestHiveClientConfig
                 .setUseOrcColumnNames(true)
                 .setS3AwsAccessKey("abc123")
                 .setS3AwsSecretKey("secret")
+                .setS3Endpoint("endpoint.example.com")
+                .setS3SignerType(PrestoS3SignerType.S3SignerType)
                 .setS3UseInstanceCredentials(false)
                 .setS3SslEnabled(false)
                 .setS3SseEnabled(true)
@@ -242,6 +242,7 @@ public class TestHiveClientConfig
                 .setParquetPredicatePushdownEnabled(true)
                 .setParquetOptimizedReaderEnabled(true)
                 .setAssumeCanonicalPartitionKeys(true)
+                .setOrcBloomFiltersEnabled(true)
                 .setOrcMaxMergeDistance(new DataSize(22, Unit.KILOBYTE))
                 .setOrcMaxBufferSize(new DataSize(44, Unit.KILOBYTE))
                 .setOrcStreamBufferSize(new DataSize(55, Unit.KILOBYTE))
@@ -253,8 +254,10 @@ public class TestHiveClientConfig
                 .setHdfsImpersonationEnabled(true)
                 .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
                 .setHdfsPrestoKeytab("/tmp/presto.keytab")
+                .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
-                .setBucketWritingEnabled(false);
+                .setBucketWritingEnabled(false)
+                .setForceIntegralToBigint(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

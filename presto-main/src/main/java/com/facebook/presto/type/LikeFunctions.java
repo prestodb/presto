@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -26,6 +27,7 @@ import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;
 import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
@@ -63,17 +65,32 @@ public final class LikeFunctions
     }
 
     @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static Regex likePattern(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    public static Regex castVarcharToLikePattern(@SqlType("varchar") Slice pattern)
     {
-        return likeToPattern(pattern.toStringUtf8(), '0', false);
+        return likePattern(pattern);
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
+    @SqlType(LikePatternType.NAME)
+    public static Regex castCharToLikePattern(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
+    {
+        return likePattern(padSpaces(pattern, charLength.intValue()));
+    }
+
+    public static Regex likePattern(Slice pattern)
+    {
+        return likePattern(pattern.toStringUtf8(), '0', false);
     }
 
     @ScalarFunction
+    @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
-    public static Regex likePattern(@SqlType(StandardTypes.VARCHAR) Slice pattern, @SqlType(StandardTypes.VARCHAR) Slice escape)
+    public static Regex likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
     {
-        return likeToPattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
+        return likePattern(pattern.toStringUtf8(), getEscapeChar(escape), true);
     }
 
     private static boolean regexMatches(Regex regex, byte[] bytes)
@@ -82,7 +99,7 @@ public final class LikeFunctions
     }
 
     @SuppressWarnings("NestedSwitchStatement")
-    private static Regex likeToPattern(String patternString, char escapeChar, boolean shouldEscape)
+    private static Regex likePattern(String patternString, char escapeChar, boolean shouldEscape)
     {
         StringBuilder regex = new StringBuilder(patternString.length() * 2);
 

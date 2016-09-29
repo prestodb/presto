@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -31,20 +34,26 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.io.File;
 import java.net.URI;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.util.Locale.US;
@@ -57,13 +66,19 @@ public class InMemoryHiveMetastore
         implements HiveMetastore
 {
     private static final String PUBLIC_ROLE_NAME = "public";
-    private final ConcurrentHashMap<String, Database> databases = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<SchemaTableName, Table> relations = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<SchemaTableName, Table> views = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<PartitionName, Partition> partitions = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<String, Set<String>> roleGrants = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new ConcurrentHashMap<>();
+    @GuardedBy("this")
+    private final Map<String, Database> databases = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<SchemaTableName, Table> relations = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<SchemaTableName, Table> views = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<PartitionName, Partition> partitions = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<String, Set<String>> roleGrants = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<PrincipalTableKey, Set<HivePrivilegeInfo>> tablePrivileges = new HashMap<>();
 
     private final File baseDirectory;
 
@@ -74,28 +89,78 @@ public class InMemoryHiveMetastore
         checkArgument(baseDirectory.mkdirs(), "Could not create base directory");
     }
 
-    public void createDatabase(Database database)
+    @Override
+    public synchronized void createDatabase(Database database)
     {
         requireNonNull(database, "database is null");
 
-        File directory = new File(URI.create(database.getLocationUri()));
+        File directory;
+        if (database.getLocationUri() != null) {
+            directory = new File(URI.create(database.getLocationUri()));
+        }
+        else {
+            // use Hive default naming convention
+            directory = new File(baseDirectory, database.getName() + ".db");
+            database = database.deepCopy();
+            database.setLocationUri(directory.toURI().toString());
+        }
+
         checkArgument(!directory.exists(), "Database directory already exists");
         checkArgument(isParentDir(directory, baseDirectory), "Database directory must be inside of the metastore base directory");
         checkArgument(directory.mkdirs(), "Could not create database directory");
 
         if (databases.putIfAbsent(database.getName(), database) != null) {
-            throw new IllegalArgumentException("Database " + database.getName() + " already exists");
+            throw new SchemaAlreadyExistsException(database.getName());
         }
     }
 
     @Override
-    public List<String> getAllDatabases()
+    public synchronized void dropDatabase(String databaseName)
+    {
+        if (!databases.containsKey(databaseName)) {
+            throw new SchemaNotFoundException(databaseName);
+        }
+        if (!getAllTables(databaseName).orElse(ImmutableList.of()).isEmpty()) {
+            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
+        }
+        databases.remove(databaseName);
+    }
+
+    @Override
+    public synchronized void alterDatabase(String databaseName, Database newDatabase)
+    {
+        String newDatabaseName = newDatabase.getName();
+
+        if (databaseName.equals(newDatabaseName)) {
+            if (databases.replace(databaseName, newDatabase) == null) {
+                throw new SchemaNotFoundException(databaseName);
+            }
+            return;
+        }
+
+        Database database = databases.get(databaseName);
+        if (database == null) {
+            throw new SchemaNotFoundException(databaseName);
+        }
+        if (databases.putIfAbsent(newDatabaseName, database) != null) {
+            throw new SchemaAlreadyExistsException(newDatabaseName);
+        }
+        databases.remove(databaseName);
+
+        rewriteKeys(relations, name -> new SchemaTableName(newDatabaseName, name.getTableName()));
+        rewriteKeys(views, name -> new SchemaTableName(newDatabaseName, name.getTableName()));
+        rewriteKeys(partitions, name -> name.withSchemaName(newDatabaseName));
+        rewriteKeys(tablePrivileges, name -> name.withDatabase(newDatabaseName));
+    }
+
+    @Override
+    public synchronized List<String> getAllDatabases()
     {
         return ImmutableList.copyOf(databases.keySet());
     }
 
     @Override
-    public void createTable(Table table)
+    public synchronized void createTable(Table table)
     {
         SchemaTableName schemaTableName = new SchemaTableName(table.getDbName(), table.getTableName());
         Table tableCopy = table.deepCopy();
@@ -103,7 +168,7 @@ public class InMemoryHiveMetastore
             tableCopy.setSd(new StorageDescriptor());
         }
         else if (tableCopy.getSd().getLocation() != null) {
-            File directory = new File(URI.create(tableCopy.getSd().getLocation()));
+            File directory = new File(new Path(tableCopy.getSd().getLocation()).toUri());
             checkArgument(directory.exists(), "Table directory does not exist");
             checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
         }
@@ -138,7 +203,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void dropTable(String databaseName, String tableName)
+    public synchronized void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         List<String> locations = listAllDataPaths(this, databaseName, tableName);
 
@@ -148,16 +213,16 @@ public class InMemoryHiveMetastore
             throw new TableNotFoundException(schemaTableName);
         }
         views.remove(schemaTableName);
-        partitions.keySet().stream()
-                .filter(partitionName -> partitionName.matches(databaseName, tableName))
-                .forEach(partitions::remove);
+        partitions.keySet().removeIf(partitionName -> partitionName.matches(databaseName, tableName));
 
         // remove data
-        for (String location : locations) {
-            if (location != null) {
-                File directory = new File(URI.create(location));
-                checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-                deleteRecursively(directory);
+        if (deleteData) {
+            for (String location : locations) {
+                if (location != null) {
+                    File directory = new File(new Path(location).toUri());
+                    checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
+                    deleteRecursively(directory);
+                }
             }
         }
     }
@@ -185,7 +250,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table newTable)
+    public synchronized void alterTable(String databaseName, String tableName, Table newTable)
     {
         SchemaTableName oldName = new SchemaTableName(databaseName, tableName);
         SchemaTableName newName = new SchemaTableName(newTable.getDbName(), newTable.getTableName());
@@ -199,7 +264,6 @@ public class InMemoryHiveMetastore
         }
 
         // remove old table definition and add the new one
-        // TODO: use locking to do this properly
         Table table = relations.get(oldName);
         if (table == null) {
             throw new TableNotFoundException(oldName);
@@ -212,7 +276,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllTables(String databaseName)
+    public synchronized Optional<List<String>> getAllTables(String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.relations.keySet()) {
@@ -224,7 +288,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllViews(String databaseName)
+    public synchronized Optional<List<String>> getAllViews(String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.views.keySet()) {
@@ -236,13 +300,13 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public synchronized Optional<Database> getDatabase(String databaseName)
     {
         return Optional.ofNullable(databases.get(databaseName));
     }
 
     @Override
-    public void addPartitions(String databaseName, String tableName, List<Partition> partitions)
+    public synchronized void addPartitions(String databaseName, String tableName, List<Partition> partitions)
     {
         Optional<Table> table = getTable(databaseName, tableName);
         if (!table.isPresent()) {
@@ -271,19 +335,25 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void dropPartition(String databaseName, String tableName, List<String> parts)
+    public synchronized void dropPartition(String databaseName, String tableName, List<String> parts, boolean deleteData)
     {
-        for (Entry<PartitionName, Partition> entry : partitions.entrySet()) {
-            PartitionName partitionName = entry.getKey();
-            Partition partition = entry.getValue();
-            if (partitionName.matches(databaseName, tableName) && partition.getValues().equals(parts)) {
-                partitions.remove(partitionName);
-            }
-        }
+        partitions.entrySet().removeIf(entry ->
+                entry.getKey().matches(databaseName, tableName) && entry.getValue().getValues().equals(parts));
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(String databaseName, String tableName)
+    public synchronized void alterPartition(String databaseName, String tableName, Partition partition)
+    {
+        Optional<Table> table = getTable(databaseName, tableName);
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        String partitionName = createPartitionName(partition, table.get());
+        this.partitions.put(PartitionName.partition(databaseName, tableName, partitionName), partition);
+    }
+
+    @Override
+    public synchronized Optional<List<String>> getPartitionNames(String databaseName, String tableName)
     {
         return Optional.of(ImmutableList.copyOf(partitions.entrySet().stream()
                 .filter(entry -> entry.getKey().matches(databaseName, tableName))
@@ -292,7 +362,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
+    public synchronized Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
         PartitionName name = PartitionName.partition(databaseName, tableName, partitionValues);
         Partition partition = partitions.get(name);
@@ -303,7 +373,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
+    public synchronized Optional<List<String>> getPartitionNamesByParts(String databaseName, String tableName, List<String> parts)
     {
         return Optional.of(partitions.entrySet().stream()
                 .filter(entry -> partitionMatches(entry.getValue(), databaseName, tableName, parts))
@@ -331,7 +401,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public synchronized List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (String name : partitionNames) {
@@ -346,19 +416,19 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Optional<Table> getTable(String databaseName, String tableName)
+    public synchronized Optional<Table> getTable(String databaseName, String tableName)
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         return Optional.ofNullable(relations.get(schemaTableName));
     }
 
     @Override
-    public Set<String> getRoles(String user)
+    public synchronized Set<String> getRoles(String user)
     {
         return roleGrants.getOrDefault(user, ImmutableSet.of(PUBLIC_ROLE_NAME));
     }
 
-    public void setUserRoles(String user, Set<String> roles)
+    public synchronized void setUserRoles(String user, Set<String> roles)
     {
         if (!roles.contains(PUBLIC_ROLE_NAME)) {
             roles = ImmutableSet.<String>builder()
@@ -370,7 +440,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
+    public synchronized Set<HivePrivilegeInfo> getDatabasePrivileges(String user, String databaseName)
     {
         Set<HivePrivilegeInfo> privileges = new HashSet<>();
         if (isDatabaseOwner(user, databaseName)) {
@@ -380,7 +450,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
+    public synchronized Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName)
     {
         Set<HivePrivilegeInfo> privileges = new HashSet<>();
         if (isTableOwner(user, databaseName, tableName)) {
@@ -393,7 +463,7 @@ public class InMemoryHiveMetastore
         return privileges;
     }
 
-    public void setTablePrivileges(String principalName,
+    public synchronized void setTablePrivileges(String principalName,
             PrincipalType principalType,
             String databaseName,
             String tableName,
@@ -408,7 +478,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public synchronized void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
     {
         Set<HivePrivilegeInfo> hivePrivileges = privilegeGrantInfoSet.stream()
                 .map(HivePrivilegeInfo::parsePrivilege)
@@ -419,7 +489,7 @@ public class InMemoryHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
     {
         Set<HivePrivilegeInfo> currentPrivileges = getTablePrivileges(grantee, databaseName, tableName);
         currentPrivileges.removeAll(privilegeGrantInfoSet.stream()
@@ -483,6 +553,11 @@ public class InMemoryHiveMetastore
                     this.partitionName.equals(partitionName);
         }
 
+        public PartitionName withSchemaName(String schemaName)
+        {
+            return new PartitionName(schemaName, tableName, partitionValues, partitionName);
+        }
+
         @Override
         public int hashCode()
         {
@@ -526,6 +601,11 @@ public class InMemoryHiveMetastore
             this.database = requireNonNull(database, "database is null");
         }
 
+        public PrincipalTableKey withDatabase(String database)
+        {
+            return new PrincipalTableKey(principalName, principalType, table, database);
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -551,12 +631,22 @@ public class InMemoryHiveMetastore
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("principalName", principalName)
                     .add("principalType", principalType)
                     .add("table", table)
                     .add("database", database)
                     .toString();
+        }
+    }
+
+    private static <K, V> void rewriteKeys(Map<K, V> map, Function<K, K> keyRewriter)
+    {
+        for (K key : ImmutableSet.copyOf(map.keySet())) {
+            K newKey = keyRewriter.apply(key);
+            if (!newKey.equals(key)) {
+                map.put(newKey, map.remove(key));
+            }
         }
     }
 }

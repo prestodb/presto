@@ -29,7 +29,7 @@ public interface Block
      */
     default byte getByte(int position, int offset)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -37,7 +37,7 @@ public interface Block
      */
     default short getShort(int position, int offset)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -45,7 +45,7 @@ public interface Block
      */
     default int getInt(int position, int offset)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -53,7 +53,7 @@ public interface Block
      */
     default long getLong(int position, int offset)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -61,7 +61,7 @@ public interface Block
      */
     default Slice getSlice(int position, int offset, int length)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -69,7 +69,7 @@ public interface Block
      */
     default <T> T getObject(int position, Class<T> clazz)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -79,7 +79,7 @@ public interface Block
      */
     default boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -89,7 +89,7 @@ public interface Block
      */
     default int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -99,7 +99,7 @@ public interface Block
      */
     default void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -115,7 +115,7 @@ public interface Block
      */
     default boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -125,7 +125,7 @@ public interface Block
      */
     default long hash(int position, int offset, int length)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**
@@ -136,7 +136,7 @@ public interface Block
      */
     default int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(getClass().getName());
     }
 
     /**

@@ -46,7 +46,6 @@ import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
-import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -87,7 +86,6 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
-import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -381,10 +379,9 @@ public final class HttpRemoteTask
         return taskStatusFetcher.getStateChange(taskStatus);
     }
 
-    private synchronized void updateTaskInfo(TaskInfo newValue, List<TaskSource> sources)
+    private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
     {
-        taskStatusFetcher.updateTaskStatus(newValue.getTaskStatus());
-        taskInfoFetcher.updateTaskInfo(newValue);
+        updateTaskInfo(newValue);
 
         // remove acknowledged splits, which frees memory
         for (TaskSource source : sources) {
@@ -401,6 +398,12 @@ public final class HttpRemoteTask
         }
 
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+    }
+
+    private void updateTaskInfo(TaskInfo taskInfo)
+    {
+        taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
+        taskInfoFetcher.updateTaskInfo(taskInfo);
     }
 
     private void scheduleUpdate()
@@ -447,10 +450,7 @@ public final class HttpRemoteTask
                 sources,
                 outputBuffers.get());
 
-        HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf());
-        if (summarizeTaskInfo) {
-            uriBuilder.addParameter("summarize");
-        }
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
         Request request = preparePost()
                 .setUri(uriBuilder.build())
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
@@ -501,10 +501,7 @@ public final class HttpRemoteTask
             }
 
             // send cancel to task and ignore response
-            HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf()).addParameter("abort", "false");
-            if (summarizeTaskInfo) {
-                uriBuilder.addParameter("summarize");
-            }
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
@@ -529,7 +526,15 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
-        taskInfoFetcher.taskStatusDone(getTaskStatus());
+
+        // The remote task is likely to get a delete from the PageBufferClient first.
+        // We send an additional delete anyway to get the final TaskInfo
+        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
+        Request request = prepareDelete()
+                .setUri(uriBuilder.build())
+                .build();
+
+        scheduleAsyncCleanupRequest(new Backoff(MAX_CLEANUP_RETRY_TIME), request, "cleanup");
     }
 
     @Override
@@ -548,13 +553,9 @@ public final class HttpRemoteTask
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             taskStatusFetcher.updateTaskStatus(status);
-            taskInfoFetcher.abort(status);
 
-            // send abort to task and ignore response
-            HttpUriBuilder uriBuilder = uriBuilderFrom(getTaskStatus().getSelf());
-            if (summarizeTaskInfo) {
-                uriBuilder.addParameter("summarize");
-            }
+            // send abort to task
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
             Request request = prepareDelete()
                     .setUri(uriBuilder.build())
                     .build();
@@ -564,12 +565,12 @@ public final class HttpRemoteTask
 
     private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
-        Futures.addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
+        Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
         {
             @Override
-            public void onSuccess(StatusResponse result)
+            public void onSuccess(JsonResponse<TaskInfo> result)
             {
-                // assume any response is good enough
+                updateTaskInfo(result.getValue());
             }
 
             @Override
@@ -583,6 +584,13 @@ public final class HttpRemoteTask
                 // record failure
                 if (cleanupBackoff.failure()) {
                     logError(t, "Unable to %s task at %s", action, request.getUri());
+                    // Update the taskInfo with the new taskStatus.
+                    // This is required because the query state machine depends on TaskInfo (instead of task status)
+                    // to transition its own state.
+                    // Also, since this TaskInfo is updated in the client the "finalInfo" flag will not be set,
+                    // indicating that the stats are stale.
+                    // TODO: Update the query state machine and stage state machine to depend on TaskStatus instead
+                    updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
                     return;
                 }
 
@@ -601,7 +609,7 @@ public final class HttpRemoteTask
     /**
      * Move the task directly to the failed state if there was a failure in this task
      */
-    void failTask(Throwable cause)
+    private void failTask(Throwable cause)
     {
         TaskStatus taskStatus = getTaskStatus();
         if (!taskStatus.getState().isDone()) {
@@ -609,6 +617,15 @@ public final class HttpRemoteTask
         }
 
         abort(failWith(getTaskStatus(), FAILED, ImmutableList.of(toFailure(cause))));
+    }
+
+    private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
+    {
+        HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf());
+        if (summarizeTaskInfo) {
+            uriBuilder.addParameter("summarize");
+        }
+        return uriBuilder;
     }
 
     @Override
@@ -641,7 +658,7 @@ public final class HttpRemoteTask
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
                     }
                     updateStats(currentRequestStartNanos);
-                    updateTaskInfo(value, sources);
+                    processTaskUpdate(value, sources);
                     updateErrorTracker.requestSucceeded();
                 }
                 finally {

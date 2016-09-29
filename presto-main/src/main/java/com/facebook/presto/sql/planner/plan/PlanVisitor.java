@@ -140,6 +140,11 @@ public class PlanVisitor<C, R>
         return visitPlan(node, context);
     }
 
+    public R visitExcept(ExceptNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitUnnest(UnnestNode node, C context)
     {
         return visitPlan(node, context);
@@ -176,6 +181,11 @@ public class PlanVisitor<C, R>
     }
 
     public R visitApply(ApplyNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitAssignUniqueId(AssignUniqueId node, C context)
     {
         return visitPlan(node, context);
     }

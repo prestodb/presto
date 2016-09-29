@@ -22,7 +22,6 @@ import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
-import static com.facebook.presto.tests.TestGroups.QUARANTINE;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -43,7 +42,7 @@ public class TestTablePartitioningInsertInto
     private static final HiveTableDefinition PARTITIONED_NATION =
             HiveTableDefinition.builder(PARTITIONED_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
-                            "CREATE EXTERNAL TABLE %NAME%(" +
+                            "CREATE %EXTERNAL% TABLE %NAME%(" +
                             "   p_nationkey     BIGINT," +
                             "   p_name          STRING," +
                             "   p_comment       STRING) " +
@@ -57,13 +56,12 @@ public class TestTablePartitioningInsertInto
     private static final HiveTableDefinition TARGET_NATION =
             HiveTableDefinition.builder(TARGET_NATION_NAME)
                     .setCreateTableDDLTemplate("" +
-                            "CREATE EXTERNAL TABLE %NAME%(" +
+                            "CREATE %EXTERNAL% TABLE %NAME%(" +
                             "   p_nationkey     BIGINT," +
                             "   p_name          STRING," +
                             "   p_comment       STRING," +
                             "   p_regionkey     INT) " +
-                            "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' " +
-                            "LOCATION '%LOCATION%'")
+                            "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
                     .setNoData()
                     .build();
 
@@ -80,7 +78,7 @@ public class TestTablePartitioningInsertInto
                 MutableTableRequirement.builder(TARGET_NATION).build());
     }
 
-    @Test(groups = {HIVE_CONNECTOR, QUARANTINE, SMOKE})
+    @Test(groups = {HIVE_CONNECTOR, SMOKE})
     public void selectFromPartitionedNation()
             throws Exception
     {

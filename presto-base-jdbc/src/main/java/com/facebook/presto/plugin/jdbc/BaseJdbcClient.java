@@ -20,6 +20,7 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Joiner;
@@ -27,7 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
@@ -40,7 +40,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -52,9 +51,11 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -68,6 +69,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.fromProperties;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -84,6 +86,7 @@ public class BaseJdbcClient
             .put(SMALLINT, "smallint")
             .put(TINYINT, "tinyint")
             .put(DOUBLE, "double precision")
+            .put(REAL, "real")
             .put(VARBINARY, "varbinary")
             .put(DATE, "date")
             .put(TIME, "time")
@@ -270,6 +273,17 @@ public class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
     {
+        return beginWriteTable(tableMetadata);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata)
+    {
+        return beginWriteTable(tableMetadata);
+    }
+
+    private JdbcOutputTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata)
+    {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
         String table = schemaTableName.getTableName();
@@ -319,7 +333,6 @@ public class BaseJdbcClient
                     table,
                     columnNames.build(),
                     columnTypes.build(),
-                    tableMetadata.getOwner(),
                     temporaryName,
                     connectionUrl,
                     fromProperties(connectionProperties));
@@ -330,7 +343,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments)
+    public void commitCreateTable(JdbcOutputTableHandle handle)
     {
         StringBuilder sql = new StringBuilder()
                 .append("ALTER TABLE ")
@@ -343,6 +356,29 @@ public class BaseJdbcClient
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void finishInsertTable(JdbcOutputTableHandle handle)
+    {
+        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
+        String cleanupSql = "DROP TABLE " + temporaryTable;
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, insertSql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+
+        try (Connection connection = getConnection(handle)) {
+            execute(connection, cleanupSql);
+        }
+        catch (SQLException e) {
+            log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
         }
     }
 
@@ -433,19 +469,23 @@ public class BaseJdbcClient
             case Types.BOOLEAN:
                 return BOOLEAN;
             case Types.TINYINT:
+                return TINYINT;
             case Types.SMALLINT:
+                return SMALLINT;
             case Types.INTEGER:
                 return INTEGER;
             case Types.BIGINT:
                 return BIGINT;
-            case Types.FLOAT:
             case Types.REAL:
+                return REAL;
+            case Types.FLOAT:
             case Types.DOUBLE:
             case Types.NUMERIC:
             case Types.DECIMAL:
                 return DOUBLE;
             case Types.CHAR:
             case Types.NCHAR:
+                return createCharType(min(columnSize, CharType.MAX_LENGTH));
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
@@ -472,6 +512,12 @@ public class BaseJdbcClient
                 return "varchar";
             }
             return "varchar(" + ((VarcharType) type).getLength() + ")";
+        }
+        if (type instanceof CharType) {
+            if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
+                return "char";
+            }
+            return "char(" + ((CharType) type).getLength() + ")";
         }
 
         String sqlType = SQL_TYPES.get(type);

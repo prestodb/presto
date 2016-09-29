@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.StandardTypes;
@@ -38,13 +39,14 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.FloatType.FLOAT;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -99,7 +101,7 @@ public final class TypeRegistry
         addType(SMALLINT);
         addType(TINYINT);
         addType(DOUBLE);
-        addType(FLOAT);
+        addType(REAL);
         addType(VARBINARY);
         addType(DATE);
         addType(TIME);
@@ -118,6 +120,7 @@ public final class TypeRegistry
         addType(JSON);
         addType(CODE_POINTS);
         addParametricType(VarcharParametricType.VARCHAR);
+        addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
@@ -333,7 +336,7 @@ public final class TypeRegistry
                     case StandardTypes.BIGINT:
                     case StandardTypes.INTEGER:
                     case StandardTypes.DOUBLE:
-                    case StandardTypes.FLOAT:
+                    case StandardTypes.REAL:
                     case StandardTypes.VARBINARY:
                     case StandardTypes.DATE:
                     case StandardTypes.TIME:
@@ -353,6 +356,8 @@ public final class TypeRegistry
                         return Optional.of(getType(new TypeSignature(resultTypeBase)));
                     case StandardTypes.VARCHAR:
                         return Optional.of(createVarcharType(0));
+                    case StandardTypes.CHAR:
+                        return Optional.of(createCharType(0));
                     case StandardTypes.DECIMAL:
                         return Optional.of(createDecimalType(1, 0));
                     default:
@@ -367,8 +372,8 @@ public final class TypeRegistry
                         return Optional.of(INTEGER);
                     case StandardTypes.BIGINT:
                         return Optional.of(BIGINT);
-                    case StandardTypes.FLOAT:
-                        return Optional.of(FLOAT);
+                    case StandardTypes.REAL:
+                        return Optional.of(REAL);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -383,8 +388,8 @@ public final class TypeRegistry
                         return Optional.of(INTEGER);
                     case StandardTypes.BIGINT:
                         return Optional.of(BIGINT);
-                    case StandardTypes.FLOAT:
-                        return Optional.of(FLOAT);
+                    case StandardTypes.REAL:
+                        return Optional.of(REAL);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -397,8 +402,8 @@ public final class TypeRegistry
                 switch (resultTypeBase) {
                     case StandardTypes.BIGINT:
                         return Optional.of(BIGINT);
-                    case StandardTypes.FLOAT:
-                        return Optional.of(FLOAT);
+                    case StandardTypes.REAL:
+                        return Optional.of(REAL);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -409,8 +414,8 @@ public final class TypeRegistry
             }
             case StandardTypes.BIGINT: {
                 switch (resultTypeBase) {
-                    case StandardTypes.FLOAT:
-                        return Optional.of(FLOAT);
+                    case StandardTypes.REAL:
+                        return Optional.of(REAL);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     case StandardTypes.DECIMAL:
@@ -421,15 +426,15 @@ public final class TypeRegistry
             }
             case StandardTypes.DECIMAL: {
                 switch (resultTypeBase) {
-                    case StandardTypes.FLOAT:
-                        return Optional.of(FLOAT);
+                    case StandardTypes.REAL:
+                        return Optional.of(REAL);
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
                     default:
                         return Optional.empty();
                 }
             }
-            case StandardTypes.FLOAT: {
+            case StandardTypes.REAL: {
                 switch (resultTypeBase) {
                     case StandardTypes.DOUBLE:
                         return Optional.of(DOUBLE);
@@ -479,6 +484,25 @@ public final class TypeRegistry
                         return Optional.empty();
                 }
             }
+            case StandardTypes.CHAR: {
+                switch (resultTypeBase) {
+                    case StandardTypes.VARCHAR:
+                        CharType charType = (CharType) sourceType;
+                        return Optional.of(createVarcharType(charType.getLength()));
+                    case JoniRegexpType.NAME:
+                        return Optional.of(JONI_REGEXP);
+                    case Re2JRegexpType.NAME:
+                        return Optional.of(RE2J_REGEXP);
+                    case LikePatternType.NAME:
+                        return Optional.of(LIKE_PATTERN);
+                    case JsonPathType.NAME:
+                        return Optional.of(JSON_PATH);
+                    case CodePointsType.NAME:
+                        return Optional.of(CODE_POINTS);
+                    default:
+                        return Optional.empty();
+                }
+            }
             case StandardTypes.P4_HYPER_LOG_LOG: {
                 switch (resultTypeBase) {
                     case StandardTypes.HYPER_LOG_LOG:
@@ -496,5 +520,10 @@ public final class TypeRegistry
     {
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
         return type instanceof MapType || type instanceof ArrayType;
+    }
+
+    public static boolean isCovariantTypeBase(String typeBase)
+    {
+        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
     }
 }

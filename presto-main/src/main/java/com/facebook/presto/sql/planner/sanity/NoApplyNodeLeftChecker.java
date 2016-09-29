@@ -36,10 +36,10 @@ public class NoApplyNodeLeftChecker
             public Object visitApply(ApplyNode node, Object context)
             {
                 if (node.getCorrelation().isEmpty()) {
-                    throw new IllegalArgumentException("Not supported subquery");
+                    throw new IllegalArgumentException("Unsupported subquery type");
                 }
                 else {
-                    throw new IllegalArgumentException("Correlated subquery is not yet supported");
+                    throw new IllegalArgumentException("Unsupported correlated subquery type");
                 }
             }
         }, null);

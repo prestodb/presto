@@ -91,8 +91,6 @@ public class MultimapAggregationFunction
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType, valueType),
                 INPUT_FUNCTION,
-                null,
-                null,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 KeyValuePairsState.class,

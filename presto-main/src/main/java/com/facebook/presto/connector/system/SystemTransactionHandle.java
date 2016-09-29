@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,12 +26,12 @@ import static java.util.Objects.requireNonNull;
 public class SystemTransactionHandle
         implements ConnectorTransactionHandle
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final ConnectorTransactionHandle transactionHandle;
 
     @JsonCreator
     public SystemTransactionHandle(
-            @JsonProperty("connectorId") String connectorId,
+            @JsonProperty("connectorId") ConnectorId connectorId,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -38,7 +39,7 @@ public class SystemTransactionHandle
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }

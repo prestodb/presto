@@ -34,6 +34,7 @@ public enum SemanticErrorCode
 
     INVALID_SCHEMA_NAME,
 
+    SCHEMA_ALREADY_EXISTS,
     TABLE_ALREADY_EXISTS,
     COLUMN_ALREADY_EXISTS,
 
@@ -80,4 +81,6 @@ public enum SemanticErrorCode
     INVALID_PRIVILEGE,
 
     AMBIGUOUS_FUNCTION_CALL,
+
+    INVALID_PARAMETER_USAGE,
 }

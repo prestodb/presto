@@ -16,14 +16,12 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import io.airlift.slice.Slice;
 
 import javax.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -48,7 +46,11 @@ public interface JdbcClient
 
     JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
 
-    void commitCreateTable(JdbcOutputTableHandle handle, Collection<Slice> fragments);
+    void commitCreateTable(JdbcOutputTableHandle handle);
+
+    JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata);
+
+    void finishInsertTable(JdbcOutputTableHandle handle);
 
     void dropTable(JdbcTableHandle jdbcTableHandle);
 

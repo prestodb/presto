@@ -17,6 +17,8 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.FixedWidthBlockBuilder;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.Decimals.MAX_PRECISION;
@@ -30,8 +32,35 @@ final class LongDecimalType
 
     LongDecimalType(int precision, int scale)
     {
-        super(precision, scale, Slice.class, SIZE_OF_LONG_DECIMAL);
+        super(precision, scale, Slice.class);
         validatePrecisionScale(precision, scale, MAX_PRECISION);
+    }
+
+    @Override
+    public int getFixedSize()
+    {
+        return SIZE_OF_LONG_DECIMAL;
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        return new FixedWidthBlockBuilder(
+                getFixedSize(),
+                blockBuilderStatus,
+                Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / getFixedSize()));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, getFixedSize());
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new FixedWidthBlockBuilder(getFixedSize(), positionCount);
     }
 
     @Override
@@ -91,5 +120,11 @@ final class LongDecimalType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
+    }
+
+    @Override
+    public Slice getSlice(Block block, int position)
+    {
+        return block.getSlice(position, 0, getFixedSize());
     }
 }

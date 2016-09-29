@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -38,6 +39,7 @@ public class HivePageSinkProvider
     private final TypeManager typeManager;
     private final int maxOpenPartitions;
     private final boolean immutablePartitions;
+    private final boolean forceIntegralToBigint;
     private final boolean compressed;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
@@ -53,11 +55,14 @@ public class HivePageSinkProvider
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        // TODO: this metastore should not have global cache
+        // As a temporary workaround, always disable cache on the workers
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
+        this.forceIntegralToBigint = config.isForceIntegralToBigint();
         this.compressed = config.getHiveCompressionCodec() != HiveCompressionCodec.NONE;
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
@@ -90,12 +95,13 @@ public class HivePageSinkProvider
                 locationService,
                 handle.getFilePrefix(),
                 handle.getBucketProperty(),
-                metastore,
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), metastore),
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
                 maxOpenPartitions,
                 immutablePartitions,
+                forceIntegralToBigint,
                 compressed,
                 partitionUpdateCodec,
                 session);

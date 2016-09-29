@@ -21,10 +21,12 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.transaction.TransactionManager;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
@@ -43,7 +45,7 @@ public class SetSessionTask
     }
 
     @Override
-    public CompletableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(SetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
         QualifiedName propertyName = statement.getName();
@@ -64,7 +66,7 @@ public class SetSessionTask
         Object objectValue;
 
         try {
-            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata);
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, parameters);
         }
         catch (SemanticException e) {
             throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY,

@@ -106,7 +106,7 @@ public class ShardCleaner
         this(
                 shardDaoSupplier,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
-                nodeManager.getCoordinators().contains(nodeManager.getCurrentNode()),
+                nodeManager.getCurrentNode().isCoordinator(),
                 ticker,
                 storageService,
                 backupStore,
@@ -297,7 +297,7 @@ public class ShardCleaner
         Set<UUID> local = storageService.getStorageShards();
 
         // get shards assigned to the local node
-        Set<UUID> assigned = dao.getNodeShards(currentNode).stream()
+        Set<UUID> assigned = dao.getNodeShards(currentNode, null).stream()
                 .map(ShardMetadata::getShardUuid)
                 .collect(toSet());
 

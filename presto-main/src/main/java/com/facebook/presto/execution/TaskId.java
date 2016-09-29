@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -32,7 +33,7 @@ public class TaskId
 
     private final String fullId;
 
-    public TaskId(String queryId, String stageId, int id)
+    public TaskId(String queryId, int stageId, int id)
     {
         checkArgument(id >= 0, "id is negative");
         this.fullId = queryId + "." + stageId + "." + id;
@@ -57,7 +58,7 @@ public class TaskId
     public StageId getStageId()
     {
         List<String> ids = QueryId.parseDottedId(fullId, 3, "taskId");
-        return new StageId(new QueryId(ids.get(0)), ids.get(1));
+        return StageId.valueOf(ids.subList(0, 2));
     }
 
     public int getId()

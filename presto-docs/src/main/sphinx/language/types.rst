@@ -69,6 +69,14 @@ VARCHAR
 
     Example type definitions: ``varchar``, ``varchar(20)``
 
+
+CHAR
+----
+
+    Fixed length character data. Char type without length specified has default length of 1.
+
+    Example type definitions: ``char``, ``char(20)``
+
 VARBINARY
 ---------
 
@@ -162,4 +170,4 @@ ROW
     A structure made up of named fields. The fields may be of any SQL type, and are
     accessed with field reference operator ``.``
 
-    Example: ``my_column.my_field``
+    Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``

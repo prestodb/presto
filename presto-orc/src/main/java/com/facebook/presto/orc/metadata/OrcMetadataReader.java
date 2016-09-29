@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto;
@@ -44,6 +45,7 @@ public class OrcMetadataReader
         implements MetadataReader
 {
     private static final Slice MAX_BYTE = Slices.wrappedBuffer(new byte[] { (byte) 0xFF });
+    private static final Logger log = Logger.get(OrcMetadataReader.class);
 
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
@@ -147,6 +149,20 @@ public class OrcMetadataReader
         return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), OrcMetadataReader::toRowGroupIndex));
     }
 
+    @Override
+    public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
+            throws IOException
+    {
+        CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        OrcProto.BloomFilterIndex bloomFilter = OrcProto.BloomFilterIndex.parseFrom(input);
+        List<OrcProto.BloomFilter> bloomFilterList = bloomFilter.getBloomFilterList();
+        ImmutableList.Builder<HiveBloomFilter> builder = ImmutableList.builder();
+        for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
+            builder.add(new HiveBloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getBitsetCount() * 64, orcBloomFilter.getNumHashFunctions()));
+        }
+        return builder.build();
+    }
+
     private static RowGroupIndex toRowGroupIndex(RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
@@ -171,7 +187,8 @@ public class OrcMetadataReader
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(statistics.getStringStatistics(), isRowGroup),
                 toDateStatistics(statistics.getDateStatistics(), isRowGroup),
-                toDecimalStatistics(statistics.getDecimalStatistics()));
+                toDecimalStatistics(statistics.getDecimalStatistics()),
+                null);
     }
 
     private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
@@ -426,6 +443,8 @@ public class OrcMetadataReader
                 return StreamKind.SECONDARY;
             case ROW_INDEX:
                 return StreamKind.ROW_INDEX;
+            case BLOOM_FILTER:
+                return StreamKind.BLOOM_FILTER;
             default:
                 throw new IllegalStateException(streamKind + " stream type not implemented yet");
         }

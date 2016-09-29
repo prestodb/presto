@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 
 import java.io.Closeable;
@@ -22,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 public interface SplitSource
         extends Closeable
 {
-    String getDataSourceName();
+    ConnectorId getConnectorId();
 
     CompletableFuture<List<Split>> getNextBatch(int maxSize);
 

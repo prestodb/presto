@@ -19,6 +19,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -53,5 +57,24 @@ public class TestPostgreSqlIntegrationSmokeTest
             throws IOException
     {
         closeAllRuntimeException(postgreSqlServer);
+    }
+
+    @Test
+    public void testInsert()
+            throws Exception
+    {
+        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
+        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
+        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
+        assertUpdate("DROP TABLE test_insert");
+    }
+
+    private void execute(String sql)
+            throws SQLException
+    {
+        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
     }
 }

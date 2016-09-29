@@ -67,6 +67,9 @@ public class TestUrlFunctions
         assertFunction("url_decode('http%3A%2F%2F%E3%83%86%E3%82%B9%E3%83%88')", VARCHAR, "http://\u30c6\u30b9\u30c8");
         assertFunction("url_decode('%7E%40%3A.-*_%2B+%E2%98%83')", VARCHAR, "~@:.-*_+ \u2603");
         assertFunction("url_decode('test')", VARCHAR, "test");
+
+        assertInvalidFunction("url_decode('abc%x')", "URLDecoder: Incomplete trailing escape (%) pattern");
+        assertInvalidFunction("url_decode('abc%fqxyz')", "URLDecoder: Illegal hex characters in escape (%) pattern - For input string: \"fq\"");
     }
 
     private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)

@@ -13,7 +13,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
+import com.facebook.presto.eventlistener.EventListenerManager;
+import com.facebook.presto.eventlistener.EventListenerModule;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
@@ -100,6 +104,7 @@ public class PrestoServer
                 new EmbeddedDiscoveryModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
+                new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule());
 
@@ -115,13 +120,15 @@ public class PrestoServer
             injector.getInstance(CatalogManager.class).loadCatalogs();
 
             // TODO: remove this huge hack
-            updateDatasources(
+            updateConnectorIds(
                     injector.getInstance(Announcer.class),
                     injector.getInstance(Metadata.class),
                     injector.getInstance(ServerConfig.class),
                     injector.getInstance(NodeSchedulerConfig.class));
 
+            injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
 
             injector.getInstance(Announcer.class).start();
 
@@ -138,38 +145,40 @@ public class PrestoServer
         return ImmutableList.of();
     }
 
-    private static void updateDatasources(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
+    private static void updateConnectorIds(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
-        // get existing sources
-        String property = nullToEmpty(announcement.getProperties().get("datasources"));
+        // get existing connectorIds
+        String property = nullToEmpty(announcement.getProperties().get("connectorIds"));
         List<String> values = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property);
-        Set<String> datasources = new LinkedHashSet<>(values);
+        Set<String> connectorIds = new LinkedHashSet<>(values);
 
-        // automatically build sources if not configured
-        if (datasources.isEmpty()) {
-            Set<String> catalogs = metadata.getCatalogNames().keySet();
+        // automatically build connectorIds if not configured
+        if (connectorIds.isEmpty()) {
+            Map<String, ConnectorId> catalogNames = metadata.getCatalogNames();
             // if this is a dedicated coordinator, only add jmx
             if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
-                if (catalogs.contains("jmx")) {
-                    datasources.add("jmx");
+                if (catalogNames.containsKey("jmx")) {
+                    connectorIds.add(catalogNames.get("jmx").toString());
                 }
             }
             else {
-                datasources.addAll(catalogs);
+                catalogNames.values().stream()
+                        .map(Object::toString)
+                        .forEach(connectorIds::add);
             }
         }
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
         for (Map.Entry<String, String> entry : announcement.getProperties().entrySet()) {
-            if (!entry.getKey().equals("datasources")) {
+            if (!entry.getKey().equals("connectorIds")) {
                 builder.addProperty(entry.getKey(), entry.getValue());
             }
         }
-        builder.addProperty("datasources", Joiner.on(',').join(datasources));
+        builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

@@ -14,8 +14,11 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -48,6 +51,8 @@ public interface Metadata
 
     void addFunctions(List<? extends SqlFunction> functions);
 
+    boolean schemaExists(Session session, CatalogSchemaName schema);
+
     @NotNull
     List<String> listSchemaNames(Session session, String catalogName);
 
@@ -62,6 +67,9 @@ public interface Metadata
 
     @NotNull
     TableLayout getLayout(Session session, TableLayoutHandle handle);
+
+    @NotNull
+    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -114,10 +122,25 @@ public interface Metadata
     Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix);
 
     /**
+     * Creates a schema.
+     */
+    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties);
+
+    /**
+     * Drops the specified schema.
+     */
+    void dropSchema(Session session, CatalogSchemaName schema);
+
+    /**
+     * Renames the specified schema.
+     */
+    void renameSchema(Session session, CatalogSchemaName source, String target);
+
+    /**
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    void createTable(Session session, String catalogName, TableMetadata tableMetadata);
+    void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Rename the specified table.
@@ -141,12 +164,12 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
-    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, TableMetadata tableMetadata);
+    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata, Optional<NewTableLayout> layout);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout);
 
     /**
      * Finish a table creation with data after the data is written.
@@ -198,7 +221,7 @@ public interface Metadata
      * @return Map of catalog name to connector id
      */
     @NotNull
-    Map<String, String> getCatalogNames();
+    Map<String, ConnectorId> getCatalogNames();
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -252,6 +275,8 @@ public interface Metadata
     BlockEncodingSerde getBlockEncodingSerde();
 
     SessionPropertyManager getSessionPropertyManager();
+
+    SchemaPropertyManager getSchemaPropertyManager();
 
     TablePropertyManager getTablePropertyManager();
 }

@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.List;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TableMetadata
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final ConnectorTableMetadata metadata;
 
-    public TableMetadata(String connectorId, ConnectorTableMetadata metadata)
+    public TableMetadata(ConnectorId connectorId, ConnectorTableMetadata metadata)
     {
         requireNonNull(connectorId, "catalog is null");
         requireNonNull(metadata, "metadata is null");
@@ -36,7 +36,7 @@ public class TableMetadata
         this.metadata = metadata;
     }
 
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }
@@ -54,21 +54,6 @@ public class TableMetadata
     public List<ColumnMetadata> getColumns()
     {
         return metadata.getColumns();
-    }
-
-    public List<String> getVisibleColumnNames()
-    {
-        return getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
-    }
-
-    public List<ColumnMetadata> getVisibleColumns()
-    {
-        return getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
     }
 
     public ColumnMetadata getColumn(String name)

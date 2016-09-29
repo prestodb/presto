@@ -14,32 +14,18 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
-
-import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.requireNonNull;
 
 public class HivePlugin
         implements Plugin
 {
     private final String name;
-    private Map<String, String> optionalConfig = ImmutableMap.of();
     private ExtendedHiveMetastore metastore;
-    private TypeManager typeManager;
-    private PageIndexerFactory pageIndexerFactory;
-    private NodeManager nodeManager;
 
     public HivePlugin(String name)
     {
@@ -53,37 +39,10 @@ public class HivePlugin
         this.metastore = metastore;
     }
 
-    @Inject
-    public void setTypeManager(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
-    @Inject
-    public void setPageIndexerFactory(PageIndexerFactory pageIndexerFactory)
-    {
-        this.pageIndexerFactory = pageIndexerFactory;
-    }
-
-    @Inject
-    public void setNodeManager(NodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-    }
-
     @Override
-    public void setOptionalConfig(Map<String, String> optionalConfig)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
-    }
-
-    @Override
-    public <T> List<T> getServices(Class<T> type)
-    {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new HiveConnectorFactory(name, optionalConfig, getClassLoader(), metastore, typeManager, pageIndexerFactory, nodeManager)));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new HiveConnectorFactory(name, getClassLoader(), metastore));
     }
 
     private static ClassLoader getClassLoader()

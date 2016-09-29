@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -163,7 +164,7 @@ public class JdbcMetadata
     public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         JdbcOutputTableHandle handle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
-        jdbcClient.commitCreateTable(handle, fragments);
+        jdbcClient.commitCreateTable(handle);
         clearRollback();
     }
 
@@ -180,5 +181,19 @@ public class JdbcMetadata
     public void rollback()
     {
         Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
+        return jdbcClient.beginInsertTable(getTableMetadata(session, tableHandle));
+    }
+
+    @Override
+    public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        JdbcOutputTableHandle jdbcInsertHandle = checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle");
+        jdbcClient.finishInsertTable(jdbcInsertHandle);
     }
 }

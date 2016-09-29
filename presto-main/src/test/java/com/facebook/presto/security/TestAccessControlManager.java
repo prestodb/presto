@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
@@ -84,7 +86,10 @@ public class TestAccessControlManager
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
-        accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
@@ -98,10 +103,13 @@ public class TestAccessControlManager
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
-        accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         registerBogusConnector(transactionManager, "connector");
-        accessControlManager.addCatalogAccessControl("connector", "catalog", new DenyConnectorAccessControl());
+        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), "catalog", new DenyConnectorAccessControl());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
@@ -109,9 +117,29 @@ public class TestAccessControlManager
                 });
     }
 
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")
+    public void testDenySystemAccessControl()
+            throws Exception
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+
+        TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
+        accessControlManager.addSystemAccessControlFactory(accessControlFactory);
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+
+        registerBogusConnector(transactionManager, "connector");
+        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), "secured_catalog", new DenyConnectorAccessControl());
+
+        transaction(transactionManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSelectFromTable(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"));
+                });
+    }
+
     private static void registerBogusConnector(TransactionManager transactionManager, String connectorId)
     {
-        transactionManager.addConnector(connectorId, new Connector()
+        transactionManager.addConnector(new ConnectorId(connectorId), new Connector()
         {
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
@@ -187,6 +215,14 @@ public class TestAccessControlManager
                 {
                     throw new UnsupportedOperationException();
                 }
+
+                @Override
+                public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+                {
+                    if (table.getCatalogName().equals("secured_catalog")) {
+                        denySelectTable(table.toString());
+                    }
+                }
             };
         }
     }
@@ -198,6 +234,24 @@ public class TestAccessControlManager
         public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             denySelectTable(tableName.toString());
+        }
+
+        @Override
+        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -261,7 +315,7 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName viewName, SchemaTableName tableName)
+        public void checkCanCreateViewWithSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
@@ -279,13 +333,13 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, SchemaTableName tableName)
+        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
         {
             throw new UnsupportedOperationException();
         }

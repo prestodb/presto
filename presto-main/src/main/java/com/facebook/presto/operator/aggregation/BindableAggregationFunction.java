@@ -38,7 +38,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.metadata.SignatureBinder.bindVariables;
+import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterBlock;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterNullable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -92,33 +92,29 @@ public class BindableAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         // bind variables
-        Signature boundSignature = bindVariables(getSignature(), variables, arity);
+        Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
         List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
 
         AggregationFunction aggregationAnnotation = definitionClass.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader());
+        DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         AggregationMetadata metadata;
         AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
-        Method intermediateInputFunction = AggregationCompiler.getIntermediateInputFunction(definitionClass, stateClass);
         Method combineFunction = AggregationCompiler.getCombineFunction(definitionClass, stateClass);
         AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass, classLoader);
 
         try {
             MethodHandle inputHandle = lookup().unreflect(inputFunction);
-            MethodHandle intermediateInputHandle = intermediateInputFunction == null ? null : lookup().unreflect(intermediateInputFunction);
-            MethodHandle combineHandle = combineFunction == null ? null : lookup().unreflect(combineFunction);
+            MethodHandle combineHandle = lookup().unreflect(combineFunction);
             MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
             metadata = new AggregationMetadata(
                     generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
                     getParameterMetadata(inputFunction, inputTypes),
                     inputHandle,
-                    getParameterMetadata(intermediateInputFunction, inputTypes),
-                    intermediateInputHandle,
                     combineHandle,
                     outputHandle,
                     stateClass,

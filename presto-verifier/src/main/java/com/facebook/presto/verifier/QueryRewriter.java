@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -117,7 +118,7 @@ public class QueryRewriter
         parts.set(parts.size() - 1, createTemporaryTableName());
         QualifiedName temporaryTableName = QualifiedName.of(parts);
         Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData());
-        String createTableAsSql = formatSql(rewritten);
+        String createTableAsSql = formatSql(rewritten, Optional.empty());
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTableAsSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
@@ -147,14 +148,32 @@ public class QueryRewriter
             throws SQLException
     {
         com.facebook.presto.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
+
         // Rewrite the query to select zero rows, so that we can get the column names and types
-        com.facebook.presto.sql.tree.Query zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), createSelectClause.getQueryBody(), ImmutableList.of(), Optional.of("0"), createSelectClause.getApproximate());
+        QueryBody innerQuery = createSelectClause.getQueryBody();
+        com.facebook.presto.sql.tree.Query zeroRowsQuery;
+        if (innerQuery instanceof QuerySpecification) {
+            QuerySpecification querySpecification = (QuerySpecification) innerQuery;
+            innerQuery = new QuerySpecification(
+                    querySpecification.getSelect(),
+                    querySpecification.getFrom(),
+                    querySpecification.getWhere(),
+                    querySpecification.getGroupBy(),
+                    querySpecification.getHaving(),
+                    querySpecification.getOrderBy(),
+                    Optional.of("0"));
+
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.empty(), createSelectClause.getApproximate());
+        }
+        else {
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.of("0"), createSelectClause.getApproximate());
+        }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         try (java.sql.Statement jdbcStatement = connection.createStatement()) {
             TimeLimiter limiter = new SimpleTimeLimiter();
             java.sql.Statement limitedStatement = limiter.newProxy(jdbcStatement, java.sql.Statement.class, timeout.toMillis(), TimeUnit.MILLISECONDS);
-            try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery))) {
+            try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery, Optional.empty()))) {
                 ResultSetMetaData metaData = resultSet.getMetaData();
                 for (int i = 1; i <= metaData.getColumnCount(); i++) {
                     String name = metaData.getColumnName(i);
@@ -180,12 +199,12 @@ public class QueryRewriter
         }
 
         Select select = new Select(false, selectItems.build());
-        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty()));
+        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty()), Optional.empty());
     }
 
     private static String dropTableSql(QualifiedName table)
     {
-        return formatSql(new DropTable(table, true));
+        return formatSql(new DropTable(table, true), Optional.empty());
     }
 
     public static class QueryRewriteException

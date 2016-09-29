@@ -150,10 +150,10 @@ These properties require some explanation:
   Specifies the port for the HTTP server. Presto uses HTTP for all
   communication, internal and external.
 
-* ``query.max-memory=50GB``:
+* ``query.max-memory``:
   The maximum amount of distributed memory that a query may use.
 
-* ``query.max-memory-per-node=1GB``:
+* ``query.max-memory-per-node``:
   The maximum amount of memory that a query may use on any one machine.
 
 * ``discovery-server.enabled``:
@@ -171,8 +171,14 @@ These properties require some explanation:
   the host and port of the Presto coordinator. This URI must not end
   in a slash.
 
+You may also wish to set the following properties:
+
 * ``query.queue-config-file``:
   Specifies the file to read the :doc:`/admin/queue` from.
+
+* ``jmx.rmiserver.port``:
+  Specifies the port for the JMX RMI server. Presto exports many metrics
+  that are useful for monitoring via JMX.
 
 Log Levels
 ^^^^^^^^^^
@@ -220,7 +226,7 @@ Running Presto
 --------------
 
 The installation directory contains the launcher script in ``bin/launcher``.
-Presto can be started as a daemon by running running the following:
+Presto can be started as a daemon by running the following:
 
 .. code-block:: none
 

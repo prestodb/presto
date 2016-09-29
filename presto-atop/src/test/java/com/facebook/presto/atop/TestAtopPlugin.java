@@ -13,14 +13,9 @@
  */
 package com.facebook.presto.atop;
 
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.reflect.Reflection.newProxy;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestAtopPlugin
@@ -30,14 +25,6 @@ public class TestAtopPlugin
             throws Exception
     {
         AtopPlugin plugin = new AtopPlugin();
-        plugin.setTypeManager(new TypeRegistry());
-        plugin.setNodeManager(newProxy(NodeManager.class, (proxy, method, args) -> {
-            throw new UnsupportedOperationException();
-        }));
-        plugin.setOptionalConfig(ImmutableMap.<String, String>builder()
-                .put("node.environment", "test")
-                .build());
-
-        assertInstanceOf(getOnlyElement(plugin.getServices(ConnectorFactory.class)), AtopConnectorFactory.class);
+        assertInstanceOf(getOnlyElement(plugin.getConnectorFactories()), AtopConnectorFactory.class);
     }
 }

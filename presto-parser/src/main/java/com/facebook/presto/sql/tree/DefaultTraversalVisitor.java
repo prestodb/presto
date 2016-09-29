@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.tree;
 
+import java.util.Map.Entry;
 import java.util.Set;
 
 public abstract class DefaultTraversalVisitor<R, C>
@@ -462,18 +463,6 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
-    protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
-    {
-        visitGroupingElement(node, context);
-
-        for (Expression expression : node.getColumnExpressions()) {
-           process(expression, context);
-        }
-
-        return null;
-    }
-
-    @Override
     protected R visitInsert(Insert node, C context)
     {
         process(node.getQuery(), context);
@@ -495,6 +484,79 @@ public abstract class DefaultTraversalVisitor<R, C>
     {
         process(node.getQuery(), context);
         node.getProperties().values().forEach(expression -> process(expression, context));
+
+        return null;
+    }
+
+    @Override
+    protected R visitCreateView(CreateView node, C context)
+    {
+        process(node.getQuery(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitSetSession(SetSession node, C context)
+    {
+        process(node.getValue(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitAddColumn(AddColumn node, C context)
+    {
+        process(node.getColumn(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitCreateTable(CreateTable node, C context)
+    {
+        for (TableElement tableElement : node.getElements()) {
+            process(tableElement, context);
+        }
+        for (Entry<String, Expression> entry : node.getProperties().entrySet()) {
+            process(entry.getValue(), context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitShowPartitions(ShowPartitions node, C context)
+    {
+        if (node.getWhere().isPresent()) {
+            process(node.getWhere().get(), context);
+        }
+
+        for (SortItem sortItem : node.getOrderBy()) {
+            process(sortItem, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitStartTransaction(StartTransaction node, C context)
+    {
+        for (TransactionMode transactionMode : node.getTransactionModes()) {
+            process(transactionMode, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected R visitExplain(Explain node, C context)
+    {
+        process(node.getStatement(), context);
+
+        for (ExplainOption option : node.getOptions()) {
+            process(option, context);
+        }
 
         return null;
     }

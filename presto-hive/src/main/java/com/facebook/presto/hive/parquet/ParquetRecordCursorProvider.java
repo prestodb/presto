@@ -16,10 +16,9 @@ package com.facebook.presto.hive.parquet;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
-import com.facebook.presto.hive.HivePartitionKey;
-import com.facebook.presto.hive.HiveRecordCursor;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
@@ -62,7 +61,7 @@ public class ParquetRecordCursorProvider
     }
 
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(
+    public Optional<RecordCursor> createRecordCursor(
             String clientId,
             Configuration configuration,
             ConnectorSession session,
@@ -71,7 +70,6 @@ public class ParquetRecordCursorProvider
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
@@ -80,7 +78,7 @@ public class ParquetRecordCursorProvider
             return Optional.empty();
         }
 
-        return Optional.<HiveRecordCursor>of(new ParquetHiveRecordCursor(
+        return Optional.of(new ParquetHiveRecordCursor(
                 hdfsEnvironment,
                 session.getUser(),
                 configuration,
@@ -88,10 +86,8 @@ public class ParquetRecordCursorProvider
                 start,
                 length,
                 schema,
-                partitionKeys,
                 columns,
                 useParquetColumnNames,
-                hiveStorageTimeZone,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate

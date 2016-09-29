@@ -54,6 +54,7 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -218,7 +219,7 @@ public class TestHiveBucketing
         ImmutableList.Builder<Block> blockListBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object javaValue = javaValues.get(i);
-            Type type = hiveTypes.get(i).getType(typeRegistry);
+            Type type = hiveTypes.get(i).getType(typeRegistry, false);
 
             BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
@@ -229,7 +230,7 @@ public class TestHiveBucketing
             blockListBuilder.add(block);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        return HiveBucketing.getHiveBucket(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2, bucketCount);
+        return HiveBucketing.getHiveBucket(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2, bucketCount, false);
     }
 
     public static int getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
@@ -314,6 +315,9 @@ public class TestHiveBucketing
                 break;
             case StandardTypes.BIGINT:
                 type.writeLong(blockBuilder, ((Number) element).longValue());
+                break;
+            case StandardTypes.REAL:
+                type.writeLong(blockBuilder, floatToRawIntBits(((Number) element).floatValue()));
                 break;
             case StandardTypes.DOUBLE:
                 type.writeDouble(blockBuilder, ((Number) element).doubleValue());

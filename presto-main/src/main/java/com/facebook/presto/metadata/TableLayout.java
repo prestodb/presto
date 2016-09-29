@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.DiscretePredicates;
@@ -43,7 +44,7 @@ public class TableLayout
         this.layout = layout;
     }
 
-    public String getConnectorId()
+    public ConnectorId getConnectorId()
     {
         return handle.getConnectorId();
     }
@@ -89,7 +90,7 @@ public class TableLayout
         return layout.getDiscretePredicates();
     }
 
-    public static TableLayout fromConnectorLayout(String connectorId, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
+    public static TableLayout fromConnectorLayout(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
     {
         return new TableLayout(new TableLayoutHandle(connectorId, transactionHandle, layout.getHandle()), layout);
     }

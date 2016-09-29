@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
@@ -25,9 +26,11 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.transaction.TransactionManager;
 
 import java.lang.invoke.MethodType;
@@ -47,6 +50,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static java.util.Arrays.asList;
@@ -62,7 +66,7 @@ public class CallTask
     }
 
     @Override
-    public CompletableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine)
+    public CompletableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         if (!stateMachine.isAutoCommit()) {
             throw new PrestoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
@@ -70,6 +74,10 @@ public class CallTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
+        ConnectorId connectorId = metadata.getCatalogNames().get(procedureName.getCatalogName());
+        if (connectorId == null) {
+            throw new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName());
+        }
         Procedure procedure = metadata.getProcedureRegistry().resolve(procedureName);
 
         // map declared argument names to positions
@@ -119,10 +127,10 @@ public class CallTask
             int index = positions.get(entry.getKey());
             Argument argument = procedure.getArguments().get(index);
 
-            Expression expression = callArgument.getValue();
+            Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
             Type type = argument.getType();
 
-            Object value = evaluateConstantExpression(expression, type, metadata, session);
+            Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
 
             values[index] = toTypeObjectValue(session, type, value);
         }
@@ -141,7 +149,7 @@ public class CallTask
         Iterator<Object> valuesIterator = asList(values).iterator();
         for (Class<?> type : methodType.parameterList()) {
             if (ConnectorSession.class.isAssignableFrom(type)) {
-                arguments.add(session.toConnectorSession(procedureName.getCatalogName()));
+                arguments.add(session.toConnectorSession(connectorId));
             }
             else {
                 arguments.add(valuesIterator.next());

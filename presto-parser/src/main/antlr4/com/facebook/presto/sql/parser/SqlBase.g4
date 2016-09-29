@@ -30,6 +30,10 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
+    | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
+        (WITH tableProperties)?                                        #createSchema
+    | DROP SCHEMA (IF EXISTS)? qualifiedName (CASCADE | RESTRICT)?     #dropSchema
+    | ALTER SCHEMA qualifiedName RENAME TO identifier                  #renameSchema
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
         (WITH tableProperties)? AS query
         (WITH (NO)? DATA)?                                             #createTableAsSelect
@@ -78,7 +82,7 @@ statement
         (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showPartitions
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
-    | EXECUTE identifier                                               #execute
+    | EXECUTE identifier (USING expression (',' expression)*)?         #execute
     ;
 
 query
@@ -260,10 +264,12 @@ primaryExpression
     : NULL                                                                           #nullLiteral
     | interval                                                                       #intervalLiteral
     | identifier STRING                                                              #typeConstructor
+    | DOUBLE_PRECISION STRING                                                        #typeConstructor
     | number                                                                         #numericLiteral
     | booleanValue                                                                   #booleanLiteral
     | STRING                                                                         #stringLiteral
     | BINARY_LITERAL                                                                 #binaryLiteral
+    | '?'                                                                            #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
@@ -329,6 +335,7 @@ typeParameter
 baseType
     : TIME_WITH_TIME_ZONE
     | TIMESTAMP_WITH_TIME_ZONE
+    | DOUBLE_PRECISION
     | identifier
     ;
 
@@ -427,6 +434,7 @@ nonReserved
     | CALL
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
+    | SCHEMA | CASCADE | RESTRICT
     ;
 
 normalForm
@@ -523,6 +531,7 @@ WITH: 'WITH';
 RECURSIVE: 'RECURSIVE';
 VALUES: 'VALUES';
 CREATE: 'CREATE';
+SCHEMA: 'SCHEMA';
 TABLE: 'TABLE';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
@@ -595,6 +604,8 @@ CALL: 'CALL';
 PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
+CASCADE: 'CASCADE';
+RESTRICT: 'RESTRICT';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';
@@ -664,6 +675,10 @@ TIME_WITH_TIME_ZONE
 
 TIMESTAMP_WITH_TIME_ZONE
     : 'TIMESTAMP' WS 'WITH' WS 'TIME' WS 'ZONE'
+    ;
+
+DOUBLE_PRECISION
+    : 'DOUBLE' WS 'PRECISION'
     ;
 
 fragment EXPONENT

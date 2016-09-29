@@ -22,10 +22,12 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
+import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.CodePointsType;
+import com.facebook.presto.type.LiteralParameter;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.InvalidCodePointException;
 import io.airlift.slice.InvalidUtf8Exception;
@@ -33,14 +35,13 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 
-import javax.annotation.Nullable;
-
 import java.text.Normalizer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -318,7 +319,7 @@ public final class StringFunctions
         return parts.build();
     }
 
-    @Nullable
+    @SqlNullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
     @LiteralParameters("x")
@@ -483,8 +484,22 @@ public final class StringFunctions
     }
 
     @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
     @SqlType(CodePointsType.NAME)
-    public static int[] castToCodePoints(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static int[] castVarcharToCodePoints(@SqlType("varchar(x)") Slice slice)
+    {
+        return castToCodePoints(slice);
+    }
+
+    @ScalarOperator(OperatorType.CAST)
+    @SqlType(CodePointsType.NAME)
+    @LiteralParameters("x")
+    public static int[] castCharToCodePoints(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice slice)
+    {
+        return castToCodePoints(padSpaces(slice, charLength.intValue()));
+    }
+
+    private static int[] castToCodePoints(Slice slice)
     {
         int[] codePoints = new int[safeCountCodePoints(slice)];
         int position = 0;

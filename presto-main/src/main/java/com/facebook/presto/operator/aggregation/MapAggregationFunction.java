@@ -90,8 +90,6 @@ public class MapAggregationFunction
                 generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(keyType, valueType),
                 INPUT_FUNCTION.bindTo(keyType).bindTo(valueType),
-                null,
-                null,
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
                 KeyValuePairsState.class,

@@ -19,8 +19,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.MoreObjects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 final class FilterMatcher
@@ -34,11 +34,11 @@ final class FilterMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         if (node instanceof FilterNode) {
             FilterNode filterNode = (FilterNode) node;
-            if (new ExpressionVerifier(symbolAliases).process(filterNode.getPredicate(), predicate)) {
+            if (new ExpressionVerifier(expressionAliases).process(filterNode.getPredicate(), predicate)) {
                 return true;
             }
         }
@@ -48,7 +48,7 @@ final class FilterMatcher
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("predicate", predicate)
                 .toString();
     }

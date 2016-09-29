@@ -18,10 +18,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.google.common.base.MoreObjects;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 final class JoinMatcher
@@ -37,7 +37,7 @@ final class JoinMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         if (node instanceof JoinNode) {
             JoinNode joinNode = (JoinNode) node;
@@ -48,8 +48,8 @@ final class JoinMatcher
                 int i = 0;
                 for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
                     AliasPair expectedEquiClause = equiCriteria.get(i++);
-                    symbolAliases.put(expectedEquiClause.left, equiJoinClause.getLeft());
-                    symbolAliases.put(expectedEquiClause.right, equiJoinClause.getRight());
+                    expressionAliases.put(expectedEquiClause.left, equiJoinClause.getLeft().toSymbolReference());
+                    expressionAliases.put(expectedEquiClause.right, equiJoinClause.getRight().toSymbolReference());
                 }
                 return true;
             }
@@ -60,7 +60,7 @@ final class JoinMatcher
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("equiCriteria", equiCriteria)
                 .toString();
     }

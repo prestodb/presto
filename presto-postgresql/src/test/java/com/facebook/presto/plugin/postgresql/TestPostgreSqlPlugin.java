@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -27,7 +28,7 @@ public class TestPostgreSqlPlugin
             throws Exception
     {
         Plugin plugin = new PostgreSqlPlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getServices(ConnectorFactory.class));
-        factory.create("test", ImmutableMap.of("connection-url", "test"));
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
     }
 }

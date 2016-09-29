@@ -51,6 +51,7 @@ import static com.facebook.presto.sql.planner.DomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.DomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.DomainTranslator.toPredicate;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +100,7 @@ public class WindowFilterPushDown
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
+            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {
@@ -251,9 +253,7 @@ public class WindowFilterPushDown
         {
             return new TopNRowNumberNode(idAllocator.getNextId(),
                     windowNode.getSource(),
-                    windowNode.getPartitionBy(),
-                    windowNode.getOrderBy(),
-                    windowNode.getOrderings(),
+                    windowNode.getSpecification(),
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),
                     limit,
                     false,
@@ -271,7 +271,7 @@ public class WindowFilterPushDown
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberSignature(node.getSignatures().get(rowNumberSymbol));
+            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getSignature());
         }
 
         private static boolean isRowNumberSignature(Signature signature)

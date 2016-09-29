@@ -17,7 +17,8 @@ import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -145,10 +146,10 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final String catalog;
-        private final TableMetadata tableMetadata;
+        private final ConnectorTableMetadata tableMetadata;
         private final Optional<NewTableLayout> layout;
 
-        public CreateName(String catalog, TableMetadata tableMetadata, Optional<NewTableLayout> layout)
+        public CreateName(String catalog, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
@@ -160,7 +161,7 @@ public class TableWriterNode
             return catalog;
         }
 
-        public TableMetadata getTableMetadata()
+        public ConnectorTableMetadata getTableMetadata()
         {
             return tableMetadata;
         }
@@ -181,17 +182,27 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final OutputTableHandle handle;
+        private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public CreateHandle(@JsonProperty("handle") OutputTableHandle handle)
+        public CreateHandle(
+                @JsonProperty("handle") OutputTableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
         @JsonProperty
         public OutputTableHandle getHandle()
         {
             return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
 
         @Override
@@ -228,17 +239,27 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final InsertTableHandle handle;
+        private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public InsertHandle(@JsonProperty("handle") InsertTableHandle handle)
+        public InsertHandle(
+                @JsonProperty("handle") InsertTableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
         @JsonProperty
         public InsertTableHandle getHandle()
         {
             return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
 
         @Override
@@ -252,17 +273,27 @@ public class TableWriterNode
             extends WriterTarget
     {
         private final TableHandle handle;
+        private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public DeleteHandle(@JsonProperty("handle") TableHandle handle)
+        public DeleteHandle(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
         @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
 
         @Override

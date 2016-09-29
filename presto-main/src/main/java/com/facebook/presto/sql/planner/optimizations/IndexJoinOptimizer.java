@@ -37,7 +37,6 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Functions;
@@ -138,36 +137,44 @@ public class IndexJoinOptimizer
                     checkState(!trace.isEmpty() && rightJoinSymbols.containsAll(trace.keySet()));
                 }
 
-                if (!node.getFilter().isPresent()) {
-                    switch (node.getType()) {
-                        case INNER:
-                            // Prefer the right candidate over the left candidate
-                            if (rightIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
-                            }
-                            else if (leftIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
-                            }
-                            break;
+                switch (node.getType()) {
+                    case INNER:
+                        // Prefer the right candidate over the left candidate
+                        IndexJoinNode indexJoinNode = null;
+                        if (rightIndexCandidate.isPresent()) {
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                        }
+                        else if (leftIndexCandidate.isPresent()) {
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                        }
 
-                        case LEFT:
-                            if (rightIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                        if (indexJoinNode != null) {
+                            if (node.getFilter().isPresent()) {
+                                return new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
                             }
-                            break;
+                            return indexJoinNode;
+                        }
+                        break;
 
-                        case RIGHT:
-                            if (leftIndexCandidate.isPresent()) {
-                                return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
-                            }
-                            break;
+                    case LEFT:
+                        // We cannot use indices for outer joins until index join supports in-line filtering
+                        if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                        }
+                        break;
 
-                        case FULL:
-                            break;
+                    case RIGHT:
+                        // We cannot use indices for outer joins until index join supports in-line filtering
+                        if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
+                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                        }
+                        break;
 
-                        default:
-                            throw new IllegalArgumentException("Unknown type: " + node.getType());
-                    }
+                    case FULL:
+                        break;
+
+                    default:
+                        throw new IllegalArgumentException("Unknown type: " + node.getType());
                 }
             }
 
@@ -270,6 +277,7 @@ public class IndexJoinOptimizer
                     idAllocator.getNextId(),
                     resolvedIndex.getIndexHandle(),
                     node.getTable(),
+                    node.getLayout(),
                     context.getLookupSymbols(),
                     node.getOutputSymbols(),
                     node.getAssignments(),
@@ -318,7 +326,7 @@ public class IndexJoinOptimizer
         public PlanNode visitWindow(WindowNode node, RewriteContext<Context> context)
         {
             if (!node.getWindowFunctions().values().stream()
-                    .map(FunctionCall::getName)
+                    .map(function -> function.getFunctionCall().getName())
                     .allMatch(metadata.getFunctionRegistry()::isAggregationFunction)) {
                 return node;
             }
@@ -331,7 +339,7 @@ public class IndexJoinOptimizer
             // Only RANGE frame type currently supported for aggregation functions because it guarantees the
             // same value for each peer group.
             // ROWS frame type requires the ordering to be fully deterministic (e.g. deterministically sorted on all columns)
-            if (node.getFrame().getType() != WindowFrame.Type.RANGE) {
+            if (node.getFrames().stream().map(WindowNode.Frame::getType).anyMatch(type -> type != WindowFrame.Type.RANGE)) { // TODO: extract frames of type RANGE and allow optimization on them
                 return node;
             }
 
@@ -380,7 +388,7 @@ public class IndexJoinOptimizer
         {
             // Lookup symbols can only be passed through if they are part of the group by columns
             Set<Symbol> groupByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getGroupBy()::contains)
+                    .filter(node.getGroupingKeys()::contains)
                     .collect(toImmutableSet());
 
             if (groupByLookupSymbols.isEmpty()) {
@@ -497,7 +505,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitAggregation(AggregationNode node, Set<Symbol> lookupSymbols)
             {
                 Set<Symbol> groupByLookupSymbols = lookupSymbols.stream()
-                        .filter(node.getGroupBy()::contains)
+                        .filter(node.getGroupingKeys()::contains)
                         .collect(toImmutableSet());
                 checkState(!groupByLookupSymbols.isEmpty(), "No lookup symbols were able to pass through the aggregation group by");
                 return node.getSource().accept(this, groupByLookupSymbols);

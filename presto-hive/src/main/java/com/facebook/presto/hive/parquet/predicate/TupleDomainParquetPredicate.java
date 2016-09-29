@@ -21,7 +21,6 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -45,8 +44,11 @@ import java.util.function.Function;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainParquetPredicate<C>
@@ -157,24 +159,27 @@ public class TupleDomainParquetPredicate<C>
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }
-        else if (type.equals(DOUBLE) && (statistics instanceof DoubleStatistics || statistics instanceof FloatStatistics)) {
-            ParquetDoubleStatistics parquetDoubleStatistics;
-            if (statistics instanceof DoubleStatistics) {
-                DoubleStatistics doubleStatistics = (DoubleStatistics) statistics;
-                // ignore corrupted statistics
-                if (doubleStatistics.genericGetMin() > doubleStatistics.genericGetMax()) {
-                    return Domain.create(ValueSet.all(type), hasNullValue);
-                }
-                parquetDoubleStatistics = new ParquetDoubleStatistics(doubleStatistics.genericGetMin(), doubleStatistics.genericGetMax());
+        else if (type.equals(REAL) && statistics instanceof FloatStatistics) {
+            FloatStatistics floatStatistics = (FloatStatistics) statistics;
+            // ignore corrupted statistics
+            if (floatStatistics.genericGetMin() > floatStatistics.genericGetMax()) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
             }
-            else {
-                FloatStatistics floatStatistics = (FloatStatistics) statistics;
-                // ignore corrupted statistics
-                if (floatStatistics.genericGetMin() > floatStatistics.genericGetMax()) {
-                    return Domain.create(ValueSet.all(type), hasNullValue);
-                }
-                parquetDoubleStatistics = new ParquetDoubleStatistics((double) floatStatistics.getMin(), (double) floatStatistics.getMax());
+
+            ParquetIntegerStatistics parquetStatistics = new ParquetIntegerStatistics(
+                    (long) floatToRawIntBits(floatStatistics.getMin()),
+                    (long) floatToRawIntBits(floatStatistics.getMax())
+            );
+
+            return createDomain(type, hasNullValue, parquetStatistics);
+        }
+        else if (type.equals(DOUBLE) && statistics instanceof DoubleStatistics) {
+            DoubleStatistics doubleStatistics = (DoubleStatistics) statistics;
+            // ignore corrupted statistics
+            if (doubleStatistics.genericGetMin() > doubleStatistics.genericGetMax()) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
             }
+            ParquetDoubleStatistics parquetDoubleStatistics = new ParquetDoubleStatistics(doubleStatistics.genericGetMin(), doubleStatistics.genericGetMax());
             return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
         else if (isVarcharType(type) && statistics instanceof BinaryStatistics) {
@@ -315,7 +320,7 @@ public class TupleDomainParquetPredicate<C>
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("column", column)
                     .add("ordinal", ordinal)
                     .add("type", type)

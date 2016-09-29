@@ -22,9 +22,9 @@ import static com.facebook.presto.client.IntervalYearMonth.toMonths;
 
 public class SqlIntervalYearMonth
 {
-    private final long months;
+    private final int months;
 
-    public SqlIntervalYearMonth(long months)
+    public SqlIntervalYearMonth(int months)
     {
         this.months = months;
     }
@@ -60,7 +60,7 @@ public class SqlIntervalYearMonth
         return formatMonths(months);
     }
 
-    public long getMonths()
+    public int getMonths()
     {
         return months;
     }

@@ -85,6 +85,27 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public void createDatabase(Database database)
+            throws TException
+    {
+        client.create_database(database);
+    }
+
+    @Override
+    public void dropDatabase(String databaseName, boolean deleteData, boolean cascade)
+            throws TException
+    {
+        client.drop_database(databaseName, deleteData, cascade);
+    }
+
+    @Override
+    public void alterDatabase(String databaseName, Database database)
+            throws TException
+    {
+        client.alter_database(databaseName, database);
+    }
+
+    @Override
     public void createTable(Table table)
             throws TException
     {
@@ -138,6 +159,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.drop_partition(databaseName, tableName, partitionValues, deleteData);
+    }
+
+    @Override
+    public void alterPartition(String databaseName, String tableName, Partition partition)
+            throws TException
+    {
+        client.alter_partition(databaseName, tableName, partition);
     }
 
     @Override

@@ -57,6 +57,7 @@ import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.tr
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.min;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionEquivalence
@@ -102,7 +103,8 @@ public class ExpressionEquivalence
                 metadata,
                 sqlParser,
                 inputTypes,
-                expressionWithInputReferences);
+                expressionWithInputReferences,
+                emptyList() /* parameters have already been replaced */);
 
         // convert to row expression
         return translate(expressionWithInputReferences, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
