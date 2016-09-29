@@ -794,7 +794,15 @@ class StatementAnalyzer
             // ensure all names can be resolved, types match, etc (we don't need to record resolved names, subexpression types, etc. because
             // we do it further down when after we determine which subexpressions apply to left vs right tuple)
             ExpressionAnalyzer analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
-            analyzer.analyze(expression, output);
+
+            Type clauseType = analyzer.analyze(expression, output);
+            if (!clauseType.equals(BOOLEAN)) {
+                if (!clauseType.equals(UNKNOWN)) {
+                    throw new SemanticException(TYPE_MISMATCH, expression, "JOIN ON clause must evaluate to a boolean: actual type %s", clauseType);
+                }
+                // coerce null to boolean
+                analysis.addCoercion(expression, BOOLEAN, false);
+            }
 
             Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
 
@@ -805,9 +813,10 @@ class StatementAnalyzer
 
             Object optimizedExpression = expressionOptimizer(canonicalized, metadata, session, analyzer.getExpressionTypes()).optimize(NoOpSymbolResolver.INSTANCE);
 
-            if (!(optimizedExpression instanceof Expression) && optimizedExpression instanceof Boolean) {
+            if (!(optimizedExpression instanceof Expression) && (optimizedExpression instanceof Boolean || optimizedExpression == null)) {
                 // If the JoinOn clause evaluates to a boolean expression, simulate a cross join by adding the relevant redundant expression
-                if (optimizedExpression.equals(Boolean.TRUE)) {
+                // optimizedExpression can be TRUE, FALSE or NULL here
+                if (optimizedExpression != null && optimizedExpression.equals(Boolean.TRUE)) {
                     optimizedExpression = new ComparisonExpression(EQUAL, new LongLiteral("0"), new LongLiteral("0"));
                 }
                 else {
