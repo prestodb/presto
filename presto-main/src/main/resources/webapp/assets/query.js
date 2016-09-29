@@ -251,8 +251,8 @@ var StageDetail = React.createClass({
             return getTaskIdInStage(taskA.taskStatus.taskId) - getTaskIdInStage(taskB.taskStatus.taskId);
         })
 
-        var outgoingBuffers = stage.tasks.map(function(task) {
-            return task.outputBuffers.totalBufferedBytes;
+        var scheduledTimes = stage.tasks.map(function(task) {
+            return parseDuration(task.stats.totalScheduledTime);
         });
 
         var cpuTimes = stage.tasks.map(function(task) {
@@ -264,7 +264,7 @@ var StageDetail = React.createClass({
             var renderTimestamp = Date.now();
             var stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES,  {barWidth: (HISTOGRAM_WIDTH / (Math.min(numTasks, HISTOGRAM_WIDTH) + 1))});
 
-            this.renderHistogram('#outgoing-buffer-histogram-' + stage.plan.id, outgoingBuffers, formatDataSize);
+            this.renderHistogram('#scheduled-time-histogram-' + stage.plan.id, scheduledTimes, formatDuration);
             this.renderHistogram('#cpu-time-histogram-' + stage.plan.id, cpuTimes, formatDuration);
 
             if (this.state.expanded) {
@@ -276,7 +276,7 @@ var StageDetail = React.createClass({
 
                 var stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups});
 
-                $('#outgoing-buffer-bar-chart-' + stage.plan.id).sparkline(outgoingBuffers, $.extend({}, stageBarChartProperties, {numberFormatter: formatDataSize}));
+                $('#scheduled-time-bar-chart-' + stage.plan.id).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
                 $('#cpu-time-bar-chart-' + stage.plan.id).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
             }
 
@@ -433,14 +433,14 @@ var StageDetail = React.createClass({
                                         <thead>
                                             <tr>
                                                 <th className="stage-table-stat-title stage-table-chart-header">
-                                                    Output Buffer Skew
+                                                    Scheduled Time Skew
                                                 </th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr>
                                                 <td className="histogram-container">
-                                                    <span className="histogram" id={ "outgoing-buffer-histogram-" + stage.plan.id }><div className="loader"></div></span>
+                                                    <span className="histogram" id={ "scheduled-time-histogram-" + stage.plan.id }><div className="loader"></div></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -476,10 +476,10 @@ var StageDetail = React.createClass({
                                         <tbody>
                                             <tr>
                                                 <td className="stage-table-stat-title expanded-chart-title">
-                                                    Task Output Buffer
+                                                    Task Scheduled Time
                                                 </td>
                                                 <td className="bar-chart-container">
-                                                    <span className="bar-chart" id={ "outgoing-buffer-bar-chart-" + stage.plan.id }><div className="loader"></div></span>
+                                                    <span className="bar-chart" id={ "scheduled-time-bar-chart-" + stage.plan.id }><div className="loader"></div></span>
                                                 </td>
                                             </tr>
                                         </tbody>

@@ -481,7 +481,7 @@ pre {
 }
 
 .expanded-chart-title {
-    width: 100px;
+    width: auto;
     padding-right: 5px;
 }
 
