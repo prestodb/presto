@@ -56,6 +56,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.IntStream;
@@ -77,10 +78,12 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.lessTh
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newArray;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
@@ -92,6 +95,8 @@ import static java.util.stream.Collectors.toList;
 public class PageProcessorCompiler
         implements BodyCompiler<PageProcessor>
 {
+    private static final RowExpression TRUE_PREDICATE = constant(true, BOOLEAN);
+
     private final Metadata metadata;
     private final DeterminismEvaluator determinismEvaluator;
 
@@ -104,15 +109,19 @@ public class PageProcessorCompiler
     @Override
     public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
+        boolean hasFilter = !filter.equals(TRUE_PREDICATE);
+
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
         ImmutableList.Builder<MethodDefinition> projectMethods = ImmutableList.builder();
         ImmutableList.Builder<MethodDefinition> projectColumnarMethods = ImmutableList.builder();
         ImmutableList.Builder<MethodDefinition> projectDictionaryMethods = ImmutableList.builder();
         for (int i = 0; i < projections.size(); i++) {
             MethodDefinition project = generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, "project_" + i, projections.get(i));
-            MethodDefinition projectColumnar = generateProjectColumnarMethod(classDefinition, callSiteBinder, "projectColumnar_" + i, projections.get(i), project);
-            MethodDefinition projectRLE = generateProjectRLEMethod(classDefinition, "projectRLE_" + i, projections.get(i), project, projectColumnar);
-            MethodDefinition projectDictionary = generateProjectDictionaryMethod(classDefinition, "projectDictionary_" + i, projections.get(i), project, projectColumnar, projectRLE);
+            MethodDefinition projectColumnar = generateProjectColumnarMethod(classDefinition, callSiteBinder, "projectColumnar_" + i, projections.get(i), project, hasFilter);
+            // TODO: optimize projectRLE and projectDictionary when there is no filter condition
+            MethodDefinition projectColumnarWithSelectedPositions = generateProjectColumnarMethod(classDefinition, callSiteBinder, "projectColumnarWithSelectedPositions_" + i, projections.get(i), project, true);
+            MethodDefinition projectRLE = generateProjectRLEMethod(classDefinition, "projectRLE_" + i, projections.get(i), project, projectColumnarWithSelectedPositions);
+            MethodDefinition projectDictionary = generateProjectDictionaryMethod(classDefinition, "projectDictionary_" + i, projections.get(i), project, projectColumnarWithSelectedPositions, projectRLE);
 
             projectMethods.add(project);
             projectColumnarMethods.add(projectColumnar);
@@ -125,7 +134,7 @@ public class PageProcessorCompiler
 
         generateProcessMethod(classDefinition, filter, projections, projectMethodDefinitions);
         generateGetNonLazyPageMethod(classDefinition, filter, projections);
-        generateProcessColumnarMethod(classDefinition, projections, projectColumnarMethodDefinitions);
+        generateProcessColumnarMethod(classDefinition, projections, projectColumnarMethodDefinitions, hasFilter);
         generateProcessColumnarDictionaryMethod(classDefinition, projections, projectDictionaryMethodDefinitions);
 
         generateFilterPageMethod(classDefinition, filter);
@@ -216,7 +225,8 @@ public class PageProcessorCompiler
     private static void generateProcessColumnarMethod(
             ClassDefinition classDefinition,
             List<RowExpression> projections,
-            List<MethodDefinition> projectColumnarMethods)
+            List<MethodDefinition> projectColumnarMethods,
+            boolean hasFilter)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
@@ -227,8 +237,16 @@ public class PageProcessorCompiler
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        Variable selectedPositions = scope.declareVariable("selectedPositions", body, thisVariable.invoke("filterPage", int[].class, session, page));
-        Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
+        Optional<Variable> selectedPositions;
+        Variable cardinality;
+        if (hasFilter) {
+            selectedPositions = Optional.of(scope.declareVariable("selectedPositions", body, thisVariable.invoke("filterPage", int[].class, session, page)));
+            cardinality = scope.declareVariable("cardinality", body, selectedPositions.get().length());
+        }
+        else {
+            selectedPositions = Optional.empty();
+            cardinality = scope.declareVariable("cardinality", body, page.invoke("getPositionCount", int.class));
+        }
 
         body.comment("if no rows selected return null")
                 .append(new IfStatement()
@@ -245,14 +263,16 @@ public class PageProcessorCompiler
         Variable outputBlocks = scope.declareVariable("outputBlocks", body, newArray(type(Block[].class), projections.size()));
 
         for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-            List<BytecodeExpression> params = ImmutableList.<BytecodeExpression>builder()
+            ImmutableList.Builder<BytecodeExpression> paramsBuilder = ImmutableList.<BytecodeExpression>builder()
                     .add(session)
                     .add(page)
-                    .add(selectedPositions)
                     .add(pageBuilder)
-                    .add(constantInt(projectionIndex))
-                    .build();
-            body.append(outputBlocks.setElement(projectionIndex, thisVariable.invoke(projectColumnarMethods.get(projectionIndex), params)));
+                    .add(constantInt(projectionIndex));
+            if (hasFilter) {
+                paramsBuilder.add(selectedPositions.get());
+            }
+
+            body.append(outputBlocks.setElement(projectionIndex, thisVariable.invoke(projectColumnarMethods.get(projectionIndex), paramsBuilder.build())));
         }
 
         // create new page from outputBlocks
@@ -264,21 +284,26 @@ public class PageProcessorCompiler
             CallSiteBinder callSiteBinder,
             String methodName,
             RowExpression projection,
-            MethodDefinition projectionMethod)
+            MethodDefinition projectionMethod,
+            boolean hasFilter)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
-        Parameter selectedPositions = arg("selectedPositions", int[].class);
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         Parameter projectionIndex = arg("projectionIndex", int.class);
+        Parameter selectedPositions = arg("selectedPositions", int[].class);
 
-        List<Parameter> params = ImmutableList.<Parameter>builder()
+        ImmutableList.Builder<Parameter> paramsBuilder = ImmutableList.<Parameter>builder()
                 .add(session)
                 .add(page)
-                .add(selectedPositions)
                 .add(pageBuilder)
-                .add(projectionIndex)
-                .build();
+                .add(projectionIndex);
+
+        if (hasFilter) {
+            paramsBuilder.add(selectedPositions);
+        }
+
+        List<Parameter> params = paramsBuilder.build();
         MethodDefinition method = classDefinition.declareMethod(a(PRIVATE), methodName, type(Block.class), params);
 
         BytecodeBlock body = method.getBody();
@@ -293,22 +318,32 @@ public class PageProcessorCompiler
         List<Variable> inputs = builder.build();
 
         Variable positionCount = scope.declareVariable("positionCount", body, page.invoke("getPositionCount", int.class));
-        Variable position = scope.declareVariable("position", body, constantInt(0));
-        Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
+        Variable loopCounter = scope.declareVariable("loopCounter", body, constantInt(0));
         Variable outputBlock = scope.declareVariable(Block.class, "outputBlock");
         Variable blockBuilder = scope.declareVariable("blockBuilder", body, pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, projectionIndex));
         Variable type = scope.declareVariable("type", body, pageBuilder.invoke("getType", Type.class, projectionIndex));
 
+        Variable cardinality;
+        BytecodeExpression position;
+        if (hasFilter) {
+            cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
+            position = selectedPositions.getElement(loopCounter);
+        }
+        else {
+            cardinality = positionCount;
+            position = loopCounter;
+        }
+
         BytecodeBlock projectBlock = new BytecodeBlock()
                 .append(new ForLoop()
-                        .initialize(position.set(constantInt(0)))
-                        .condition(lessThan(position, cardinality))
-                        .update(position.increment())
+                        .initialize(loopCounter.set(constantInt(0)))
+                        .condition(lessThan(loopCounter, cardinality))
+                        .update(loopCounter.increment())
                         .body(invokeProject(
                                 thisVariable,
                                 session,
                                 inputs,
-                                selectedPositions.getElement(position),
+                                position,
                                 pageBuilder,
                                 projectionIndex,
                                 projectionMethod)))
@@ -353,9 +388,9 @@ public class PageProcessorCompiler
         List<Parameter> params = ImmutableList.<Parameter>builder()
                 .add(session)
                 .add(page)
-                .add(selectedPositions)
                 .add(pageBuilder)
                 .add(projectionIndex)
+                .add(selectedPositions)
                 .build();
         MethodDefinition method = classDefinition.declareMethod(a(PRIVATE), methodName, type(Block.class), params);
 
@@ -421,9 +456,9 @@ public class PageProcessorCompiler
         List<Parameter> columnarParams = ImmutableList.<Parameter>builder()
                 .add(session)
                 .add(page)
-                .add(selectedPositions)
                 .add(pageBuilder)
                 .add(projectionIndex)
+                .add(selectedPositions)
                 .build();
 
         MethodDefinition method = classDefinition.declareMethod(a(PRIVATE), methodName, type(Block.class), params);
@@ -705,16 +740,16 @@ public class PageProcessorCompiler
 
         // if cached value is available use it else filter dictionary and cache it
         ifFilterOnDictionaryBlock.append(new IfStatement()
-            .condition(equal(dictionary, inputFilterDictionary))
-            .ifTrue(selectedDictionaryPositions.set(filterResult))
-            .ifFalse(new BytecodeBlock()
-                .append(new ForLoop()
-                            .initialize(position.set(constantInt(0)))
-                            .condition(lessThan(position, dictionaryPositionCount))
-                            .update(position.increment())
-                            .body(selectedDictionaryPositions.setElement(position, invokeFilter(thisVariable, session, singletonList(dictionary), position))))
-                .append(thisVariable.setField("inputFilterDictionary", dictionary))
-                .append(thisVariable.setField("filterResult", selectedDictionaryPositions))));
+                .condition(equal(dictionary, inputFilterDictionary))
+                .ifTrue(selectedDictionaryPositions.set(filterResult))
+                .ifFalse(new BytecodeBlock()
+                        .append(new ForLoop()
+                                .initialize(position.set(constantInt(0)))
+                                .condition(lessThan(position, dictionaryPositionCount))
+                                .update(position.increment())
+                                .body(selectedDictionaryPositions.setElement(position, invokeFilter(thisVariable, session, singletonList(dictionary), position))))
+                        .append(thisVariable.setField("inputFilterDictionary", dictionary))
+                        .append(thisVariable.setField("filterResult", selectedDictionaryPositions))));
 
         // create selected positions
         ifFilterOnDictionaryBlock.append(new ForLoop()

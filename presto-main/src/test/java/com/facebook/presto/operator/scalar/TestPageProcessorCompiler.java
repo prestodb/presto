@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
@@ -34,25 +35,61 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Boolean.TRUE;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessorCompiler
 {
     private static final MetadataManager METADATA_MANAGER = createTestMetadataManager();
+
+    @Test
+    public void testIdentityProjectionProcessColumnarWithoutFilterCopiesBlockReference()
+    {
+        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
+                .compilePageProcessor(new ConstantExpression(TRUE, BOOLEAN), ImmutableList.of(new InputReferenceExpression(0, BIGINT))).get();
+        RowPagesBuilder pagesBuilder = rowPagesBuilder(BIGINT);
+        pagesBuilder.addSequencePage(100, 0);
+        Page page = getOnlyElement(pagesBuilder.build());
+
+        Page outputPage = processor.processColumnar(null, page, ImmutableList.of(BIGINT));
+        assertEquals(outputPage.getPositionCount(), 100);
+        assertEquals(page.getBlock(0), outputPage.getBlock(0));
+    }
+
+    @Test
+    public void testIdentityProjectionProcessColumnarWithFilterCreatesBlock()
+    {
+        Signature signature = new Signature(mangleOperatorName(EQUAL), SCALAR, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
+        RowExpression filter = new CallExpression(signature, BOOLEAN, ImmutableList.of(new InputReferenceExpression(0, BIGINT), new ConstantExpression(1L, BIGINT)));
+
+        PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
+                .compilePageProcessor(filter, ImmutableList.of(new InputReferenceExpression(0, BIGINT))).get();
+        RowPagesBuilder pagesBuilder = rowPagesBuilder(BIGINT);
+        pagesBuilder.addSequencePage(100, 0);
+        Page page = getOnlyElement(pagesBuilder.build());
+
+        Page outputPage = processor.processColumnar(null, page, ImmutableList.of(BIGINT));
+        assertEquals(outputPage.getPositionCount(), 1);
+        assertNotEquals(page.getBlock(0), outputPage.getBlock(0));
+    }
 
     @Test
     public void testNoCaching()
