@@ -29,6 +29,13 @@ public class TestCharOperators
         assertFunction("cast('foo' as char(3)) = cast('foo' as char(3))", BOOLEAN, true);
         assertFunction("cast('foo' as char(3)) = cast('bar' as char(3))", BOOLEAN, false);
         assertFunction("cast('bar' as char(3)) = cast('foo' as char(3))", BOOLEAN, false);
+
+        assertFunction("cast('a' as char(2)) = cast('a ' as char(2))", BOOLEAN, true);
+        assertFunction("cast('a ' as char(2)) = cast('a' as char(2))", BOOLEAN, true);
+
+        assertFunction("cast('a' as char(3)) = cast('a' as char(2))", BOOLEAN, false);
+        assertFunction("cast('' as char(3)) = cast('' as char(2))", BOOLEAN, false);
+        assertFunction("cast('' as char(2)) = cast('' as char(2))", BOOLEAN, true);
     }
 
     @Test
@@ -39,6 +46,9 @@ public class TestCharOperators
         assertFunction("cast('foo' as char(3)) <> cast('foo' as char(3))", BOOLEAN, false);
         assertFunction("cast('foo' as char(3)) <> cast('bar' as char(3))", BOOLEAN, true);
         assertFunction("cast('bar' as char(3)) <> cast('foo' as char(3))", BOOLEAN, true);
+
+        assertFunction("cast('a' as char(2)) <> cast('a ' as char(2))", BOOLEAN, false);
+        assertFunction("cast('a ' as char(2)) <> cast('a' as char(2))", BOOLEAN, false);
     }
 
     @Test
