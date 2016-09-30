@@ -19,13 +19,6 @@ var Table = Reactable.Table,
     Td = Reactable.Td;
 
 var TaskList = React.createClass({
-    getTasks: function (stage) {
-        if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
-            return []
-        }
-
-        return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasks));
-    },
     compareTaskId: function(taskA, taskB) {
         var taskIdArrA = removeQueryId(taskA).split(".");
         var taskIdArrB = removeQueryId(taskB).split(".");
@@ -57,13 +50,13 @@ var TaskList = React.createClass({
         return false;
     },
     render: function() {
-        var tasks = this.getTasks(this.props.outputStage);
+        var tasks = this.props.tasks;
 
         if (tasks === undefined || tasks.length == 0) {
             return (
                 <div className="row">
                     <div className="col-xs-12">
-                        No task information available.
+                        No tasks.
                     </div>
                 </div>
             );
@@ -586,6 +579,14 @@ var SMALL_SPARKLINE_PROPERTIES = {
     disableHiddenCheck: true,
 }
 
+var TASK_FILTER = {
+    ALL: function(state) { return true },
+    PLANNED: function(state) { return state === 'PLANNED' },
+    RUNNING: function(state) { return state === 'RUNNING' },
+    FINISHED: function(state) { return state === 'FINISHED' },
+    FAILED: function(state) { return state === 'FAILED' || state === 'ABORTED' || state === 'CANCELED' },
+};
+
 var QueryDetail = React.createClass({
     getInitialState: function() {
         return {
@@ -611,6 +612,8 @@ var QueryDetail = React.createClass({
 
             stageRefresh: true,
             taskRefresh: true,
+
+            taskFilter: TASK_FILTER.ALL,
         };
     },
     resetTimer: function() {
@@ -728,8 +731,26 @@ var QueryDetail = React.createClass({
             return <button className="btn btn-info live-button" onClick={ this.handleStageRefreshClick }>Auto-Refresh: Off</button>
         }
     },
+    renderTaskFilterListItem: function(taskFilter, taskFilterText) {
+        return (
+            <li><a href="#" className={ this.state.taskFilter == taskFilter ? "selected" : ""} onClick={ this.handleTaskFilterClick.bind(this, taskFilter) }>{ taskFilterText }</a></li>
+        );
+    },
+    handleTaskFilterClick: function(filter, event) {
+        this.setState({
+            taskFilter: filter
+        });
+        event.preventDefault();
+    },
     killQuery: function() {
         $.ajax({url: 'v1/query/' + this.state.query.queryId, type: 'DELETE'});
+    },
+    getTasksFromStage: function (stage) {
+        if (stage === undefined || !stage.hasOwnProperty('subStages') || !stage.hasOwnProperty('tasks')) {
+            return []
+        }
+
+        return [].concat.apply(stage.tasks, stage.subStages.map(this.getTasksFromStage));
     },
     componentDidMount: function() {
         this.refreshLoop();
@@ -759,19 +780,39 @@ var QueryDetail = React.createClass({
             return;
         }
 
+        var tasks = this.getTasksFromStage(this.state.lastSnapshotTasks).filter(function(task) { return this.state.taskFilter(task.taskStatus.state) }, this);
+
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-10">
+                    <div className="col-xs-9">
                         <h3>Tasks</h3>
                     </div>
-                    <div className="col-xs-2 query-links">
-                        { this.renderTaskRefreshButton() }
+                    <div className="col-xs-3">
+                        <table className="query-links">
+                            <tr>
+                                <td>
+                                    <div className="input-group-btn text-right">
+                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            Show <span className="caret"></span>
+                                        </button>
+                                        <ul className="dropdown-menu">
+                                            { this.renderTaskFilterListItem(TASK_FILTER.ALL, "All") }
+                                            { this.renderTaskFilterListItem(TASK_FILTER.PLANNED, "Planned") }
+                                            { this.renderTaskFilterListItem(TASK_FILTER.RUNNING, "Running") }
+                                            { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Finished") }
+                                            { this.renderTaskFilterListItem(TASK_FILTER.FINISHED, "Aborted/Canceled/Failed") }
+                                        </ul>
+                                    </div>
+                                </td>
+                                <td>&nbsp;&nbsp;{ this.renderTaskRefreshButton() }</td>
+                            </tr>
+                        </table>
                     </div>
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <TaskList key={ this.state.query.queryId } outputStage={ this.state.lastSnapshotTasks } />
+                        <TaskList key={ this.state.query.queryId } tasks={ tasks } />
                     </div>
                 </div>
             </div>
@@ -785,11 +826,18 @@ var QueryDetail = React.createClass({
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-10">
+                    <div className="col-xs-9">
                         <h3>Stages</h3>
                     </div>
-                    <div className="col-xs-2 query-links">
-                        { this.renderStageRefreshButton() }
+                    <div className="col-xs-3">
+                        <table className="query-links">
+                            <tr>
+                                <td>
+                                    { this.renderStageRefreshButton() }
+                                </td>
+                            </tr>
+                        </table>
+
                     </div>
                 </div>
                 <div className="row">
@@ -904,14 +952,20 @@ var QueryDetail = React.createClass({
                     <div className="col-xs-7">
                         <h2>{ query.queryId }</h2>
                     </div>
-                    <div className="col-xs-5 query-links">
-                        <a onClick={ this.killQuery } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">Kill Query</a>
-                        &nbsp;&nbsp;&nbsp;
-                        <a href={ "/ui/plan?" + query.queryId } className="btn btn-info" target="_blank">Live Plan</a>
-                        &nbsp;
-                        <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info" target="_blank">Raw JSON</a>
-                        &nbsp;
-                        <a href={ "/timeline.html?" + query.queryId } className="btn btn-info" target="_blank">Split Timeline</a>
+                    <div className="col-xs-5">
+                        <table className="query-links">
+                            <tr>
+                                <td>
+                                    <a onClick={ this.killQuery } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">Kill Query</a>
+                                    &nbsp;&nbsp;&nbsp;
+                                    <a href={ "/ui/plan?" + query.queryId } className="btn btn-info" target="_blank">Live Plan</a>
+                                    &nbsp;
+                                    <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info" target="_blank">Raw JSON</a>
+                                    &nbsp;
+                                    <a href={ "/timeline.html?" + query.queryId } className="btn btn-info" target="_blank">Split Timeline</a>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
                 </div>
                 <div className="row">

@@ -344,7 +344,7 @@ pre {
 }
 
 .query-links {
-    text-align: right;
+    float: right;
     margin-top: 20px;
 }
 
