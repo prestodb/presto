@@ -24,5 +24,6 @@ from different data sources.
     connector/redis
     connector/sqlserver
     connector/system
-    connector/tpch
     connector/thrift
+    connector/tpcds
+    connector/tpch
