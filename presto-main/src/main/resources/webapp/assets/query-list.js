@@ -248,11 +248,12 @@ var QueryList = React.createClass({
         }
         else {
             return stateFilteredQueries.filter(function(query) {
-                var re = (".*" + searchString + ".*").toLowerCase();
-                return (query.queryId.toLowerCase().match(re) ||
-                    query.session.user.toLowerCase().match(re) ||
-                    query.session.source.toLowerCase().match(re) ||
-                    query.query.toLowerCase().match(re));
+                var term = searchString.toLowerCase();
+                return (query.queryId.toLowerCase().indexOf(term) != -1 ||
+                    query.session.user.toLowerCase().indexOf(term) != -1  ||
+                    query.session.source.toLowerCase().indexOf(term) != -1  ||
+                    query.humanReadableState.toLowerCase().indexOf(term) != -1 ||
+                    query.query.toLowerCase().indexOf(term) != -1 );
             }, this);
         }
     },
