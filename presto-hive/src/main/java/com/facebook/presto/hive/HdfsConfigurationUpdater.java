@@ -67,6 +67,9 @@ public class HdfsConfigurationUpdater
     private final List<String> resourcePaths;
     private final boolean pinS3ClientToCurrentRegion;
     private final HiveCompressionCodec compressionCodec;
+    private final String fsS3Impl;
+    private final String fsS3aImpl;
+    private final String fsS3nImpl;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
@@ -100,6 +103,9 @@ public class HdfsConfigurationUpdater
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
         this.pinS3ClientToCurrentRegion = hiveClientConfig.isPinS3ClientToCurrentRegion();
         this.compressionCodec = hiveClientConfig.getHiveCompressionCodec();
+        this.fsS3Impl = hiveClientConfig.getFsS3Impl();
+        this.fsS3aImpl = hiveClientConfig.getFsS3aImpl();
+        this.fsS3nImpl = hiveClientConfig.getFsS3nImpl();
     }
 
     public void updateConfiguration(Configuration config)
@@ -133,9 +139,9 @@ public class HdfsConfigurationUpdater
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
 
         // re-map filesystem schemes to match Amazon Elastic MapReduce
-        config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
-        config.set("fs.s3a.impl", PrestoS3FileSystem.class.getName());
-        config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
+        config.set("fs.s3.impl", fsS3Impl);
+        config.set("fs.s3a.impl", fsS3aImpl);
+        config.set("fs.s3n.impl", fsS3nImpl);
         config.set("fs.s3bfs.impl", "org.apache.hadoop.fs.s3.S3FileSystem");
 
         // set AWS credentials for S3
