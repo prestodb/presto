@@ -84,8 +84,6 @@ public class TestOrderByOperator
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
                 .row(-0.1)
                 .row(0.1)
@@ -93,7 +91,7 @@ public class TestOrderByOperator
                 .row(0.4)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -117,8 +115,6 @@ public class TestOrderByOperator
                 ImmutableList.of(0, 1),
                 ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("a", 4L)
                 .row("a", 1L)
@@ -126,7 +122,7 @@ public class TestOrderByOperator
                 .row("b", 2L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test
@@ -150,8 +146,6 @@ public class TestOrderByOperator
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(4L)
                 .row(2L)
@@ -159,7 +153,7 @@ public class TestOrderByOperator
                 .row(-1L)
                 .build();
 
-        assertOperatorEquals(operator, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded local memory limit of 10B")
@@ -187,8 +181,6 @@ public class TestOrderByOperator
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
 
-        Operator operator = operatorFactory.createOperator(driverContext);
-
-        toPages(operator, input);
+        toPages(operatorFactory, driverContext, input);
     }
 }
