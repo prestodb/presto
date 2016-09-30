@@ -26,3 +26,4 @@ from different data sources.
     connector/system
     connector/tpch
     connector/thrift
+    connector/tpcds
