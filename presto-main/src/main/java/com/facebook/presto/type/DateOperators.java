@@ -19,6 +19,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import org.joda.time.chrono.ISOChronology;
@@ -148,6 +149,6 @@ public final class DateOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.DATE) long value)
     {
-        return (int) value;
+        return AbstractIntType.hash((int) value);
     }
 }
