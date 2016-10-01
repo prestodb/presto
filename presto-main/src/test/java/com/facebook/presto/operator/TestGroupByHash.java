@@ -176,7 +176,7 @@ public class TestGroupByHash
         }
         Page outputPage = pageBuilder.build();
         assertEquals(outputPage.getPositionCount(), 50);
-        BlockAssertions.assertBlockEquals(BIGINT, outputPage.getBlock(1), BlockAssertions.createLongSequenceBlock(0, 50));
+        BlockAssertions.assertBlockEquals(BIGINT, outputPage.getBlock(0), BlockAssertions.createLongSequenceBlock(0, 50));
     }
 
     @Test

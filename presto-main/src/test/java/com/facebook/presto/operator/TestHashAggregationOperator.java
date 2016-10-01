@@ -408,8 +408,8 @@ public class TestHashAggregationOperator
             MaterializedResult actual;
             if (hashEnabled) {
                 // Drop the hashChannel for all pages
-                List<Page> actualPages = dropChannel(outputPages, hashChannels);
-                List<Type> expectedTypes = without(operator.getTypes(), hashChannels);
+                List<Page> actualPages = dropChannel(outputPages, ImmutableList.of(1));
+                List<Type> expectedTypes = without(operator.getTypes(), ImmutableList.of(1));
                 actual = toMaterializedResult(operator.getOperatorContext().getSession(), expectedTypes, actualPages);
             }
             else {
