@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
@@ -253,6 +254,6 @@ public final class BigintOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.BIGINT) long value)
     {
-        return value;
+        return AbstractLongType.hash(value);
     }
 }

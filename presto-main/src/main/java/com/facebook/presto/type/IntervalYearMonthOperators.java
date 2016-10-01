@@ -17,6 +17,7 @@ import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -163,6 +164,6 @@ public final class IntervalYearMonthOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
-        return value;
+        return AbstractIntType.hash((int) value);
     }
 }

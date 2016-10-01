@@ -19,6 +19,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.TinyintType;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 
@@ -226,6 +227,6 @@ public final class TinyintOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.TINYINT) long value)
     {
-        return (byte) value;
+        return TinyintType.hash((byte) value);
     }
 }

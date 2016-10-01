@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.ShortArrayBlockBuilder;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static java.lang.Long.rotateLeft;
 
 public final class SmallintType
         extends AbstractType
@@ -93,7 +94,7 @@ public final class SmallintType
     @Override
     public long hash(Block block, int position)
     {
-        return block.getShort(position, 0);
+        return hash(block.getShort(position, 0));
     }
 
     @Override
@@ -147,5 +148,11 @@ public final class SmallintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    public static long hash(short value)
+    {
+        // xxhash64 mix
+        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
     }
 }

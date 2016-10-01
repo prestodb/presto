@@ -19,6 +19,8 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LongArrayBlockBuilder;
 import io.airlift.slice.Slice;
 
+import static java.lang.Long.rotateLeft;
+
 public abstract class AbstractLongType
         extends AbstractType
         implements FixedWidthType
@@ -86,7 +88,7 @@ public abstract class AbstractLongType
     @Override
     public long hash(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return hash(block.getLong(position, 0));
     }
 
     @Override
@@ -115,5 +117,11 @@ public abstract class AbstractLongType
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+    }
+
+    public static long hash(long value)
+    {
+        // xxhash64 mix
+        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
     }
 }

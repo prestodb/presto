@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.ByteArrayBlockBuilder;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static java.lang.Long.rotateLeft;
 
 public final class TinyintType
         extends AbstractType
@@ -93,7 +94,7 @@ public final class TinyintType
     @Override
     public long hash(Block block, int position)
     {
-        return block.getByte(position, 0);
+        return hash(block.getByte(position, 0));
     }
 
     @Override
@@ -146,5 +147,11 @@ public final class TinyintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    public static long hash(byte value)
+    {
+        // xxhash64 mix
+        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
     }
 }
