@@ -241,16 +241,25 @@ pre {
     padding: 2px 0 1px 0;
 }
 
-.stat-header {
-    margin-left: -15px;
-    background-color: #1b1b1b;
-    margin-right: -35px;
+.query-header {
     padding: 4px 0 4px 0;
+    background-color: #1b1b1b;
+    margin: 0;
 }
 
-.stat-header-queryid {
+.query-header-queryid {
+    margin-left: -15px;
+    margin-right: -35px;
+    padding: 8px 0 8px 0;
+}
+
+.query-header-timestamp {
     text-align: right;
     color: #b1b1b1;
+}
+
+.query-progress-container {
+    padding: 0;
 }
 
 /** Query List Toolbar **/

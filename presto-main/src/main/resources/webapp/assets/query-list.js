@@ -113,11 +113,11 @@
             <div className="query">
                 <div className="row">
                     <div className="col-xs-4">
-                        <div className="row stat-row stat-header">
+                        <div className="row stat-row query-header query-header-queryid">
                             <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" title="Query ID">
                                 <a href={ "query.html?" + query.queryId } target="_blank">{ query.queryId }</a>
                             </div>
-                            <div className="col-xs-3 stat-header-queryid" data-toggle="tooltip" data-placement="bottom" title="Submit time">
+                            <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
                                 <span>{ formatShortTime(new Date(Date.parse(query.queryStats.createTime))) }</span>
                             </div>
                         </div>
@@ -148,8 +148,8 @@
                         </div>
                     </div>
                     <div className="col-xs-8">
-                        <div className="row query-row-middle">
-                            <div className="col-xs-12">
+                        <div className="row query-header">
+                            <div className="col-xs-12 query-progress-container">
                                 <div className="progress">
                                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={ getProgressBarPercentage(query) } aria-valuemin="0" aria-valuemax="100" style={ progressBarStyle }>
                                         { getProgressBarTitle(query) }
