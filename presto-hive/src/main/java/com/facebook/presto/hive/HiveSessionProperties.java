@@ -40,6 +40,7 @@ public final class HiveSessionProperties
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
+    private static final String MULTI_FILE_BUCKETING_ENABLED = "multi_file_bucketing_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -111,7 +112,12 @@ public final class HiveSessionProperties
                         STATISTICS_ENABLED,
                         "Experimental: Expose table statistics",
                         true,
-                        false));
+                        false),
+        booleanSessionProperty(
+                        MULTI_FILE_BUCKETING_ENABLED,
+                        "Allow multiple files per bucket for clustered table",
+                        config.isMultiFileBucketingEnabled(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -182,6 +188,11 @@ public final class HiveSessionProperties
     public static boolean isStatisticsEnabled(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isMultiFileBucketingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MULTI_FILE_BUCKETING_ENABLED, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

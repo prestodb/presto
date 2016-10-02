@@ -24,9 +24,12 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.io.CharStreams;
@@ -59,11 +62,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hadoop.HadoopFileStatus.isDirectory;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
@@ -73,6 +78,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isMultiFileBucketingEnabled;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
@@ -89,6 +95,7 @@ public class BackgroundHiveSplitLoader
     private static final String CORRUPT_BUCKETING = "Hive table is corrupt. It is declared as being bucketed, but the files do not match the bucketing declaration.";
 
     public static final CompletableFuture<?> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
+    public static final Splitter BUCKET_ID_SPLITTER = Splitter.on('_');
 
     private final String connectorId;
     private final Table table;
@@ -329,27 +336,28 @@ public class BackgroundHiveSplitLoader
         HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
         if (!buckets.isEmpty()) {
             int bucketCount = buckets.get(0).getBucketCount();
-            List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
+            List<Set<LocatedFileStatus>> list = getBucketFileSets(iterator, bucketCount);
             List<Iterator<HiveSplit>> iteratorList = new ArrayList<>();
 
             for (HiveBucket bucket : buckets) {
                 int bucketNumber = bucket.getBucketNumber();
-                LocatedFileStatus file = list.get(bucketNumber);
-                boolean splittable = isSplittable(iterator.getInputFormat(), hdfsEnvironment.getFileSystem(session.getUser(), file.getPath()), file.getPath());
+                for (LocatedFileStatus file : list.get(bucketNumber)) {
+                    boolean splittable = isSplittable(iterator.getInputFormat(), hdfsEnvironment.getFileSystem(session.getUser(), file.getPath()), file.getPath());
 
-                iteratorList.add(createHiveSplitIterator(
-                        iterator.getPartitionName(),
-                        file.getPath().toString(),
-                        file.getBlockLocations(),
-                        0,
-                        file.getLen(),
-                        iterator.getSchema(),
-                        iterator.getPartitionKeys(),
-                        splittable,
-                        session,
-                        OptionalInt.of(bucketNumber),
-                        effectivePredicate,
-                        partition.getColumnCoercions()));
+                    iteratorList.add(createHiveSplitIterator(
+                            iterator.getPartitionName(),
+                            file.getPath().toString(),
+                            file.getBlockLocations(),
+                            0,
+                            file.getLen(),
+                            iterator.getSchema(),
+                            iterator.getPartitionKeys(),
+                            splittable,
+                            session,
+                            OptionalInt.of(bucketNumber),
+                            effectivePredicate,
+                            partition.getColumnCoercions()));
+                }
             }
 
             addToHiveSplitSourceRoundRobin(iteratorList);
@@ -360,28 +368,29 @@ public class BackgroundHiveSplitLoader
         if (bucketHandle.isPresent()) {
             // HiveFileIterator skips hidden files automatically.
             int bucketCount = bucketHandle.get().getBucketCount();
-            List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
+            List<Set<LocatedFileStatus>> list = getBucketFileSets(iterator, bucketCount);
             List<Iterator<HiveSplit>> iteratorList = new ArrayList<>();
 
             for (int bucketIndex = 0; bucketIndex < bucketCount; bucketIndex++) {
-                LocatedFileStatus file = list.get(bucketIndex);
-                boolean splittable = isSplittable(iterator.getInputFormat(), hdfsEnvironment.getFileSystem(session.getUser(), file.getPath()), file.getPath());
+                Set<LocatedFileStatus> files = list.get(bucketIndex);
+                for (LocatedFileStatus file : files) {
+                    boolean splittable = isSplittable(iterator.getInputFormat(), hdfsEnvironment.getFileSystem(session.getUser(), file.getPath()), file.getPath());
 
-                iteratorList.add(createHiveSplitIterator(
-                        iterator.getPartitionName(),
-                        file.getPath().toString(),
-                        file.getBlockLocations(),
-                        0,
-                        file.getLen(),
-                        iterator.getSchema(),
-                        iterator.getPartitionKeys(),
-                        splittable,
-                        session,
-                        OptionalInt.of(bucketIndex),
-                        iterator.getEffectivePredicate(),
-                        partition.getColumnCoercions()));
+                    iteratorList.add(createHiveSplitIterator(
+                            iterator.getPartitionName(),
+                            file.getPath().toString(),
+                            file.getBlockLocations(),
+                            0,
+                            file.getLen(),
+                            iterator.getSchema(),
+                            iterator.getPartitionKeys(),
+                            splittable,
+                            session,
+                            OptionalInt.of(bucketIndex),
+                            iterator.getEffectivePredicate(),
+                            partition.getColumnCoercions()));
+                }
             }
-
             addToHiveSplitSourceRoundRobin(iteratorList);
             return;
         }
@@ -446,26 +455,86 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private static List<LocatedFileStatus> listAndSortBucketFiles(HiveFileIterator hiveFileIterator, int bucketCount)
+    private List<Set<LocatedFileStatus>> getBucketFileSets(HiveFileIterator hiveFileIterator, int bucketCount)
     {
-        ArrayList<LocatedFileStatus> list = new ArrayList<>(bucketCount);
-
+        List<LocatedFileStatus> fileStatuses = new ArrayList<>(bucketCount);
         while (hiveFileIterator.hasNext()) {
             LocatedFileStatus next = hiveFileIterator.next();
             if (isDirectory(next)) {
                 // Fail here to be on the safe side. This seems to be the same as what Hive does
                 throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s Found sub-directory in bucket directory for partition: %s", CORRUPT_BUCKETING, hiveFileIterator.getPartitionName()));
             }
-            list.add(next);
-        }
-
-        if (list.size() != bucketCount) {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s", CORRUPT_BUCKETING, list.size(), bucketCount, hiveFileIterator.getPartitionName()));
+            fileStatuses.add(next);
         }
 
         // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-        list.sort(null);
-        return list;
+        fileStatuses.sort(null);
+
+        List<Set<LocatedFileStatus>> bucketList = ImmutableList.of();
+        if (fileStatuses.size() == bucketCount) {
+            bucketList = getBucketFilesSetsSingle(fileStatuses);
+        }
+        else if (isMultiFileBucketingEnabled(session)) {
+            List<Set<LocatedFileStatus>> multiFileBucketList = getBucketFilesSetsMulti(fileStatuses);
+            if (multiFileBucketList.size() == bucketCount) {
+                bucketList = multiFileBucketList;
+            }
+        }
+
+        if (bucketList.size() != bucketCount) {
+            throw new PrestoException(HIVE_INVALID_BUCKET_FILES,
+                    format("%s The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
+                            CORRUPT_BUCKETING,
+                            fileStatuses.size(),
+                            bucketCount,
+                            hiveFileIterator.getPartitionName()));
+        }
+
+        return bucketList;
+    }
+
+    private List<Set<LocatedFileStatus>> getBucketFilesSetsSingle(List<LocatedFileStatus> sortedFileStatuses)
+    {
+        return sortedFileStatuses.stream()
+                .map(ImmutableSet::of)
+                .collect(Collectors.toList());
+    }
+
+    private List<Set<LocatedFileStatus>> getBucketFilesSetsMulti(List<LocatedFileStatus> sortedFileStatuses)
+    {
+        ImmutableList.Builder<Set<LocatedFileStatus>> list = ImmutableList.builder();
+        ImmutableSet.Builder<LocatedFileStatus> bucketSet = ImmutableSet.builder();
+        String lastBucketId = null;
+
+        for (LocatedFileStatus fileStatus : sortedFileStatuses) {
+            String currentBucketId = getBucketId(fileStatus.getPath().getName());
+            if (lastBucketId != null && !lastBucketId.equals(currentBucketId)) {
+                list.add(bucketSet.build());
+                bucketSet = ImmutableSet.builder();
+            }
+            bucketSet.add(fileStatus);
+            lastBucketId = currentBucketId;
+        }
+        if (lastBucketId != null) {
+            list.add(bucketSet.build());
+        }
+        return list.build();
+    }
+
+    private String getBucketId(String fileName)
+    {
+        // this matches the observed Hive's behaviour during insert. Then files are named using M/R fremwork using
+        // XXXXXXXX_Y_SUFFIX pattern where:
+        // - XXXXXXXX - is task id
+        // - Y - is attempt id
+        // - SUFFIX - is optional copy_N suffix
+
+        // this method will only be used if number of files in directory does not match number of partitions
+        // even if multi file bucketing is enabled.
+
+        String bucketId = Iterables.getFirst(BUCKET_ID_SPLITTER.split(fileName), "");
+        checkState(!bucketId.isEmpty(), "Got empty string as bucket id");
+        return bucketId;
     }
 
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
