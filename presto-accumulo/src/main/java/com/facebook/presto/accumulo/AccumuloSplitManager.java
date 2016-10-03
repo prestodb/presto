@@ -32,7 +32,6 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.TupleDomain.ColumnDomain;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -46,8 +45,6 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloSplitManager
         implements ConnectorSplitManager
 {
-    private static final Logger LOG = Logger.get(AccumuloSplitManager.class);
-
     private final String connectorId;
     private final AccumuloClient client;
 

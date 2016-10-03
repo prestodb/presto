@@ -14,19 +14,11 @@
 package com.facebook.presto.accumulo.io;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.iterators.AndFilter;
-import com.facebook.presto.accumulo.iterators.NullRowFilter;
-import com.facebook.presto.accumulo.iterators.OrFilter;
-import com.facebook.presto.accumulo.iterators.SingleColumnValueFilter;
-import com.facebook.presto.accumulo.iterators.SingleColumnValueFilter.CompareOp;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Marker.Bound;
-import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
@@ -41,11 +33,9 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.io.Text;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.IO_ERROR;
@@ -141,9 +131,6 @@ public class AccumuloRecordCursor
             }
         }
 
-        // Add column iterators and retrieve the iterator
-        // TODO Predicate pushdown via iterators needs work
-        // addColumnIterators(constraints);
         iterator = this.scanner.iterator();
     }
 
@@ -371,124 +358,5 @@ public class AccumuloRecordCursor
         }
 
         throw new IllegalArgumentException(format("Expected field %s to be a type of %s but is %s", field, StringUtils.join(expected, ","), actual));
-    }
-
-    private void addColumnIterators(List<AccumuloColumnConstraint> constraints)
-    {
-        // This function goes through all column constraints to build a kind of tree,
-        // with the nodes of the tree. The leaves of the tree are either NullRowFilters,
-        // or SingleColumnValueFilters, and the joints (!?) of the tree are either OrFilters or AndFilters.
-
-        // In this loop, we process each column's constraints individually to get a list of all settings,
-        // which are finally AND'd together to be the intersection of all the column predicates
-        AtomicInteger priority = new AtomicInteger(1);
-        List<IteratorSetting> allSettings = new ArrayList<>();
-        for (AccumuloColumnConstraint columnConstraint : constraints) {
-            // If this column's predicate domain allows null values, then add a NullRowFilter setting
-            if (!columnConstraint.getDomain().isPresent()) {
-                continue;
-            }
-
-            Domain domain = columnConstraint.getDomain().get();
-            List<IteratorSetting> columnSettings = new ArrayList<>();
-            if (domain.isNullAllowed()) {
-                columnSettings.add(getNullFilterSetting(columnConstraint, priority));
-            }
-
-            // Map types are discrete values
-            if (Types.isMapType(domain.getType())) {
-                // Create an iterator setting for each discrete value
-                for (Object object : domain.getValues().getDiscreteValues().getValues()) {
-                    IteratorSetting cfg = getIteratorSetting(priority, columnConstraint, CompareOp.EQUAL, domain.getType(), object);
-                    if (cfg != null) {
-                        columnSettings.add(cfg);
-                    }
-                }
-            }
-            else {
-                // For non-map types (or so it seems), all ranges are ordered
-                for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-                    // Create a filter setting for each range in this domain
-                    IteratorSetting setting = getFilterSettingFromRange(columnConstraint, range, priority);
-                    if (setting != null) {
-                        columnSettings.add(setting);
-                    }
-                }
-            }
-
-            // If there was only one setting, then just add it to all of our settings
-            if (columnSettings.size() == 1) {
-                allSettings.add(columnSettings.get(0));
-            }
-            else if (columnSettings.size() > 0) {
-                // If we have any iterator for this column, or them together and add it to our list
-                IteratorSetting ore = OrFilter.orFilters(priority.getAndIncrement(), columnSettings.toArray(new IteratorSetting[0]));
-                allSettings.add(ore);
-            } // else there are no settings and we can move on
-        }
-
-        // If there is only one iterator, then just use that
-        if (allSettings.size() == 1) {
-            this.scanner.addScanIterator(allSettings.get(0));
-        }
-        else if (allSettings.size() > 0) {
-            // Else, and all settings together and add those
-            this.scanner.addScanIterator(AndFilter.andFilters(1, allSettings));
-        }
-    }
-
-    private IteratorSetting getNullFilterSetting(AccumuloColumnConstraint col, AtomicInteger priority)
-    {
-        String name = format("%s:%d", col.getName(), priority.get());
-        return new IteratorSetting(
-                priority.getAndIncrement(),
-                name,
-                NullRowFilter.class,
-                NullRowFilter.getProperties(col.getFamily(), col.getQualifier()));
-    }
-
-    private IteratorSetting getFilterSettingFromRange(AccumuloColumnConstraint constraint, Range range, AtomicInteger priority)
-    {
-        if (range.isAll()) {
-            // [min, max]
-            return null;
-        }
-        else if (range.isSingleValue()) {
-            // value = value
-            return getIteratorSetting(priority, constraint, CompareOp.EQUAL, range.getType(), range.getSingleValue());
-        }
-        else {
-            if (range.getLow().isLowerUnbounded()) {
-                // (min, x] WHERE x < 10
-                CompareOp op = range.getHigh().getBound() == Bound.EXACTLY ? CompareOp.LESS_OR_EQUAL : CompareOp.LESS;
-                return getIteratorSetting(priority, constraint, op, range.getType(), range.getHigh().getValue());
-            }
-            else if (range.getHigh().isUpperUnbounded()) {
-                // [(x, max] WHERE x > 10
-                CompareOp op = range.getLow().getBound() == Bound.EXACTLY ? CompareOp.GREATER_OR_EQUAL : CompareOp.GREATER;
-                return getIteratorSetting(priority, constraint, op, range.getType(), range.getLow().getValue());
-            }
-            else {
-                // WHERE x > 10 AND x < 20
-                CompareOp op = range.getHigh().getBound() == Bound.EXACTLY ? CompareOp.LESS_OR_EQUAL : CompareOp.LESS;
-                IteratorSetting high = getIteratorSetting(priority, constraint, op, range.getType(), range.getHigh().getValue());
-
-                op = range.getLow().getBound() == Bound.EXACTLY ? CompareOp.GREATER_OR_EQUAL : CompareOp.GREATER;
-                IteratorSetting low = getIteratorSetting(priority, constraint, op, range.getType(), range.getLow().getValue());
-
-                return AndFilter.andFilters(priority.getAndIncrement(), high, low);
-            }
-        }
-    }
-
-    private IteratorSetting getIteratorSetting(AtomicInteger priority, AccumuloColumnConstraint col, CompareOp op, Type type, Object value)
-    {
-        String name = format("%s:%d", col.getName(), priority.get());
-        byte[] valueBytes = serializer.encode(type, value);
-        return new IteratorSetting(
-                priority.getAndIncrement(),
-                name,
-                SingleColumnValueFilter.class,
-                SingleColumnValueFilter.getProperties(col.getFamily(), col.getQualifier(), op, valueBytes));
     }
 }
