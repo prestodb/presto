@@ -15,12 +15,12 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Page;
-import com.google.common.base.MoreObjects;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketFunction
@@ -28,27 +28,25 @@ public class HiveBucketFunction
 {
     private final int bucketCount;
     private final List<TypeInfo> typeInfos;
-    private final boolean forceIntegralToBigint;
 
-    public HiveBucketFunction(int bucketCount, List<HiveType> hiveTypes, boolean forceIntegralToBigint)
+    public HiveBucketFunction(int bucketCount, List<HiveType> hiveTypes)
     {
         this.bucketCount = bucketCount;
         this.typeInfos = requireNonNull(hiveTypes, "hiveTypes is null").stream()
                 .map(HiveType::getTypeInfo)
                 .collect(Collectors.toList());
-        this.forceIntegralToBigint = forceIntegralToBigint;
     }
 
     @Override
     public int getBucket(Page page, int position)
     {
-        return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount, forceIntegralToBigint);
+        return HiveBucketing.getHiveBucket(typeInfos, page, position, bucketCount);
     }
 
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("bucketCount", bucketCount)
                 .add("typeInfos", typeInfos)
                 .toString();

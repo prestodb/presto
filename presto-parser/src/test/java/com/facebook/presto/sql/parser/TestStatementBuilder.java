@@ -177,6 +177,18 @@ public class TestStatementBuilder
 
         printStatement("alter table a.b.c add column x bigint");
 
+        printStatement("create schema test");
+        printStatement("create schema if not exists test");
+        printStatement("create schema test with (a = 'apple', b = 123)");
+
+        printStatement("drop schema test");
+        printStatement("drop schema test cascade");
+        printStatement("drop schema if exists test");
+        printStatement("drop schema if exists test restrict");
+
+        printStatement("alter schema foo rename to bar");
+        printStatement("alter schema foo.bar rename to baz");
+
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
         printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
@@ -214,6 +226,8 @@ public class TestStatementBuilder
         printStatement("revoke grant option for select on foo from alice");
         printStatement("revoke all privileges on foo from alice");
         printStatement("revoke insert, delete on foo from public"); //check support for public
+
+        printStatement("prepare p from select * from (select * from T) \"A B\"");
     }
 
     @Test

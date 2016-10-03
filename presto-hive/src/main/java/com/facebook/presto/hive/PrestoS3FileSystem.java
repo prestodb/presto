@@ -19,12 +19,12 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
-import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
@@ -119,6 +119,8 @@ public class PrestoS3FileSystem
 
     public static final String S3_ACCESS_KEY = "presto.s3.access-key";
     public static final String S3_SECRET_KEY = "presto.s3.secret-key";
+    public static final String S3_ENDPOINT = "presto.s3.endpoint";
+    public static final String S3_SIGNER_TYPE = "presto.s3.signer-type";
     public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
     public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
     public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
@@ -135,6 +137,7 @@ public class PrestoS3FileSystem
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
     public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
+    public static final String S3_USER_AGENT = "presto";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -185,7 +188,8 @@ public class PrestoS3FileSystem
                 .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
                 .withConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()))
                 .withSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()))
-                .withMaxConnections(maxConnections);
+                .withMaxConnections(maxConnections)
+                .withUserAgentSuffix(S3_USER_AGENT);
 
         this.s3 = createAmazonS3Client(uri, conf, configuration);
 
@@ -602,6 +606,10 @@ public class PrestoS3FileSystem
         AWSCredentialsProvider credentials = getAwsCredentialsProvider(uri, hadoopConfig);
         Optional<EncryptionMaterialsProvider> emp = createEncryptionMaterialsProvider(hadoopConfig);
         AmazonS3Client client;
+        String signerType = hadoopConfig.get(S3_SIGNER_TYPE);
+        if (signerType != null) {
+            clientConfig.withSignerOverride(signerType);
+        }
         if (emp.isPresent()) {
             client = new AmazonS3EncryptionClient(credentials, emp.get(), clientConfig, new CryptoConfiguration(), METRIC_COLLECTOR);
         }
@@ -615,6 +623,11 @@ public class PrestoS3FileSystem
             if (region != null) {
                 client.setRegion(region);
             }
+        }
+
+        String endpoint = hadoopConfig.get(S3_ENDPOINT);
+        if (endpoint != null) {
+            client.setEndpoint(endpoint);
         }
 
         return client;
@@ -647,7 +660,7 @@ public class PrestoS3FileSystem
     {
         Optional<AWSCredentials> credentials = getAwsCredentials(uri, conf);
         if (credentials.isPresent()) {
-            return new StaticCredentialsProvider(credentials.get());
+            return new AWSStaticCredentialsProvider(credentials.get());
         }
 
         if (useInstanceCredentials) {

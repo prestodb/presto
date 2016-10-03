@@ -15,7 +15,6 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
 import javax.management.MBeanServer;
@@ -39,8 +38,8 @@ public class JmxPlugin
     }
 
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JmxConnectorFactory(mBeanServer, context.getNodeManager()));
+        return ImmutableList.of(new JmxConnectorFactory(mBeanServer));
     }
 }

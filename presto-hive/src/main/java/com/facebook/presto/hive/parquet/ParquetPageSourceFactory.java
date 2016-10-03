@@ -17,7 +17,6 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
@@ -110,7 +109,6 @@ public class ParquetPageSourceFactory
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
@@ -135,9 +133,7 @@ public class ParquetPageSourceFactory
                 length,
                 schema,
                 columns,
-                partitionKeys,
                 useParquetColumnNames,
-                hiveStorageTimeZone,
                 typeManager,
                 isParquetPredicatePushdownEnabled(session),
                 effectivePredicate));
@@ -152,9 +148,7 @@ public class ParquetPageSourceFactory
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             boolean useParquetColumnNames,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
@@ -192,11 +186,8 @@ public class ParquetPageSourceFactory
             }
 
             ParquetReader parquetReader = new ParquetReader(
-                    fileMetaData.getSchema(),
-                    fileMetaData.getKeyValueMetaData(),
                     requestedSchema,
                     blocks,
-                    configuration,
                     dataSource);
 
             return new ParquetPageSource(
@@ -207,12 +198,9 @@ public class ParquetPageSourceFactory
                     length,
                     schema,
                     columns,
-                    partitionKeys,
                     effectivePredicate,
-                    hiveStorageTimeZone,
                     typeManager,
-                    useParquetColumnNames,
-                    path);
+                    useParquetColumnNames);
         }
         catch (Exception e) {
             try {

@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -65,11 +67,13 @@ public final class TaskTestUtils
     {
     }
 
-    public static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create("test");
+    private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split("test", TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
+    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 
     public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
 
@@ -79,7 +83,7 @@ public final class TaskTestUtils
             new PlanFragmentId("fragment"),
             new TableScanNode(
                     TABLE_SCAN_NODE_ID,
-                    new TableHandle("test", new TestingTableHandle()),
+                    new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column")),
                     Optional.empty(),
@@ -96,7 +100,7 @@ public final class TaskTestUtils
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
 
         PageSourceManager pageSourceManager = new PageSourceManager();
-        pageSourceManager.addConnectorPageSourceProvider("test", new TestingPageSourceProvider());
+        pageSourceManager.addConnectorPageSourceProvider(CONNECTOR_ID, new TestingPageSourceProvider());
 
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();
@@ -118,6 +122,7 @@ public final class TaskTestUtils
                 new PageSinkManager(),
                 new MockExchangeClientSupplier(),
                 new ExpressionCompiler(metadata),
+                new JoinFilterFunctionCompiler(metadata),
                 new IndexJoinLookupStats(),
                 new CompilerConfig(),
                 new TaskManagerConfig());

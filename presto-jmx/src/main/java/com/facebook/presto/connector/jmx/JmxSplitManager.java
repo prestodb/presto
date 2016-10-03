@@ -33,7 +33,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.connector.jmx.JmxMetadata.NODE_COLUMN_NAME;
 import static com.facebook.presto.connector.jmx.Types.checkType;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,8 +64,7 @@ public class JmxSplitManager
                 .findFirst();
         checkState(nodeColumnHandle.isPresent(), "Failed to find %s column", NODE_COLUMN_NAME);
 
-        List<ConnectorSplit> splits = nodeManager.getNodes(ACTIVE)
-                .stream()
+        List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .filter(node -> {
                     NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
                     return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));

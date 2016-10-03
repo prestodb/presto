@@ -32,8 +32,6 @@ function stop_unnecessary_hadoop_services() {
   HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop mapreduce-historyserver
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-resourcemanager
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-nodemanager
   docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop zookeeper
 }
 
@@ -43,15 +41,30 @@ function run_in_application_runner_container() {
 
 function check_presto() {
   run_in_application_runner_container \
-    java -jar ${DOCKER_PRESTO_VOLUME}/presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar \
+    java -jar "/docker/volumes/presto-cli/presto-cli-executable.jar" \
     --server presto-master:8080 \
     --execute "SHOW CATALOGS" | grep -i hive
 }
 
 function run_product_tests() {
+  local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
+  rm -rf "${REPORT_DIR}"
+  mkdir -p "${REPORT_DIR}"
   run_in_application_runner_container \
-    ${DOCKER_PRESTO_VOLUME}/presto-product-tests/bin/run.sh \
-    --config-local "${TEMPTO_CONFIGURATION}" "$@"
+    java "-Djava.util.logging.config.file=/docker/volumes/conf/tempto/logging.properties" \
+    -jar "/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
+    --report-dir "/docker/volumes/test-reports" \
+    --config-local "/docker/volumes/tempto/tempto-configuration-local.yaml" \
+    "$@" \
+    &
+  PRODUCT_TESTS_PROCESS_ID=$!
+  wait ${PRODUCT_TESTS_PROCESS_ID}
+  local PRODUCT_TESTS_EXIT_CODE=$?
+
+  #make the files in $REPORT_DIR modifiable by everyone, as they were created by root (by docker)
+  run_in_application_runner_container chmod -R 777 "/docker/volumes/test-reports"
+
+  return ${PRODUCT_TESTS_EXIT_CODE}
 }
 
 # docker-compose down is not good enough because it's ignores services created with "run" command
@@ -82,8 +95,8 @@ function stop_docker_compose_containers() {
     # stop application runner containers started with "run"
     stop_application_runner_containers ${ENVIRONMENT}
 
-    # stop containers started with "up"
-    environment_compose down
+    # stop containers started with "up", removing their volumes
+    environment_compose down -v
   fi
 
   echo "Docker compose containers stopped: [$ENVIRONMENT]"
@@ -137,11 +150,9 @@ function getAvailableEnvironments() {
      | grep -v files | grep -v common | xargs -n1 basename
 }
 
+source ${BASH_SOURCE%/*}/locations.sh
+
 ENVIRONMENT=$1
-SCRIPT_DIR=${BASH_SOURCE%/*}
-PRODUCT_TESTS_ROOT="${SCRIPT_DIR}/.."
-PROJECT_ROOT="${PRODUCT_TESTS_ROOT}/.."
-DOCKER_CONF_LOCATION="${PRODUCT_TESTS_ROOT}/conf/docker"
 
 # Get the list of valid environments
 if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
@@ -151,16 +162,10 @@ fi
 
 shift 1
 
-DOCKER_PRESTO_VOLUME="/docker/volumes/presto"
-TEMPTO_CONFIGURATION="/docker/volumes/tempto/tempto-configuration-local.yaml"
-
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 fi
-
-# set presto version environment variable
-source "${PRODUCT_TESTS_ROOT}/target/classes/presto.env"
 
 # check docker and docker compose installation
 docker-compose version
@@ -202,9 +207,7 @@ retry check_presto
 
 # run product tests
 set +e
-run_product_tests "$*" &
-PRODUCT_TESTS_PROCESS_ID=$!
-wait ${PRODUCT_TESTS_PROCESS_ID}
+run_product_tests "$*"
 EXIT_CODE=$?
 set -e
 

@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -30,13 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class ExampleConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
-
-    public ExampleConnectorFactory(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public String getName()
     {
@@ -57,7 +49,7 @@ public class ExampleConnectorFactory
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new ExampleModule(connectorId, typeManager));
+                    new ExampleModule(connectorId, context.getTypeManager()));
 
         Injector injector = app
                     .strictConfig()

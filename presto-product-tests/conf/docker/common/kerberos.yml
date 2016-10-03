@@ -4,13 +4,13 @@ services:
   # cdh5-hive-kerberized contains keytabs and the `krb5.conf` within
 
   hadoop-master:
-    image: 'teradatalabs/cdh5-hive-kerberized:4'
+    image: 'teradatalabs/cdh5-hive-kerberized:${DOCKER_IMAGES_VERSION}'
 
   presto-master:
-    image: 'teradatalabs/cdh5-hive-kerberized:4'
-    command: /docker/volumes/presto/presto-product-tests/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
+    image: 'teradatalabs/cdh5-hive-kerberized:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode-kerberized run
 
   application-runner:
-    image: 'teradatalabs/cdh5-hive-kerberized:4'
+    image: 'teradatalabs/cdh5-hive-kerberized:${DOCKER_IMAGES_VERSION}'
     volumes:
-      - ../../../../presto-product-tests/conf/tempto/tempto-configuration-for-docker-kerberos.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+      - ../../../conf/tempto/tempto-configuration-for-docker-kerberos.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml

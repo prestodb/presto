@@ -16,15 +16,14 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
 public final class BlackHolePlugin
         implements Plugin
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new BlackHoleConnectorFactory(context.getNodeManager(), context.getTypeManager()));
+        return ImmutableList.of(new BlackHoleConnectorFactory());
     }
 }

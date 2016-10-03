@@ -309,11 +309,6 @@ public class PagesIndex
 
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
     {
-        return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
-    }
-
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunction> joinFilterFunction)
-    {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels)
                     .createPagesHashStrategy(ImmutableList.copyOf(channels), hashChannel);
@@ -323,29 +318,29 @@ public class PagesIndex
         }
 
         // if compilation fails, use interpreter
-        return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel, joinFilterFunction);
+        return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
+    }
+
+    private Optional<JoinFilterFunctionVerifier> createJoinFilterFunctionVerifier(Optional<JoinFilterFunction> filterFunctionOptional, List<List<Block>> channels)
+    {
+        return filterFunctionOptional.map(filterFunction -> joinCompiler.compileJoinFilterFunctionVerifierFactory(filterFunction).createJoinFilterFunctionVerifier(filterFunction, channels));
     }
 
     public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunction> filterFunction)
     {
-        if (!filterFunction.isPresent() && !joinChannels.isEmpty()) {
-            // todo compiled implementation of lookup join does not support:
-            //  (1) case with join function and the case
-            //  (2) when we are joining with empty join channels.
-
-            // Ad (1) we need to add support for filter function into compiled PagesHashStrategy/JoinProbe
-            // Ad (2) this code path will trigger only for OUTER joins. To fix that we need to add support for
+        if (!joinChannels.isEmpty()) {
+            // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
+            // This code path will trigger only for OUTER joins. To fix that we need to add support for
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
                 LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
 
-                LookupSource lookupSource = lookupSourceFactory.createLookupSource(
+                return lookupSourceFactory.createLookupSource(
                         valueAddresses,
-                        ImmutableList.<List<Block>>copyOf(channels),
-                        hashChannel);
-
-                return lookupSource;
+                        ImmutableList.copyOf(channels),
+                        hashChannel,
+                        createJoinFilterFunctionVerifier(filterFunction, ImmutableList.copyOf(channels)));
             }
             catch (Exception e) {
                 log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -355,12 +350,12 @@ public class PagesIndex
         // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
-                ImmutableList.<List<Block>>copyOf(channels),
+                ImmutableList.copyOf(this.channels),
                 joinChannels,
-                hashChannel,
-                filterFunction);
+                hashChannel
+        );
 
-        return new InMemoryJoinHash(valueAddresses, hashStrategy);
+        return new InMemoryJoinHash(valueAddresses, hashStrategy, createJoinFilterFunctionVerifier(filterFunction, ImmutableList.copyOf(channels)));
     }
 
     @Override

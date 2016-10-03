@@ -137,10 +137,6 @@ Property Name                                      Description                  
                                                    installations where Presto is collocated with every
                                                    DataNode.
 
-``hive.allow-drop-table``                          Allow the Hive connector to drop tables.                     ``false``
-
-``hive.allow-rename-table``                        Allow the Hive connector to rename tables.                   ``false``
-
 ``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
                                                    format or the default Presto format?
 
@@ -149,6 +145,12 @@ Property Name                                      Description                  
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
 ``hive.s3.sse.enabled``                            Enable S3 server-side encryption.                            ``false``
+
+``hive.s3.endpoint``                               The S3 storage endpoint server. This can be used to connect
+                                                   to an S3-compatible storage system instead of AWS.
+
+``hive.s3.signer-type``                            Specify a different signer type for S3-compatible storage.
+                                                   Example: ``S3SignerType`` for v2 signer type
 
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.

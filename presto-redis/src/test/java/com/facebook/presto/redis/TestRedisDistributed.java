@@ -97,6 +97,13 @@ public class TestRedisDistributed
     {
     }
 
+    @Test
+    public void testViewCaseSensitivity()
+            throws Exception
+    {
+        // Redis connector currently does not support views
+    }
+
     //
     // Redis connector does not insert.
     //

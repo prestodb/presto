@@ -14,13 +14,13 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -76,7 +76,7 @@ public final class NetworkLocation
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("location", "/" + Joiner.on("/").join(segments))
                 .toString();
     }

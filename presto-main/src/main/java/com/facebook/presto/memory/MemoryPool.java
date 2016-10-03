@@ -16,7 +16,6 @@ package com.facebook.presto.memory;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
-import com.google.common.base.MoreObjects;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -29,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -147,7 +147,7 @@ public class MemoryPool
     @Override
     public synchronized String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("id", id)
                 .add("maxBytes", maxBytes)
                 .add("freeBytes", freeBytes)

@@ -521,4 +521,9 @@ public final class TypeRegistry
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
         return type instanceof MapType || type instanceof ArrayType;
     }
+
+    public static boolean isCovariantTypeBase(String typeBase)
+    {
+        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
+    }
 }

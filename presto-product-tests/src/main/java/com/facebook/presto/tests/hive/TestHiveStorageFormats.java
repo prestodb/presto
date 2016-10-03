@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.facebook.presto.jdbc.PrestoConnection;
-import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.teradata.tempto.ProductTest;
@@ -29,7 +27,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.tests.TestGroups.STORAGE_FORMATS;
+import static com.facebook.presto.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.teradata.tempto.assertions.QueryAssert.Row.row;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
@@ -226,12 +226,11 @@ public class TestHiveStorageFormats
     {
         Connection connection = defaultQueryExecutor().getConnection();
         try {
-            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
             // create more than one split
-            prestoConnection.setSessionProperty("task_writer_count", "4");
-            prestoConnection.setSessionProperty("redistribute_writes", "false");
+            setSessionProperty(connection, "task_writer_count", "4");
+            setSessionProperty(connection, "redistribute_writes", "false");
             for (Map.Entry<String, String> sessionProperty : sessionProperties.entrySet()) {
-                prestoConnection.setSessionProperty(sessionProperty.getKey(), sessionProperty.getValue());
+                setSessionProperty(connection, sessionProperty.getKey(), sessionProperty.getValue());
             }
         }
         catch (SQLException e) {
@@ -273,7 +272,7 @@ public class TestHiveStorageFormats
         @Override
         public String toString()
         {
-            return MoreObjects.toStringHelper(this)
+            return toStringHelper(this)
                     .add("name", name)
                     .add("sessionProperties", sessionProperties)
                     .toString();

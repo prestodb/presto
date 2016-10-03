@@ -36,6 +36,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -493,8 +494,8 @@ public class PlanPrinter
                 type = format("(%s)", node.getStep().toString());
             }
             String key = "";
-            if (!node.getGroupBy().isEmpty()) {
-                key = node.getGroupBy().toString();
+            if (!node.getGroupingKeys().isEmpty()) {
+                key = node.getGroupingKeys().toString();
             }
             String sampleWeight = "";
             if (node.getSampleWeight().isPresent()) {
@@ -862,6 +863,15 @@ public class PlanPrinter
         public Void visitEnforceSingleRow(EnforceSingleRowNode node, Integer indent)
         {
             print(indent, "- Scalar => [%s]", formatOutputs(node.getOutputSymbols()));
+            printStats(indent + 2, node.getId());
+
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitAssignUniqueId(AssignUniqueId node, Integer indent)
+        {
+            print(indent, "- AssignUniqueId => [%s]", formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             return processChildren(node, indent + 1);

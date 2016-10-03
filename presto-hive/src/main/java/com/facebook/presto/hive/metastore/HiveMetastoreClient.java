@@ -44,6 +44,15 @@ public interface HiveMetastoreClient
     List<String> getTableNamesByFilter(String databaseName, String filter)
             throws TException;
 
+    void createDatabase(Database database)
+            throws TException;
+
+    void dropDatabase(String databaseName, boolean deleteData, boolean cascade)
+            throws TException;
+
+    void alterDatabase(String databaseName, Database database)
+            throws TException;
+
     void createTable(Table table)
             throws TException;
 

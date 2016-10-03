@@ -199,7 +199,7 @@ Specifier Description
 .. [#f] Timestamp is truncated to milliseconds.
 .. [#y] When parsing, two-digit year format assumes range ``1970`` .. ``2069``, so "70" will result in year ``1970`` but "69" will produce ``2069``.
 
-.. warning:: The following specifiers are not currently supported: ``%D %U %u %V %X``
+.. warning:: The following specifiers are not currently supported: ``%D %U %u %V %w %X``
 
 .. function:: date_format(timestamp, format) -> varchar
 

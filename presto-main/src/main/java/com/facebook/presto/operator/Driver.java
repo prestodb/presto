@@ -379,7 +379,7 @@ public class Driver
                     current.getOperatorContext().recordGetOutput(page);
 
                     // if we got an output page, add it to the next operator
-                    if (page != null) {
+                    if (page != null && page.getPositionCount() != 0) {
                         next.getOperatorContext().startIntervalTimer();
                         next.addInput(page);
                         next.getOperatorContext().recordAddInput(page);

@@ -14,9 +14,8 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.testing.TestingConnectorFactoryContext;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -32,7 +31,7 @@ public class TestKafkaPlugin
     {
         KafkaPlugin plugin = new KafkaPlugin();
 
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories(new TestingConnectorFactoryContext()));
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, KafkaConnectorFactory.class);
 
         Connector c = factory.create(
@@ -41,7 +40,7 @@ public class TestKafkaPlugin
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")
                         .build(),
-                new ConnectorContext() {});
+                new TestingConnectorContext());
         assertNotNull(c);
     }
 }

@@ -253,9 +253,7 @@ public class WindowFilterPushDown
         {
             return new TopNRowNumberNode(idAllocator.getNextId(),
                     windowNode.getSource(),
-                    windowNode.getPartitionBy(),
-                    windowNode.getOrderBy(),
-                    windowNode.getOrderings(),
+                    windowNode.getSpecification(),
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),
                     limit,
                     false,

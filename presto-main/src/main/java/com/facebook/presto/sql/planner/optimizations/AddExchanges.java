@@ -26,6 +26,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
@@ -77,6 +78,7 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
@@ -123,6 +125,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class AddExchanges
@@ -140,31 +143,39 @@ public class AddExchanges
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, symbolAllocator, session), new Context(PreferredProperties.any(), false));
+        Context context = new Context(PreferredProperties.any(), false, ImmutableList.of());
+        PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session), context);
         return result.getNode();
     }
 
     private static class Context
     {
-        private PreferredProperties preferredProperties;
+        private final PreferredProperties preferredProperties;
         // For delete queries, the TableScan node that corresponds to the table being deleted on must be collocated with the Delete node.
         // Care must be taken so that Exchange node is not introduced between the two. For now, only SemiJoin may introduce it.
-        private boolean downstreamIsDelete;
+        private final boolean downstreamIsDelete;
+        private final List<Symbol> correlations;
 
-        Context(PreferredProperties preferredProperties, boolean downstreamIsDelete)
+        Context(PreferredProperties preferredProperties, boolean downstreamIsDelete, List<Symbol> correlations)
         {
             this.preferredProperties = preferredProperties;
             this.downstreamIsDelete = downstreamIsDelete;
+            this.correlations = ImmutableList.copyOf(requireNonNull(correlations, "correlations is null"));
         }
 
         Context withPreferredProperties(PreferredProperties preferredProperties)
         {
-            return new Context(preferredProperties, downstreamIsDelete);
+            return new Context(preferredProperties, downstreamIsDelete, correlations);
         }
 
         Context withHashPartitionedSemiJoinBanned(boolean hashPartitionedSemiJoinBanned)
         {
-            return new Context(preferredProperties, hashPartitionedSemiJoinBanned);
+            return new Context(preferredProperties, hashPartitionedSemiJoinBanned, correlations);
+        }
+
+        Context withCorrelations(List<Symbol> correlations)
+        {
+            return new Context(preferredProperties, downstreamIsDelete, correlations);
         }
 
         PreferredProperties getPreferredProperties()
@@ -176,25 +187,28 @@ public class AddExchanges
         {
             return downstreamIsDelete;
         }
+
+        List<Symbol> getCorrelations()
+        {
+            return correlations;
+        }
     }
 
     private class Rewriter
             extends PlanVisitor<Context, PlanWithProperties>
     {
-        private final SymbolAllocator allocator;
         private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final Map<Symbol, Type> types;
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean distributedJoins;
         private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
 
-        public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
-            this.allocator = allocator;
             this.idAllocator = idAllocator;
-            this.symbolAllocator = symbolAllocator;
+            this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
             this.session = session;
             this.distributedJoins = SystemSessionProperties.isDistributedJoinEnabled(session);
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
@@ -261,8 +275,8 @@ public class AddExchanges
             }
 
             PreferredProperties preferredProperties = PreferredProperties.any();
-            if (!node.getGroupBy().isEmpty()) {
-                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupBy()))
+            if (!node.getGroupingKeys().isEmpty()) {
+                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupingKeys()))
                         .mergeWithParent(context.getPreferredProperties());
             }
 
@@ -273,14 +287,16 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            if (node.getGroupBy().isEmpty()) {
+            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
+            // needs to know whether input was received at the query level.
+            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
             }
             else if (!child.getProperties().isStreamPartitionedOn(partitioningRequirement) && !child.getProperties().isNodePartitionedOn(partitioningRequirement)) {
                 child = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupBy(), node.getHashSymbol()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupingKeys(), node.getHashSymbol()),
                         child.getProperties());
             }
             return rebaseAndDeriveProperties(node, child);
@@ -425,9 +441,7 @@ public class AddExchanges
                         new TopNRowNumberNode(
                                 idAllocator.getNextId(),
                                 child.getNode(),
-                                node.getPartitionBy(),
-                                node.getOrderBy(),
-                                node.getOrderings(),
+                                node.getSpecification(),
                                 node.getRowNumberSymbol(),
                                 node.getMaxRowCountPerPartition(),
                                 true,
@@ -555,7 +569,7 @@ public class AddExchanges
                     metadata,
                     session,
                     deterministicPredicate,
-                    symbolAllocator.getTypes());
+                    types);
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
                     .transform(node.getAssignments()::get)
@@ -570,7 +584,7 @@ public class AddExchanges
             // Layouts will be returned in order of the connector's preference
             List<TableLayoutResult> layouts = metadata.getLayouts(
                     session, node.getTable(),
-                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings)),
+                    new Constraint<>(simplifiedConstraint, bindings -> !shouldPrune(constraint, node.getAssignments(), bindings, context.getCorrelations())),
                     Optional.of(node.getOutputSymbols().stream()
                             .map(node.getAssignments()::get)
                             .collect(toImmutableSet())));
@@ -641,14 +655,14 @@ public class AddExchanges
             return possiblePlans.get(0);
         }
 
-        private boolean shouldPrune(Expression predicate, Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings)
+        private boolean shouldPrune(Expression predicate, Map<Symbol, ColumnHandle> assignments, Map<ColumnHandle, NullableValue> bindings, List<Symbol> correlations)
         {
             List<Expression> conjuncts = extractConjuncts(predicate);
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(
                     session,
                     metadata,
                     parser,
-                    symbolAllocator.getTypes(),
+                    types,
                     predicate,
                     emptyList() /* parameters already replaced */);
 
@@ -656,6 +670,10 @@ public class AddExchanges
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
             for (Expression expression : conjuncts) {
+                if (DependencyExtractor.extractUnique(expression).stream().anyMatch(correlations::contains)) {
+                    // expression contains correlated symbol with outer query
+                    continue;
+                }
                 ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                 Object optimized = optimizer.optimize(inputs);
                 if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
@@ -1138,7 +1156,7 @@ public class AddExchanges
         public PlanWithProperties visitApply(ApplyNode node, Context context)
         {
             PlanWithProperties input = node.getInput().accept(this, context);
-            PlanWithProperties subquery = node.getSubquery().accept(this, context);
+            PlanWithProperties subquery = node.getSubquery().accept(this, context.withCorrelations(node.getCorrelation()));
 
             ApplyNode rewritten = new ApplyNode(
                     node.getId(),
@@ -1173,12 +1191,12 @@ public class AddExchanges
 
         private ActualProperties deriveProperties(PlanNode result, ActualProperties inputProperties)
         {
-            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser);
         }
 
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
-            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, symbolAllocator.getTypes(), parser);
+            return PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser);
         }
     }
 

@@ -15,13 +15,15 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
+import java.util.Optional;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
@@ -37,24 +39,28 @@ public final class InMemoryJoinHash
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
+    // we unwrap Optinal<JoinFilterFunctionVerifier> to actual verifier or null in constructor for performance reasons
+    // we do quick check for `filterFunctionVerifier == null` in `getNextJoinPositionFrom` to avoid calls to applyFilterFunction
+    @Nullable
+    private final JoinFilterFunctionVerifier filterFunctionVerifier;
+
     private final int channelCount;
     private final int mask;
     private final int[] key;
     private final int[] positionLinks;
     private final long size;
-    private final boolean filterFunctionPresent;
 
     // Native array of hashes for faster collisions resolution compared
     // to accessing values in blocks. We use bytes to reduce memory foot print
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
-    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
+    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, Optional<JoinFilterFunctionVerifier> filterFunctionVerifierOptional)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
+        this.filterFunctionVerifier = requireNonNull(filterFunctionVerifierOptional, "filterFunctionVerifierOptional can not be null").orElse(null);
         this.channelCount = pagesHashStrategy.getChannelCount();
-        this.filterFunctionPresent = pagesHashStrategy.getFilterFunction().isPresent();
 
         // reserve memory for the arrays
         int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
@@ -167,8 +173,8 @@ public final class InMemoryJoinHash
 
     private long getNextJoinPositionFrom(int startJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        long currentJoinPosition = startJoinPosition;
-        while (filterFunctionPresent && currentJoinPosition != -1 && !applyFilterFilterFunction(Ints.checkedCast(currentJoinPosition), probePosition, allProbeChannelsPage.getBlocks())) {
+        int currentJoinPosition = Ints.checkedCast(startJoinPosition);
+        while (filterFunctionVerifier != null && currentJoinPosition != -1 && !applyFilterFilterFunction((currentJoinPosition), probePosition, allProbeChannelsPage)) {
             currentJoinPosition = positionLinks[Ints.checkedCast(currentJoinPosition)];
         }
         return currentJoinPosition;
@@ -220,17 +226,15 @@ public final class InMemoryJoinHash
         return pagesHashStrategy.positionEqualsRowIgnoreNulls(blockIndex, blockPosition, rightPosition, rightPage);
     }
 
-    private boolean applyFilterFilterFunction(int leftPosition, int rightPosition, Block[] rightBlocks)
+    private boolean applyFilterFilterFunction(int leftPosition, int rightPosition, Page rightPage)
     {
-        if (!filterFunctionPresent) {
-            return true;
-        }
+        // todo verify if computing blockIndex/blockPosition is not an performance issue if filter function is not present
 
         long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
-        return pagesHashStrategy.applyFilterFunction(blockIndex, blockPosition, rightPosition, rightBlocks);
+        return filterFunctionVerifier.applyFilterFunction(blockIndex, blockPosition, rightPosition, rightPage.getBlocks());
     }
 
     private boolean positionEqualsPositionIgnoreNulls(int leftPosition, int rightPosition)

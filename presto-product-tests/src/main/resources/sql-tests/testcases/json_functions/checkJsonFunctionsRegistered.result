@@ -16,6 +16,6 @@
  json_extract_scalar | varchar | json, JsonPath | scalar | true | |
  json_extract_scalar | varchar | varchar, JsonPath | scalar | true | |
  json_format | varchar | json | scalar | true | |
- json_parse | json | varchar | scalar | true | |
+ json_parse | json | varchar(x) | scalar | true | |
  json_size | bigint | json, JsonPath | scalar | true | |
  json_size | bigint | varchar, JsonPath | scalar | true | |

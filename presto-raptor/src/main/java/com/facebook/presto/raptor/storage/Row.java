@@ -66,7 +66,7 @@ public class Row
         checkArgument(page.getChannelCount() == types.size(), "channelCount does not match");
         checkArgument(position < page.getPositionCount(), "Requested position %s from a page with positionCount %s ", position, page.getPositionCount());
 
-        RowBuilder rowBuilder = new RowBuilder();
+        RowBuilder rowBuilder = new RowBuilder(page.getChannelCount());
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             Block block = page.getBlock(channel);
             Type type = types.get(channel);
@@ -183,9 +183,9 @@ public class Row
         private int rowSize;
         private final List<Object> columns;
 
-        public RowBuilder()
+        public RowBuilder(int columnCount)
         {
-            this.columns = new ArrayList<>();
+            this.columns = new ArrayList<>(columnCount);
         }
 
         public void add(Object value, int size)

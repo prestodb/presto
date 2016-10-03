@@ -16,13 +16,10 @@ package com.facebook.presto.atop;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControlModule;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -39,18 +36,12 @@ public class AtopConnectorFactory
         implements ConnectorFactory
 {
     private final Class<? extends AtopFactory> atopFactoryClass;
-    private final TypeManager typeManager;
-    private final NodeManager nodeManager;
     private final ClassLoader classLoader;
-    private final ServerInfo serverInfo;
 
-    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, ClassLoader classLoader, TypeManager typeManager, NodeManager nodeManager, ServerInfo serverInfo)
+    public AtopConnectorFactory(Class<? extends AtopFactory> atopFactoryClass, ClassLoader classLoader)
     {
         this.atopFactoryClass = requireNonNull(atopFactoryClass, "atopFactoryClass is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
     }
 
     @Override
@@ -72,7 +63,12 @@ public class AtopConnectorFactory
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
-                    new AtopModule(atopFactoryClass, typeManager, nodeManager, serverInfo, connectorId),
+                    new AtopModule(
+                            atopFactoryClass,
+                            context.getTypeManager(),
+                            context.getNodeManager(),
+                            context.getNodeManager().getEnvironment(),
+                            connectorId),
                     installModuleIf(
                         AtopConnectorConfig.class,
                             config -> config.getSecurity().equalsIgnoreCase(SECURITY_NONE),

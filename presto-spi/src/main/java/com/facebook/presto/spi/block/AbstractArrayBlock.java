@@ -158,72 +158,6 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public short getShort(int position, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int getInt(int position, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getLong(int position, int offset)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);
@@ -248,10 +182,24 @@ public abstract class AbstractArrayBlock
         return getValueIsNull().getByte(position) != 0;
     }
 
+    public <T> T apply(ArrayBlockFunction<T> function, int position)
+    {
+        checkReadablePosition(position);
+
+        int startValueOffset = getOffset(position);
+        int endValueOffset = getOffset(position + 1);
+        return function.apply(getValues(), startValueOffset, endValueOffset - startValueOffset);
+    }
+
     private void checkReadablePosition(int position)
     {
         if (position < 0 || position >= getPositionCount()) {
             throw new IllegalArgumentException("position is not valid");
         }
+    }
+
+    public interface ArrayBlockFunction<T>
+    {
+        T apply(Block block, int startPosition, int length);
     }
 }

@@ -12,8 +12,10 @@ property must be one of the following values:
 ================================================== ============================================================
 Property Value                                     Description
 ================================================== ============================================================
-``allow-all`` (default value)                      No authorization checks are enforced, thus allowing any
-                                                   operation.
+``legacy`` (default value)                         Few authorization checks are enforced, thus allowing most
+                                                   operations. The config properties ``hive.allow-drop-table``,
+                                                   ``hive.allow-rename-table``, ``hive.allow-add-column`` and
+                                                   ``hive.allow-rename-column`` are used.
 
 ``read-only``                                      Operations that read data or metadata, such as ``SELECT``,
                                                    are permitted, but none of the operations that write data or
@@ -314,7 +316,7 @@ HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
 .. code-block:: none
 
     hive.hdfs.authentication.type=NONE
-    hive.hdfs.impersonation=true
+    hive.hdfs.impersonation.enabled=true
 
 When using ``NONE`` authentication with impersonation, Presto impersonates
 the user who is running the query when accessing HDFS. The user Presto is
@@ -442,15 +444,15 @@ See below for an example.
         {
           "user": "admin",
           "schema": ".*",
-          "owner": true,
+          "owner": true
         },
         {
           "user": "guest",
-          "owner": false,
+          "owner": false
         },
         {
           "schema": "default",
-          "owner": true,
+          "owner": true
         }
       ],
       "tables": [
@@ -478,6 +480,6 @@ See below for an example.
           "property": "max_split_size",
           "allow": true
         }
-      ],
+      ]
     }
 

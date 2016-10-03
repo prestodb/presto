@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -31,15 +32,15 @@ import static java.util.Objects.requireNonNull;
 public class SystemConnector
         implements InternalConnector
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction;
 
     public SystemConnector(
-            String connectorId,
-            NodeManager nodeManager,
+            ConnectorId connectorId,
+            InternalNodeManager nodeManager,
             Set<SystemTable> tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {

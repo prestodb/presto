@@ -82,6 +82,7 @@ import com.facebook.presto.type.RowType.RowField;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Defaults;
 import com.google.common.base.Functions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -1254,7 +1255,23 @@ public class ExpressionInterpreter
             handle = handle.bindTo(session);
         }
         try {
-            return handle.invokeWithArguments(argumentValues);
+            List<Object> actualArguments = new ArrayList<>();
+            Class<?>[] parameterArray = function.getMethodHandle().type().parameterArray();
+            for (int i = 0; i < argumentValues.size(); i++) {
+                Object argument = argumentValues.get(i);
+                if (function.getNullFlags().get(i)) {
+                    boolean isNull = argument == null;
+                    if (isNull) {
+                        argument = Defaults.defaultValue(parameterArray[actualArguments.size()]);
+                    }
+                    actualArguments.add(argument);
+                    actualArguments.add(isNull);
+                }
+                else {
+                    actualArguments.add(argument);
+                }
+            }
+            return handle.invokeWithArguments(actualArguments);
         }
         catch (Throwable throwable) {
             if (throwable instanceof InterruptedException) {

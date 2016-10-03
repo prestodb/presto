@@ -16,37 +16,27 @@ package com.facebook.presto.transaction;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects;
 
 import java.util.Objects;
 import java.util.UUID;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class LegacyTransactionHandle
         implements ConnectorTransactionHandle
 {
-    private final String connectorId;
     private final UUID uuid;
 
     @JsonCreator
-    public LegacyTransactionHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("uuid") UUID uuid)
+    public LegacyTransactionHandle(@JsonProperty("uuid") UUID uuid)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.uuid = requireNonNull(uuid, "uuid is null");
     }
 
-    public static LegacyTransactionHandle create(String connectorId)
+    public static LegacyTransactionHandle create()
     {
-        return new LegacyTransactionHandle(connectorId, UUID.randomUUID());
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
+        return new LegacyTransactionHandle(UUID.randomUUID());
     }
 
     @JsonProperty
@@ -58,7 +48,7 @@ public class LegacyTransactionHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, uuid);
+        return Objects.hash(uuid);
     }
 
     @Override
@@ -71,15 +61,13 @@ public class LegacyTransactionHandle
             return false;
         }
         final LegacyTransactionHandle other = (LegacyTransactionHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId)
-                && Objects.equals(this.uuid, other.uuid);
+        return Objects.equals(this.uuid, other.uuid);
     }
 
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
-                .add("connectorId", connectorId)
+        return toStringHelper(this)
                 .add("uuid", uuid)
                 .toString();
     }

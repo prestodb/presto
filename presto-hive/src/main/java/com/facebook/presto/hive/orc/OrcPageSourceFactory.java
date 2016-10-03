@@ -17,7 +17,6 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
-import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
@@ -60,6 +59,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
@@ -95,7 +95,6 @@ public class OrcPageSourceFactory
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
@@ -112,14 +111,14 @@ public class OrcPageSourceFactory
                 start,
                 length,
                 columns,
-                partitionKeys,
                 useOrcColumnNames,
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session)));
+                getOrcStreamBufferSize(session),
+                isOrcBloomFiltersEnabled(session)));
     }
 
     public static OrcPageSource createOrcPageSource(
@@ -131,14 +130,14 @@ public class OrcPageSourceFactory
             long start,
             long length,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
-            DataSize streamBufferSize)
+            DataSize streamBufferSize,
+            boolean orcBloomFiltersEnabled)
     {
         OrcDataSource orcDataSource;
         try {
@@ -170,7 +169,7 @@ public class OrcPageSourceFactory
                 }
             }
 
-            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled);
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
@@ -183,12 +182,9 @@ public class OrcPageSourceFactory
             return new OrcPageSource(
                     recordReader,
                     orcDataSource,
-                    partitionKeys,
                     physicalColumns,
-                    hiveStorageTimeZone,
                     typeManager,
-                    systemMemoryUsage,
-                    path);
+                    systemMemoryUsage);
         }
         catch (Exception e) {
             try {

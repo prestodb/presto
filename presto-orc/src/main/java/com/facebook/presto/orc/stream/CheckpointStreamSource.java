@@ -14,12 +14,12 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
-import com.google.common.base.MoreObjects;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCheckpoint>
@@ -62,7 +62,7 @@ public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCh
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("stream", stream)
                 .add("checkpoint", checkpoint)
                 .toString();

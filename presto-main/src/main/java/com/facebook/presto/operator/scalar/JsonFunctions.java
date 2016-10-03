@@ -73,8 +73,9 @@ public final class JsonFunctions
     private JsonFunctions() {}
 
     @ScalarOperator(OperatorType.CAST)
+    @LiteralParameters("x")
     @SqlType(JsonPathType.NAME)
-    public static JsonPath castVarcharToJsonPath(@SqlType(StandardTypes.VARCHAR) Slice pattern)
+    public static JsonPath castVarcharToJsonPath(@SqlType("varchar(x)") Slice pattern)
     {
         return new JsonPath(pattern.toStringUtf8());
     }
@@ -95,8 +96,9 @@ public final class JsonFunctions
     }
 
     @ScalarFunction
+    @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonParse(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    public static Slice jsonParse(@SqlType("varchar(x)") Slice slice)
     {
         try {
             byte[] in = slice.getBytes();
@@ -321,6 +323,11 @@ public final class JsonFunctions
     @SqlType(StandardTypes.JSON)
     public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
+        // this value cannot be converted to positive number
+        if (index == Long.MIN_VALUE) {
+            return null;
+        }
+
         try (JsonParser parser = createJsonParser(MAPPING_JSON_FACTORY, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;

@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
@@ -49,6 +50,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static java.util.Arrays.asList;
@@ -72,6 +74,10 @@ public class CallTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
+        ConnectorId connectorId = metadata.getCatalogNames().get(procedureName.getCatalogName());
+        if (connectorId == null) {
+            throw new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName());
+        }
         Procedure procedure = metadata.getProcedureRegistry().resolve(procedureName);
 
         // map declared argument names to positions
@@ -143,7 +149,7 @@ public class CallTask
         Iterator<Object> valuesIterator = asList(values).iterator();
         for (Class<?> type : methodType.parameterList()) {
             if (ConnectorSession.class.isAssignableFrom(type)) {
-                arguments.add(session.toConnectorSession(procedureName.getCatalogName()));
+                arguments.add(session.toConnectorSession(connectorId));
             }
             else {
                 arguments.add(valuesIterator.next());

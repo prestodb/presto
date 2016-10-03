@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -83,16 +82,14 @@ public class CreateTableTask
 
         accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        Map<String, Object> properties = metadata.getTablePropertyManager().getTableProperties(
+        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 tableName.getCatalogName(),
                 statement.getProperties(),
                 session,
                 metadata,
                 parameters);
 
-        TableMetadata tableMetadata = new TableMetadata(
-                tableName.getCatalogName(),
-                new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, false));
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), columns, properties, false);
 
         metadata.createTable(session, tableName.getCatalogName(), tableMetadata);
 

@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.HashMultimap;
@@ -31,7 +32,7 @@ public class InMemoryNodeManager
         implements InternalNodeManager
 {
     private final Node localNode;
-    private final SetMultimap<String, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.<String, Node>create());
+    private final SetMultimap<ConnectorId, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @Inject
     public InMemoryNodeManager()
@@ -41,22 +42,22 @@ public class InMemoryNodeManager
 
     public InMemoryNodeManager(URI localUri)
     {
-        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN);
+        localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
-    public void addCurrentNodeDatasource(String datasourceName)
+    public void addCurrentNodeConnector(ConnectorId connectorId)
     {
-        addNode(datasourceName, localNode);
+        addNode(connectorId, localNode);
     }
 
-    public void addNode(String datasourceName, Node... nodes)
+    public void addNode(ConnectorId connectorId, Node... nodes)
     {
-        addNode(datasourceName, ImmutableList.copyOf(nodes));
+        addNode(connectorId, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(String datasourceName, Iterable<Node> nodes)
+    public void addNode(ConnectorId connectorId, Iterable<Node> nodes)
     {
-        remoteNodes.putAll(datasourceName, nodes);
+        remoteNodes.putAll(connectorId, nodes);
     }
 
     @Override
@@ -75,9 +76,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveDatasourceNodes(String datasourceName)
+    public Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(datasourceName));
+        return ImmutableSet.copyOf(remoteNodes.get(connectorId));
     }
 
     @Override

@@ -31,28 +31,22 @@ import java.util.Set;
 import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
 
 public class BlackHoleNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
-    private final String connectorId;
     private final NodeManager nodeManager;
 
-    public BlackHoleNodePartitioningProvider(String connectorId, NodeManager nodeManager)
+    public BlackHoleNodePartitioningProvider(NodeManager nodeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
     public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
-        if (nodes.isEmpty()) {
-            throw new PrestoException(NO_NODES_AVAILABLE, "No black hole nodes available");
-        }
+        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 
         // create on part per node
         ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();

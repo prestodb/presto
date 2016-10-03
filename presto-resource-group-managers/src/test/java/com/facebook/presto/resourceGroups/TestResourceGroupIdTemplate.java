@@ -27,7 +27,10 @@ public class TestResourceGroupIdTemplate
     public void testExpansion()
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.${USER}.${SOURCE}");
-        assertEquals(template.expandTemplate(new SelectionContext(true, "u", Optional.of("s"), 1)), ResourceGroupId.fromString("test.u.s"));
+        ResourceGroupId expected = new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("test"), "u"), "s");
+        assertEquals(template.expandTemplate(new SelectionContext(true, "u", Optional.of("s"), 1)), expected);
+        template = new ResourceGroupIdTemplate("test.${USER}");
+        assertEquals(template.expandTemplate(new SelectionContext(true, "alice.smith", Optional.empty(), 1)), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

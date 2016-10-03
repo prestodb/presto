@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
@@ -108,7 +109,7 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         registerBogusConnector(transactionManager, "connector");
-        accessControlManager.addCatalogAccessControl("connector", "catalog", new DenyConnectorAccessControl());
+        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), "catalog", new DenyConnectorAccessControl());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
@@ -128,7 +129,7 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         registerBogusConnector(transactionManager, "connector");
-        accessControlManager.addCatalogAccessControl("connector", "secured_catalog", new DenyConnectorAccessControl());
+        accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), "secured_catalog", new DenyConnectorAccessControl());
 
         transaction(transactionManager)
                 .execute(transactionId -> {
@@ -138,7 +139,7 @@ public class TestAccessControlManager
 
     private static void registerBogusConnector(TransactionManager transactionManager, String connectorId)
     {
-        transactionManager.addConnector(connectorId, new Connector()
+        transactionManager.addConnector(new ConnectorId(connectorId), new Connector()
         {
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
@@ -233,6 +234,24 @@ public class TestAccessControlManager
         public void checkCanSelectFromTable(ConnectorTransactionHandle transactionHandle, Identity identity, SchemaTableName tableName)
         {
             denySelectTable(tableName.toString());
+        }
+
+        @Override
+        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

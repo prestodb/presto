@@ -15,8 +15,10 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
@@ -146,11 +148,12 @@ public final class RealOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.REAL) long value)
     {
-        return value;
+        return AbstractIntType.hash((int) value);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.VARCHAR)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
     public static Slice castToVarchar(@SqlType(StandardTypes.REAL) long value)
     {
         return utf8Slice(valueOf(intBitsToFloat((int) value)));

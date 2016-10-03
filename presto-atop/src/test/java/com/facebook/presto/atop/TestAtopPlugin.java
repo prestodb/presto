@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.atop;
 
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
-import com.facebook.presto.testing.TestingConnectorFactoryContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -27,7 +25,6 @@ public class TestAtopPlugin
             throws Exception
     {
         AtopPlugin plugin = new AtopPlugin();
-        ConnectorFactoryContext context = new TestingConnectorFactoryContext();
-        assertInstanceOf(getOnlyElement(plugin.getConnectorFactories(context)), AtopConnectorFactory.class);
+        assertInstanceOf(getOnlyElement(plugin.getConnectorFactories()), AtopConnectorFactory.class);
     }
 }

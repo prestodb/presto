@@ -15,8 +15,7 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.testing.TestingConnectorFactoryContext;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -32,7 +31,7 @@ public class TestRedisPlugin
     {
         RedisPlugin plugin = new RedisPlugin();
 
-        ConnectorFactory factory = getOnlyElement(plugin.getLegacyConnectorFactories(new TestingConnectorFactoryContext()));
+        ConnectorFactory factory = getOnlyElement(plugin.getLegacyConnectorFactories());
         assertInstanceOf(factory, RedisConnectorFactory.class);
 
         Connector c = factory.create(
@@ -41,7 +40,7 @@ public class TestRedisPlugin
                         .put("redis.table-names", "test")
                         .put("redis.nodes", "localhost:6379")
                         .build(),
-                new ConnectorContext() {});
+                new TestingConnectorContext());
         assertNotNull(c);
     }
 }

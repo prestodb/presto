@@ -31,11 +31,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.ToIntFunction;
 
 import static com.facebook.presto.hive.util.Types.checkType;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HiveNodePartitioningProvider
@@ -43,14 +41,12 @@ public class HiveNodePartitioningProvider
 {
     private final String connectorId;
     private final NodeManager nodeManager;
-    private final boolean forceIntegralToBigint;
 
     @Inject
-    public HiveNodePartitioningProvider(HiveConnectorId connectorId, HiveClientConfig hiveClientConfig, NodeManager nodeManager)
+    public HiveNodePartitioningProvider(HiveConnectorId connectorId, NodeManager nodeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.forceIntegralToBigint = requireNonNull(hiveClientConfig, "hiveClientConfig is null").isForceIntegralToBigint();
     }
 
     @Override
@@ -63,7 +59,7 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
         List<HiveType> hiveTypes = handle.getHiveTypes();
-        return new HiveBucketFunction(bucketCount, hiveTypes, forceIntegralToBigint);
+        return new HiveBucketFunction(bucketCount, hiveTypes);
     }
 
     @Override
@@ -71,9 +67,7 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = checkType(partitioningHandle, HivePartitioningHandle.class, "partitioningHandle");
 
-        Set<Node> nodesSet = nodeManager.getActiveDatasourceNodes(connectorId);
-        checkState(!nodesSet.isEmpty(), "No %s nodes available", connectorId);
-        List<Node> nodes = shuffle(nodesSet);
+        List<Node> nodes = shuffle(nodeManager.getRequiredWorkerNodes());
 
         int bucketCount = handle.getBucketCount();
         ImmutableMap.Builder<Integer, Node> distribution = ImmutableMap.builder();

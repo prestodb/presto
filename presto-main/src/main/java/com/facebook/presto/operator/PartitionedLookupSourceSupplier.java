@@ -19,18 +19,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceSupplier
-        implements LookupSourceSupplier
+        implements LookupSourceSupplier, Closeable
 {
     private final List<Type> types;
     private final Map<Symbol, Integer> layout;
@@ -38,18 +41,10 @@ public final class PartitionedLookupSourceSupplier
     private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
     private final LookupSource[] partitions;
     private final boolean outer;
+    private final CompletableFuture<?> destroyed = new CompletableFuture<>();
 
     @GuardedBy("this")
     private int partitionsSet;
-
-    @GuardedBy("this")
-    private TaskContext taskContext;
-
-    @GuardedBy("this")
-    private long reservedMemory;
-
-    @GuardedBy("this")
-    private boolean destroyed;
 
     public PartitionedLookupSourceSupplier(List<Type> types, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
@@ -81,29 +76,19 @@ public final class PartitionedLookupSourceSupplier
         return lookupSourceFuture;
     }
 
-    public void setLookupSource(int partitionIndex, LookupSource lookupSource, OperatorContext operatorContext)
+    public void setLookupSource(int partitionIndex, LookupSource lookupSource)
     {
         PartitionedLookupSource partitionedLookupSource = null;
         synchronized (this) {
             requireNonNull(lookupSource, "lookupSource is null");
-            requireNonNull(operatorContext, "operatorContext is null");
 
-            if (destroyed) {
+            if (destroyed.isDone()) {
                 return;
             }
 
             checkState(partitions[partitionIndex] == null, "Partition already set");
             partitions[partitionIndex] = lookupSource;
             partitionsSet++;
-
-            // transfer lookup source memory to task context
-            long lookupSourceSizeInBytes = lookupSource.getInMemorySizeInBytes();
-            operatorContext.transferMemoryToTaskContext(lookupSourceSizeInBytes);
-            reservedMemory += lookupSourceSizeInBytes;
-
-            if (taskContext == null) {
-                taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-            }
 
             if (partitionsSet == partitions.length) {
                 partitionedLookupSource = new PartitionedLookupSource(ImmutableList.copyOf(partitions), hashChannelTypes, outer);
@@ -118,20 +103,16 @@ public final class PartitionedLookupSourceSupplier
     @Override
     public void destroy()
     {
-        TaskContext taskContext;
-        long reservedMemory;
-        synchronized (this) {
-            if (destroyed) {
-                return;
-            }
-            destroyed = true;
-            taskContext = this.taskContext;
-            reservedMemory = this.reservedMemory;
-        }
+        destroyed.complete(null);
+    }
 
-        // all references are released, free the task memory
-        if (taskContext != null) {
-            taskContext.freeMemory(reservedMemory);
-        }
+    public CompletableFuture<?> isDestroyed()
+    {
+        return MoreFutures.unmodifiableFuture(destroyed);
+    }
+
+    @Override
+    public void close()
+    {
     }
 }

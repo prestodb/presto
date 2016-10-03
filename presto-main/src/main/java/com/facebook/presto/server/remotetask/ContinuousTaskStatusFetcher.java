@@ -208,7 +208,7 @@ class ContinuousTaskStatusFetcher
         }
     }
 
-    synchronized void updateTaskStatus(TaskStatus newValue)
+    void updateTaskStatus(TaskStatus newValue)
     {
         // change to new value if old value is not changed and new value has a newer version
         AtomicBoolean taskMismatch = new AtomicBoolean();

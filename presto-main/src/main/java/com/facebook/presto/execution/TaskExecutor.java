@@ -493,6 +493,11 @@ public class TaskExecutor
             return finishedFuture;
         }
 
+        public boolean isDestroyed()
+        {
+            return destroyed.get();
+        }
+
         public void destroy()
         {
             destroyed.set(true);
@@ -693,7 +698,10 @@ public class TaskExecutor
                         }
                     }
                     catch (Throwable t) {
-                        if (t instanceof PrestoException) {
+                        if (split.isDestroyed()) {
+                            // ignore random errors due to driver thread interruption
+                        }
+                        else if (t instanceof PrestoException) {
                             PrestoException e = (PrestoException) t;
                             log.error("Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
                         }

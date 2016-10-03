@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -136,7 +137,6 @@ public class UnaliasSymbolReferences
                 masks.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
             }
 
-            List<Symbol> groupByKeys = canonicalizeAndDistinct(node.getGroupBy());
             List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
                     .map(this::canonicalizeAndDistinct)
                     .collect(toImmutableList());
@@ -144,7 +144,6 @@ public class UnaliasSymbolReferences
             return new AggregationNode(
                     node.getId(),
                     source,
-                    groupByKeys,
                     functionCalls.build(),
                     functionInfos.build(),
                     masks.build(),
@@ -152,7 +151,8 @@ public class UnaliasSymbolReferences
                     node.getStep(),
                     canonicalize(node.getSampleWeight()),
                     node.getConfidence(),
-                    canonicalize(node.getHashSymbol()));
+                    canonicalize(node.getHashSymbol()),
+                    canonicalize(node.getGroupIdSymbol()));
         }
 
         @Override
@@ -222,10 +222,7 @@ public class UnaliasSymbolReferences
             return new WindowNode(
                     node.getId(),
                     source,
-                    new WindowNode.Specification(
-                            canonicalizeAndDistinct(node.getPartitionBy()),
-                            canonicalizeAndDistinct(node.getOrderBy()),
-                            orderings.build()),
+                    canonicalizeAndDistinct(node.getSpecification()),
                     functions.build(),
                     canonicalize(node.getHashSymbol()),
                     canonicalize(node.getPrePartitionedInputs()),
@@ -341,16 +338,10 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Void> context)
         {
-            Map<Symbol, SortOrder> orderings = new HashMap<>();
-            for (Symbol symbol : node.getOrderings().keySet()) {
-                orderings.put(canonicalize(symbol), node.getOrderings().get(symbol));
-            }
             return new TopNRowNumberNode(
                     node.getId(),
                     context.rewrite(node.getSource()),
-                    canonicalizeAndDistinct(node.getPartitionBy()),
-                    canonicalizeAndDistinct(node.getOrderBy()),
-                    orderings,
+                    canonicalizeAndDistinct(node.getSpecification()),
                     canonicalize(node.getRowNumberSymbol()),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
@@ -423,6 +414,14 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             return new EnforceSingleRowNode(node.getId(), source);
+        }
+
+        @Override
+        public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+
+            return new AssignUniqueId(node.getId(), source, node.getIdColumn());
         }
 
         @Override
@@ -601,6 +600,19 @@ public class UnaliasSymbolReferences
                 }
             }
             return builder.build();
+        }
+
+        private WindowNode.Specification canonicalizeAndDistinct(WindowNode.Specification specification)
+        {
+            ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+            for (Map.Entry<Symbol, SortOrder> entry : specification.getOrderings().entrySet()) {
+                orderings.put(canonicalize(entry.getKey()), entry.getValue());
+            }
+
+            return new WindowNode.Specification(
+                    canonicalizeAndDistinct(specification.getPartitionBy()),
+                    canonicalizeAndDistinct(specification.getOrderBy()),
+                    orderings.build());
         }
 
         private List<Symbol> canonicalize(List<Symbol> symbols)

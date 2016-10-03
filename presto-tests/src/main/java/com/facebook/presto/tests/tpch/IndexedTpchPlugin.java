@@ -15,7 +15,6 @@ package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
 import static java.util.Objects.requireNonNull;
@@ -36,8 +35,8 @@ public class IndexedTpchPlugin
     }
 
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new IndexedTpchConnectorFactory(context.getNodeManager(), indexSpec, 4));
+        return ImmutableList.of(new IndexedTpchConnectorFactory(indexSpec, 4));
     }
 }

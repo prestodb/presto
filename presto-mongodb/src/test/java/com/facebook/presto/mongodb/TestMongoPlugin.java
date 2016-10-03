@@ -15,12 +15,11 @@ package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.testing.TestingConnectorFactoryContext;
+import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import de.bwaldvogel.mongo.MongoServer;
@@ -57,8 +56,8 @@ public class TestMongoPlugin
     {
         MongoPlugin plugin = new MongoPlugin();
 
-        ConnectorFactory factory = getOnlyElement(plugin.getLegacyConnectorFactories(new TestingConnectorFactoryContext()));
-        Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new ConnectorContext() {});
+        ConnectorFactory factory = getOnlyElement(plugin.getLegacyConnectorFactories());
+        Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new TestingConnectorContext());
 
         Type type = getOnlyElement(plugin.getTypes());
         assertEquals(type, OBJECT_ID);

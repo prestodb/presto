@@ -37,7 +37,6 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
-import com.facebook.presto.spi.ServerInfo;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -58,6 +57,7 @@ import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
@@ -73,7 +73,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -98,7 +97,6 @@ import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.HiveType.isForceBigintWritableType;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
@@ -116,8 +114,10 @@ import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.util.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
@@ -146,14 +146,12 @@ public class HiveMetadata
     private final LocationService locationService;
     private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
-    private final Executor renameExecutor;
     private final boolean respectTableFormat;
     private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
-    private final boolean forceIntegralToBigint;
     private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
-    private final ServerInfo serverInfo;
+    private final String prestoVersion;
 
     public HiveMetadata(
             String connectorId,
@@ -165,15 +163,13 @@ public class HiveMetadata
             boolean respectTableFormat,
             boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
-            boolean forceIntegralToBigint,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            Executor renameExecutor,
             TypeTranslator typeTranslator,
-            ServerInfo serverInfo)
+            String prestoVersion)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
 
@@ -190,12 +186,9 @@ public class HiveMetadata
         this.respectTableFormat = respectTableFormat;
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
-        this.forceIntegralToBigint = forceIntegralToBigint;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
-        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
-
-        this.renameExecutor = requireNonNull(renameExecutor, "renameExecution is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -237,7 +230,7 @@ public class HiveMetadata
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager);
         boolean sampled = false;
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
             if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 sampled = true;
             }
@@ -311,7 +304,7 @@ public class HiveMetadata
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
             if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 return columnHandle;
             }
@@ -334,7 +327,7 @@ public class HiveMetadata
             throw new TableNotFoundException(tableName);
         }
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get(), forceIntegralToBigint)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
             if (!columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
                 columnHandles.put(columnHandle.getName(), columnHandle);
             }
@@ -381,6 +374,45 @@ public class HiveMetadata
     }
 
     @Override
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
+        Database database = new Database();
+        database.setName(schemaName);
+
+        HiveSchemaProperties.getLocation(properties).ifPresent(locationUri -> {
+            try {
+                hdfsEnvironment.getFileSystem(session.getUser(), new Path(locationUri));
+            }
+            catch (IOException e) {
+                throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
+            }
+            database.setLocationUri(locationUri);
+        });
+
+        database.setOwnerType(PrincipalType.USER);
+        database.setOwnerName(session.getUser());
+
+        metastore.createDatabase(database);
+    }
+
+    @Override
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
+        // basic sanity check to provide a better error message
+        if (!listTables(session, schemaName).isEmpty() ||
+                !listViews(session, schemaName).isEmpty()) {
+            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+        }
+        metastore.dropDatabase(schemaName);
+    }
+
+    @Override
+    public void renameSchema(ConnectorSession session, String source, String target)
+    {
+        metastore.renameDatabase(source, target);
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -398,7 +430,7 @@ public class HiveMetadata
         LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
 
-        Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, serverInfo);
+        Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
     }
@@ -414,7 +446,7 @@ public class HiveMetadata
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
             Path targetPath,
-            ServerInfo serverInfo)
+            String prestoVersion)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
@@ -455,7 +487,7 @@ public class HiveMetadata
                 .setPartitionColumns(partitionColumns)
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put("comment", tableComment)
-                        .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
+                        .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, queryId)
                         .putAll(additionalTableParameters)
                         .build());
@@ -582,7 +614,7 @@ public class HiveMetadata
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
                 targetPath,
-                serverInfo);
+                prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
@@ -700,16 +732,14 @@ public class HiveMetadata
         checkTableIsWritable(table.get());
 
         for (Column column : table.get().getDataColumns()) {
-            HiveType columnType = column.getType();
-            if (!isWritableType(columnType) || (forceIntegralToBigint && !isForceBigintWritableType(columnType.getTypeInfo()))) {
+            if (!isWritableType(column.getType())) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         format("Inserting into Hive table %s.%s with column type %s not supported", table.get().getDatabaseName(), table.get().getTableName(), column.getType()));
             }
         }
 
-        // forceIntegralToBigint is set to false here because we would have already failed the query if there were any non-integral bigint types
-        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get(), false).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(connectorId, table.get()).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
@@ -818,7 +848,7 @@ public class HiveMetadata
             partition.getStorageBuilder().setStorageFormat(fromHiveStorageFormat(defaultStorageFormat));
         }
         partition.setParameters(ImmutableMap.<String, String>builder()
-                .put(PRESTO_VERSION_NAME, serverInfo.getVersion())
+                .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, queryId)
                 .build());
 

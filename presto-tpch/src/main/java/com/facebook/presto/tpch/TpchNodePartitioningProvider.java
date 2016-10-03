@@ -33,18 +33,15 @@ import java.util.function.ToIntFunction;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class TpchNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
-    private final String connectorId;
     private final NodeManager nodeManager;
     private final int splitsPerNode;
 
-    public TpchNodePartitioningProvider(String connectorId, NodeManager nodeManager, int splitsPerNode)
+    public TpchNodePartitioningProvider(NodeManager nodeManager, int splitsPerNode)
     {
-        this.connectorId = connectorId;
         this.nodeManager = nodeManager;
         checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
         this.splitsPerNode = splitsPerNode;
@@ -53,8 +50,7 @@ public class TpchNodePartitioningProvider
     @Override
     public Map<Integer, Node> getBucketToNode(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
-        Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
-        checkState(!nodes.isEmpty(), "No TPCH nodes available");
+        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 
         // Split the data using split and skew by the number of nodes available.
         ImmutableMap.Builder<Integer, Node> bucketToNode = ImmutableMap.builder();

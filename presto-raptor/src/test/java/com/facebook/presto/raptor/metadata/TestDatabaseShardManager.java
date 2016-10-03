@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.util.DaoSupplier;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.Domain;
@@ -369,9 +370,9 @@ public class TestDatabaseShardManager
     @Test
     public void testBucketAssignments()
     {
-        Node node1 = new TestingNode();
-        Node node2 = new TestingNode();
-        Node node3 = new TestingNode();
+        Node node1 = createTestingNode();
+        Node node2 = createTestingNode();
+        Node node3 = createTestingNode();
 
         TestingTicker ticker = new TestingTicker();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
@@ -729,27 +730,8 @@ public class TestDatabaseShardManager
         return nodes.stream().map(Node::getNodeIdentifier).collect(toSet());
     }
 
-    private static class TestingNode
-            implements Node
+    private static Node createTestingNode()
     {
-        private final String nodeId = UUID.randomUUID().toString();
-
-        @Override
-        public HostAddress getHostAndPort()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public URI getHttpUri()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public String getNodeIdentifier()
-        {
-            return nodeId;
-        }
+        return new PrestoNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 }

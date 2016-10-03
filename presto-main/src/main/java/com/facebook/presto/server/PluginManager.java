@@ -23,12 +23,12 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -80,7 +80,6 @@ public class PluginManager
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
     private final TypeRegistry typeRegistry;
-    private final ConnectorFactoryContext connectorFactoryContext;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -99,8 +98,7 @@ public class PluginManager
             AccessControlManager accessControlManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
-            TypeRegistry typeRegistry,
-            ConnectorFactoryContext connectorFactoryContext)
+            TypeRegistry typeRegistry)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(httpServerInfo, "httpServerInfo is null");
@@ -123,7 +121,6 @@ public class PluginManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
-        this.connectorFactoryContext = requireNonNull(connectorFactoryContext, "connectorFactoryContext is null");
     }
 
     public boolean arePluginsLoaded()
@@ -197,12 +194,12 @@ public class PluginManager
             typeRegistry.addParametricType(parametricType);
         }
 
-        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getLegacyConnectorFactories(connectorFactoryContext)) {
+        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getLegacyConnectorFactories()) {
             log.info("Registering legacy connector %s", connectorFactory.getName());
-            connectorManager.addConnectorFactory(connectorFactory);
+            connectorManager.addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
         }
 
-        for (ConnectorFactory connectorFactory : plugin.getConnectorFactories(connectorFactoryContext)) {
+        for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }

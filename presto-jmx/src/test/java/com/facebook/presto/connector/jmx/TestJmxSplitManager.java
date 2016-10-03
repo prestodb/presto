@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.connector.jmx;
 
+import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.metadata.PrestoNode;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -20,7 +22,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,16 +63,24 @@ public class TestJmxSplitManager
     private static final long TIMEOUT_TIME = JMX_STATS_DUMP.toMillis() * 40;
     private static final String TEST_BEANS = "java.lang:type=Runtime";
     private static final String CONNECTOR_ID = "test-id";
-    private final Node localNode = new TestingNode("host1");
-    private final Set<Node> nodes = ImmutableSet.of(localNode, new TestingNode("host2"), new TestingNode("host3"));
+    private final Node localNode = createTestingNode("host1");
+    private final Set<Node> nodes = ImmutableSet.of(localNode, createTestingNode("host2"), createTestingNode("host3"));
+    private final NodeManager nodeManager = new TestingNodeManager(localNode, nodes);
 
     private final JmxConnector jmxConnector =
-            (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer(), new TestingNodeManager())
+            (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer())
                     .create(CONNECTOR_ID, ImmutableMap.of(
                             "jmx.dump-tables", TEST_BEANS,
                             "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
                             "jmx.max-entries", "1000"),
-                            new ConnectorContext() {});
+                            new ConnectorContext()
+                            {
+                                @Override
+                                public NodeManager getNodeManager()
+                                {
+                                    return nodeManager;
+                                }
+                            });
 
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("test", "node", createUnboundedVarcharType());
     private final JmxTableHandle tableHandle = new JmxTableHandle("test", "objectName", ImmutableList.of(columnHandle), true);
@@ -204,60 +214,8 @@ public class TestJmxSplitManager
         return splits.build();
     }
 
-    private class TestingNodeManager
-            implements NodeManager
+    private static Node createTestingNode(String hostname)
     {
-        @Override
-        public Set<Node> getNodes(NodeState state)
-        {
-            return nodes;
-        }
-
-        @Override
-        public Set<Node> getActiveDatasourceNodes(String datasourceName)
-        {
-            return nodes;
-        }
-
-        @Override
-        public Node getCurrentNode()
-        {
-            return localNode;
-        }
-
-        @Override
-        public Set<Node> getCoordinators()
-        {
-            return ImmutableSet.of(localNode);
-        }
-    }
-
-    private static class TestingNode
-            implements Node
-    {
-        private final String hostname;
-
-        public TestingNode(String hostname)
-        {
-            this.hostname = hostname;
-        }
-
-        @Override
-        public HostAddress getHostAndPort()
-        {
-            return HostAddress.fromParts(hostname, 8080);
-        }
-
-        @Override
-        public URI getHttpUri()
-        {
-            return URI.create(format("http://%s:8080", hostname));
-        }
-
-        @Override
-        public String getNodeIdentifier()
-        {
-            return hostname;
-        }
+        return new PrestoNode(hostname, URI.create(format("http://%s:8080", hostname)), NodeVersion.UNKNOWN, false);
     }
 }

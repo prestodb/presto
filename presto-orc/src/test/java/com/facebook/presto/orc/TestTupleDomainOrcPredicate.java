@@ -88,7 +88,7 @@ public class TestTupleDomainOrcPredicate
         if (trueValueCount != null) {
             booleanStatistics = new BooleanStatistics(trueValueCount);
         }
-        return new ColumnStatistics(numberOfValues, booleanStatistics, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, booleanStatistics, null, null, null, null, null, null);
     }
 
     @Test
@@ -118,7 +118,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, new IntegerStatistics(minimum, maximum), null, null, null, null);
+        return new ColumnStatistics(numberOfValues, null, new IntegerStatistics(minimum, maximum), null, null, null, null, null);
     }
 
     @Test
@@ -148,7 +148,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, new DoubleStatistics(minimum, maximum), null, null, null);
+        return new ColumnStatistics(numberOfValues, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null);
     }
 
     @Test
@@ -236,7 +236,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(getMinSlice(minimum), getMaxSlice(maximum)), null, null);
+        return new ColumnStatistics(numberOfValues, null, null, null, new StringStatistics(getMinSlice(minimum), getMaxSlice(maximum)), null, null, null);
     }
 
     @Test
@@ -266,7 +266,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics dateColumnStats(Long numberOfValues, Integer minimum, Integer maximum)
     {
-        return new ColumnStatistics(numberOfValues, null, null, null, null, new DateStatistics(minimum, maximum), null);
+        return new ColumnStatistics(numberOfValues, null, null, null, null, new DateStatistics(minimum, maximum), null, null);
     }
 
     @Test
@@ -323,7 +323,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal));
+        return new ColumnStatistics(numberOfValues, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal), null);
     }
 
     private static Long shortDecimal(String value)

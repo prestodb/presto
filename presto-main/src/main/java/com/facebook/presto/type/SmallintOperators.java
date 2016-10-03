@@ -14,8 +14,10 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -218,7 +220,8 @@ public final class SmallintOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.VARCHAR)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
     public static Slice castToVarchar(@SqlType(StandardTypes.SMALLINT) long value)
     {
         // todo optimize me
@@ -229,6 +232,6 @@ public final class SmallintOperators
     @SqlType(StandardTypes.BIGINT)
     public static long hashCode(@SqlType(StandardTypes.SMALLINT) long value)
     {
-        return (short) value;
+        return SmallintType.hash((short) value);
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.util.PowerOfTwo;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -292,6 +293,7 @@ public class TaskManagerConfig
     }
 
     @Min(1)
+    @PowerOfTwo
     public int getWriterCount()
     {
         return writerCount;
@@ -306,6 +308,7 @@ public class TaskManagerConfig
     }
 
     @Min(1)
+    @PowerOfTwo
     public int getTaskConcurrency()
     {
         return taskConcurrency;

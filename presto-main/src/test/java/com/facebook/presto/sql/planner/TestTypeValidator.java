@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
@@ -59,7 +60,7 @@ import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 @Test(singleThreaded = true)
 public class TestTypeValidator
 {
-    private static final TableHandle TEST_TABLE_HANDLE = new TableHandle("test", new TestingTableHandle());
+    private static final TableHandle TEST_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new TestingTableHandle());
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
 
@@ -193,7 +194,6 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableList.of(columnA, columnB),
                 aggregations,
                 functions,
                 ImmutableMap.of(),
@@ -201,6 +201,7 @@ public class TestTypeValidator
                 SINGLE,
                 Optional.empty(),
                 0,
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -257,7 +258,6 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableList.of(columnA, columnB),
                 aggregations,
                 functions,
                 ImmutableMap.of(),
@@ -265,6 +265,7 @@ public class TestTypeValidator
                 SINGLE,
                 Optional.empty(),
                 0,
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -289,7 +290,6 @@ public class TestTypeValidator
         PlanNode node = new AggregationNode(
                 newId(),
                 baseTableScan,
-                ImmutableList.of(columnA, columnB),
                 aggregations,
                 functions,
                 ImmutableMap.of(),
@@ -297,6 +297,7 @@ public class TestTypeValidator
                 SINGLE,
                 Optional.empty(),
                 0,
+                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);

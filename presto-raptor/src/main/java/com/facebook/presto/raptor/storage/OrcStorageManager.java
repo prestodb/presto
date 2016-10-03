@@ -33,8 +33,8 @@ import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.OrcFileRewriter.OrcFileInfo;
-import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -137,7 +137,7 @@ public class OrcStorageManager
 
     @Inject
     public OrcStorageManager(
-            CurrentNodeId currentNodeId,
+            NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
             JsonCodec<ShardDelta> shardDeltaCodec,
@@ -149,7 +149,7 @@ public class OrcStorageManager
             ShardRecorder shardRecorder,
             TypeManager typeManager)
     {
-        this(currentNodeId.toString(),
+        this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 storageService,
                 backupStore,
                 shardDeltaCodec,
@@ -504,7 +504,7 @@ public class OrcStorageManager
                 columns.add(new ColumnReference<>(column, index, column.getColumnType()));
             }
         }
-        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build());
+        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build(), false);
     }
 
     private static Map<Long, Integer> columnIdIndex(List<String> columnNames)

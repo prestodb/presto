@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.QueryId;
@@ -335,17 +336,17 @@ public final class Session
         return new FullConnectorSession(queryId.toString(), identity, timeZoneKey, locale, startTime);
     }
 
-    public ConnectorSession toConnectorSession(String catalog)
+    public ConnectorSession toConnectorSession(ConnectorId connectorId)
     {
-        requireNonNull(catalog, "catalog is null");
+        requireNonNull(connectorId, "connectorId is null");
         return new FullConnectorSession(
                 queryId.toString(),
                 identity,
                 timeZoneKey,
                 locale,
                 startTime,
-                catalogProperties.getOrDefault(catalog, ImmutableMap.of()),
-                catalog,
+                catalogProperties.getOrDefault(connectorId.getCatalogName(), ImmutableMap.of()),
+                connectorId.getCatalogName(),
                 sessionPropertyManager);
     }
 

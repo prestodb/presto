@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -26,11 +27,11 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorAwareSplitSource
         implements SplitSource
 {
-    private final String connectorId;
+    private final ConnectorId connectorId;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplitSource source;
 
-    public ConnectorAwareSplitSource(String connectorId, ConnectorTransactionHandle transactionHandle, ConnectorSplitSource source)
+    public ConnectorAwareSplitSource(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorSplitSource source)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
@@ -38,7 +39,7 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
-    public String getDataSourceName()
+    public ConnectorId getConnectorId()
     {
         return connectorId;
     }

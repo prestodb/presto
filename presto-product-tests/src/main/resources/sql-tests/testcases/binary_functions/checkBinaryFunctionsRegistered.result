@@ -4,6 +4,6 @@
  to_base64url | varchar | varbinary | scalar | true | encode binary data as base64 using the URL safe alphabet |
  to_hex | varchar | varbinary | scalar | true | encode binary data as hex |
  from_base64 | varbinary | varbinary | scalar | true | decode base64 encoded binary data |
- from_base64 | varbinary | varchar | scalar | true | decode base64 encoded binary data |
+ from_base64 | varbinary | varchar(x) | scalar | true | decode base64 encoded binary data |
  from_base64url | varbinary | varbinary | scalar | true | decode URL safe base64 encoded binary data |
  from_base64url | varbinary | varchar | scalar | true | decode URL safe base64 encoded binary data |

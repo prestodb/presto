@@ -27,6 +27,9 @@ public class ThriftHiveMetastoreStats
     private final HiveMetastoreApiStats getPartitionNamesPs = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartition = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats getPartitionsByNames = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats createDatabase = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats dropDatabase = new HiveMetastoreApiStats();
+    private final HiveMetastoreApiStats alterDatabase = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats createTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats dropTable = new HiveMetastoreApiStats();
     private final HiveMetastoreApiStats alterTable = new HiveMetastoreApiStats();
@@ -99,6 +102,27 @@ public class ThriftHiveMetastoreStats
     public HiveMetastoreApiStats getGetPartitionsByNames()
     {
         return getPartitionsByNames;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getCreateDatabase()
+    {
+        return createDatabase;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getDropDatabase()
+    {
+        return dropDatabase;
+    }
+
+    @Managed
+    @Nested
+    public HiveMetastoreApiStats getAlterDatabase()
+    {
+        return alterDatabase;
     }
 
     @Managed

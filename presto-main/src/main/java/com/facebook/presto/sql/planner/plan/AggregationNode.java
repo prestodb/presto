@@ -23,9 +23,12 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -35,7 +38,6 @@ public class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final List<Symbol> groupByKeys;
     private final Map<Symbol, FunctionCall> aggregations;
     // Map from function symbol, to the mask symbol
     private final Map<Symbol, Symbol> masks;
@@ -45,6 +47,7 @@ public class AggregationNode
     private final Optional<Symbol> sampleWeight;
     private final double confidence;
     private final Optional<Symbol> hashSymbol;
+    private final Optional<Symbol> groupIdSymbol;
 
     public enum Step
     {
@@ -76,7 +79,6 @@ public class AggregationNode
     @JsonCreator
     public AggregationNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("groupBy") List<Symbol> groupByKeys,
             @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
             @JsonProperty("functions") Map<Symbol, Signature> functions,
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
@@ -84,24 +86,27 @@ public class AggregationNode
             @JsonProperty("step") Step step,
             @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight,
             @JsonProperty("confidence") double confidence,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
+            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
     {
         super(id);
 
         this.source = source;
-        this.groupByKeys = ImmutableList.copyOf(requireNonNull(groupByKeys, "groupByKeys is null"));
         this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
         this.functions = ImmutableMap.copyOf(requireNonNull(functions, "functions is null"));
         this.masks = ImmutableMap.copyOf(requireNonNull(masks, "masks is null"));
         for (Symbol mask : masks.keySet()) {
             checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
         }
-        this.groupingSets = ImmutableList.copyOf(requireNonNull(groupingSets, "groupingSets is null"));
+        requireNonNull(groupingSets, "groupingSets is null");
+        checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
+        this.groupingSets = ImmutableList.copyOf(groupingSets);
         this.step = step;
         this.sampleWeight = requireNonNull(sampleWeight, "sampleWeight is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
         this.confidence = confidence;
         this.hashSymbol = hashSymbol;
+        this.groupIdSymbol = requireNonNull(groupIdSymbol);
     }
 
     @Override
@@ -114,12 +119,11 @@ public class AggregationNode
     public List<Symbol> getOutputSymbols()
     {
         ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-        symbols.addAll(groupByKeys);
-        // output hashSymbol if present
-        if (hashSymbol.isPresent()) {
-            symbols.add(hashSymbol.get());
-        }
+
+        symbols.addAll(getGroupingKeys());
+        hashSymbol.ifPresent(symbols::add);
         symbols.addAll(aggregations.keySet());
+
         return symbols.build();
     }
 
@@ -147,10 +151,15 @@ public class AggregationNode
         return masks;
     }
 
-    @JsonProperty("groupBy")
-    public List<Symbol> getGroupBy()
+    public List<Symbol> getGroupingKeys()
     {
-        return groupByKeys;
+        List<Symbol> symbols = new ArrayList<>(groupingSets.stream()
+                .flatMap(Collection::stream)
+                .distinct()
+                .collect(Collectors.toList()));
+
+        groupIdSymbol.ifPresent(symbols::add);
+        return symbols;
     }
 
     @JsonProperty("groupingSets")
@@ -181,6 +190,12 @@ public class AggregationNode
     public Optional<Symbol> getHashSymbol()
     {
         return hashSymbol;
+    }
+
+    @JsonProperty("groupIdSymbol")
+    public Optional<Symbol> getGroupIdSymbol()
+    {
+        return groupIdSymbol;
     }
 
     @Override

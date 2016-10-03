@@ -154,7 +154,18 @@ public class ChildReplacer
     @Override
     public PlanNode visitAggregation(AggregationNode node, List<PlanNode> newChildren)
     {
-        return new AggregationNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupBy(), node.getAggregations(), node.getFunctions(), node.getMasks(), node.getGroupingSets(), node.getStep(), node.getSampleWeight(), node.getConfidence(), node.getHashSymbol());
+        return new AggregationNode(
+                node.getId(),
+                Iterables.getOnlyElement(newChildren),
+                node.getAggregations(),
+                node.getFunctions(),
+                node.getMasks(),
+                node.getGroupingSets(),
+                node.getStep(),
+                node.getSampleWeight(),
+                node.getConfidence(),
+                node.getHashSymbol(),
+                node.getGroupIdSymbol());
     }
 
     @Override
@@ -185,7 +196,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitTopNRowNumber(TopNRowNumberNode node, List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getPartitionBy(), node.getOrderBy(), node.getOrderings(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashSymbol());
+        return new TopNRowNumberNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getSpecification(), node.getRowNumberSymbol(), node.getMaxRowCountPerPartition(), node.isPartial(), node.getHashSymbol());
     }
 
     @Override
@@ -261,5 +272,12 @@ public class ChildReplacer
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new ApplyNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getCorrelation());
+    }
+
+    @Override
+    public PlanNode visitAssignUniqueId(AssignUniqueId node, List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
+        return new AssignUniqueId(node.getId(), Iterables.getOnlyElement(newChildren), node.getIdColumn());
     }
 }

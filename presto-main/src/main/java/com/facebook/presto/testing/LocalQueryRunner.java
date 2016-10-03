@@ -13,15 +13,20 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.GroupByHashPageIndexerFactory;
+import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.connector.system.GlobalSystemConnectorFactory;
 import com.facebook.presto.connector.system.NodeSystemTable;
+import com.facebook.presto.connector.system.SchemaPropertiesSystemTable;
 import com.facebook.presto.connector.system.TablePropertiesSystemTable;
 import com.facebook.presto.connector.system.TransactionsSystemTable;
 import com.facebook.presto.execution.CommitTask;
@@ -51,6 +56,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
+import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TableHandle;
@@ -77,6 +83,9 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
@@ -93,6 +102,7 @@ import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -126,18 +136,23 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
+import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
 import com.facebook.presto.util.FinalizerService;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.io.Closer;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -181,6 +196,8 @@ public class LocalQueryRunner
     private final SqlParser sqlParser;
     private final InMemoryNodeManager nodeManager;
     private final TypeRegistry typeRegistry;
+    private final PageSorter pageSorter;
+    private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
     private final TestingAccessControlManager accessControl;
     private final TestingEventListenerManager eventListener;
@@ -192,7 +209,8 @@ public class LocalQueryRunner
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
 
-    private final ExpressionCompiler compiler;
+    private final ExpressionCompiler expressionCompiler;
+    private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final ConnectorManager connectorManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
@@ -223,6 +241,8 @@ public class LocalQueryRunner
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
+        this.pageSorter = new PagesIndexPageSorter();
+        this.pageIndexerFactory = new GroupByHashPageIndexerFactory();
         this.indexManager = new IndexManager();
         NodeScheduler nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
@@ -243,13 +263,15 @@ public class LocalQueryRunner
                 typeRegistry,
                 blockEncodingSerde,
                 new SessionPropertyManager(),
+                new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
 
-        this.compiler = new ExpressionCompiler(metadata);
+        this.expressionCompiler = new ExpressionCompiler(metadata);
+        this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         this.connectorManager = new ConnectorManager(
                 metadata,
@@ -261,11 +283,16 @@ public class LocalQueryRunner
                 pageSinkManager,
                 new HandleResolver(),
                 nodeManager,
+                new NodeInfo("test"),
+                typeRegistry,
+                pageSorter,
+                pageIndexerFactory,
                 transactionManager);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata),
+                new SchemaPropertiesSystemTable(metadata),
                 new TablePropertiesSystemTable(metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
                 ImmutableSet.of());
@@ -330,9 +357,9 @@ public class LocalQueryRunner
         return 1;
     }
 
-    public InMemoryNodeManager getNodeManager()
+    public NodeManager getNodeManager()
     {
-        return nodeManager;
+        return new ConnectorAwareNodeManager(nodeManager, "testenv", new ConnectorId("test"));
     }
 
     public TypeRegistry getTypeManager()
@@ -371,7 +398,7 @@ public class LocalQueryRunner
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeDatasource(catalogName);
+        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
         connectorManager.addConnectorFactory(connectorFactory);
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }
@@ -379,8 +406,8 @@ public class LocalQueryRunner
     @Deprecated
     public void createCatalog(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeDatasource(catalogName);
-        connectorManager.addConnectorFactory(connectorFactory);
+        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
+        connectorManager.addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }
 
@@ -461,7 +488,7 @@ public class LocalQueryRunner
     private MaterializedResult executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
-        try {
+        try (Closer closer = Closer.create()) {
             AtomicReference<MaterializedResult.Builder> builder = new AtomicReference<>();
             PageConsumerOutputFactory outputFactory = new PageConsumerOutputFactory(types -> {
                 builder.compareAndSet(null, MaterializedResult.resultBuilder(session, types));
@@ -469,7 +496,9 @@ public class LocalQueryRunner
             });
 
             TaskContext taskContext = createTaskContext(executor, session);
+
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
+            drivers.stream().map(closer::register);
 
             boolean done = false;
             while (!done) {
@@ -485,6 +514,9 @@ public class LocalQueryRunner
 
             verify(builder.get() != null, "Output operator was not created");
             return builder.get().build();
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
         }
         finally {
             lock.readLock().unlock();
@@ -524,7 +556,8 @@ public class LocalQueryRunner
                 nodePartitioningManager,
                 pageSinkManager,
                 null,
-                compiler,
+                expressionCompiler,
+                joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
                 new TaskManagerConfig().setTaskConcurrency(4));

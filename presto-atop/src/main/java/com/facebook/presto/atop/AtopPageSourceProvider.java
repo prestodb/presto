@@ -23,16 +23,15 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
 import static com.facebook.presto.atop.Types.checkType;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
@@ -40,7 +39,6 @@ public final class AtopPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final Semaphore readerPermits;
-    private final DateTimeZone timeZone;
     private final AtopFactory atopFactory;
     private final TypeManager typeManager;
 
@@ -48,7 +46,6 @@ public final class AtopPageSourceProvider
     public AtopPageSourceProvider(AtopConnectorConfig config, AtopFactory atopFactory, TypeManager typeManager)
     {
         readerPermits = new Semaphore(requireNonNull(config, "config is null").getConcurrentReadersPerNode());
-        timeZone = config.getDateTimeZone();
         this.atopFactory = requireNonNull(atopFactory, "atopFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
@@ -72,9 +69,8 @@ public final class AtopPageSourceProvider
             types.add(typeManager.getType(atopColumn.getType()));
         }
 
-        // Timezone is not preserved during JSON serialization
-        DateTime date = atopSplit.getDate().withZone(timeZone);
-        checkState(date.equals(date.withTimeAtStartOfDay()), "Expected date to be at beginning of day");
+        ZonedDateTime date = atopSplit.getDate();
+        checkArgument(date.equals(date.withHour(0).withMinute(0).withSecond(0).withNano(0)), "Expected date to be at beginning of day");
         return new AtopPageSource(readerPermits, atopFactory, session, utf8Slice(atopSplit.getHost().getHostText()), atopSplit.getTable(), date, atopColumns.build(), types.build());
     }
 }

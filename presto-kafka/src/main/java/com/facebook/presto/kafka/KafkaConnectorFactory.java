@@ -39,16 +39,10 @@ import static java.util.Objects.requireNonNull;
 public class KafkaConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
-    private final NodeManager nodeManager;
     private final Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier;
 
-    KafkaConnectorFactory(TypeManager typeManager,
-            NodeManager nodeManager,
-            Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
+    KafkaConnectorFactory(Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
@@ -76,8 +70,8 @@ public class KafkaConnectorFactory
                     new KafkaConnectorModule(),
                     binder -> {
                         binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(connectorId));
-                        binder.bind(TypeManager.class).toInstance(typeManager);
-                        binder.bind(NodeManager.class).toInstance(nodeManager);
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
                         if (tableDescriptionSupplier.isPresent()) {
                             binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KafkaTopicDescription>>>() {}).toInstance(tableDescriptionSupplier.get());

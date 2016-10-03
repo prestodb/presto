@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.localfile.Types.checkType;
-import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileSplitManager
@@ -51,8 +50,7 @@ public class LocalFileSplitManager
         TupleDomain<LocalFileColumnHandle> effectivePredicate = layoutHandle.getConstraint()
                 .transform(handle -> checkType(handle, LocalFileColumnHandle.class, "columnHandle"));
 
-        List<ConnectorSplit> splits = nodeManager.getNodes(ACTIVE).stream()
-                .filter(node -> !nodeManager.getCoordinators().contains(node))
+        List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .map(node -> new LocalFileSplit(node.getHostAndPort(), tableHandle.getSchemaTableName(), effectivePredicate))
                 .collect(Collectors.toList());
 

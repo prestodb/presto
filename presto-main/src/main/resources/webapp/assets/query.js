@@ -33,9 +33,10 @@ var TaskList = React.createClass({
         if (taskIdArrA.length > taskIdArrB.length) {
             return 1;
         }
-
-        for (i = 0; i < taskIdArrA.length; i++) {
-            return Number.parseInt(taskIdArrA[i]) > Number.parseInt(taskIdArrB[i]) ? 1 : -1;
+        for (var i = 0; i < taskIdArrA.length; i++) {
+            var anum = Number.parseInt(taskIdArrA[i]);
+            var bnum = Number.parseInt(taskIdArrB[i]);
+            if(anum != bnum) return anum > bnum ? 1 : -1;
         }
 
         return 0;
@@ -124,9 +125,28 @@ var TaskList = React.createClass({
         }.bind(this));
 
         return (
-            <Table id="tasks" className="table table-striped sortable" sortable={ true } defaultSort={ {column: 'id', direction: 'asc'} }>
+            <Table id="tasks" className="table table-striped sortable" sortable=
+                {[
+                    {
+                        column: 'id',
+                        sortFunction: this.compareTaskId
+                    },
+                    'host',
+                    'state',
+                    'splitsPending',
+                    'splitsRunning',
+                    'splitsDone',
+                    'rows',
+                    'rowsSec',
+                    'bytes',
+                    'bytesSec',
+                    'elapsedTime',
+                    'cpuTime',
+                    'bufferedBytes',
+                ]}
+                defaultSort={ {column: 'id', direction: 'asc'} }>
                 <Thead>
-                        <Th column="id" sortFunction={this.compareTaskId}>ID</Th>
+                        <Th column="id">ID</Th>
                         <Th column="host">Host</Th>
                         <Th column="state">State</Th>
                         <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={ GLYPHICON_HIGHLIGHT } data-toggle="tooltip" data-placement="top" title="Pending splits"></span></Th>
@@ -619,18 +639,18 @@ var QueryDetail = React.createClass({
                 lastRefresh = nowMillis - parseDuration(query.queryStats.elapsedTime);
             }
 
-            var elapsedMillisLastRefresh = nowMillis - lastRefresh;
-
-            var currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedMillisLastRefresh;
-            var currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedMillisLastRefresh;
-            var currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedMillisLastRefresh;
-
-            this.setState({
-                cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
-                rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
-                byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
-            });
+            var elapsedSecsSinceLastRefresh = (nowMillis - lastRefresh) / 1000;
+            if (elapsedSecsSinceLastRefresh != 0) {
+                var currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / elapsedSecsSinceLastRefresh;
+                var currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
+                var currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                this.setState({
+                    cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
+                    rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
+                    byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.totalMemoryReservation), this.state.reservedMemory),
+                });
+            }
             this.resetTimer();
         }.bind(this))
         .error(function() {

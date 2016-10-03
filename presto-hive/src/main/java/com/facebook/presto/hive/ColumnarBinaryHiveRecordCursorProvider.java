@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Inject;
@@ -43,7 +44,7 @@ public class ColumnarBinaryHiveRecordCursorProvider
     }
 
     @Override
-    public Optional<HiveRecordCursor> createHiveRecordCursor(
+    public Optional<RecordCursor> createRecordCursor(
             String clientId,
             Configuration configuration,
             ConnectorSession session,
@@ -52,7 +53,6 @@ public class ColumnarBinaryHiveRecordCursorProvider
             long length,
             Properties schema,
             List<HiveColumnHandle> columns,
-            List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager)
@@ -64,15 +64,12 @@ public class ColumnarBinaryHiveRecordCursorProvider
         RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
                 () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
 
-        return Optional.<HiveRecordCursor>of(new ColumnarBinaryHiveRecordCursor<>(
+        return Optional.of(new ColumnarBinaryHiveRecordCursor<>(
                 bytesRecordReader(recordReader),
                 length,
                 schema,
-                partitionKeys,
                 columns,
-                hiveStorageTimeZone,
-                typeManager,
-                path));
+                typeManager));
     }
 
     @SuppressWarnings("unchecked")

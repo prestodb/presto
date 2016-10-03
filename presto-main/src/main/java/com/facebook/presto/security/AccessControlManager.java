@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -103,7 +105,7 @@ public class AccessControlManager
         }
     }
 
-    public void addCatalogAccessControl(String connectorId, String catalogName, ConnectorAccessControl accessControl)
+    public void addCatalogAccessControl(ConnectorId connectorId, String catalogName, ConnectorAccessControl accessControl)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(catalogName, "catalogName is null");
@@ -156,6 +158,48 @@ public class AccessControlManager
         requireNonNull(userName, "userName is null");
 
         authenticationCheck(() -> systemAccessControl.get().checkCanSetUser(principal, userName));
+    }
+
+    @Override
+    public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateSchema(identity, schemaName));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(schemaName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateSchema(entry.getTransactionHandle(transactionId), identity, schemaName.getSchemaName()));
+        }
+    }
+
+    @Override
+    public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanDropSchema(identity, schemaName));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(schemaName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanDropSchema(entry.getTransactionHandle(transactionId), identity, schemaName.getSchemaName()));
+        }
+    }
+
+    @Override
+    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(schemaName, "schemaName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanRenameSchema(identity, schemaName, newSchemaName));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(schemaName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanRenameSchema(entry.getTransactionHandle(transactionId), identity, schemaName.getSchemaName(), newSchemaName));
+        }
     }
 
     @Override
@@ -461,10 +505,10 @@ public class AccessControlManager
 
     private class CatalogAccessControlEntry
     {
-        private final String connectorId;
+        private final ConnectorId connectorId;
         private final ConnectorAccessControl accessControl;
 
-        public CatalogAccessControlEntry(String connectorId, ConnectorAccessControl accessControl)
+        public CatalogAccessControlEntry(ConnectorId connectorId, ConnectorAccessControl accessControl)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -507,6 +551,21 @@ public class AccessControlManager
 
         @Override
         public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+        {
+        }
+
+        @Override
+        public void checkCanCreateSchema(Identity identity, CatalogSchemaName schema)
+        {
+        }
+
+        @Override
+        public void checkCanDropSchema(Identity identity, CatalogSchemaName schema)
+        {
+        }
+
+        @Override
+        public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
         {
         }
 
