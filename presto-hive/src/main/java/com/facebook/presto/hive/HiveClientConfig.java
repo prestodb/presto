@@ -97,6 +97,7 @@ public class HiveClientConfig
     private DataSize s3MultipartMinPartSize = new DataSize(5, MEGABYTE);
     private boolean useParquetColumnNames;
     private boolean pinS3ClientToCurrentRegion;
+    private String s3UserAgentPrefix = "";
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.RCBINARY;
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
@@ -799,6 +800,20 @@ public class HiveClientConfig
     public HiveClientConfig setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
     {
         this.pinS3ClientToCurrentRegion = pinS3ClientToCurrentRegion;
+        return this;
+    }
+
+    @NotNull
+    public String getS3UserAgentPrefix()
+    {
+        return s3UserAgentPrefix;
+    }
+
+    @Config("hive.s3.user-agent-prefix")
+    @ConfigDescription("The user agent prefix to use for S3 calls")
+    public HiveClientConfig setS3UserAgentPrefix(String s3UserAgentPrefix)
+    {
+        this.s3UserAgentPrefix = s3UserAgentPrefix;
         return this;
     }
 

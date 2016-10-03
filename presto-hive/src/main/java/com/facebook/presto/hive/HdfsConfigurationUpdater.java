@@ -68,6 +68,7 @@ public class HdfsConfigurationUpdater
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
     private final boolean pinS3ClientToCurrentRegion;
+    private final String s3UserAgentPrefix;
     private final HiveCompressionCodec compressionCodec;
 
     @Inject
@@ -103,6 +104,7 @@ public class HdfsConfigurationUpdater
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
         this.pinS3ClientToCurrentRegion = hiveClientConfig.isPinS3ClientToCurrentRegion();
+        this.s3UserAgentPrefix = hiveClientConfig.getS3UserAgentPrefix();
         this.compressionCodec = hiveClientConfig.getHiveCompressionCodec();
     }
 
@@ -182,6 +184,7 @@ public class HdfsConfigurationUpdater
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, s3MultipartMinPartSize.toBytes());
         config.setBoolean(PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION, pinS3ClientToCurrentRegion);
+        config.set(PrestoS3FileSystem.S3_USER_AGENT_PREFIX, s3UserAgentPrefix);
     }
 
     public static void configureCompression(Configuration config, HiveCompressionCodec compressionCodec)
