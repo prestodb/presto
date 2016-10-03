@@ -74,6 +74,8 @@ public class RaptorNodePartitioningProvider
     @Override
     public BucketFunction getBucketFunction(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
     {
-        return new RaptorBucketFunction(bucketCount);
+        RaptorPartitioningHandle handle = checkType(partitioning, RaptorPartitioningHandle.class, "partitioningHandle");
+
+        return new RaptorBucketFunction(handle.getBucketTypes());
     }
 }

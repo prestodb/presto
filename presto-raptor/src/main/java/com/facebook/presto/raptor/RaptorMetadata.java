@@ -71,7 +71,9 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.raptor.RaptorBucketFunction.checkTypeSupported;
 import static com.facebook.presto.raptor.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_NAME;
@@ -318,7 +320,9 @@ public class RaptorMetadata
         }
 
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(handle.getTableId());
-        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong());
+        List<Type> bucketTypes = bucketColumnHandles.stream().map(col -> col.getColumnType()).collect(Collectors.toList());
+
+        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong(), bucketTypes);
 
         boolean oneSplitPerBucket = handle.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session);
 
@@ -353,13 +357,17 @@ public class RaptorMetadata
                 .map(RaptorColumnHandle::getColumnName)
                 .collect(toList());
 
-        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
+        List<Type> bucketTypes = distribution.get().getBucketColumns().stream()
+                .map(RaptorColumnHandle::getColumnType)
+                .collect(toList());
+
+        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId(), bucketTypes);
         return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
     }
 
-    private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
+    private RaptorPartitioningHandle getPartitioningHandle(long distributionId, List<Type> bucketTypes)
     {
-        return new RaptorPartitioningHandle(distributionId, shardManager.getBucketAssignments(distributionId));
+        return new RaptorPartitioningHandle(distributionId, shardManager.getBucketAssignments(distributionId), bucketTypes);
     }
 
     private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
@@ -375,9 +383,8 @@ public class RaptorMetadata
         }
         ImmutableList.Builder<Type> bucketColumnTypes = ImmutableList.builder();
         for (RaptorColumnHandle column : bucketColumnHandles) {
-            if (!column.getColumnType().equals(BIGINT)) {
-                throw new PrestoException(NOT_SUPPORTED, "Bucketing is only supported for BIGINT columns");
-            }
+            checkTypeSupported(column.getColumnType());
+
             bucketColumnTypes.add(column.getColumnType());
         }
 
