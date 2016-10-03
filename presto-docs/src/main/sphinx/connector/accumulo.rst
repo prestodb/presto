@@ -76,27 +76,25 @@ After configuring, restart the Presto server, then use the Presto client with th
 
 Configuration Variables
 -----------------------
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| Parameter Name                             | Default Value    | Required | Description                                                                                      |
-+============================================+==================+==========+==================================================================================================+
-| connector.name                             | (none)           | Yes      | Name of the connector. Do not change!                                                            |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.instance                          | (none)           | Yes      | Name of the Accumulo instance                                                                    |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.zookeepers                        | (none)           | Yes      | ZooKeeper connect string                                                                         |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.username                          | (none)           | Yes      | Accumulo user for Presto                                                                         |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.password                          | (none)           | Yes      | Accumulo password for user                                                                       |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.zookeeper.metadata.root           | /presto-accumulo | No       | Root znode for storing metadata. Only relevant if using default Metadata Manager                 |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.metadata.manager.class            | default          | No       | Fully qualified classname for the MetadataManager class. Default is the ZooKeeperMetadataManager |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.cardinality.cache.size            | 100000           | No       | Sets the size of the index cardinality cache                                                     |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
-| accumulo.cardinality.cache.expire.duration | 5m               | No       | Sets the expiration duration of the cardinality cache.                                           |
-+--------------------------------------------+------------------+----------+--------------------------------------------------------------------------------------------------+
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| Parameter Name                             | Default Value    | Required | Description                                                                      |
++============================================+==================+==========+==================================================================================+
+| connector.name                             | (none)           | Yes      | Name of the connector. Do not change!                                            |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| accumulo.instance                          | (none)           | Yes      | Name of the Accumulo instance                                                    |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| accumulo.zookeepers                        | (none)           | Yes      | ZooKeeper connect string                                                         |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| accumulo.username                          | (none)           | Yes      | Accumulo user for Presto                                                         |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| accumulo.password                          | (none)           | Yes      | Accumulo password for user                                                       |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| accumulo.zookeeper.metadata.root           | /presto-accumulo | No       | Root znode for storing metadata. Only relevant if using default Metadata Manager |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| accumulo.cardinality.cache.size            | 100000           | No       | Sets the size of the index cardinality cache                                     |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
+| accumulo.cardinality.cache.expire.duration | 5m               | No       | Sets the expiration duration of the cardinality cache.                           |
++--------------------------------------------+------------------+----------+----------------------------------------------------------------------------------+
 
 Unsupported Features
 ~~~~~~~~~~~~~~~~~~~~
@@ -568,10 +566,9 @@ specifying the fully-qualified Java class name in the connector configuration.
 Metadata Management
 ~~~~~~~~~~~~~~~~~~~
 
-Metadata management for the Accumulo tables is pluggable, with an
-initial implementation storing the data in ZooKeeper. You can (and
-should) issue SQL statements in Presto to create and drop tables. This
-is the easiest method of creating the metadata required to make the
+Metadata for the Presto/Accumulo tables is stored in ZooKeeper. You can
+(and should) issue SQL statements in Presto to create and drop tables.
+This is the easiest method of creating the metadata required to make the
 connector work. It is best to not mess with the metadata, but here are
 the details of how it is stored. Information is power.
 

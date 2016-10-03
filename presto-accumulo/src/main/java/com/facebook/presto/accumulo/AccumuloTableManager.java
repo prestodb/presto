@@ -25,6 +25,8 @@ import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.iterators.IteratorUtil.IteratorScope;
 import org.apache.hadoop.io.Text;
 
+import javax.inject.Inject;
+
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -44,6 +46,7 @@ public class AccumuloTableManager
     private static final String DEFAULT = "default";
     private final Connector connector;
 
+    @Inject
     public AccumuloTableManager(Connector connector)
     {
         this.connector = requireNonNull(connector, "connector is null");

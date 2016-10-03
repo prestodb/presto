@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.accumulo.conf;
 
-import com.facebook.presto.accumulo.metadata.AccumuloMetadataManager;
-import com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
@@ -25,8 +21,6 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
-
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 
 /**
  * File-based configuration properties for the Accumulo connector
@@ -38,7 +32,6 @@ public class AccumuloConfig
     public static final String USERNAME = "accumulo.username";
     public static final String PASSWORD = "accumulo.password";
     public static final String ZOOKEEPER_METADATA_ROOT = "accumulo.zookeeper.metadata.root";
-    public static final String METADATA_MANAGER_CLASS = "accumulo.metadata.manager.class";
     public static final String CARDINALITY_CACHE_SIZE = "accumulo.cardinality.cache.size";
     public static final String CARDINALITY_CACHE_EXPIRE_DURATION = "accumulo.cardinality.cache.expire.duration";
 
@@ -47,7 +40,6 @@ public class AccumuloConfig
     private String username = null;
     private String password = null;
     private String zkMetadataRoot = "/presto-accumulo";
-    private String metaManClass = "default";
     private int cardinalityCacheSize = 100_000;
     private Duration cardinalityCacheExpiration = new Duration(5, TimeUnit.MINUTES);
 
@@ -118,33 +110,6 @@ public class AccumuloConfig
     public void setZkMetadataRoot(String zkMetadataRoot)
     {
         this.zkMetadataRoot = zkMetadataRoot;
-    }
-
-    public AccumuloMetadataManager getMetadataManager(TypeManager typeManager)
-    {
-        try {
-            return metaManClass.equals("default")
-                    ? AccumuloMetadataManager.getDefault(this, typeManager)
-                    : (AccumuloMetadataManager) Class.forName(metaManClass).getConstructor(AccumuloConfig.class).newInstance(this);
-        }
-        catch (Exception e) {
-            throw new PrestoException(NOT_FOUND, "Failed to factory metadata manager from config", e);
-        }
-    }
-
-    @NotNull
-    public String getMetadataManagerClass()
-    {
-        return metaManClass.equals("default")
-                ? ZooKeeperMetadataManager.class.getCanonicalName()
-                : metaManClass;
-    }
-
-    @Config(METADATA_MANAGER_CLASS)
-    @ConfigDescription("Sets the AccumulMetadataManager class name")
-    public void setMetadataManagerClass(String mmClass)
-    {
-        this.metaManClass = mmClass;
     }
 
     @NotNull

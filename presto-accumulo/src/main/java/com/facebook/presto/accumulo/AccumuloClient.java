@@ -19,9 +19,9 @@ import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.index.IndexLookup;
 import com.facebook.presto.accumulo.index.Indexer;
 import com.facebook.presto.accumulo.io.AccumuloPageSink;
-import com.facebook.presto.accumulo.metadata.AccumuloMetadataManager;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.metadata.AccumuloView;
+import com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.TabletSplitMetadata;
@@ -34,7 +34,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Marker.Bound;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -91,7 +90,7 @@ public class AccumuloClient
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private final AccumuloConfig conf;
-    private final AccumuloMetadataManager metaManager;
+    private final ZooKeeperMetadataManager metaManager;
     private final Authorizations auths;
     private final AccumuloTableManager tableManager;
     private final Connector connector;
@@ -101,13 +100,14 @@ public class AccumuloClient
     public AccumuloClient(
             Connector connector,
             AccumuloConfig config,
-            TypeManager typeManager)
+            ZooKeeperMetadataManager metaManager,
+            AccumuloTableManager tableManager)
             throws AccumuloException, AccumuloSecurityException
     {
         this.conf = requireNonNull(config, "config is null");
         this.connector = requireNonNull(connector, "connector is null");
-        this.metaManager = config.getMetadataManager(typeManager);
-        this.tableManager = new AccumuloTableManager(connector);
+        this.metaManager = requireNonNull(metaManager, "metaManager is null");
+        this.tableManager = requireNonNull(tableManager, "tableManager is null");
         this.auths = connector.securityOperations().getUserAuthorizations(conf.getUsername());
 
         // Create the index lookup utility

@@ -13,17 +13,24 @@
  */
 package com.facebook.presto.accumulo.metadata;
 
+import com.facebook.presto.accumulo.AccumuloModule;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.json.ObjectMapperProvider;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
 import org.apache.zookeeper.KeeperException;
 
 import javax.activity.InvalidActivityException;
+import javax.inject.Inject;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -31,23 +38,28 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ZOOKEEPER_ERROR;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.zookeeper.KeeperException.Code.NONODE;
 
-/**
- * An implementation of {@link AccumuloMetadataManager} that persists metadata to Apache ZooKeeper.
- */
 public class ZooKeeperMetadataManager
-        extends AccumuloMetadataManager
 {
     private static final String DEFAULT_SCHEMA = "default";
 
+    protected final AccumuloConfig config;
     private final CuratorFramework curator;
+    protected final ObjectMapper mapper;
 
-    public ZooKeeperMetadataManager(
-            AccumuloConfig config,
-            TypeManager typeManager)
+    @Inject
+    public ZooKeeperMetadataManager(AccumuloConfig config, TypeManager typeManager)
     {
-        super(config, typeManager);
+        this.config = requireNonNull(config, "config is null");
+        requireNonNull(typeManager, "typeManager is null");
+
+        // Create JSON deserializer for the AccumuloTable
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new AccumuloModule.TypeDeserializer(typeManager)));
+        mapper = objectMapperProvider.get();
+
         String zkMetadataRoot = config.getZkMetadataRoot();
         String zookeepers = config.getZooKeepers();
 
@@ -81,7 +93,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public Set<String> getSchemaNames()
     {
         try {
@@ -94,7 +105,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public Set<String> getTableNames(String schema)
     {
         String schemaPath = getSchemaPath(schema);
@@ -125,7 +135,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public AccumuloTable getTable(SchemaTableName stName)
     {
         try {
@@ -145,7 +154,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public Set<String> getViewNames(String schema)
     {
         String schemaPath = getSchemaPath(schema);
@@ -176,7 +184,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public AccumuloView getView(SchemaTableName stName)
     {
         try {
@@ -197,7 +204,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public void createTableMetadata(AccumuloTable table)
     {
         SchemaTableName tableName = table.getSchemaTableName();
@@ -219,7 +225,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public void deleteTableMetadata(SchemaTableName tableName)
     {
         try {
@@ -230,7 +235,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public void createViewMetadata(AccumuloView view)
     {
         SchemaTableName tableName = view.getSchemaTableName();
@@ -252,7 +256,6 @@ public class ZooKeeperMetadataManager
         }
     }
 
-    @Override
     public void deleteViewMetadata(SchemaTableName tableName)
     {
         try {
@@ -282,7 +285,7 @@ public class ZooKeeperMetadataManager
     {
         try {
             String path = getTablePath(tableName);
-            return curator.checkExists().forPath(path) != null && super.isAccumuloTable(curator.getData().forPath(path));
+            return curator.checkExists().forPath(path) != null && isAccumuloTable(curator.getData().forPath(path));
         }
         catch (Exception e) {
             // Capture race condition between checkExists and getData
@@ -298,7 +301,7 @@ public class ZooKeeperMetadataManager
     {
         try {
             String path = getTablePath(tableName);
-            return curator.checkExists().forPath(path) != null && super.isAccumuloView(curator.getData().forPath(path));
+            return curator.checkExists().forPath(path) != null && isAccumuloView(curator.getData().forPath(path));
         }
         catch (Exception e) {
             // Capture race condition between checkExists and getData
@@ -308,5 +311,37 @@ public class ZooKeeperMetadataManager
 
             throw new PrestoException(ZOOKEEPER_ERROR, "Error checking if path is an AccumuloView object", e);
         }
+    }
+
+    private boolean isAccumuloTable(byte[] data)
+            throws IOException
+    {
+        // AccumuloTable does not contain a 'data' node
+        return !mapper.reader().readTree(new String(data)).has("data");
+    }
+
+    private boolean isAccumuloView(byte[] data)
+            throws IOException
+    {
+        // AccumuloView contains a 'data' node
+        return mapper.reader().readTree(new String(data)).has("data");
+    }
+
+    private AccumuloTable toAccumuloTable(byte[] data)
+            throws IOException
+    {
+        return mapper.readValue(new String(data), AccumuloTable.class);
+    }
+
+    private AccumuloView toAccumuloView(byte[] data)
+            throws IOException
+    {
+        return mapper.readValue(new String(data), AccumuloView.class);
+    }
+
+    private byte[] toJsonBytes(Object obj)
+            throws IOException
+    {
+        return mapper.writeValueAsBytes(obj);
     }
 }

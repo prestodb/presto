@@ -19,6 +19,7 @@ import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.io.AccumuloPageSinkProvider;
 import com.facebook.presto.accumulo.io.AccumuloRecordSetProvider;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
+import com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -93,6 +94,8 @@ public class AccumuloModule
         binder.bind(AccumuloHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(ZooKeeperMetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(AccumuloTableManager.class).in(Scopes.SINGLETON);
         binder.bind(Connector.class).toProvider(ConnectorProvider.class);
 
         configBinder(binder).bindConfig(AccumuloConfig.class);
