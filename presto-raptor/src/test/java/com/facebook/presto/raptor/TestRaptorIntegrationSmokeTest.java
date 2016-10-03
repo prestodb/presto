@@ -363,6 +363,21 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    public void testBucketingMixedTypes()
+    {
+        assertUpdate("" +
+                        "CREATE TABLE orders_bucketed_mixed " +
+                        "WITH (bucket_count = 50, bucketed_on = ARRAY ['custkey', 'clerk', 'shippriority']) " +
+                        "AS SELECT * FROM orders",
+                "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT * FROM orders_bucketed_mixed", "SELECT * FROM orders");
+        assertQuery("SELECT count(*) FROM orders_bucketed_mixed", "SELECT count(*) FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed_mixed", "SELECT 50");
+        assertQuery("SELECT count(DISTINCT \"$bucket_number\") FROM orders_bucketed_mixed", "SELECT 50");
+    }
+
+    @Test
     public void testShowCreateTable()
             throws Exception
     {
