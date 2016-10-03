@@ -515,7 +515,7 @@ public class PrestoS3FileSystem
      */
     @VisibleForTesting
     static class UnrecoverableS3OperationException
-            extends Exception
+            extends RuntimeException
     {
         public UnrecoverableS3OperationException(Path path, Throwable cause)
         {
@@ -816,7 +816,7 @@ public class PrestoS3FileSystem
         }
 
         private void seekStream()
-                throws IOException, UnrecoverableS3OperationException
+                throws IOException
         {
             if ((in != null) && (nextReadPosition == streamPosition)) {
                 // already at specified position
@@ -847,7 +847,7 @@ public class PrestoS3FileSystem
         }
 
         private void openStream()
-                throws IOException, UnrecoverableS3OperationException
+                throws IOException
         {
             if (in == null) {
                 in = openStream(path, nextReadPosition);
@@ -857,7 +857,7 @@ public class PrestoS3FileSystem
         }
 
         private InputStream openStream(Path path, long start)
-                throws IOException, UnrecoverableS3OperationException
+                throws IOException
         {
             try {
                 return retry()
@@ -892,7 +892,6 @@ public class PrestoS3FileSystem
             }
             catch (Exception e) {
                 Throwables.propagateIfInstanceOf(e, IOException.class);
-                Throwables.propagateIfInstanceOf(e, UnrecoverableS3OperationException.class);
                 throw Throwables.propagate(e);
             }
         }
