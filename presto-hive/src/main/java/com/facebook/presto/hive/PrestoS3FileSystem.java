@@ -83,7 +83,6 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.facebook.presto.hive.RetryDriver.retry;
@@ -98,6 +97,7 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.http.HttpStatus.SC_FORBIDDEN;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 import static org.apache.http.HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE;
@@ -141,6 +141,8 @@ public class PrestoS3FileSystem
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
+    private static final String PATH_SEPARATOR = "/";
+    private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
 
     private final TransferManagerConfiguration transferConfig = new TransferManagerConfiguration();
 
@@ -165,7 +167,7 @@ public class PrestoS3FileSystem
         setConf(conf);
 
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
-        this.workingDirectory = new Path("/").makeQualified(this.uri, new Path("/"));
+        this.workingDirectory = new Path(PATH_SEPARATOR).makeQualified(this.uri, new Path(PATH_SEPARATOR));
 
         HiveClientConfig defaults = new HiveClientConfig();
         this.stagingDirectory = new File(conf.get(S3_STAGING_DIRECTORY, defaults.getS3StagingDirectory().toString()));
@@ -447,13 +449,13 @@ public class PrestoS3FileSystem
     {
         String key = keyFromPath(path);
         if (!key.isEmpty()) {
-            key += "/";
+            key += PATH_SEPARATOR;
         }
 
         ListObjectsRequest request = new ListObjectsRequest()
                 .withBucketName(uri.getHost())
                 .withPrefix(key)
-                .withDelimiter("/");
+                .withDelimiter(PATH_SEPARATOR);
 
         STATS.newListObjectsCall();
         Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
@@ -482,7 +484,7 @@ public class PrestoS3FileSystem
     {
         List<LocatedFileStatus> list = new ArrayList<>();
         for (String prefix : prefixes) {
-            Path path = qualifiedPath(new Path("/" + prefix));
+            Path path = qualifiedPath(new Path(PATH_SEPARATOR + prefix));
             FileStatus status = new FileStatus(0, true, 1, 0, 0, path);
             list.add(createLocatedFileStatus(status));
         }
@@ -495,14 +497,14 @@ public class PrestoS3FileSystem
         // however, to get the correct size we'd need to make an additional request to get
         // user metadata, and in this case it doesn't matter.
         return objects.stream()
-                .filter(object -> !object.getKey().endsWith("/"))
+                .filter(object -> !object.getKey().endsWith(PATH_SEPARATOR))
                 .map(object -> new FileStatus(
                         object.getSize(),
                         false,
                         1,
                         BLOCK_SIZE.toBytes(),
                         object.getLastModified().getTime(),
-                        qualifiedPath(new Path("/" + object.getKey()))))
+                        qualifiedPath(new Path(PATH_SEPARATOR + object.getKey()))))
                 .map(this::createLocatedFileStatus)
                 .iterator();
     }
@@ -529,7 +531,7 @@ public class PrestoS3FileSystem
         try {
             return retry()
                     .maxAttempts(maxAttempts)
-                    .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
+                    .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
                     .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                     .onRetry(STATS::newGetMetadataRetry)
                     .run("getS3ObjectMetadata", () -> {
@@ -592,11 +594,11 @@ public class PrestoS3FileSystem
     {
         checkArgument(path.isAbsolute(), "Path is not absolute: %s", path);
         String key = nullToEmpty(path.toUri().getPath());
-        if (key.startsWith("/")) {
-            key = key.substring(1);
+        if (key.startsWith(PATH_SEPARATOR)) {
+            key = key.substring(PATH_SEPARATOR.length());
         }
-        if (key.endsWith("/")) {
-            key = key.substring(0, key.length() - 1);
+        if (key.endsWith(PATH_SEPARATOR)) {
+            key = key.substring(0, key.length() - PATH_SEPARATOR.length());
         }
         return key;
     }
@@ -776,7 +778,7 @@ public class PrestoS3FileSystem
             try {
                 int bytesRead = retry()
                         .maxAttempts(maxAttempts)
-                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
+                        .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
                         .onRetry(STATS::newReadRetry)
                         .run("readStream", () -> {
@@ -860,7 +862,7 @@ public class PrestoS3FileSystem
             try {
                 return retry()
                         .maxAttempts(maxAttempts)
-                        .exponentialBackoff(new Duration(1, TimeUnit.SECONDS), maxBackoffTime, maxRetryTime, 2.0)
+                        .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
