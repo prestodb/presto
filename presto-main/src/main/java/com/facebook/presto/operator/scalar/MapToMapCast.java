@@ -99,6 +99,11 @@ public final class MapToMapCast
             if (!typedSet.contains(keyBlock, i / 2)) {
                 typedSet.add(keyBlock, i / 2);
                 toKeyType.appendTo(keyBlock, i / 2, blockBuilder);
+                if (fromMap.isNull(i + 1)) {
+                    blockBuilder.appendNull();
+                    continue;
+                }
+
                 Object fromValue = readNativeValue(fromValueType, fromMap, i + 1);
                 try {
                     Object toValue = valueCastFunction.invoke(fromValue);
