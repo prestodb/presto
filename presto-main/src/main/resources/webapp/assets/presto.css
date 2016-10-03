@@ -99,6 +99,13 @@ pre {
     font-size: 16px;
 }
 
+/** Common elements **/
+/** ====== **/
+
+.copy-button:hover {
+    color: #fff;
+}
+
 /** ===================== **/
 /** Cluster Overview Page **/
 /** ===================== **/

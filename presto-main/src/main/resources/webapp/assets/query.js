@@ -277,8 +277,6 @@ var StageDetail = React.createClass({
                 lastRender: renderTimestamp
             });
         }
-
-        $('[data-toggle="tooltip"]').tooltip();
     },
     render: function() {
         var stage = this.props.stage;
@@ -774,6 +772,9 @@ var QueryDetail = React.createClass({
                 lastRender: renderTimestamp,
             });
         }
+
+        $('[data-toggle="tooltip"]').tooltip();
+        new Clipboard('.copy-button');
     },
     renderTasks: function() {
         if (this.state.lastSnapshotTasks == null) {
@@ -950,7 +951,12 @@ var QueryDetail = React.createClass({
             <div>
                 <div className="row">
                     <div className="col-xs-7">
-                        <h2>{ query.queryId }</h2>
+                        <h2>
+                            <span id="query-id">{ query.queryId }</span>
+                            <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
+                            </a>
+                        </h2>
                     </div>
                     <div className="col-xs-5">
                         <table className="query-links">
@@ -983,7 +989,11 @@ var QueryDetail = React.createClass({
                                         User
                                     </td>
                                     <td className="info-text">
-                                        { query.session.user }
+                                        <span id="query-user">{ query.session.user }</span>
+                                        &nbsp;&nbsp;
+                                        <a href="#" className="copy-button" data-clipboard-target="#query-user" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                        </a>
                                     </td>
                                 </tr>
                                 <tr>
@@ -1223,9 +1233,14 @@ var QueryDetail = React.createClass({
                 { this.renderFailureInfo() }
                 <div className="row">
                     <div className="col-xs-12">
-                        <h3>Query</h3>
+                        <h3>
+                            Query
+                            <a className="btn copy-button" data-clipboard-target="#query-text" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
+                            </a>
+                        </h3>
                         <pre id="query">
-                            <code className="lang-sql">
+                            <code className="lang-sql" id="query-text">
                                 { query.query }
                             </code>
                         </pre>
