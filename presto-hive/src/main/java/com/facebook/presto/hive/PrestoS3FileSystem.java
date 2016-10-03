@@ -137,7 +137,8 @@ public class PrestoS3FileSystem
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
     public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
-    public static final String S3_USER_AGENT = "presto";
+    public static final String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
+    public static final String S3_USER_AGENT_SUFFIX = "presto";
 
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
@@ -182,6 +183,7 @@ public class PrestoS3FileSystem
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
+        String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -189,7 +191,8 @@ public class PrestoS3FileSystem
                 .withConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()))
                 .withSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()))
                 .withMaxConnections(maxConnections)
-                .withUserAgentSuffix(S3_USER_AGENT);
+                .withUserAgentPrefix(userAgentPrefix)
+                .withUserAgentSuffix(S3_USER_AGENT_SUFFIX);
 
         this.s3 = createAmazonS3Client(uri, conf, configuration);
 
