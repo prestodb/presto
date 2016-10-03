@@ -834,8 +834,6 @@ class StatementAnalyzer
             analysis.addCoercions(analyzer.getExpressionCoercions(), analyzer.getTypeOnlyCoercions());
 
             Set<Expression> postJoinConjuncts = new HashSet<>();
-            final Set<Expression> leftExpressions = new HashSet<>();
-            final Set<Expression> rightExpressions = new HashSet<>();
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts((Expression) optimizedExpression)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
@@ -863,8 +861,6 @@ class StatementAnalyzer
                     if (rightExpression != null) {
                         ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left);
                         ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right);
-                        leftExpressions.add(leftExpression);
-                        rightExpressions.add(rightExpression);
                         analysis.recordSubqueries(node, leftExpressionAnalysis);
                         analysis.recordSubqueries(node, rightExpressionAnalysis);
                         addCoercionForJoinCriteria(node, leftExpression, rightExpression);
