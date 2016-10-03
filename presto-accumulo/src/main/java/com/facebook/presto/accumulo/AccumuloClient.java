@@ -71,13 +71,13 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.COLUMN_NOT_FOUND;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VIEW_ALREADY_EXISTS;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VIEW_IS_TABLE;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -180,7 +180,7 @@ public class AccumuloClient
                         || Types.isMapType(Types.getValueType(column.getType()))
                         || Types.isArrayType(Types.getKeyType(column.getType()))
                         || Types.isArrayType(Types.getValueType(column.getType()))) {
-                    throw new PrestoException(VALIDATION, "Key/value types of a MAP column must be plain types");
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "Key/value types of a MAP column must be plain types");
                 }
             }
 
@@ -189,7 +189,7 @@ public class AccumuloClient
 
         // Validate the columns are distinct
         if (columnNameBuilder.build().size() != meta.getColumns().size()) {
-            throw new PrestoException(VALIDATION, "Duplicate column names are not supported");
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "Duplicate column names are not supported");
         }
 
         Optional<Map<String, Pair<String, String>>> columnMapping = AccumuloTableProperties.getColumnMapping(meta.getProperties());
@@ -197,7 +197,7 @@ public class AccumuloClient
             // Validate there are no duplicates in the column mapping
             long distinctMappings = columnMapping.get().values().stream().distinct().count();
             if (distinctMappings != columnMapping.get().size()) {
-                throw new PrestoException(VALIDATION, "Duplicate column family/qualifier pair detected in column mapping, check the value of " + AccumuloTableProperties.COLUMN_MAPPING);
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Duplicate column family/qualifier pair detected in column mapping, check the value of " + AccumuloTableProperties.COLUMN_MAPPING);
             }
 
             // Validate no column is mapped to the reserved entry
@@ -205,13 +205,13 @@ public class AccumuloClient
             if (columnMapping.get().values().stream()
                     .filter(pair -> pair.getKey().equals(reservedRowIdColumn) && pair.getValue().equals(reservedRowIdColumn))
                     .count() > 0) {
-                throw new PrestoException(VALIDATION, format("Column familiy/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Column familiy/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
             }
         }
         else if (AccumuloTableProperties.isExternal(meta.getProperties())) {
             // Column mapping is not defined (i.e. use column generation) and table is external
             // But column generation is for internal tables only
-            throw new PrestoException(VALIDATION, "Column generation for external tables is not supported, must specify " + AccumuloTableProperties.COLUMN_MAPPING);
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "Column generation for external tables is not supported, must specify " + AccumuloTableProperties.COLUMN_MAPPING);
         }
     }
 
@@ -228,7 +228,7 @@ public class AccumuloClient
         // For each locality group
         for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
             if (g.getValue().contains(rowIdColumn)) {
-                throw new PrestoException(VALIDATION, "Row ID column cannot be in a locality group");
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Row ID column cannot be in a locality group");
             }
 
             // Validate the specified column names exist in the table definition,
@@ -249,7 +249,7 @@ public class AccumuloClient
             // then a column was specified that does not exist
             // (or there is a duplicate column in the table DDL, which is also an issue but has been checked before in validateColumns).
             if (matchingColumns != g.getValue().size()) {
-                throw new PrestoException(VALIDATION, "Unknown Presto column defined for locality group " + g.getKey());
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Unknown Presto column defined for locality group " + g.getKey());
             }
         }
     }
@@ -539,11 +539,11 @@ public class AccumuloClient
     {
         if (getSchemaNames().contains(viewName.getSchemaName())) {
             if (getViewNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
-                throw new PrestoException(VIEW_ALREADY_EXISTS, "View already exists");
+                throw new PrestoException(ALREADY_EXISTS, "View already exists");
             }
 
             if (getTableNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
-                throw new PrestoException(VIEW_IS_TABLE, "View already exists as data table");
+                throw new PrestoException(INVALID_VIEW, "View already exists as data table");
             }
         }
 
@@ -583,7 +583,7 @@ public class AccumuloClient
             }
         }
 
-        throw new PrestoException(COLUMN_NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
+        throw new PrestoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
     }
 
     public Set<String> getSchemaNames()
@@ -847,7 +847,7 @@ public class AccumuloClient
             Optional<String> location = Optional.empty();
             for (Entry<Key, Value> entry : scan) {
                 if (location.isPresent()) {
-                    throw new PrestoException(INTERNAL_ERROR, "Scan for default tablet returned more than one entry");
+                    throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Scan for default tablet returned more than one entry");
                 }
 
                 location = Optional.of(entry.getValue().toString());

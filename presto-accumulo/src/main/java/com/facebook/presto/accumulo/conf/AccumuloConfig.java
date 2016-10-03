@@ -26,7 +26,7 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 
 /**
  * File-based configuration properties for the Accumulo connector
@@ -128,7 +128,7 @@ public class AccumuloConfig
                     : (AccumuloMetadataManager) Class.forName(metaManClass).getConstructor(AccumuloConfig.class).newInstance(this);
         }
         catch (Exception e) {
-            throw new PrestoException(VALIDATION, "Failed to factory metadata manager from config", e);
+            throw new PrestoException(NOT_FOUND, "Failed to factory metadata manager from config", e);
         }
     }
 

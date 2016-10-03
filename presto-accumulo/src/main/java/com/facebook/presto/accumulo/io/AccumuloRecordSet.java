@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +80,7 @@ public class AccumuloRecordSet
             this.serializer = split.getSerializerClass().getConstructor().newInstance();
         }
         catch (Exception e) {
-            throw new PrestoException(VALIDATION, "Failed to factory serializer class.  Is it on the classpath?", e);
+            throw new PrestoException(NOT_FOUND, "Failed to factory serializer class.  Is it on the classpath?", e);
         }
 
         // Save off the column handles and createa list of the Accumulo types

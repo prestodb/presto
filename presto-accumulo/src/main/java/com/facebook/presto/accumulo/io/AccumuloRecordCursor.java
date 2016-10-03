@@ -37,9 +37,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.IO_ERROR;
 import static com.facebook.presto.accumulo.io.AccumuloPageSink.ROW_ID_COLUMN;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -287,7 +287,7 @@ public class AccumuloRecordCursor
             return serializer.getByte(fieldToColumnName[field]);
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR, "Unsupported type " + getType(field));
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
         }
     }
 
@@ -315,7 +315,7 @@ public class AccumuloRecordCursor
             return Slices.utf8Slice(serializer.getVarchar(fieldToColumnName[field]));
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR, "Unsupported type " + type);
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
         }
     }
 

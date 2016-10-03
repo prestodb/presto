@@ -54,6 +54,9 @@ public class TestAccumuloDistributedQueries
     public void testCreateTableAsSelect()
             throws Exception
     {
+        // This test is overridden due to Function "UUID" not found errors
+        // Some test cases from the base class are removed
+
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
         assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
         assertTableColumnNames("test_create_table_as_if_not_exists", "a", "b");
@@ -66,34 +69,10 @@ public class TestAccumuloDistributedQueries
         assertUpdate("DROP TABLE test_create_table_as_if_not_exists");
         assertFalse(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
 
-//        Function "UUID" not found
-//        this.assertCreateTableAsSelect(
-//                "test_select",
-//                "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders",
-//                "SELECT count(*) FROM orders");
-
         this.assertCreateTableAsSelect(
                 "test_group",
                 "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
                 "SELECT count(DISTINCT orderstatus) FROM orders");
-
-//        Function "UUID" not found
-//        this.assertCreateTableAsSelect(
-//                "test_join",
-//                "SELECT UUID() AS uuid, count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
-//                "SELECT 1");
-
-//        Function "UUID" not found
-//        this.assertCreateTableAsSelect(
-//                "test_limit",
-//                "SELECT UUID() AS uuid, orderkey FROM orders ORDER BY orderkey LIMIT 10",
-//                "SELECT 10");
-
-//        Function "UUID" not found
-//        this.assertCreateTableAsSelect(
-//                "test_unicode",
-//                "SELECT UUID() AS uuid, '\u2603' unicode",
-//                "SELECT 1");
 
         this.assertCreateTableAsSelect(
                 "test_with_data",
@@ -106,43 +85,6 @@ public class TestAccumuloDistributedQueries
                 "SELECT * FROM orders WITH NO DATA",
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
-
-//        No sample tables
-//        this.assertCreateTableAsSelect(
-//                "test_sampled",
-//                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
-//                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
-//                "SELECT 10");
-
-        // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
-
-//        Function "UUID" not found
-//        this.assertCreateTableAsSelect(
-//                "test_union_all",
-//                "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
-//                        "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
-//                "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders",
-//                "SELECT count(*) FROM orders");
-
-//        Function "UUID" not found
-//        this.assertCreateTableAsSelect(
-//                getSession().withSystemProperty("redistribute_writes", "true"),
-//                "test_union_all",
-//                "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders UNION ALL " +
-//                        "SELECT UUID() AS uuid, DATE '2000-01-01', 1234567890, 1.23",
-//                "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders UNION ALL " +
-//                        "SELECT UUID() AS uuid, DATE '2000-01-01', 1234567890, 1.23",
-//                "SELECT count(*) + 1 FROM orders");
-
-//        Function "UUID" not found
-//        this.assertCreateTableAsSelect(
-//                getSession().withSystemProperty("redistribute_writes", "false"),
-//                "test_union_all",
-//                "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders UNION ALL " +
-//                        "SELECT UUID() AS uuid, DATE '2000-01-01', 1234567890, 1.23",
-//                "SELECT UUID() AS uuid, orderdate, orderkey, totalprice FROM orders UNION ALL " +
-//                        "SELECT UUID() AS uuid, DATE '2000-01-01', 1234567890, 1.23",
-//                "SELECT count(*) + 1 FROM orders");
     }
 
     @Override

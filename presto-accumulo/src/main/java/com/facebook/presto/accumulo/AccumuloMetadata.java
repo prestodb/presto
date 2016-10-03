@@ -52,8 +52,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.accumulo.Types.checkType;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;

@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -151,7 +151,7 @@ public class AccumuloSplit
             return (Class<? extends AccumuloRowSerializer>) Class.forName(serializerClassName);
         }
         catch (ClassNotFoundException e) {
-            throw new PrestoException(VALIDATION, "Configured serializer class not found", e);
+            throw new PrestoException(NOT_FOUND, "Configured serializer class not found", e);
         }
     }
 

@@ -47,9 +47,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -99,7 +99,7 @@ public class AccumuloPageSink
                 .findAny();
 
         if (!ordinal.isPresent()) {
-            throw new PrestoException(INTERNAL_ERROR, "Row ID ordinal not found");
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
         }
 
         this.rowIdOrdinal = ordinal.get();
@@ -146,7 +146,7 @@ public class AccumuloPageSink
         Text value = new Text();
         Field rowField = row.getField(rowIdOrdinal);
         if (rowField.isNull()) {
-            throw new PrestoException(VALIDATION, "Column mapped as the Accumulo row ID cannot be null");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Column mapped as the Accumulo row ID cannot be null");
         }
 
         setText(rowField, value, serializer);
@@ -242,32 +242,22 @@ public class AccumuloPageSink
                 row.addField(TypeUtils.readNativeValue(type, page.getBlock(channel), position), type);
             }
 
-            // Convert row to a Mutation
-            Mutation mutation = toMutation(row, rowIdOrdinal, columns, serializer);
-
-            // If this mutation has columns
-            if (mutation.size() > 0) {
-                try {
-                    // Write the mutation and index it
-                    writer.addMutation(mutation);
-                    if (indexer.isPresent()) {
-                        indexer.get().index(mutation);
-                    }
-                    ++numRows;
+            try {
+                // Convert row to a Mutation, writing and indexing it
+                Mutation mutation = toMutation(row, rowIdOrdinal, columns, serializer);
+                writer.addMutation(mutation);
+                if (indexer.isPresent()) {
+                    indexer.get().index(mutation);
                 }
-                catch (MutationsRejectedException e) {
-                    throw new PrestoException(INTERNAL_ERROR, "Mutation rejected by server", e);
-                }
-
-                // TODO Fix arbitrary flush every 10k rows
-                if (numRows % 10000 == 0) {
-                    flush();
-                }
+                ++numRows;
             }
-            else {
-                // Else, this Mutation contains only a row ID and will throw an exception if
-                // added so, we throw one here with a more descriptive message!
-                throw new PrestoException(VALIDATION, "At least one non-recordkey column must contain a non-null value");
+            catch (MutationsRejectedException e) {
+                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server", e);
+            }
+
+            // TODO Fix arbitrary flush every 100k rows
+            if (numRows % 100_000 == 0) {
+                flush();
             }
         }
 
@@ -286,7 +276,7 @@ public class AccumuloPageSink
             }
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Mutation rejected by server on flush", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);
         }
 
         // TODO Look into any use of the metadata for writing out the rows
@@ -309,7 +299,7 @@ public class AccumuloPageSink
             writer.flush();
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Mutation rejected by server on flush", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);
         }
     }
 }

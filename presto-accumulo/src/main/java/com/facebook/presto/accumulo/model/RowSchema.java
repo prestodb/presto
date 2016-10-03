@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.COLUMN_NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
@@ -67,7 +67,7 @@ public class RowSchema
             }
         }
 
-        throw new PrestoException(COLUMN_NOT_FOUND, "No column with name " + name);
+        throw new PrestoException(NOT_FOUND, "No column with name " + name);
     }
 
     public List<AccumuloColumnHandle> getColumns()

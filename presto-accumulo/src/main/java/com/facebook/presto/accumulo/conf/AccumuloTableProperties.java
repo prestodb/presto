@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.google.common.base.Preconditions.checkState;
@@ -191,7 +191,7 @@ public final class AccumuloTableProperties
             String[] locGroups = Iterables.toArray(COLON_SPLITTER.split(group), String.class);
 
             if (locGroups.length != 2) {
-                throw new PrestoException(VALIDATION, "Locality groups string is malformed. See documentation for proper format.");
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Locality groups string is malformed. See documentation for proper format.");
             }
 
             String grpName = locGroups[0];

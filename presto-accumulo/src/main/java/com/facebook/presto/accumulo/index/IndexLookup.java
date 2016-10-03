@@ -45,7 +45,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -274,7 +274,7 @@ public class IndexLookup
         long numRows = -1;
         for (Entry<Key, Value> entry : scanner) {
             if (numRows > 0) {
-                throw new PrestoException(INTERNAL_ERROR, "Should have received only one entry when scanning for number of rows in metrics table");
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Should have received only one entry when scanning for number of rows in metrics table");
             }
             numRows = Long.parseLong(entry.getValue().toString());
         }

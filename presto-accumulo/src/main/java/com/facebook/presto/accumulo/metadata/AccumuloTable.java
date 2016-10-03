@@ -29,9 +29,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -149,65 +148,6 @@ public class AccumuloTable
         return columns;
     }
 
-    /**
-     * Adds a new column at the specified position, updating the ordinals of all columns if
-     * necessary. Will set the 'indexed' flag if this column is indexed but the table was not
-     * previously indexed.
-     *
-     * @param newColumn New column to add
-     * @throws IndexOutOfBoundsException If the ordinal negative or greater than or equal to the number of columns
-     */
-    @JsonIgnore
-    public void addColumn(AccumuloColumnHandle newColumn)
-    {
-        ImmutableList.Builder<AccumuloColumnHandle> newColumns;
-
-        // If this column is going to be appended instead of inserted
-        if (newColumn.getOrdinal() == columns.size()) {
-            // Validate this column does not already exist
-            for (AccumuloColumnHandle col : columns) {
-                if (col.getName().equals(newColumn.getName())) {
-                    throw new PrestoException(VALIDATION, format("Column %s already exists in table", col.getName()));
-                }
-            }
-
-            // Copy the list and add the new column at the end
-            newColumns = ImmutableList.builder();
-            newColumns.addAll(columns);
-            newColumns.add(newColumn);
-        }
-        else {
-            // Else, iterate through all existing columns,
-            // updating the ordinals and inserting the column at the appropriate place
-            newColumns = ImmutableList.builder();
-            int ordinal = 0;
-            for (AccumuloColumnHandle columnHandle : columns) {
-                // Validate this column does not already exist
-                if (columnHandle.getName().equals(newColumn.getName())) {
-                    throw new PrestoException(VALIDATION, format("Column %s already exists in table", columnHandle.getName()));
-                }
-
-                // Add the new column here
-                if (ordinal == newColumn.getOrdinal()) {
-                    newColumns.add(newColumn);
-                    ++ordinal;
-                }
-
-                // Update the ordinal and add the already existing column
-                columnHandle.setOrdinal(ordinal);
-                newColumns.add(columnHandle);
-
-                ++ordinal;
-            }
-        }
-
-        // Set the new column list
-        columns = newColumns.build();
-
-        // Update the index status of the table
-        indexed |= newColumn.isIndexed();
-    }
-
     @JsonProperty
     public Optional<String> getScanAuthorizations()
     {
@@ -251,7 +191,7 @@ public class AccumuloTable
             return (AccumuloRowSerializer) Class.forName(serializerClassName).getConstructor().newInstance();
         }
         catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new PrestoException(VALIDATION, "Configured serializer class not found", e);
+            throw new PrestoException(NOT_FOUND, "Configured serializer class not found", e);
         }
     }
 

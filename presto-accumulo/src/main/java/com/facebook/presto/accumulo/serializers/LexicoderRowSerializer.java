@@ -38,8 +38,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.accumulo.io.AccumuloPageSink.ROW_ID_COLUMN;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -64,11 +64,11 @@ public class LexicoderRowSerializer
     private static final Map<TypeSignature, ListLexicoder<?>> LIST_LEXICODERS = new HashMap<>();
     private static final Map<TypeSignature, MapLexicoder<?, ?>> MAP_LEXICODERS = new HashMap<>();
 
-    private final Map<String, Map<String, String>> f2q2pc = new HashMap<>();
+    private final Map<String, Map<String, String>> familyQualifierColumnMap = new HashMap<>();
     private final Map<String, byte[]> columnValues = new HashMap<>();
     private final Text rowId = new Text();
-    private final Text cf = new Text();
-    private final Text cq = new Text();
+    private final Text family = new Text();
+    private final Text qualifier = new Text();
     private final Text value = new Text();
 
     private boolean rowOnly = false;
@@ -107,13 +107,13 @@ public class LexicoderRowSerializer
     public void setMapping(String name, String family, String qualifier)
     {
         columnValues.put(name, null);
-        Map<String, String> q2pc = f2q2pc.get(family);
-        if (q2pc == null) {
-            q2pc = new HashMap<>();
-            f2q2pc.put(family, q2pc);
+        Map<String, String> qualifierToNameMap = familyQualifierColumnMap.get(family);
+        if (qualifierToNameMap == null) {
+            qualifierToNameMap = new HashMap<>();
+            familyQualifierColumnMap.put(family, qualifierToNameMap);
         }
 
-        q2pc.put(qualifier, name);
+        qualifierToNameMap.put(qualifier, name);
     }
 
     @Override
@@ -135,15 +135,15 @@ public class LexicoderRowSerializer
             return;
         }
 
-        entry.getKey().getColumnFamily(cf);
-        entry.getKey().getColumnQualifier(cq);
+        entry.getKey().getColumnFamily(family);
+        entry.getKey().getColumnQualifier(qualifier);
 
-        if (cf.equals(ROW_ID_COLUMN) && cq.equals(ROW_ID_COLUMN)) {
+        if (family.equals(ROW_ID_COLUMN) && qualifier.equals(ROW_ID_COLUMN)) {
             return;
         }
 
         value.set(entry.getValue().get());
-        columnValues.put(f2q2pc.get(cf.toString()).get(cq.toString()), value.copyBytes());
+        columnValues.put(familyQualifierColumnMap.get(family.toString()).get(qualifier.toString()), value.copyBytes());
     }
 
     @Override
@@ -391,11 +391,11 @@ public class LexicoderRowSerializer
             return LEXICODER_MAP.get(VARCHAR);
         }
         else {
-            Lexicoder l = LEXICODER_MAP.get(type);
-            if (l == null) {
-                throw new PrestoException(INTERNAL_ERROR, "No lexicoder for type " + type);
+            Lexicoder lexicoder = LEXICODER_MAP.get(type);
+            if (lexicoder == null) {
+                throw new PrestoException(NOT_SUPPORTED, "No lexicoder for type " + type);
             }
-            return l;
+            return lexicoder;
         }
     }
 

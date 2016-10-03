@@ -32,8 +32,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -387,7 +387,7 @@ public class Field
         // Array? Better be a block!
         if (Types.isArrayType(type)) {
             if (!(value instanceof Block)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Block, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Block, but " + value.getClass());
             }
             return value;
         }
@@ -395,7 +395,7 @@ public class Field
         // Map? Better be a block!
         if (Types.isMapType(type)) {
             if (!(value instanceof Block)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Block, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Block, but " + value.getClass());
             }
             return value;
         }
@@ -403,7 +403,7 @@ public class Field
         // And now for the plain types
         if (type.equals(BIGINT)) {
             if (!(value instanceof Long)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Long, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long, but " + value.getClass());
             }
         }
         else if (type.equals(INTEGER)) {
@@ -412,12 +412,12 @@ public class Field
             }
 
             if (!(value instanceof Integer)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Long or Integer, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Integer, but " + value.getClass());
             }
         }
         else if (type.equals(BOOLEAN)) {
             if (!(value instanceof Boolean)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Boolean, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Boolean, but " + value.getClass());
             }
             return value;
         }
@@ -431,12 +431,12 @@ public class Field
             }
 
             if (!(value instanceof Date)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Calendar, Date, or Long, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Calendar, Date, or Long, but " + value.getClass());
             }
         }
         else if (type.equals(DOUBLE)) {
             if (!(value instanceof Double)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Double, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Double, but " + value.getClass());
             }
         }
         else if (type.equals(REAL)) {
@@ -449,7 +449,7 @@ public class Field
             }
 
             if (!(value instanceof Float)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Float, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Float, but " + value.getClass());
             }
         }
         else if (type.equals(SMALLINT)) {
@@ -462,7 +462,7 @@ public class Field
             }
 
             if (!(value instanceof Short)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Short, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Short, but " + value.getClass());
             }
         }
         else if (type.equals(TIME)) {
@@ -471,7 +471,7 @@ public class Field
             }
 
             if (!(value instanceof Time)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Long or Time, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Time, but " + value.getClass());
             }
         }
         else if (type.equals(TIMESTAMP)) {
@@ -480,7 +480,7 @@ public class Field
             }
 
             if (!(value instanceof Timestamp)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Long or Timestamp, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Long or Timestamp, but " + value.getClass());
             }
         }
         else if (type.equals(TINYINT)) {
@@ -497,7 +497,7 @@ public class Field
             }
 
             if (!(value instanceof Byte)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Byte, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Byte, but " + value.getClass());
             }
         }
         else if (type.equals(VARBINARY)) {
@@ -506,7 +506,7 @@ public class Field
             }
 
             if (!(value instanceof byte[])) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Slice byte[], but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Slice byte[], but " + value.getClass());
             }
         }
         else if (type instanceof VarcharType) {
@@ -515,11 +515,11 @@ public class Field
             }
 
             if (!(value instanceof String)) {
-                throw new PrestoException(INTERNAL_ERROR, "Object is not a Slice or String, but " + value.getClass());
+                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Object is not a Slice or String, but " + value.getClass());
             }
         }
         else {
-            throw new PrestoException(INTERNAL_ERROR, "Unsupported PrestoType " + type);
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
         }
 
         return value;

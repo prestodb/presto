@@ -26,7 +26,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -97,7 +97,7 @@ public final class AccumuloTableHandle
             return (AccumuloRowSerializer) Class.forName(serializerClassName).getConstructor().newInstance();
         }
         catch (Exception e) {
-            throw new PrestoException(VALIDATION, "Configured serializer class not found", e);
+            throw new PrestoException(NOT_FOUND, "Configured serializer class not found", e);
         }
     }
 
