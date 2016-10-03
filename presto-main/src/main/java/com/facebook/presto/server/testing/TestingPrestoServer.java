@@ -149,10 +149,15 @@ public class TestingPrestoServer
     public TestingPrestoServer(List<Module> additionalModules)
             throws Exception
     {
-        this(true, ImmutableMap.<String, String>of(), null, null, additionalModules);
+        this(true, ImmutableMap.<String, String>of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
-    public TestingPrestoServer(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri, List<Module> additionalModules)
+    public TestingPrestoServer(boolean coordinator,
+            Map<String, String> properties,
+            String environment,
+            URI discoveryUri,
+            SqlParserOptions parserOptions,
+            List<Module> additionalModules)
             throws Exception
     {
         this.coordinator = coordinator;
@@ -192,7 +197,7 @@ public class TestingPrestoServer
                 .add(new TestingJmxModule())
                 .add(new EventModule())
                 .add(new TraceTokenModule())
-                .add(new ServerMainModule(new SqlParserOptions()))
+                .add(new ServerMainModule(parserOptions))
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);

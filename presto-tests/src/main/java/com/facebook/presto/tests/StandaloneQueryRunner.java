@@ -22,13 +22,13 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Module;
 import io.airlift.testing.Closeables;
 import org.intellij.lang.annotations.Language;
 
@@ -232,6 +232,6 @@ public final class StandaloneQueryRunner
                 .put("node-scheduler.min-candidates", "1")
                 .put("datasources", "system");
 
-        return new TestingPrestoServer(true, properties.build(), null, null, ImmutableList.<Module>of());
+        return new TestingPrestoServer(true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
     }
 }
