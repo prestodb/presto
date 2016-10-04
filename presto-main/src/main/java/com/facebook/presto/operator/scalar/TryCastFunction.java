@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -75,21 +76,25 @@ public class TryCastFunction
         Type toType = boundVariables.getTypeVariable("T");
 
         Class<?> returnType = Primitives.wrap(toType.getJavaType());
+        List<Boolean> nullableArguments;
         MethodHandle tryCastHandle;
 
         if (fromType.equals(UNKNOWN)) {
+            nullableArguments = ImmutableList.of(true);
             tryCastHandle = dropArguments(constant(returnType, null), 0, Void.class);
         }
         else {
             // the resulting method needs to return a boxed type
             Signature signature = functionRegistry.getCoercion(fromType, toType);
-            MethodHandle coercion = functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
+            ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(signature);
+            nullableArguments = implementation.getNullableArguments();
+            MethodHandle coercion = implementation.getMethodHandle();
             coercion = coercion.asType(methodType(returnType, coercion.type()));
 
             MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
             tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
         }
 
-        return new ScalarFunctionImplementation(true, ImmutableList.of(true), tryCastHandle, isDeterministic());
+        return new ScalarFunctionImplementation(true, nullableArguments, tryCastHandle, isDeterministic());
     }
 }
