@@ -106,11 +106,11 @@ public class TestMergeWindows
     @Test
     public void testMergeableWindowsAllOptimizers()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(quantity) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_quantity_A, " +
-                "sum(quantity) over (partition by orderkey order by shipdate rows between UNBOUNDED preceding and CURRENT ROW) sum_quantity_B, " +
-                "sum(discount) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_discount_A " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "SUM(quantity) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "FROM lineitem";
 
         PlanMatchPattern pattern =
                 anyTree(
@@ -133,11 +133,11 @@ public class TestMergeWindows
     @Test
     public void testIdenticalWindowSpecificationsABA()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(quantity) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_quantity_A, " +
-                "sum(quantity) over (partition by orderkey order by shipdate rows between UNBOUNDED preceding and CURRENT ROW) sum_quantity_B, " +
-                "sum(discount) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_discount_A " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "SUM(quantity) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "FROM lineitem";
 
         assertUnitPlan(sql,
                 anyTree(
@@ -152,11 +152,11 @@ public class TestMergeWindows
     @Test
     public void testIdenticalWindowSpecificationsABcpA()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(quantity) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_quantity_A, " +
-                "lag(quantity, 1, 0.0) over (partition by orderkey order by shipdate rows between UNBOUNDED preceding and CURRENT ROW) sum_quantity_B, " +
-                "sum(discount) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_discount_A " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "LAG(quantity, 1, 0.0) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "FROM lineitem";
 
         assertUnitPlan(sql,
                 anyTree(
@@ -171,11 +171,11 @@ public class TestMergeWindows
     @Test
     public void testIdenticalWindowSpecificationsAAcpA()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(quantity) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_quantity_A, " +
-                "lag(quantity, 1, 0.0) over (partition by suppkey order by orderkey rows between UNBOUNDED preceding and CURRENT ROW) sum_quantity_B, " +
-                "sum(discount) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_discount_A " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_A, " +
+                "LAG(quantity, 1, 0.0) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_B, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "FROM lineitem";
 
         assertUnitPlan(sql,
                 anyTree(
@@ -201,11 +201,11 @@ public class TestMergeWindows
                 ImmutableList.of(new SortItem(new SymbolReference("shipdate"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                 Optional.empty());
 
-        @Language("SQL") String sql = "select " +
-                "sum(quantity) over (partition by suppkey order by orderkey), " +
-                "sum(quantity) over (partition by orderkey order by shipdate), " +
-                "sum(discount) over (partition by suppkey order by orderkey) " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION By suppkey ORDER BY orderkey), " +
+                "SUM(quantity) OVER (PARTITION BY orderkey ORDER BY shipdate), " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey) " +
+                "FROM lineitem";
 
         assertUnitPlan(sql,
                 anyTree(
@@ -240,11 +240,11 @@ public class TestMergeWindows
                 ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                 Optional.of(frameD));
 
-        @Language("SQL") String sql = "select " +
-                "sum(quantity) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_quantity_C, " +
-                "avg(quantity) over (partition by suppkey order by orderkey rows between current row and unbounded following) avg_quantity_D, " +
-                "sum(discount) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_discount_C " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C, " +
+                "AVG(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) avg_quantity_D, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_C " +
+                "FROM lineitem";
 
         assertUnitPlan(sql,
                 anyTree(
@@ -273,11 +273,11 @@ public class TestMergeWindows
                 ImmutableList.of(new SortItem(new SymbolReference("orderkey"), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                 Optional.of(frameD));
 
-        @Language("SQL") String sql = "select " +
-                "sum(quantity) over (partition by suppkey order by orderkey) sum_quantity_C, " +
-                "avg(quantity) over (partition by suppkey order by orderkey rows between current row and unbounded following) avg_quantity_D, " +
-                "sum(discount) over (partition by suppkey order by orderkey) sum_discount_C " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey) sum_quantity_C, " +
+                "AVG(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) avg_quantity_D, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey) sum_discount_C " +
+                "FROM lineitem";
 
         assertUnitPlan(sql,
                 anyTree(
@@ -291,19 +291,19 @@ public class TestMergeWindows
     @Test
     public void testNotMergeAcrossJoinBranches()
     {
-        @Language("SQL") String sql = "with foo as (" +
-                "select " +
+        @Language("SQL") String sql = "WITH foo AS (" +
+                "SELECT " +
                 "suppkey, orderkey, partkey, " +
-                "sum(discount) over (partition by orderkey order by shipdate rows between UNBOUNDED preceding and CURRENT ROW) a " +
-                "from lineitem where (partkey = 272 or partkey = 273) and suppkey > 50 " +
+                "SUM(discount) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) a " +
+                "FROM lineitem WHERE (partkey = 272 OR partkey = 273) AND suppkey > 50 " +
                 "), " +
-                "bar as ( " +
-                "select " +
+                "bar AS ( " +
+                "SELECT " +
                 "suppkey, orderkey, partkey, " +
-                "avg(quantity) over (partition by orderkey order by shipdate rows between UNBOUNDED preceding and CURRENT ROW) b " +
-                "from lineitem where (partkey = 272 or partkey = 273) and suppkey > 50 " +
+                "AVG(quantity) OVER (PARTITION BY orderkey ORDER BY shipdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) b " +
+                "FROM lineitem WHERE (partkey = 272 OR partkey = 273) AND suppkey > 50 " +
                 ")" +
-                "select * from foo, bar where foo.a = bar.b";
+                "SELECT * FROM foo, bar WHERE foo.a = bar.b";
 
         assertUnitPlan(sql,
                 anyTree(
@@ -319,10 +319,10 @@ public class TestMergeWindows
     @Test
     public void testNotMergeDifferentPartition()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(extendedprice) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_extendedprice_A, " +
-                "sum(quantity) over (partition by quantity order by orderkey rows between unbounded preceding and current row) sum_quantity_C " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(extendedprice) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_extendedprice_A, " +
+                "SUM(quantity) over (PARTITION BY quantity ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C " +
+                "FROM lineitem";
 
         Window windowC = new Window(
                 ImmutableList.of(new SymbolReference("quantity")),
@@ -341,10 +341,10 @@ public class TestMergeWindows
     @Test
     public void testNotMergeDifferentOrderBy()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(extendedprice) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_extendedprice_A, " +
-                "sum(quantity) over (partition by suppkey order by quantity rows between unbounded preceding and current row) sum_quantity_C " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(extendedprice) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_extendedprice_A, " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY quantity ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C " +
+                "FROM lineitem";
 
         Window windowC = new Window(
                 ImmutableList.of(new SymbolReference("suppkey")),
@@ -363,11 +363,11 @@ public class TestMergeWindows
     @Test
     public void testNotMergeDifferentOrdering()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(extendedprice) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_extendedprice_A, " +
-                "sum(quantity) over (partition by suppkey order by orderkey desc rows between unbounded preceding and current row) sum_quantity_C, " +
-                "sum(discount) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_discount_A " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(extendedprice) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_extendedprice_A, " +
+                "SUM(quantity) over (PARTITION BY suppkey ORDER BY orderkey DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C, " +
+                "SUM(discount) over (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "FROM lineitem";
 
         Window windowC = new Window(
                 ImmutableList.of(new SymbolReference("suppkey")),
@@ -387,11 +387,11 @@ public class TestMergeWindows
     @Test
     public void testNotMergeDifferentNullOrdering()
     {
-        @Language("SQL") String sql = "select " +
-                "sum(extendedprice) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_extendedprice_A, " +
-                "sum(quantity) over (partition by suppkey order by orderkey nulls first rows between unbounded preceding and current row) sum_quantity_C, " +
-                "sum(discount) over (partition by suppkey order by orderkey rows between unbounded preceding and current row) sum_discount_A " +
-                "from lineitem";
+        @Language("SQL") String sql = "SELECT " +
+                "SUM(extendedprice) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_extendedprice_A, " +
+                "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey NULLS FIRST ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C, " +
+                "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
+                "FROM lineitem";
 
         Window windowC = new Window(
                 ImmutableList.of(new SymbolReference("suppkey")),
