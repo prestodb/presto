@@ -8,6 +8,7 @@ from different data sources.
 .. toctree::
     :maxdepth: 1
 
+    connector/accumulo
     connector/blackhole
     connector/cassandra
     connector/hive
