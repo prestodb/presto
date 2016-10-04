@@ -374,13 +374,23 @@ public class TestLogicalPlanner
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, pattern);
+    }
+
+    private void assertDistributedPlan(String sql, PlanMatchPattern pattern)
+    {
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, true, pattern);
     }
 
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
+        assertPlan(sql, stage, false, pattern);
+    }
+
+    private void assertPlan(String sql, LogicalPlanner.Stage stage, boolean distributed, PlanMatchPattern pattern)
+    {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage, distributed);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
@@ -388,13 +398,18 @@ public class TestLogicalPlanner
 
     private Plan plan(String sql)
     {
-        return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false);
     }
 
     private Plan plan(String sql, LogicalPlanner.Stage stage)
     {
+        return plan(sql, stage, false);
+    }
+
+    private Plan plan(String sql, LogicalPlanner.Stage stage, boolean distributed)
+    {
         try {
-            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage));
+            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, distributed));
         }
         catch (RuntimeException ex) {
             fail("Invalid SQL: " + sql, ex);
