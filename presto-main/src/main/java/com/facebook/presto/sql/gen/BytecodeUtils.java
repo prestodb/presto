@@ -195,10 +195,12 @@ public final class BytecodeUtils
                     block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
                 }
                 else {
-                    block.append(boxPrimitiveIfNecessary(scope, type));
                     if (function.getNullFlags().get(realParameterIndex)) {
                         block.append(scope.getVariable("wasNull"));
                         currentParameterIndex++;
+                    }
+                    else {
+                        block.append(boxPrimitiveIfNecessary(scope, type));
                     }
                     block.append(scope.getVariable("wasNull").set(constantFalse()));
                 }
@@ -251,6 +253,7 @@ public final class BytecodeUtils
 
     public static BytecodeNode boxPrimitiveIfNecessary(Scope scope, Class<?> type)
     {
+        checkArgument(!type.isPrimitive(), "cannot box into primitive type");
         if (!Primitives.isWrapperType(type)) {
             return NOP;
         }
