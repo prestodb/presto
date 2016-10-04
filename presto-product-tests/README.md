@@ -407,3 +407,14 @@ been downloaded:
     # downloaded.
     presto-product-tests/conf/docker/<profile>/compose.sh pull
     ```
+
+## Known issues
+
+If you see the error
+```
+ERROR: for hadoop-master  Cannot start service hadoop-master: driver failed programming external connectivity on endpoint common_hadoop-master_1 Error starting userland proxy: Bind for 0.0.0.0:1080 failed: port is already allocated
+```
+You most likely have some application listening on port 1080 on either docker-machine or on your local machine if you are running docker natively.
+You can override the default socks proxy port (1080) used by dockerized Hive deployment in product tests using the
+`HIVE_PROXY_PORT` environment variable, e.g. `export HIVE_PROXY_PORT=1180`. This will run all of the dockerized tests using the custom port for the socks proxy.
+When you change the default socks proxy port (1080), you have to modify the property `hive.metastore.thrift.client.socks-proxy=hadoop-master:1080` in `conf/presto/etc/catalog/hive.properties`.
