@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Math.max;
 
 public class SpillableHashAggregationBuilder
@@ -89,7 +90,7 @@ public class SpillableHashAggregationBuilder
     @Override
     public void processPage(Page page)
     {
-        checkState(!isBusy(), "Previous spill hasn't yet finished");
+        checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
 
         hashAggregationBuilder.processPage(page);
 
@@ -113,11 +114,22 @@ public class SpillableHashAggregationBuilder
     {
         return false;
     }
-
     @Override
     public boolean isBusy()
     {
-        return !spillInProgress.isDone();
+        return !hasPreviousSpillCompletedSuccessfully();
+    }
+
+    private boolean hasPreviousSpillCompletedSuccessfully()
+    {
+        if (spillInProgress.isDone()) {
+            // check for exception from previous spill for early failure
+            getFutureValue(spillInProgress);
+            return true;
+        }
+        else {
+            return false;
+        }
     }
 
     private boolean shouldSpill(long memorySize)
@@ -132,7 +144,7 @@ public class SpillableHashAggregationBuilder
 
     public Iterator<Page> buildResult()
     {
-        checkState(!isBusy(), "Previous spill hasn't yet finished");
+        checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
 
         if (!spiller.isPresent()) {
             return hashAggregationBuilder.buildResult();
@@ -166,6 +178,7 @@ public class SpillableHashAggregationBuilder
 
     private CompletableFuture<?> spillToDisk()
     {
+        checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
         hashAggregationBuilder.setOutputPartial();
 
         if (!spiller.isPresent()) {

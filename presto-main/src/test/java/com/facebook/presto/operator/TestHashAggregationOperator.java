@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -41,6 +42,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -64,6 +66,7 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -491,6 +494,48 @@ public class TestHashAggregationOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build(), false, Optional.of(hashChannels.size()));
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".* Failed to spill")
+    public void testSpillerFailure()
+    {
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        InternalAggregationFunction maxVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+                new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
+
+        List<Integer> hashChannels = Ints.asList(1);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, VARCHAR, BIGINT, VARCHAR, BIGINT);
+        List<Page> input = rowPagesBuilder
+                .addSequencePage(10, 100, 0, 100, 0)
+                .addSequencePage(10, 100, 0, 200, 0)
+                .addSequencePage(10, 100, 0, 300, 0)
+                .build();
+
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+                .addPipelineContext(true, true)
+                .addDriverContext();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                hashChannels,
+                ImmutableList.of(),
+                Step.SINGLE,
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
+                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
+                        LONG_AVERAGE.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
+                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0)),
+                rowPagesBuilder.getHashChannel(),
+                Optional.empty(),
+                100_000,
+                new DataSize(16, MEGABYTE),
+                true,
+                succinctBytes(8),
+                succinctBytes(Integer.MAX_VALUE),
+                new FailingSpillerFactory());
+
+        toPages(operatorFactory, driverContext, input);
+    }
+
     private static class DummySpillerFactory
             extends SpillerFactoryWithStats
     {
@@ -512,6 +557,35 @@ public class TestHashAggregationOperator
                 public List<Iterator<Page>> getSpills()
                 {
                     return spills;
+                }
+
+                @Override
+                public void close()
+                {
+                }
+            };
+        }
+    }
+
+    private static class FailingSpillerFactory
+            extends SpillerFactoryWithStats
+    {
+        @Override
+        public Spiller create(List<Type> types)
+        {
+            return new Spiller() {
+                @Override
+                public CompletableFuture<?> spill(Iterator<Page> pageIterator)
+                {
+                    SettableFuture<Object> future = SettableFuture.create();
+                    future.setException(new IOException("Failed to spill"));
+                    return toCompletableFuture(future);
+                }
+
+                @Override
+                public List<Iterator<Page>> getSpills()
+                {
+                    return ImmutableList.of();
                 }
 
                 @Override
