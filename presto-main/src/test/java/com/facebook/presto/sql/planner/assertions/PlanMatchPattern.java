@@ -345,6 +345,12 @@ public final class PlanMatchPattern
         return this;
     }
 
+    public PlanMatchPattern withNumberOfOutputColumns(int numberOfSymbols)
+    {
+        matchers.add(new SymbolCardinalityMatcher(numberOfSymbols));
+        return this;
+    }
+
     /*
      * This is useful if you already know the bindings for the aliases you expect to find
      * in the outputs. This is the case for symbols that are produced by a direct or indirect
