@@ -296,6 +296,7 @@ public class FunctionRegistry
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
+    private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
@@ -306,6 +307,17 @@ public class FunctionRegistry
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
+
+        specializedFunctionKeyCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(new CacheLoader<Signature, SpecializedFunctionKey>()
+                {
+                    @Override
+                    public SpecializedFunctionKey load(Signature key)
+                    {
+                        return doGetSpecializedFunctionKey(key);
+                    }
+                });
 
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -820,6 +832,16 @@ public class FunctionRegistry
     }
 
     private SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
+    {
+        try {
+            return specializedFunctionKeyCache.getUnchecked(signature);
+        }
+        catch (UncheckedExecutionException e) {
+            throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
