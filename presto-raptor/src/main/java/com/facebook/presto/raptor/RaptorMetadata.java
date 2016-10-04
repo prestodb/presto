@@ -72,7 +72,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.raptor.RaptorBucketFunction.checkTypeSupported;
+import static com.facebook.presto.raptor.RaptorBucketFunction.getHashFunction;
 import static com.facebook.presto.raptor.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_NAME;
@@ -395,7 +395,7 @@ public class RaptorMetadata
         }
         ImmutableList.Builder<Type> bucketColumnTypes = ImmutableList.builder();
         for (RaptorColumnHandle column : bucketColumnHandles) {
-            checkTypeSupported(column.getColumnType());
+            getHashFunction(column.getColumnType());
 
             bucketColumnTypes.add(column.getColumnType());
         }

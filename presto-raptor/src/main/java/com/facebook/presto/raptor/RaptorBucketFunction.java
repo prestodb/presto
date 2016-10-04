@@ -44,18 +44,7 @@ public class RaptorBucketFunction
         this.functions = new HashFunction[types.size()];
         for (int i = 0; i < types.size(); i++) {
             Type type = types.get(i);
-            if (type.equals(BIGINT)) {
-                functions[i] = bigintHashFunction();
-            }
-            else if (type.equals(INTEGER)) {
-                functions[i] = intHashFunction();
-            }
-            else if (isVarcharType(type)) {
-                functions[i] = varcharHashFunction();
-            }
-            else {
-                throw new PrestoException(NOT_SUPPORTED, "Bucketing not supported for type: " + type.getDisplayName());
-            }
+            functions[i] = getHashFunction(type);
         }
     }
 
@@ -69,38 +58,48 @@ public class RaptorBucketFunction
             Block block = page.getBlock(i);
 
             HashFunction function = functions[i];
-            hash = (hash * 31) + function.hash(block, position);
+            long value = function.hash(block, position);
+            hash = (hash * 31) + value;
         }
         int value = (int) (hash & Integer.MAX_VALUE);
         return value % bucketCount;
     }
 
-    public static void checkTypeSupported(Type type)
+    public static HashFunction getHashFunction(Type type)
     {
-        if (!type.equals(BIGINT) && !type.equals(INTEGER) && !isVarcharType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "Bucketing is supported for BIGINT, INTEGER and VARCHAR columns");
+        if (type.equals(BIGINT)) {
+            return bigintHashFunction();
+        }
+        else if (type.equals(INTEGER)) {
+            return intHashFunction();
+        }
+        else if (isVarcharType(type)) {
+            return varcharHashFunction();
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Bucketing is supported for BIGINT, INTEGER and VARCHAR columns and not supported for type: " + type.getDisplayName());
         }
     }
 
     @VisibleForTesting
-    protected static HashFunction bigintHashFunction()
+    static HashFunction bigintHashFunction()
     {
         return (block, position) -> XxHash64.hash(BIGINT.getLong(block, position));
     }
 
     @VisibleForTesting
-    protected static HashFunction varcharHashFunction()
+    static HashFunction varcharHashFunction()
     {
         return (block, position) -> XxHash64.hash(block.getSlice(position, 0, block.getLength(position)));
     }
 
     @VisibleForTesting
-    protected static HashFunction intHashFunction()
+    static HashFunction intHashFunction()
     {
         return (block, position) -> XxHash64.hash(INTEGER.getLong(block, position));
     }
 
-    protected interface HashFunction
+    interface HashFunction
     {
         long hash(Block block, int position);
     }

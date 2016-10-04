@@ -42,7 +42,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.raptor.RaptorBucketFunction.checkTypeSupported;
+import static com.facebook.presto.raptor.RaptorBucketFunction.getHashFunction;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -103,7 +103,7 @@ public class RaptorPageSink
         this.bucketCount = bucketCount;
         this.bucketFields = bucketColumnIds.stream().mapToInt(columnIds::indexOf).toArray();
 
-        Arrays.stream(bucketFields).forEach(field -> checkTypeSupported(columnTypes.get(field)));
+        Arrays.stream(bucketFields).forEach(field -> getHashFunction(columnTypes.get(field)));
 
         if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
             temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
@@ -242,7 +242,7 @@ public class RaptorPageSink
             ImmutableList.Builder<Type> bucketTypesBuilder = ImmutableList.builder();
 
             Arrays.stream(bucketFields)
-                    .mapToObj(e -> columnTypes.get(e))
+                    .mapToObj(columnTypes::get)
                     .forEach(bucketTypesBuilder::add);
 
             if (sampleWeightField > -1) {
