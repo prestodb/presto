@@ -295,16 +295,16 @@ public class FunctionRegistry
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.<Class<?>>of(long.class, double.class, Slice.class, boolean.class);
 
     private final TypeManager typeManager;
-    private final BlockEncodingSerde blockEncodingSerde;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
+    private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
 
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -894,24 +894,20 @@ public class FunctionRegistry
             Type parameterType = typeManager.getType(parameterTypes.get(0));
             requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
-            MethodHandle methodHandle = null;
-            if (parameterType.getJavaType() == type.getJavaType()) {
-                methodHandle = MethodHandles.identity(parameterType.getJavaType());
+            SpecializedFunctionKey specializedFunctionKey = new SpecializedFunctionKey(
+                    magicLiteralFunction,
+                    BoundVariables.builder()
+                            .setTypeVariable("T", parameterType)
+                            .setTypeVariable("R", type)
+                            .build(),
+                    1);
+
+            try {
+                return specializedScalarCache.getUnchecked(specializedFunctionKey);
             }
-
-            if (parameterType.getJavaType() == Slice.class) {
-                if (type.getJavaType() == Block.class) {
-                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
-                }
+            catch (UncheckedExecutionException e) {
+                throw Throwables.propagate(e.getCause());
             }
-
-            checkArgument(methodHandle != null,
-                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
-                    type,
-                    parameterType.getJavaType(),
-                    type.getJavaType());
-
-            return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, true);
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
@@ -1124,6 +1120,62 @@ public class FunctionRegistry
                     .add("declaredSignature", declaredSignature)
                     .add("boundSignature", boundSignature)
                     .toString();
+        }
+    }
+
+    private static class MagicLiteralFunction
+            extends SqlScalarFunction
+    {
+        private final BlockEncodingSerde blockEncodingSerde;
+
+        public MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
+        {
+            super(new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, FunctionKind.SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
+            this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        }
+
+        @Override
+        public boolean isHidden()
+        {
+            return true;
+        }
+
+        @Override
+        public boolean isDeterministic()
+        {
+            return true;
+        }
+
+        @Override
+        public String getDescription()
+        {
+            return "magic literal";
+        }
+
+        @Override
+        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        {
+            Type parameterType = boundVariables.getTypeVariable("T");
+            Type type = boundVariables.getTypeVariable("R");
+
+            MethodHandle methodHandle = null;
+            if (parameterType.getJavaType() == type.getJavaType()) {
+                methodHandle = MethodHandles.identity(parameterType.getJavaType());
+            }
+
+            if (parameterType.getJavaType() == Slice.class) {
+                if (type.getJavaType() == Block.class) {
+                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
+                }
+            }
+
+            checkArgument(methodHandle != null,
+                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
+                    type,
+                    parameterType.getJavaType(),
+                    type.getJavaType());
+
+            return new ScalarFunctionImplementation(false, ImmutableList.of(false), methodHandle, isDeterministic());
         }
     }
 }
