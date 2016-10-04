@@ -76,6 +76,6 @@ public class RaptorNodePartitioningProvider
     {
         RaptorPartitioningHandle handle = checkType(partitioning, RaptorPartitioningHandle.class, "partitioningHandle");
 
-        return new RaptorBucketFunction(handle.getBucketTypes());
+        return new RaptorBucketFunction(bucketCount, handle.getBucketTypes());
     }
 }

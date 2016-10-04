@@ -33,12 +33,14 @@ public class RaptorBucketFunction
         implements BucketFunction
 {
     private final HashFunction[] functions;
+    private final int bucketCount;
 
-    public RaptorBucketFunction(List<Type> types)
+    public RaptorBucketFunction(int bucketCount, List<Type> types)
     {
+        checkArgument(bucketCount > 0, "bucketCount must be at least one");
         checkArgument(types != null, "types is is null");
-        checkArgument(!types.isEmpty(), "types is empty");
 
+        this.bucketCount = bucketCount;
         this.functions = new HashFunction[types.size()];
         for (int i = 0; i < types.size(); i++) {
             Type type = types.get(i);
@@ -70,7 +72,7 @@ public class RaptorBucketFunction
             hash = (hash * 31) + function.hash(block, position);
         }
         int value = (int) (hash & Integer.MAX_VALUE);
-        return value % channelCount;
+        return value % bucketCount;
     }
 
     public static void checkTypeSupported(Type type)

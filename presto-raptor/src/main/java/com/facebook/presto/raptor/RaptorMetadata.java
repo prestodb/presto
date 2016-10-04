@@ -320,9 +320,17 @@ public class RaptorMetadata
         }
 
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(handle.getTableId());
-        List<Type> bucketTypes = bucketColumnHandles.stream().map(col -> col.getColumnType()).collect(Collectors.toList());
+        ImmutableList.Builder<Type> bucketColumnHandlesBuilder = ImmutableList.builder();
+        bucketColumnHandles.stream()
+                .map(col -> col.getColumnType())
+                .forEach(bucketColumnHandlesBuilder::add);
 
-        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong(), bucketTypes);
+        if (handle.getSampleWeightColumnHandle().isPresent()) {
+            bucketColumnHandlesBuilder.add(BIGINT);
+        }
+
+        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong(),
+                bucketColumnHandlesBuilder.build());
 
         boolean oneSplitPerBucket = handle.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session);
 
@@ -357,11 +365,16 @@ public class RaptorMetadata
                 .map(RaptorColumnHandle::getColumnName)
                 .collect(toList());
 
-        List<Type> bucketTypes = distribution.get().getBucketColumns().stream()
+        ImmutableList.Builder<Type> bucketTypesBuilder = ImmutableList.builder();
+        distribution.get().getBucketColumns().stream()
                 .map(RaptorColumnHandle::getColumnType)
-                .collect(toList());
+                .forEach(bucketTypesBuilder::add);
 
-        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId(), bucketTypes);
+        if (metadata.isSampled()) {
+            bucketTypesBuilder.add(BIGINT);
+        }
+
+        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId(), bucketTypesBuilder.build());
         return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
     }
 
