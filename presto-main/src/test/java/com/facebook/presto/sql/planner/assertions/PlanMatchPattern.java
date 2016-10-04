@@ -166,6 +166,11 @@ public final class PlanMatchPattern
         return with(new SymbolMatcher(pattern, alias));
     }
 
+    public PlanMatchPattern withNumberOfOutputColumns(int numberOfSymbols)
+    {
+        return with(new SymbolCardinalityMatcher(numberOfSymbols));
+    }
+
     public PlanMatchPattern with(Matcher matcher)
     {
         matchers.add(matcher);
