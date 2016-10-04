@@ -254,7 +254,7 @@ public final class TypeRegistry
             }
 
             if (isCovariantParametrizedType(firstType)) {
-                return getCommonSupperTypeForCovariantParametrizedType(firstType, secondType);
+                return getCommonSuperTypeForCovariantParametrizedType(firstType, secondType);
             }
             return Optional.empty();
         }
@@ -286,7 +286,7 @@ public final class TypeRegistry
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
 
-    private Optional<Type> getCommonSupperTypeForCovariantParametrizedType(Type firstType, Type secondType)
+    private Optional<Type> getCommonSuperTypeForCovariantParametrizedType(Type firstType, Type secondType)
     {
         checkState(firstType.getClass().equals(secondType.getClass()));
         ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
