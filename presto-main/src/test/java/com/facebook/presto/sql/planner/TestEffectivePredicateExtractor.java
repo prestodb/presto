@@ -148,7 +148,6 @@ public class TestEffectivePredicateExtractor
                                 lessThan(CE, DE),
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
-                ImmutableList.of(A, B, C),
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
                 ImmutableMap.of(C, fakeFunctionHandle("test", AGGREGATE), D, fakeFunctionHandle("test", AGGREGATE)),
                 ImmutableMap.<Symbol, Symbol>of(),
@@ -156,6 +155,7 @@ public class TestEffectivePredicateExtractor
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
                 1.0,
+                Optional.empty(),
                 Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);

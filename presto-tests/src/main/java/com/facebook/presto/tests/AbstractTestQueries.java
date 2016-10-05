@@ -1332,6 +1332,50 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupingSetsNoInput()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY linenumber, suppkey " +
+                        "UNION " +
+                        "SELECT NULL, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY suppkey");
+    }
+
+    @Test
+    public void testGroupingSetsWithGlobalAggregationNoInput()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey), ())",
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY linenumber, suppkey " +
+                        "UNION " +
+                        "SELECT NULL, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY suppkey " +
+                        "UNION " +
+                        "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0");
+    }
+
+    @Test
     public void testGroupingSetsWithSingleDistinct()
             throws Exception
     {
@@ -1347,6 +1391,25 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) FROM lineitem GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
                 "SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) FROM lineitem GROUP BY linenumber, suppkey UNION " +
                         "SELECT NULL, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) FROM lineitem GROUP BY suppkey");
+    }
+
+    @Test
+    public void testGroupingSetsWithMultipleDistinctNoInput()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY GROUPING SETS ((linenumber, suppkey), (suppkey))",
+                "SELECT linenumber, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY linenumber, suppkey " +
+                        "UNION " +
+                        "SELECT NULL, suppkey, SUM(DISTINCT CAST(quantity AS BIGINT)), COUNT(DISTINCT linestatus) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY suppkey");
     }
 
     @Test
@@ -1367,6 +1430,34 @@ public abstract class AbstractTestQueries
                         "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem UNION ALL " +
                         "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber, suppkey UNION ALL " +
                         "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsRepeatedSetsAllNoInput()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY GROUPING SETS ((), (linenumber, suppkey), (), (linenumber, suppkey))",
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY linenumber, suppkey " +
+                        "UNION ALL " +
+                        "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "UNION ALL " +
+                        "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0 " +
+                        "GROUP BY linenumber, suppkey " +
+                        "UNION ALL " +
+                        "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) " +
+                        "FROM lineitem " +
+                        "WHERE quantity < 0");
     }
 
     @Test
@@ -1403,6 +1494,15 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY GROUPING SETS ((), ())",
                 "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem UNION ALL " +
                         "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem");
+    }
+
+    @Test
+    public void testGroupingSetsMultipleGrandTotalSetsNoInput()
+            throws Exception
+    {
+        assertQuery("SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 GROUP BY GROUPING SETS ((), ())",
+                "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 UNION ALL " +
+                        "SELECT SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0");
     }
 
     @Test
@@ -1531,6 +1631,17 @@ public abstract class AbstractTestQueries
                         "SELECT linenumber, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber UNION ALL " +
                         "SELECT NULL, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY suppkey UNION ALL " +
                         "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem");
+    }
+
+    @Test
+    public void testCubeNoInput()
+            throws Exception
+    {
+        assertQuery("SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 GROUP BY CUBE (linenumber, suppkey)",
+                "SELECT linenumber, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 GROUP BY linenumber, suppkey UNION ALL " +
+                        "SELECT linenumber, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, suppkey, SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0 GROUP BY suppkey UNION ALL " +
+                        "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem WHERE quantity < 0");
     }
 
     @Test

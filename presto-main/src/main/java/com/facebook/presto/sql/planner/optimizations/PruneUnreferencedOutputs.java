@@ -284,7 +284,7 @@ public class PruneUnreferencedOutputs
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Set<Symbol>> context)
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(node.getGroupBy());
+                    .addAll(node.getGroupingKeys());
             if (node.getHashSymbol().isPresent()) {
                 expectedInputs.add(node.getHashSymbol().get());
             }
@@ -315,7 +315,6 @@ public class PruneUnreferencedOutputs
 
             return new AggregationNode(node.getId(),
                     source,
-                    node.getGroupBy(),
                     functionCalls.build(),
                     functions.build(),
                     masks.build(),
@@ -323,7 +322,8 @@ public class PruneUnreferencedOutputs
                     node.getStep(),
                     node.getSampleWeight(),
                     node.getConfidence(),
-                    node.getHashSymbol());
+                    node.getHashSymbol(),
+                    node.getGroupIdSymbol());
         }
 
         @Override

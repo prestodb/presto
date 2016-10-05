@@ -183,7 +183,6 @@ class SubqueryPlanner
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
-                    ImmutableList.of(),
                     ImmutableMap.of(count, new FunctionCall(countFunction, ImmutableList.of())),
                     ImmutableMap.of(count, functionRegistry.resolveFunction(countFunction, ImmutableList.of(), false)),
                     ImmutableMap.of(),
@@ -191,6 +190,7 @@ class SubqueryPlanner
                     AggregationNode.Step.SINGLE,
                     Optional.empty(),
                     1.0,
+                    Optional.empty(),
                     Optional.empty());
 
             Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);

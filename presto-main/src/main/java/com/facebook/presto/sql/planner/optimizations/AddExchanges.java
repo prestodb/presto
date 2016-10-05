@@ -273,8 +273,8 @@ public class AddExchanges
             }
 
             PreferredProperties preferredProperties = PreferredProperties.any();
-            if (!node.getGroupBy().isEmpty()) {
-                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupBy()))
+            if (!node.getGroupingKeys().isEmpty()) {
+                preferredProperties = PreferredProperties.partitionedWithLocal(partitioningRequirement, grouped(node.getGroupingKeys()))
                         .mergeWithParent(context.getPreferredProperties());
             }
 
@@ -285,7 +285,9 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            if (node.getGroupBy().isEmpty()) {
+            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
+            // needs to know whether input was received at the query level.
+            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
                 if (decomposable) {
                     return splitAggregation(node, child, partial -> gatheringExchange(idAllocator.getNextId(), REMOTE, partial));
                 }
@@ -309,14 +311,14 @@ public class AddExchanges
                                     idAllocator.getNextId(),
                                     REMOTE,
                                     partial,
-                                    node.getGroupBy(),
+                                    node.getGroupingKeys(),
                                     node.getHashSymbol());
                         }
                         return splitAggregation(node, child, exchanger);
                     }
                     else {
                         child = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupBy(), node.getHashSymbol()),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupingKeys(), node.getHashSymbol()),
                                 child.getProperties());
                         return rebaseAndDeriveProperties(node, child);
                     }
@@ -352,7 +354,6 @@ public class AddExchanges
                     new AggregationNode(
                             idAllocator.getNextId(),
                             newChild.getNode(),
-                            node.getGroupBy(),
                             intermediateCalls,
                             intermediateFunctions,
                             intermediateMask,
@@ -360,7 +361,8 @@ public class AddExchanges
                             PARTIAL,
                             node.getSampleWeight(),
                             node.getConfidence(),
-                            node.getHashSymbol()),
+                            node.getHashSymbol(),
+                            node.getGroupIdSymbol()),
                     newChild.getProperties());
 
             PlanNode source = partial.getNode();
@@ -372,7 +374,6 @@ public class AddExchanges
                     new AggregationNode(
                             node.getId(),
                             source,
-                            node.getGroupBy(),
                             finalCalls,
                             node.getFunctions(),
                             ImmutableMap.of(),
@@ -380,7 +381,8 @@ public class AddExchanges
                             FINAL,
                             Optional.empty(),
                             node.getConfidence(),
-                            node.getHashSymbol()),
+                            node.getHashSymbol(),
+                            node.getGroupIdSymbol()),
                     deriveProperties(source, partial.getProperties()));
         }
 

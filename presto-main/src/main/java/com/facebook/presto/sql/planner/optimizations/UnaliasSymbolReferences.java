@@ -136,7 +136,6 @@ public class UnaliasSymbolReferences
                 masks.put(canonicalize(entry.getKey()), canonicalize(entry.getValue()));
             }
 
-            List<Symbol> groupByKeys = canonicalizeAndDistinct(node.getGroupBy());
             List<List<Symbol>> groupingSets = node.getGroupingSets().stream()
                     .map(this::canonicalizeAndDistinct)
                     .collect(toImmutableList());
@@ -144,7 +143,6 @@ public class UnaliasSymbolReferences
             return new AggregationNode(
                     node.getId(),
                     source,
-                    groupByKeys,
                     functionCalls.build(),
                     functionInfos.build(),
                     masks.build(),
@@ -152,7 +150,8 @@ public class UnaliasSymbolReferences
                     node.getStep(),
                     canonicalize(node.getSampleWeight()),
                     node.getConfidence(),
-                    canonicalize(node.getHashSymbol()));
+                    canonicalize(node.getHashSymbol()),
+                    canonicalize(node.getGroupIdSymbol()));
         }
 
         @Override

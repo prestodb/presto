@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -375,19 +376,18 @@ class QueryPlanner
         // 2.a. Rewrite group by expressions in terms of pre-projected inputs
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
         ImmutableList.Builder<List<Symbol>> groupingSetsSymbolsBuilder = ImmutableList.builder();
-        ImmutableSet.Builder<Symbol> distinctGroupingSymbolsBuilder = ImmutableSet.builder();
         for (List<Expression> groupingSet : groupingSets) {
             ImmutableList.Builder<Symbol> groupingColumns = ImmutableList.builder();
             for (Expression expression : groupingSet) {
                 Symbol symbol = subPlan.translate(expression);
                 groupingColumns.add(symbol);
-                distinctGroupingSymbolsBuilder.add(symbol);
                 translations.put(expression, symbol);
             }
             groupingSetsSymbolsBuilder.add(groupingColumns.build());
         }
 
         // 2.b. Add a groupIdNode and groupIdSymbol if there are multiple grouping sets
+        Optional<Symbol> groupIdSymbol = Optional.empty();
         List<List<Symbol>> groupingSetsSymbols = groupingSetsSymbolsBuilder.build();
         if (groupingSets.size() > 1) {
             ImmutableMap.Builder<Symbol, Symbol> identityMapping = ImmutableMap.builder();
@@ -399,10 +399,9 @@ class QueryPlanner
                 subPlan.getTranslations().put(argument, output);
             }
 
-            Symbol groupIdSymbol = symbolAllocator.newSymbol("groupId", BIGINT);
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSetsSymbols, identityMapping.build(), groupIdSymbol);
+            groupIdSymbol = Optional.of(symbolAllocator.newSymbol("groupId", BIGINT));
+            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSetsSymbols, identityMapping.build(), groupIdSymbol.get());
             subPlan = subPlan.withNewRoot(groupId);
-            distinctGroupingSymbolsBuilder.add(groupIdSymbol);
         }
 
         // 2.c. Rewrite aggregates in terms of pre-projected inputs
@@ -447,10 +446,14 @@ class QueryPlanner
             masks.put(aggregateSymbol, marker);
         }
 
-        List<Symbol> distinctGroupingSymbols = distinctGroupingSymbolsBuilder.build().asList();
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-            builder.addAll(distinctGroupingSymbols);
+            builder.addAll(groupingSetsSymbols.stream()
+                    .flatMap(Collection::stream)
+                    .distinct()
+                    .collect(Collectors.toList()));
+            groupIdSymbol.ifPresent(builder::add);
+
             for (Expression expression : entry.getKey()) {
                 builder.add(subPlan.translate(expression));
             }
@@ -468,7 +471,6 @@ class QueryPlanner
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                distinctGroupingSymbols,
                 aggregationAssignments.build(),
                 functions.build(),
                 masks,
@@ -476,7 +478,8 @@ class QueryPlanner
                 AggregationNode.Step.SINGLE,
                 subPlan.getSampleWeight(),
                 confidence,
-                Optional.empty());
+                Optional.empty(),
+                groupIdSymbol);
 
         subPlan = new PlanBuilder(translations, aggregationNode, Optional.empty());
 
@@ -627,7 +630,6 @@ class QueryPlanner
                     new AggregationNode(
                             idAllocator.getNextId(),
                             subPlan.getRoot(),
-                            subPlan.getRoot().getOutputSymbols(),
                             ImmutableMap.of(),
                             ImmutableMap.of(),
                             ImmutableMap.of(),
@@ -635,6 +637,7 @@ class QueryPlanner
                             AggregationNode.Step.SINGLE,
                             Optional.empty(),
                             1.0,
+                            Optional.empty(),
                             Optional.empty()));
         }
 

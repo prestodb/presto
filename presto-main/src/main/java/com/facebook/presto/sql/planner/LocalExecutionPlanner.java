@@ -863,7 +863,7 @@ public class LocalExecutionPlanner
         {
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            if (node.getGroupBy().isEmpty()) {
+            if (node.getGroupingKeys().isEmpty()) {
                 return planGlobalAggregation(context.getNextOperatorId(), node, source);
             }
 
@@ -1830,7 +1830,7 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation planGroupByAggregation(AggregationNode node, PhysicalOperation source, int operatorId)
         {
-            List<Symbol> groupBySymbols = node.getGroupBy();
+            List<Symbol> groupBySymbols = node.getGroupingKeys();
 
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
@@ -1845,6 +1845,13 @@ public class LocalExecutionPlanner
                         node.getSampleWeight(),
                         node.getConfidence()));
                 aggregationOutputSymbols.add(symbol);
+            }
+
+            ImmutableList.Builder<Integer> globalAggregationGroupIds = ImmutableList.builder();
+            for (int i = 0; i < node.getGroupingSets().size(); i++) {
+                if (node.getGroupingSets().get(i).isEmpty()) {
+                    globalAggregationGroupIds.add(i);
+                }
             }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -1873,18 +1880,21 @@ public class LocalExecutionPlanner
 
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
 
+            Map<Symbol, Integer> mappings = outputMappings.build();
             OperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                     operatorId,
                     node.getId(),
                     groupByTypes,
                     groupByChannels,
+                    globalAggregationGroupIds.build(),
                     node.getStep(),
                     accumulatorFactories,
                     hashChannel,
+                    node.getGroupIdSymbol().map(mappings::get),
                     10_000,
                     maxPartialAggregationMemorySize);
 
-            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
+            return new PhysicalOperation(operatorFactory, mappings, source);
         }
     }
 
