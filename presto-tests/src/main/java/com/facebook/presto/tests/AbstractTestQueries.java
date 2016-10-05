@@ -5192,6 +5192,15 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'Asia/Shanghai'", "SELECT TIMESTAMP '2012-10-30 18:00:00.000 America/Los_Angeles'");
         assertQuery("SELECT min(x) AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'UTC' FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1969-12-31 16:01:00-08:00') t(x)",
                 "values TIMESTAMP '1969-12-31 16:01:00-08:00'");
+
+        assertQuery("SELECT ts AT TIME ZONE z FROM (values (TIMESTAMP '1970-01-01 00:01:00+00:00', 'America/Los_Angeles')) t(ts, z)",
+                "values TIMESTAMP '1969-12-31 16:01:00-08:00'");
+        assertQuery("SELECT ts AT TIME ZONE t.z FROM (values (TIMESTAMP '1970-01-01 08:01:00+08:00', 'America/Los_Angeles')) t(ts, z)",
+                "values TIMESTAMP '1969-12-31 16:01:00-08:00'");
+        assertQuery("SELECT a.col0 AT TIME ZONE a.col1 FROM (VALUES ROW (CAST(ROW(TIMESTAMP '1969-12-31 16:01:00-08:00', 'America/Los_Angeles') AS ROW(col0 timestamp with time zone, col1 varchar)))) AS t (a)",
+                "values TIMESTAMP '1969-12-31 16:01:00-08:00'");
+        assertQuery("SELECT a.col0.col0 AT TIME ZONE a.col0.col1 FROM (VALUES ROW (CAST(ROW(ROW(TIMESTAMP '1969-12-31 16:01:00-08:00', 'America/Los_Angeles')) AS ROW(col0 ROW(col0 timestamp with time zone, col1 varchar))))) AS t (a)",
+                "values TIMESTAMP '1969-12-31 16:01:00-08:00'");
     }
 
     @Test

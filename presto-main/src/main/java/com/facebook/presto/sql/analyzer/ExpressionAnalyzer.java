@@ -771,9 +771,12 @@ public class ExpressionAnalyzer
         protected Type visitAtTimeZone(AtTimeZone node, StackableAstVisitorContext<Void> context)
         {
             Type valueType = process(node.getValue(), context);
-            process(node.getTimeZone(), context);
             if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !valueType.equals(TIMESTAMP)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
+            }
+            Type zoneType = process(node.getTimeZone(), context);
+            if (!zoneType.equals(INTERVAL_DAY_TIME) && !(zoneType instanceof VarcharType)) {
+              throw new SemanticException(TYPE_MISMATCH, node.getTimeZone(), "Type of time zone must be VARCHAR or INTERVAL (actual %s)", zoneType);
             }
             Type resultType = valueType;
             if (valueType.equals(TIME)) {

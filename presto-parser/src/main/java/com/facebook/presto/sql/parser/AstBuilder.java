@@ -1037,6 +1037,22 @@ class AstBuilder
         return new StringLiteral(getLocation(context), unquote(context.STRING().getText()));
     }
 
+    @Override
+    public Node visitTimeZoneQualifiedName(SqlBaseParser.TimeZoneQualifiedNameContext context)
+    {
+        QualifiedName qualifiedName = getQualifiedName(context.qualifiedName());
+        List<String> parts = qualifiedName.getParts();
+        int partsCount = parts.size();
+        if (partsCount == 1) {
+            return new QualifiedNameReference(getLocation(context), qualifiedName);
+        }
+        Expression base = new QualifiedNameReference(QualifiedName.of(parts.get(0)));
+        for (int i = 1; i < partsCount - 1; i++) {
+            base = new DereferenceExpression(base, parts.get(i));
+        }
+        return new DereferenceExpression(getLocation(context), base, parts.get(partsCount - 1));
+    }
+
     // ********************* primary expressions **********************
 
     @Override

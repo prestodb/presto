@@ -302,6 +302,7 @@ primaryExpression
 timeZoneSpecifier
     : TIME ZONE interval  #timeZoneInterval
     | TIME ZONE STRING    #timeZoneString
+    | TIME ZONE qualifiedName #timeZoneQualifiedName
     ;
 
 comparisonOperator

@@ -1454,6 +1454,16 @@ public class TestSqlParser
     @Test
     public void testAtTimeZone()
     {
+        assertStatement("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE t.zone from t",
+            simpleQuery(
+                selectList(new AtTimeZone(new TimestampLiteral("2012-10-31 01:00 UTC"), new DereferenceExpression(new QualifiedNameReference(QualifiedName.of("t")), "zone"))),
+                table(QualifiedName.of("t"))));
+
+        assertStatement("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE zn from t",
+            simpleQuery(
+                selectList(new AtTimeZone(new TimestampLiteral("2012-10-31 01:00 UTC"), new QualifiedNameReference(QualifiedName.of("zn")))),
+                table(QualifiedName.of("t"))));
+
         assertStatement("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'",
                 new Query(
                         Optional.empty(),
