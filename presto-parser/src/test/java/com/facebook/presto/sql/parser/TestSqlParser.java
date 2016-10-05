@@ -1588,6 +1588,14 @@ public class TestSqlParser
                                         new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
     }
 
+    @Test
+    public void testFormatter()
+    {
+        Statement parsed = SQL_PARSER.createStatement("prepare p from select * from (select * from T) \"A B\"");
+        String formatted =  formatSql(parsed, Optional.empty());
+        assertTrue(parsed.equals(SQL_PARSER.createStatement(formatted)));
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);
