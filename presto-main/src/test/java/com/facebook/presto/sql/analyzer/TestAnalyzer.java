@@ -1137,6 +1137,16 @@ public class TestAnalyzer
                         Optional.of("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
 
+        // valid view with uppercase column name
+        String viewData4 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select A from t1",
+                        Optional.of("tpch"),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT)),
+                        Optional.of("user")));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
+
         this.metadata = metadata;
     }
 
