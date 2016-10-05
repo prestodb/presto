@@ -1331,7 +1331,6 @@ class AstBuilder
         if (type.equalsIgnoreCase("char")) {
             return new CharLiteral(getLocation(context), value);
         }
-
         return new GenericLiteral(getLocation(context), type, value);
     }
 
