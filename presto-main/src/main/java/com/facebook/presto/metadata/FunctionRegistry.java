@@ -198,6 +198,7 @@ import static com.facebook.presto.operator.aggregation.MinByNAggregationFunction
 import static com.facebook.presto.operator.aggregation.MinNAggregationFunction.MIN_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MultimapAggregationFunction.MULTIMAP_AGG;
 import static com.facebook.presto.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static com.facebook.presto.operator.scalar.ArrayFilterFunction.ARRAY_FILTER_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static com.facebook.presto.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
@@ -542,7 +543,7 @@ public class FunctionRegistry
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(DECIMAL_ROUND_FUNCTIONS)
                 .function(DECIMAL_TRUNCATE_FUNCTION)
-                .functions(ARRAY_TRANSFORM_FUNCTION)
+                .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_FILTER_FUNCTION)
                 .function(TRY_CAST);
 
         builder.function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg()));
