@@ -125,6 +125,8 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteI
 import static com.facebook.presto.hive.AbstractTestHiveClient.TransactionDeleteInsertTestTag.ROLLBACK_RIGHT_AWAY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_DELETE_FROM_EXTERNAL_TABLE_NOT_ALLOWED;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INSERT_INTO_EXTERNAL_TABLE_NOT_ALLOWED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
@@ -290,6 +292,7 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName temporaryRenameTableNew;
     protected SchemaTableName temporaryCreateView;
     protected SchemaTableName temporaryDeleteInsert;
+    protected SchemaTableName temporaryExternalTable;
 
     protected String invalidClientId;
     protected ConnectorTableHandle invalidTableHandle;
@@ -366,6 +369,7 @@ public abstract class AbstractTestHiveClient
         temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
         temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
         temporaryDeleteInsert = new SchemaTableName(database, "tmp_presto_test_delete_insert_" + randomName());
+        temporaryExternalTable = new SchemaTableName(database, "tmp_presto_test_external_" + randomName());
 
         invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(invalidClientId, database, INVALID_TABLE);
@@ -1613,6 +1617,69 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testInsertIntoExternalTable()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            try {
+                List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
+                List<Column> partitionColumns = ImmutableList.of(new Column("name", HIVE_STRING, Optional.empty()));
+                createEmptyTable(temporaryExternalTable, storageFormat, columns, partitionColumns, Optional.of(TableType.EXTERNAL_TABLE.name()));
+                try {
+                    insertData(temporaryExternalTable, CREATE_TABLE_PARTITIONED_DATA);
+                }
+                catch (PrestoException e) {
+                    assertEquals(e.getErrorCode(), HIVE_INSERT_INTO_EXTERNAL_TABLE_NOT_ALLOWED.toErrorCode());
+                    assertEquals(e.getMessage(), "Inserting into external tables is not allowed: " + temporaryExternalTable);
+                }
+            }
+            finally {
+                    dropTable(temporaryExternalTable);
+            }
+        }
+    }
+
+    @Test
+    public void testDeleteFromExternalTable()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            try {
+                List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
+                List<Column> partitionColumns = ImmutableList.of(new Column("name", HIVE_STRING, Optional.empty()));
+                createEmptyTable(temporaryExternalTable, storageFormat, columns, partitionColumns, Optional.of(TableType.EXTERNAL_TABLE.name()));
+                try (Transaction transaction = newTransaction()) {
+                    ConnectorSession session = newSession();
+                    ConnectorMetadata metadata = transaction.getMetadata();
+
+                    // get name column handle
+                    ConnectorTableHandle tableHandle = getTableHandle(metadata, temporaryExternalTable);
+                    HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("name");
+
+                    // try deleting some partition
+                    session = newSession();
+                    TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice("name"))));
+                    Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
+                    List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
+                    ConnectorTableLayoutHandle tableLayoutHandle = Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+                    try {
+                        metadata.metadataDelete(session, tableHandle, tableLayoutHandle);
+                    }
+                    catch (PrestoException e) {
+                        assertEquals(e.getErrorCode(), HIVE_DELETE_FROM_EXTERNAL_TABLE_NOT_ALLOWED.toErrorCode());
+                        assertEquals(e.getMessage(), "Deleting from external tables is not allowed: " + temporaryExternalTable);
+                    }
+
+                    transaction.commit();
+                }
+            }
+            finally {
+                dropTable(temporaryExternalTable);
+            }
+        }
+    }
+
+    @Test
     public void testSampledTableCreation()
             throws Exception
     {
@@ -2198,7 +2265,7 @@ public abstract class AbstractTestHiveClient
         List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
         List<Column> partitionColumns = ImmutableList.of(new Column("name", HIVE_STRING, Optional.empty()));
 
-        createEmptyTable(tableName, storageFormat, columns, partitionColumns);
+        createEmptyTable(tableName, storageFormat, columns, partitionColumns, Optional.empty());
 
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
@@ -2960,7 +3027,7 @@ public abstract class AbstractTestHiveClient
                 .collect(toList());
     }
 
-    protected void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
+    protected void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<String> tableType)
             throws Exception
     {
         Path targetPath;
@@ -2976,12 +3043,17 @@ public abstract class AbstractTestHiveClient
             LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session.getUser(), session.getQueryId(), schemaName, tableName);
             targetPath = locationService.targetPathRoot(locationHandle);
 
+            ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+            if (tableType.isPresent() && tableType.get().equals(TableType.EXTERNAL_TABLE.name())) {
+                parameters.put("EXTERNAL", "TRUE");
+            }
+
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
                     .setOwner(tableOwner)
-                    .setTableType(TableType.MANAGED_TABLE.name())
-                    .setParameters(ImmutableMap.of())
+                    .setTableType(tableType.orElse(TableType.MANAGED_TABLE.name()))
+                    .setParameters(parameters.build())
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);
 
@@ -3101,7 +3173,8 @@ public abstract class AbstractTestHiveClient
                         tableName,
                         storageFormat,
                         ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty())),
-                        ImmutableList.of(new Column("pk1", HIVE_STRING, Optional.empty()), new Column("pk2", HIVE_STRING, Optional.empty())));
+                        ImmutableList.of(new Column("pk1", HIVE_STRING, Optional.empty()), new Column("pk2", HIVE_STRING, Optional.empty())),
+                        Optional.empty());
                 insertData(tableName, beforeData);
                 dirtyState = false;
             }

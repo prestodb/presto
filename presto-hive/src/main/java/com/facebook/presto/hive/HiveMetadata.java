@@ -85,6 +85,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAM
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_DELETE_FROM_EXTERNAL_TABLE_NOT_ALLOWED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
@@ -129,6 +130,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 
 public class HiveMetadata
         implements ConnectorMetadata
@@ -978,6 +980,10 @@ public class HiveMetadata
         Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
         if (!table.isPresent()) {
             throw new TableNotFoundException(handle.getSchemaTableName());
+        }
+
+        if (EXTERNAL_TABLE.name().equals(table.get().getTableType())) {
+            throw new PrestoException(HIVE_DELETE_FROM_EXTERNAL_TABLE_NOT_ALLOWED, format("Deleting from external tables is not allowed: %s.%s", handle.getSchemaName(), handle.getTableName()));
         }
 
         if (table.get().getPartitionColumns().isEmpty()) {

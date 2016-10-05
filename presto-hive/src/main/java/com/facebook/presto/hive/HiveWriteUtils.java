@@ -91,6 +91,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INSERT_INTO_EXTERNAL_TABLE_NOT_ALLOWED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static com.facebook.presto.hive.HiveUtil.checkCondition;
@@ -108,6 +109,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -317,7 +319,8 @@ public final class HiveWriteUtils
                 Optional.empty(),
                 getProtectMode(table),
                 table.getParameters(),
-                table.getStorage());
+                table.getStorage(),
+                Optional.of(table.getTableType()));
     }
 
     public static void checkPartitionIsWritable(String partitionName, Partition partition)
@@ -327,7 +330,8 @@ public final class HiveWriteUtils
                 Optional.of(partitionName),
                 getProtectMode(partition),
                 partition.getParameters(),
-                partition.getStorage());
+                partition.getStorage(),
+                Optional.empty());
     }
 
     private static void checkWritable(
@@ -335,11 +339,17 @@ public final class HiveWriteUtils
             Optional<String> partitionName,
             ProtectMode protectMode,
             Map<String, String> parameters,
-            Storage storage)
+            Storage storage,
+            Optional<String> tableType)
     {
         String tablePartitionDescription = "Table '" + tableName + "'";
         if (partitionName.isPresent()) {
             tablePartitionDescription += " partition '" + partitionName.get() + "'";
+        }
+
+        //verify not external
+        if (tableType.isPresent() && EXTERNAL_TABLE.name().equals(tableType.get())) {
+            throw new PrestoException(HIVE_INSERT_INTO_EXTERNAL_TABLE_NOT_ALLOWED, format("Inserting into external tables is not allowed: %s", tableName));
         }
 
         // verify online
