@@ -22,6 +22,7 @@ public abstract class SpillerFactoryWithStats
 {
     protected final AtomicLong totalSpilledBytes = new AtomicLong();
 
+    @Override
     @Managed
     public long getTotalSpilledBytes()
     {
