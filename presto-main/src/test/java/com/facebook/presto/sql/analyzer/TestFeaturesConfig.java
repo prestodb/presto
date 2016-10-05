@@ -50,6 +50,7 @@ public class TestFeaturesConfig
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
+                .setSpillEnabled(false)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB")));
     }
 
@@ -73,6 +74,7 @@ public class TestFeaturesConfig
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
+                .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
@@ -92,6 +94,7 @@ public class TestFeaturesConfig
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
+                .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "100MB")
                 .build();
 
@@ -112,6 +115,7 @@ public class TestFeaturesConfig
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
+                .setSpillEnabled(true)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"));
 
         assertFullMapping(properties, expected);

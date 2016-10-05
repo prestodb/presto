@@ -61,6 +61,7 @@ public final class SystemSessionProperties
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String QUERY_PRIORITY = "query_priority";
+    public static final String SPILL_ENABLED = "spill_enabled";
     public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -233,6 +234,11 @@ public final class SystemSessionProperties
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
                         false),
+                booleanSessionProperty(
+                        SPILL_ENABLED,
+                        "Experimental: Enable spilling",
+                        featuresConfig.isSpillEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         OPERATOR_MEMORY_LIMIT_BEFORE_SPILL,
                         "Experimental: Operator memory limit before spill",
@@ -364,6 +370,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static boolean isSpillEnabled(Session session)
+    {
+        return session.getProperty(SPILL_ENABLED, Boolean.class);
     }
 
     public static DataSize getOperatorMemoryLimitBeforeSpill(Session session)

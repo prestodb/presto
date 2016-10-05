@@ -56,6 +56,7 @@ public class FeaturesConfig
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
+    private boolean spillEnabled;
     private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
 
     public boolean isResourceGroupsEnabled()
@@ -254,6 +255,18 @@ public class FeaturesConfig
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
+        return this;
+    }
+
+    public boolean isSpillEnabled()
+    {
+        return spillEnabled;
+    }
+
+    @Config("experimental.spill-enabled")
+    public FeaturesConfig setSpillEnabled(boolean spillEnabled)
+    {
+        this.spillEnabled = spillEnabled;
         return this;
     }
 
