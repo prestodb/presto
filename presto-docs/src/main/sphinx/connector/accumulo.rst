@@ -53,6 +53,7 @@ replacing the ``accumulo.xxx`` properties as required:
 .. code-block:: none
 
     connector.name=accumulo
+    accumulo.instance=xxx
     accumulo.zookeepers=xxx
     accumulo.username=username
     accumulo.password=password
