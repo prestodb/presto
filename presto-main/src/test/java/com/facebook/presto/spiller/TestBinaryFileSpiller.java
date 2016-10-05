@@ -62,7 +62,7 @@ public class TestBinaryFileSpiller
 
         BlockBuilder col1 = BIGINT.createBlockBuilder(new BlockBuilderStatus(), 1);
         BlockBuilder col2 = DOUBLE.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder col3 = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder col3 = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 1);
 
         col1.writeLong(42).closeEntry();
         col2.writeLong(doubleToLongBits(43.0)).closeEntry();
