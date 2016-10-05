@@ -56,7 +56,7 @@ public class BinaryFileSpiller
     private final Path targetDirectory;
     private final Closer closer = Closer.create();
     private final PagesSerde serde;
-    private final AtomicLong spilledDataSize;
+    private final AtomicLong totalSpilledDataSize;
 
     private final ListeningExecutorService executor;
 
@@ -67,11 +67,11 @@ public class BinaryFileSpiller
             PagesSerde serde,
             ListeningExecutorService executor,
             Path spillPath,
-            AtomicLong spilledDataSize)
+            AtomicLong totalSpilledDataSize)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+        this.totalSpilledDataSize = requireNonNull(totalSpilledDataSize, "totalSpilledDataSize is null");
         try {
             this.targetDirectory = Files.createTempDirectory(spillPath, "presto-spill");
         }
@@ -94,7 +94,7 @@ public class BinaryFileSpiller
     private void writePages(Iterator<Page> pageIterator, Path spillPath)
     {
         try (SliceOutput output = new OutputStreamSliceOutput(new BufferedOutputStream(new FileOutputStream(spillPath.toFile())))) {
-            spilledDataSize.addAndGet(PagesSerdeUtil.writePages(serde, output, pageIterator));
+            totalSpilledDataSize.addAndGet(PagesSerdeUtil.writePages(serde, output, pageIterator));
         }
         catch (RuntimeIOException | IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);

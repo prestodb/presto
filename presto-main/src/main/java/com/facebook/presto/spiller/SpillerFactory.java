@@ -24,5 +24,5 @@ public interface SpillerFactory
     Spiller create(List<Type> types);
 
     @Managed
-    long getSpilledBytes();
+    long getTotalSpilledBytes();
 }

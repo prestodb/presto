@@ -96,13 +96,13 @@ public class TestBinaryFileSpiller
     private void testSpiller(List<Type> types, Spiller spiller, List<Page>... spills)
             throws ExecutionException, InterruptedException
     {
-        long spilledBytesBefore = factory.getSpilledBytes();
+        long spilledBytesBefore = factory.getTotalSpilledBytes();
         long spilledBytes = 0;
         for (List<Page> spill : spills) {
             spilledBytes += spill.stream().mapToLong(Page::getSizeInBytes).sum();
             spiller.spill(spill.iterator()).get();
         }
-        assertEquals(factory.getSpilledBytes() - spilledBytesBefore, spilledBytes);
+        assertEquals(factory.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
         assertEquals(actualSpills.size(), spills.length);

@@ -20,12 +20,11 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class SpillerFactoryWithStats
         implements SpillerFactory
 {
-    protected final AtomicLong spilledBytes = new AtomicLong();
+    protected final AtomicLong totalSpilledBytes = new AtomicLong();
 
-    @Override
     @Managed
-    public long getSpilledBytes()
+    public long getTotalSpilledBytes()
     {
-        return spilledBytes.get();
+        return totalSpilledBytes.get();
     }
 }
