@@ -39,3 +39,4 @@ ORDER BY
   n_name,
   s_name,
   p_partkey
+LIMIT 100
