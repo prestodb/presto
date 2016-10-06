@@ -10,6 +10,7 @@ General Changes
   :doc:`resource groups documentation </admin/resource-groups>`.
 * Improve performance of :ref:`array_type` when underlying data is dictionary encoded.
 * Improve performance of ORC reader when decoding dictionary encoded :ref:`map_type`.
+* Add :doc:`/connector/accumulo`.
 
 SPI Changes
 -----------
@@ -19,3 +20,18 @@ SPI Changes
   and the factory can be enabled via the ``etc/resource-groups.properties``
   configuration file by setting the ``resource-groups.configuration-manager``
   property. See the ``presto-resource-group-managers`` plugin for an example.
+
+Hive Changes
+------------
+
+* Add support for ``char(x)`` type.
+
+PostgreSQL Changes
+------------------
+
+* Add support for ``char(x)`` type.
+
+MySQL Changes
+-------------
+
+* Add support for ``char(x)`` type.
