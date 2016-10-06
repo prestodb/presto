@@ -192,6 +192,7 @@ public class TransformCorrelatedScalarAggregationToJoin
                             .build(),
                     joinExpression,
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
 
             Optional<AggregationNode> aggregationNode = createAggregationNode(

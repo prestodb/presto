@@ -209,6 +209,7 @@ public class TestEliminateCrossJoins
                         .build(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

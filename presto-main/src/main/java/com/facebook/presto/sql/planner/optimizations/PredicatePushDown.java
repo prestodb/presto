@@ -411,7 +411,8 @@ public class PredicatePushDown
                         newJoinFilter,
                         joinConditionBuilder.build(),
                         node.getLeftHashSymbol(),
-                        node.getRightHashSymbol());
+                        node.getRightHashSymbol(),
+                        node.getDistributionType());
             }
             if (!postJoinPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
@@ -437,7 +438,8 @@ public class PredicatePushDown
                 Optional<Expression> filter,
                 List<JoinNode.EquiJoinClause> conditions,
                 Optional<Symbol> leftHashSymbol,
-                Optional<Symbol> rightHashSymbol)
+                Optional<Symbol> rightHashSymbol,
+                Optional<JoinNode.DistributionType> distributionType)
         {
             // TODO: this should be removed once join nodes with output column pruning is supported for cross join
             if (conditions.isEmpty() && !filter.isPresent()) {
@@ -453,7 +455,8 @@ public class PredicatePushDown
                                 .build(),
                         filter,
                         leftHashSymbol,
-                        rightHashSymbol);
+                        rightHashSymbol,
+                        distributionType);
 
                 if (!output.getOutputSymbols().equals(expectedOutputs)) {
                     // Introduce a projection to constrain the outputs to what was originally expected
@@ -466,7 +469,7 @@ public class PredicatePushDown
                 return output;
             }
             else {
-                return new JoinNode(idAllocator.getNextId(), type, left, right, conditions, expectedOutputs, filter, leftHashSymbol, rightHashSymbol);
+                return new JoinNode(idAllocator.getNextId(), type, left, right, conditions, expectedOutputs, filter, leftHashSymbol, rightHashSymbol, distributionType);
             }
         }
 
@@ -747,11 +750,11 @@ public class PredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
                 }
                 else {
                     return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
                 }
             }
 
@@ -759,7 +762,7 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)
