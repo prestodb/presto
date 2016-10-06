@@ -173,11 +173,14 @@ public final class BytecodeUtils
             checkArgument(instance.isPresent());
         }
 
+        // Index of current parameter in the MethodHandle
         int currentParameterIndex = 0;
+
+        // Index of parameter (without @IsNull) in Presto function
         int realParameterIndex = 0;
+
         boolean boundInstance = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
-            //for (Class<?> type : methodType.parameterArray()) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             stackTypes.add(type);
             if (function.getInstanceFactory().isPresent() && !boundInstance) {
@@ -197,6 +200,7 @@ public final class BytecodeUtils
                 else {
                     if (function.getNullFlags().get(realParameterIndex)) {
                         block.append(scope.getVariable("wasNull"));
+                        stackTypes.add(boolean.class);
                         currentParameterIndex++;
                     }
                     else {

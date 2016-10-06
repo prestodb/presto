@@ -1256,7 +1256,7 @@ public class ExpressionInterpreter
         }
         try {
             List<Object> actualArguments = new ArrayList<>();
-            Class<?>[] parameterArray = function.getMethodHandle().type().parameterArray();
+            Class<?>[] parameterArray = handle.type().parameterArray();
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object argument = argumentValues.get(i);
                 if (function.getNullFlags().get(i)) {
