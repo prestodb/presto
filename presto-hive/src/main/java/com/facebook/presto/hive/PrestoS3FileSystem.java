@@ -34,6 +34,7 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CryptoConfiguration;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -135,6 +136,7 @@ public class PrestoS3FileSystem
     public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
     public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
     public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
+    public static final String S3_AWS_KMS_KEY_ID = "presto.s3.kms-key-id";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
     public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
     public static final String S3_USER_AGENT = "presto";
@@ -637,6 +639,11 @@ public class PrestoS3FileSystem
 
     private static Optional<EncryptionMaterialsProvider> createEncryptionMaterialsProvider(Configuration hadoopConfig)
     {
+        String kmsKeyId = hadoopConfig.get(S3_AWS_KMS_KEY_ID);
+        if (kmsKeyId != null) {
+            return Optional.of(new KMSEncryptionMaterialsProvider(kmsKeyId));
+        }
+
         String empClassName = hadoopConfig.get(S3_ENCRYPTION_MATERIALS_PROVIDER);
         if (empClassName == null) {
             return Optional.empty();

@@ -54,6 +54,8 @@ public class HdfsConfigurationUpdater
     private final boolean s3UseInstanceCredentials;
     private final boolean s3SslEnabled;
     private final boolean s3SseEnabled;
+    private final String s3EncryptionMaterialsProvider;
+    private final String s3KMSKeyId;
     private final int s3MaxClientRetries;
     private final int s3MaxErrorRetries;
     private final Duration s3MaxBackoffTime;
@@ -87,6 +89,8 @@ public class HdfsConfigurationUpdater
         this.s3UseInstanceCredentials = hiveClientConfig.isS3UseInstanceCredentials();
         this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
         this.s3SseEnabled = hiveClientConfig.isS3SseEnabled();
+        this.s3EncryptionMaterialsProvider = hiveClientConfig.getS3EncryptionMaterialsProvider();
+        this.s3KMSKeyId = hiveClientConfig.getS3KMSKeyId();
         this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
         this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
         this.s3MaxBackoffTime = hiveClientConfig.getS3MaxBackoffTime();
@@ -161,6 +165,12 @@ public class HdfsConfigurationUpdater
         config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, s3UseInstanceCredentials);
         config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
         config.setBoolean(PrestoS3FileSystem.S3_SSE_ENABLED, s3SseEnabled);
+        if (s3EncryptionMaterialsProvider != null) {
+            config.set(PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER, s3EncryptionMaterialsProvider);
+        }
+        if (s3KMSKeyId != null) {
+            config.set(PrestoS3FileSystem.S3_AWS_KMS_KEY_ID, s3KMSKeyId);
+        }
         config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
         config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
         config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, s3MaxBackoffTime.toString());

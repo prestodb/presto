@@ -137,20 +137,16 @@ Property Name                                      Description                  
                                                    installations where Presto is collocated with every
                                                    DataNode.
 
+``hive.allow-drop-table``                          Allow the Hive connector to drop tables.                     ``false``
+
+``hive.allow-rename-table``                        Allow the Hive connector to rename tables.                   ``false``
+
 ``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
                                                    format or the default Presto format?
 
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
-
-``hive.s3.sse.enabled``                            Enable S3 server-side encryption.                            ``false``
-
-``hive.s3.endpoint``                               The S3 storage endpoint server. This can be used to connect
-                                                   to an S3-compatible storage system instead of AWS.
-
-``hive.s3.signer-type``                            Specify a different signer type for S3-compatible storage.
-                                                   Example: ``S3SignerType`` for v2 signer type
 
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
@@ -227,3 +223,128 @@ Hive Connector Limitations
 --------------------------
 
 :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
+
+
+Hive Data Stored in Amazon S3
+-----------------------------
+
+The Hive Connector can read data from files stored in S3, assuming the Hive
+Metastore has tables defined as "external" which have locations defined as
+S3 URIs.
+
+Presto registers its own S3 filesystem for the following URI schemes:
+``s3://``, ``s3a://``, ``s3n://`` and it registers the default Hadoop S3
+FileSystem (``org.apache.hadoop.fs.s3.S3FileSystem``) for ``s3bfs://`` URIs.
+The following assumes you are using the native Presto S3 FileSystem implementation.
+
+S3 Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+============================================ ====================================================== ==========
+Property Name                                Description                                            Default
+============================================ ====================================================== ==========
+``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API           ``true``
+                                             credentials. This works with IAM roles in EC2.
+
+``hive.s3.access-key``                       Default API access key to use
+
+``hive.s3.secret-key``                       Default API secret key to use
+
+``hive.s3.staging-directory``                Local staging directory for data written to S3         ``java.io.tmpdir``
+
+``hive.s3.pin-client-to-current-region``     Pin S3 requests to the same region as the EC2 instance ``false``
+                                             where Presto is running.
+
+``hive.s3.sse.enabled``                      Enable S3 server-side encryption.                      ``false``
+
+``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
+                                             connect to an S3-compatible storage system instead of
+                                             AWS.
+
+``hive.s3.signer-type``                      Specify a different signer type for S3-compatible
+                                             storage. Example: ``S3SignerType`` for v2 signer type
+
+``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API               ``true``
+
+``hive.s3.sse.enabled``                      Use S3 server-side encryption                          ``false``
+
+``hive.s3.kms-key-id``                       If set, use S3 client-side encryption and use the AWS
+                                             KMS to store encryption keys and use the value of
+                                             this property as the KMS Key ID for newly created
+                                             objects.
+
+``hive.s3.encryption-materials-provider``    If set, use S3 client-side encryption and use the
+                                             value of this property as the fully qualified name of
+                                             a java class which implements the S3 Java SDK's
+                                             ``EncryptionMaterialsProvider`` interface. If the
+                                             class also implements ``Configurable`` from the Hadoop
+                                             API, the Hadoop configuration will be passed in after
+                                             the object has been created.
+============================================ ====================================================== ==========
+
+If you are running Presto on Amazon EC2 using EMR or another facility, it is highly recommended that you
+set ``hive.s3.use-instance-credentials`` to ``true`` and use IAM Roles for EC2 to govern access to S3.
+If this is the case, your EC2 instances will need to be assigned an IAM Role which grants appropriate
+access to the data stored in the S3 bucket(s) you wish to use. This is much cleaner than setting AWS
+access and secret keys in the ``hive.s3.access-key`` and ``hive.s3.secret-key`` settings, and also
+allows EC2 to automatically rotate credentials on a regular basis without any additional work on your part.
+
+
+S3 Tuning Properties
+^^^^^^^^^^^^^^^^^^^^
+
+The following tuning properties affect how many retries are attempted when communicating with S3, etc.
+Most of these parameters affect settings on the ``ClientConfiguration`` object associated with
+the ``AmazonS3Client``.
+
+============================================ ====================================================== ==========
+Property Name                                Description                                            Default
+============================================ ====================================================== ==========
+``hive.s3.max-error-retries``                Max number of error retries, set on the S3 client      ``10``
+
+``hive.s3.max-client-retries``               Max number of read attempts to retry                   ``3``
+
+``hive.s3.max-backoff-time``                 Use exponential backoff starting at 1 second up to     ``10 minutes``
+                                             this maximum value when communicating with S3
+
+``hive.s3.max-retry-time``                   Maximum time to retry communicating with S3            ``10 minutes``
+
+``hive.s3.connect-timeout``                  TCP connection timeout                                 ``5 seconds``
+
+``hive.s3.socket-timeout``                   TCP socket read timeout                                ``5 seconds``
+
+``hive.s3.max-connections``                  Max number of simultaneous open connections to S3      ``500``
+
+``hive.s3.multipart.min-file-size``          Min file size before multi-part upload to S3 is used   ``16 MB``
+
+``hive.s3.multipart.min-part-size``          Multi-part upload part size                            ``5 MB``
+============================================ ====================================================== ==========
+
+S3 Data Encryption
+^^^^^^^^^^^^^^^^^^
+
+Presto supports reading and writing encrypted data in S3 using both server-side encryption with
+S3 managed keys and client-side encryption using either the Amazon KMS or a software plugin to
+manage AES encryption keys.
+
+With `S3 server-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html>`_,
+(known as "SSE-S3" in the Amazon documentation) the S3 infrastructure takes care of all encryption and decryption
+work (with the exception of SSL to the client, assuming you have ``hive.s3.ssl.enabled`` set to ``true``).
+S3 also manages all the encryption keys for you. To enable this, set ``hive.s3.sse.enabled`` to ``true``.
+
+With `S3 client-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html>`_,
+S3 stores encrypted data and the encryption keys are managed outside of the S3 infrastructure. Data is encrypted
+and decrypted by Presto instead of in the S3 infrastructure. In this case, encryption keys can either by
+managed using the AWS KMS or your own key management system. To use the AWS KMS for key management, set
+``hive.s3.kms-key-id`` to the UUID of a KMS Key. Your AWS credentials or EC2 IAM Role will need to be
+granted permission to use the given key as well.
+
+To use a custom encryption key management system, set ``hive.s3.encryption-materials-provider`` to the
+fully qualified name of a class which implements the
+`EncryptionMaterialsProvider <http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/s3/model/EncryptionMaterialsProvider.html>`_
+interface from the AWS Java SDK. This class will have to be accessible to the Hive Connector through the
+classpath and must be able to communicate with your custom key management system. If this class also implements
+the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, then the Hadoop configuration
+will be passed in after the object instance is created and before it is asked to provision or retrieve any
+encryption keys.
+
