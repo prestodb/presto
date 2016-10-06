@@ -3797,6 +3797,19 @@ public abstract class AbstractTestQueries
                 .build();
 
         assertEquals(actual, expected);
+
+        actual = computeActual("" +
+                "SELECT (MAX(x.a) OVER () - x.a) * 100.0 / MAX(x.a) OVER ()\n" +
+                "FROM (VALUES 1, 2, 3, 4) x(a)");
+
+        expected = resultBuilder(getSession(), DOUBLE)
+                .row(75.0)
+                .row(50.0)
+                .row(25.0)
+                .row(0.0)
+                .build();
+
+        assertEquals(actual, expected);
     }
 
     @Test

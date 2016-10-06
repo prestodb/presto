@@ -600,18 +600,22 @@ class QueryPlanner
             outputTranslations.addIntermediateMapping(windowFunction, parametersReplaced);
             Expression rewritten = subPlan.rewrite(parametersReplaced);
 
-            // If refers to existing symbol, don't create another PlanNode
-            if (rewritten instanceof SymbolReference) {
-                continue;
-            }
-
-            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
-
             boolean needCoercion = rewritten instanceof Cast;
             // Strip out the cast and add it back as a post-projection
             if (rewritten instanceof Cast) {
                 rewritten = ((Cast) rewritten).getExpression();
             }
+
+            // If refers to existing symbol, don't create another PlanNode
+            if (rewritten instanceof SymbolReference) {
+                if (needCoercion) {
+                    subPlan = explicitCoercionSymbols(subPlan, subPlan.getRoot().getOutputSymbols(), ImmutableList.of(windowFunction));
+                }
+
+                continue;
+            }
+
+            Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(windowFunction));
             outputTranslations.put(parametersReplaced, newSymbol);
 
             WindowNode.Function function = new WindowNode.Function(
