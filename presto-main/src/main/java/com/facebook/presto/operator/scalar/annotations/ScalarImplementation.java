@@ -392,6 +392,8 @@ public class ScalarImplementation
                     dependencies.add(parseDependency(annotation));
                 }
                 else {
+                    checkArgument(!Stream.of(annotations).anyMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that does not follow a @SqlType parameter", method);
+
                     SqlType type = Stream.of(annotations)
                             .filter(SqlType.class::isInstance)
                             .map(SqlType.class::cast)
@@ -419,15 +421,14 @@ public class ScalarImplementation
 
                     boolean currentNullFlag = false;
                     if (i + 1 < method.getParameterCount()) {
-                        boolean foundIsNull = false;
                         annotations = method.getParameterAnnotations()[i + 1];
-                        for (Annotation annotation : annotations) {
-                            if (annotation instanceof IsNull) {
-                                foundIsNull = true;
-                                break;
-                            }
-                        }
-                        if (foundIsNull) {
+                        if (Stream.of(annotations).anyMatch(IsNull.class::isInstance)) {
+                            Class<?> isNullType = method.getParameterTypes()[i + 1];
+
+                            checkArgument(Stream.of(annotations).filter(Parser::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
+                            checkArgument(isNullType == boolean.class, "Method [%s] has non-boolean parameter with @IsNull", method);
+                            checkArgument(!Primitives.isWrapperType(parameterType), "Method [%s] uses @IsNull following a parameter with boxed primitive type: %s", method, parameterType.getSimpleName());
+
                             nullableArgument = true;
                             currentNullFlag = true;
                             // skip @IsNull on the next parameter
@@ -581,14 +582,19 @@ public class ScalarImplementation
         private static boolean containsMetaParameter(Annotation[] annotations)
         {
             for (Annotation annotation : annotations) {
-                if (annotation instanceof TypeParameter ||
-                        annotation instanceof LiteralParameter ||
-                        annotation instanceof FunctionDependency ||
-                        annotation instanceof OperatorDependency) {
+                if (isMetaParameter(annotation)) {
                     return true;
                 }
             }
             return false;
+        }
+
+        private static boolean isMetaParameter(Annotation annotation)
+        {
+            return annotation instanceof TypeParameter ||
+                    annotation instanceof LiteralParameter ||
+                    annotation instanceof FunctionDependency ||
+                    annotation instanceof OperatorDependency;
         }
 
         public ScalarImplementation get()
@@ -625,6 +631,14 @@ public class ScalarImplementation
                     .map(Annotation::annotationType)
                     .map(Class::getName)
                     .anyMatch(name -> name.equals(Nullable.class.getName()));
+        }
+
+        private static boolean isPrestoAnnotation(Annotation annotation)
+        {
+            return isMetaParameter(annotation) ||
+                    annotation instanceof SqlType ||
+                    annotation instanceof SqlNullable ||
+                    annotation instanceof IsNull;
         }
     }
 }
