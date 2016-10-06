@@ -256,21 +256,22 @@ var StageDetail = React.createClass({
         if (this.state.lastRender == null || (Date.now() - this.state.lastRender) >= 1000) {
             var renderTimestamp = Date.now();
             var stageHistogramProperties = $.extend({}, HISTOGRAM_PROPERTIES,  {barWidth: (HISTOGRAM_WIDTH / (Math.min(numTasks, HISTOGRAM_WIDTH) + 1))});
+            var stageId = getStageId(stage.stageId);
 
-            this.renderHistogram('#scheduled-time-histogram-' + stage.plan.id, scheduledTimes, formatDuration);
-            this.renderHistogram('#cpu-time-histogram-' + stage.plan.id, cpuTimes, formatDuration);
+            this.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
+            this.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
 
             if (this.state.expanded) {
                 // this needs to be a string otherwise it will also be passed to numberFormatter
                 var tooltipValueLookups = {'offset' : {}};
                 for (var i = 0; i < numTasks; i++) {
-                    tooltipValueLookups['offset'][i] = stage.plan.id + "." + i;
+                    tooltipValueLookups['offset'][i] = getStageId(stage.stageId) + "." + i;
                 }
 
                 var stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: BAR_CHART_WIDTH / numTasks, tooltipValueLookups: tooltipValueLookups});
 
-                $('#scheduled-time-bar-chart-' + stage.plan.id).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
-                $('#cpu-time-bar-chart-' + stage.plan.id).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+                $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+                $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
             }
 
             this.setState({
@@ -294,10 +295,12 @@ var StageDetail = React.createClass({
             return previousValue + currentValue;
         }, 0);
 
+        var stageId = getStageId(stage.stageId);
+
         return (
             <tr>
                 <td className="stage-id">
-                    <div className="stage-state-color"  style={ { borderLeftColor: getStageStateColor(stage.state) } }>{ stage.plan.id }</div>
+                    <div className="stage-state-color"  style={ { borderLeftColor: getStageStateColor(stage.state) } }>{ stageId }</div>
                 </td>
                 <td>
                     <table className="table single-stage-table">
@@ -457,7 +460,7 @@ var StageDetail = React.createClass({
                                         <tbody>
                                             <tr>
                                                 <td className="histogram-container">
-                                                    <span className="histogram" id={ "scheduled-time-histogram-" + stage.plan.id }><div className="loader"></div></span>
+                                                    <span className="histogram" id={ "scheduled-time-histogram-" + stageId }><div className="loader"></div></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -475,7 +478,7 @@ var StageDetail = React.createClass({
                                         <tbody>
                                             <tr>
                                                 <td className="histogram-container">
-                                                    <span className="histogram" id={ "cpu-time-histogram-" + stage.plan.id }><div className="loader"></div></span>
+                                                    <span className="histogram" id={ "cpu-time-histogram-" + stageId }><div className="loader"></div></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -496,7 +499,7 @@ var StageDetail = React.createClass({
                                                     Task Scheduled Time
                                                 </td>
                                                 <td className="bar-chart-container">
-                                                    <span className="bar-chart" id={ "scheduled-time-bar-chart-" + stage.plan.id }><div className="loader"></div></span>
+                                                    <span className="bar-chart" id={ "scheduled-time-bar-chart-" + stageId }><div className="loader"></div></span>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -512,7 +515,7 @@ var StageDetail = React.createClass({
                                                     Task CPU Time
                                                 </td>
                                                 <td className="bar-chart-container">
-                                                    <span className="bar-chart" id={ "cpu-time-bar-chart-" + stage.plan.id }><div className="loader"></div></span>
+                                                    <span className="bar-chart" id={ "cpu-time-bar-chart-" + stageId }><div className="loader"></div></span>
                                                 </td>
                                             </tr>
                                         </tbody>

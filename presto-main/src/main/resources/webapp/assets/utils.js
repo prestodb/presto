@@ -185,6 +185,10 @@ function truncateString(inputString, length) {
     return inputString;
 }
 
+function getStageId(stageId) {
+    return stageId.slice(stageId.indexOf('.') + 1, stageId.length)
+}
+
 function getTaskIdSuffix(taskId) {
     return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
 }
