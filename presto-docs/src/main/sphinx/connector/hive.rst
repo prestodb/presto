@@ -260,9 +260,10 @@ files referenced by the ``hive.config.resources`` Hive connector property.
 Tuning Properties
 ^^^^^^^^^^^^^^^^^
 
-The following tuning properties affect how many retries are attempted
-when communicating with S3. Most of these parameters affect settings
-on the ``ClientConfiguration`` object associated with the ``AmazonS3Client``.
+The following tuning properties affect the behavior of the client
+used by the Presto S3 filesystem when communicating with S3.
+Most of these parameters affect settings on the ``ClientConfiguration``
+object associated with the ``AmazonS3Client``.
 
 ===================================== =========================================================== ===============
 Property Name                         Description                                                 Default
