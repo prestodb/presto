@@ -173,7 +173,13 @@ Property Name                                      Description                  
 =======
 ``hive.multi-file-bucketing.enabled``              Enable support for multiple files per bucket for Hive        ``false``
                                                    clustered tables. See :ref:`clustered-tables`
+<<<<<<< e65d33ff45c1750c77f6c9a01d8e6acf42891dbc
 >>>>>>> Add doc for multi-file hive buckets support
+=======
+
+``hive.empty-bucketed-partitions.enabled``         Enable support for clustered tables with empty partitions.   ``false``
+                                                   See :ref:`clustered-tables`
+>>>>>>> Add doc for Hive empty buckets support
 ================================================== ============================================================ ==========
 
 Amazon S3 Configuration
@@ -433,6 +439,12 @@ It will sort filenames lexicographically. Then it will treat part of filename up
 This pattern matches naming convention of files in directory when Hive is used to inject data into table.
 
 Presto will still validate if number of file groups matches number of buckets declared for table and fail if it does not.
+
+Similarly by default empty partitions (partitions with no files) are not allowed for clustered Hive tables.
+To enable support for empty paritions you can use:
+
+ * ``hive.empty-bucketed-partitions.enabled`` config property
+ * ``empty_bucketed_partitions_enabled`` session property (using ``SET SESSION <connector_name>.empty_bucketed_partitions_enabled``)
 
 Hive Connector Limitations
 --------------------------
