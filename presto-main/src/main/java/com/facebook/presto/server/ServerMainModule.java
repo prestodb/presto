@@ -120,6 +120,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
+import io.airlift.stats.PauseMeter;
 import io.airlift.units.Duration;
 
 import javax.inject.Singleton;
@@ -244,6 +245,10 @@ public class ServerMainModule
             configBinder(binder).bindConfig(CodeCacheGcConfig.class);
             binder.bind(CodeCacheGcTrigger.class).in(Scopes.SINGLETON);
         }
+
+        // Add monitoring for JVM pauses
+        binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(PauseMeter.class).withGeneratedName();
 
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
