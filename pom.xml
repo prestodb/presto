@@ -46,9 +46,9 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.137</dep.airlift.version>
+        <dep.airlift.version>0.138</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.24</dep.slice.version>
+        <dep.slice.version>0.25</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
         <dep.tempto.version>1.14</dep.tempto.version>
 
