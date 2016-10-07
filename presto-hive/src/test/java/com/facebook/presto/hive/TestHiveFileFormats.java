@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.SUPPORTED_COLUMN_TYPES;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -269,6 +270,41 @@ public class TestHiveFileFormats
                 .withSession(parquetPageSourcePushdown)
                 .withRowsCount(rowCount)
                 .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT));
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testParquetPageSourceSchemaEvolution(int rowCount)
+            throws Exception
+    {
+        List<TestColumn> writeColumns = getTestColumnsSupportedByParquet();
+        writeColumns = writeColumns.stream()
+                .filter(column -> SUPPORTED_COLUMN_TYPES.contains(column.getType()))
+                .collect(toList());
+
+        //test index-based access
+        boolean useParquetColumnNames = false;
+        List<TestColumn> readColumns = writeColumns.stream()
+                .map(column -> new TestColumn(column.getName() + "_new",
+                        column.getObjectInspector(),
+                        column.getWriteValue(),
+                        column.getExpectedValue(),
+                        column.isPartitionKey()))
+                .collect(toList());
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(writeColumns)
+                .withReadColumns(readColumns)
+                .withSession(parquetPageSourceSession)
+                .withRowsCount(rowCount)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, useParquetColumnNames, HDFS_ENVIRONMENT));
+
+        //test name-based access
+        useParquetColumnNames = true;
+        readColumns = Lists.reverse(writeColumns);
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(writeColumns)
+                .withReadColumns(readColumns)
+                .withSession(parquetPageSourceSession)
+                .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, useParquetColumnNames, HDFS_ENVIRONMENT));
     }
 
     @Test(dataProvider = "rowCount")

@@ -26,6 +26,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -80,7 +81,8 @@ public class ParquetPageSourceFactory
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
-    private static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, REAL, TIMESTAMP, VARCHAR, CHAR, VARBINARY, DATE, DECIMAL);
+    @VisibleForTesting
+    public static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, REAL, TIMESTAMP, VARCHAR, CHAR, VARBINARY, DATE, DECIMAL);
     private static final Set<String> SUPPORTED_PARTITION_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, BOOLEAN, DOUBLE, REAL, TIMESTAMP, VARCHAR, CHAR, DATE, DECIMAL);
 
     private final TypeManager typeManager;
