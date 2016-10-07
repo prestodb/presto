@@ -16,14 +16,17 @@ databases:
 
   presto:
     host: presto-master
+    port: 7778
+    server_address: https://${databases.presto.host}:${databases.presto.port}
+    # Use the HTTP interface in JDBC, as Kerberos authentication is not yet supported in there.
+    jdbc_url: jdbc:presto://${databases.presto.host}:8080/hive/${databases.hive.schema}
     jdbc_user: hive
-    cli_server_address: https://${databases.presto.host}:7778
+    https_keystore_path: /etc/presto/conf/keystore.jks
+    https_keystore_password: password
     cli_authentication: true
     cli_kerberos_principal: presto-client/presto-master@LABS.TERADATA.COM
     cli_kerberos_keytab: /etc/presto/conf/presto-client.keytab
     cli_kerberos_config_path: /etc/krb5.conf
     cli_kerberos_service_name: presto-server
-    cli_keystore: /etc/presto/conf/keystore.jks
-    cli_keystore_password: password
     cli_kerberos_use_canonical_hostname: false
     configured_hdfs_user: hdfs
