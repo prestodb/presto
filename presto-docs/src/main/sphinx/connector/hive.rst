@@ -2,6 +2,14 @@
 Hive Connector
 ==============
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
+Overview
+--------
+
 The Hive connector allows querying data stored in a Hive
 data warehouse. Hive is a combination of three components:
 

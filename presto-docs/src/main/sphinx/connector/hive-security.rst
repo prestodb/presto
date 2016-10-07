@@ -2,6 +2,11 @@
 Hive Security Configuration
 ===========================
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
 Authorization
 =============
 

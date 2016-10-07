@@ -1,26 +1,16 @@
 Accumulo Connector
 ==================
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
+Overview
+--------
+
 The Accumulo connector supports reading and writing data from Apache Accumulo.
 Please read this page thoroughly to understand the capabilities and features of the connector.
-
-Table of Contents
------------------
-
-#. `Installing the Iterator Dependency <#installing-the-iterator-dependency>`__
-#. `Connector Configuration <#connector-configuration>`__
-#. `Unsupported Features <#unsupported-features>`__
-#. `Usage <#usage>`__
-#. `Indexing Columns <#indexing-columns>`__
-#. `Loading Data <#loading-data>`__
-#. `External Tables <#external-tables>`__
-#. `Table Properties <#table-properties>`__
-#. `Session Properties <#session-properties>`__
-#. `Adding Columns <#adding-columns>`__
-#. `Serializers <#serializers>`__
-#. `Metadata Management <#metadata-management>`__
-#. `Converting Table from Internal to External <#converting-table-from-internal-to-external>`__
-
 
 Installing the Iterator Dependency
 ----------------------------------

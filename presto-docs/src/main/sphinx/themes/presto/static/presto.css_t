@@ -86,6 +86,10 @@ div.content ul > li {
     background-image: url(bullet.png);
 }
 
+div.topic {
+    border: none;
+}
+
 div.admonition {
     border-radius: 3px;
     border-style: solid;
