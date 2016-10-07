@@ -249,11 +249,20 @@ var QueryList = React.createClass({
         else {
             return stateFilteredQueries.filter(function(query) {
                 var term = searchString.toLowerCase();
-                return (query.queryId.toLowerCase().indexOf(term) != -1 ||
-                    query.session.user.toLowerCase().indexOf(term) != -1  ||
-                    query.session.source.toLowerCase().indexOf(term) != -1  ||
+                if (query.queryId.toLowerCase().indexOf(term) != -1 ||
                     query.humanReadableState.toLowerCase().indexOf(term) != -1 ||
-                    query.query.toLowerCase().indexOf(term) != -1 );
+                    query.query.toLowerCase().indexOf(term) != -1) {
+                    return true;
+                }
+
+                if (query.session.user && query.session.user.toLowerCase().indexOf(term) != -1) {
+                    return true;
+                }
+
+                if (query.session.source && query.session.source.toLowerCase().indexOf(term) != -1) {
+                    return true;
+                }
+
             }, this);
         }
     },
