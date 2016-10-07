@@ -48,6 +48,8 @@ public class TestHiveBucketedTables
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_NATION = bucketTableDefinition("bucket_nation", false, false);
     @TableDefinitionsRepository.RepositoryTableDefinition
+    public static final HiveTableDefinition BUCKETED_EMPTY_NATION = bucketTableDefinition("bucket_empty_nation", false, false);
+    @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_SORTED_NATION = bucketTableDefinition("bucket_sort_nation", true, false);
     @TableDefinitionsRepository.RepositoryTableDefinition
     public static final HiveTableDefinition BUCKETED_PARTITIONED_NATION = bucketTableDefinition("bucket_partition_nation", false, true);
@@ -75,6 +77,7 @@ public class TestHiveBucketedTables
     {
         return Requirements.compose(
                 MutableTableRequirement.builder(BUCKETED_NATION).withState(CREATED).build(),
+                MutableTableRequirement.builder(BUCKETED_EMPTY_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_PARTITIONED_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_SORTED_NATION).withState(CREATED).build(),
                 immutableTable(NATION));
@@ -174,10 +177,36 @@ public class TestHiveBucketedTables
                 .containsExactly(row(1000));
     }
 
+    @Test(groups = {HIVE_CONNECTOR},
+            expectedExceptions = QueryExecutionException.class,
+            expectedExceptionsMessageRegExp = ".*\\(0\\) does not match the declared bucket count.*")
+    public void testSelectFromEmptyBucketedTableEmptyTablesNotAllowed()
+            throws SQLException
+    {
+        String tableName = mutableTableInstanceOf(BUCKETED_EMPTY_NATION).getNameInDatabase();
+        query(format("SELECT count(*) FROM %s", tableName));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR})
+    public void testSelectFromEmptyBucketedTableEmptyTablesAllowed()
+            throws SQLException
+    {
+        String tableName = mutableTableInstanceOf(BUCKETED_EMPTY_NATION).getNameInDatabase();
+        enableEmptyBucketedPartitions();
+        assertThat(query(format("SELECT count(*) FROM %s", tableName)))
+                .containsExactly(row(0));
+    }
+
     private static void enableMultiFileBucketing()
             throws SQLException
     {
         setSessionProperty(defaultQueryExecutor().getConnection(), "hive.multi_file_bucketing_enabled", "true");
+    }
+
+    private static void enableEmptyBucketedPartitions()
+            throws SQLException
+    {
+        setSessionProperty(defaultQueryExecutor().getConnection(), "hive.empty_bucketed_partitions_enabled", "true");
     }
 
     private static void populateDataToHiveTable(String destination, String source, Optional<String> partition)
