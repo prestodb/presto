@@ -41,4 +41,4 @@ if [[ -z ${PRODUCT_TESTS_JAR} ]]; then
 fi
 export PRODUCT_TESTS_JAR=$(canonical_path ${PRODUCT_TESTS_JAR})
 
-export HIVE_PROXY_PORT=${HIVE_PROXY_PORT:-1080}
+export HIVE_PROXY_PORT=${HIVE_PROXY_PORT:-1180}
