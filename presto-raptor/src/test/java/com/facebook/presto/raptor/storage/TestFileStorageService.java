@@ -81,8 +81,8 @@ public class TestFileStorageService
         File staging = new File(temporary, "staging");
         File storage = new File(temporary, "storage");
 
-        assertTrue(staging.mkdir());
-        assertTrue(storage.mkdir());
+        assertDirectory(staging);
+        assertDirectory(storage);
 
         File file = store.getStagingFile(randomUUID());
         store.createParents(file);
