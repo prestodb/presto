@@ -316,50 +316,51 @@ the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, 
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
 
-Querying Hive Tables
---------------------
+Examples
+--------
 
-The following table is an example Hive table from the `Hive Tutorial`_.
-It can be created in Hive (not in Presto) using the following
-Hive ``CREATE TABLE`` command:
+The Hive connector supports querying and manipulating Hive tables and schemas
+(databases). While some uncommon operations will need to be performed using
+Hive directly, most operations can be performed using Presto.
 
-.. _Hive Tutorial: https://cwiki.apache.org/confluence/display/Hive/Tutorial#Tutorial-UsageandExamples
+Create a new Hive schema named ``web`` that will store tables in an
+S3 bucket named ``my-bucket``::
 
-.. code-block:: none
+    CREATE SCHEMA hive.web
+    WITH (location = 's3://my-bucket/')
 
-    hive> CREATE TABLE page_view (
-        >   viewTime INT,
-        >   userid BIGINT,
-        >   page_url STRING,
-        >   referrer_url STRING,
-        >   ip STRING COMMENT 'IP Address of the User')
-        > COMMENT 'This is the page view table'
-        > PARTITIONED BY (dt STRING, country STRING)
-        > STORED AS SEQUENCEFILE;
-    OK
-    Time taken: 3.644 seconds
+Create a new Hive table named ``page_views`` in the ``web`` schema
+that is stored using the ORC file format, partitioned by date and
+country, and bucketed by user into ``50`` buckets (note that Hive
+requires the partition columns to be the last columns in the table)::
 
-Assuming that this table was created in the ``web`` schema in
-Hive, this table can be described in Presto::
+    CREATE TABLE hive.web.page_views (
+      view_time timestamp,
+      user_id bigint,
+      page_url varchar,
+      ds date,
+      country varchar
+    )
+    WITH (
+      format = 'ORC',
+      partitioned_by = ARRAY['ds', 'country'],
+      bucketed_by = ARRAY['user_id'],
+      bucket_count = 50
+    )
 
-    DESCRIBE hive.web.page_view;
+Drop a partition from the ``page_views`` table::
 
-.. code-block:: none
+    DELETE FROM hive.web.page_views
+    WHERE ds = DATE '2016-08-09'
+      AND country = 'US'
 
-        Column    |  Type   | Null | Partition Key |        Comment
-    --------------+---------+------+---------------+------------------------
-     viewtime     | bigint  | true | false         |
-     userid       | bigint  | true | false         |
-     page_url     | varchar | true | false         |
-     referrer_url | varchar | true | false         |
-     ip           | varchar | true | false         | IP Address of the User
-     dt           | varchar | true | true          |
-     country      | varchar | true | true          |
-    (7 rows)
+Query the ``page_views`` table::
 
-This table can then be queried in Presto::
+    SELECT * FROM hive.web.page_views
 
-    SELECT * FROM hive.web.page_view;
+Drop a schema::
+
+    DROP SCHEMA hive.web
 
 Hive Connector Limitations
 --------------------------
