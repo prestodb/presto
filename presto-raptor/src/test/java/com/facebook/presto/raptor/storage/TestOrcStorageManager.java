@@ -97,6 +97,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
+import static org.testng.FileAssert.assertDirectory;
 import static org.testng.FileAssert.assertFile;
 
 @Test(singleThreaded = true)
@@ -352,9 +353,10 @@ public class TestOrcStorageManager
     public void testWriterRollback()
             throws Exception
     {
-        // verify staging directory does not exist
+        // verify staging directory is empty
         File staging = new File(new File(temporary, "data"), "staging");
-        assertFalse(staging.exists());
+        assertDirectory(staging);
+        assertEquals(staging.list(), new String[] {});
 
         // create a shard in staging
         OrcStorageManager manager = createOrcStorageManager();
