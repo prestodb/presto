@@ -38,6 +38,12 @@ System Connector Tables
 
 The catalogs table contains the list of available catalogs.
 
+``metadata.schema_properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The schema properties table contains the list of available properties
+that can be set when creating a new schema.
+
 ``metadata.table_properties``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
