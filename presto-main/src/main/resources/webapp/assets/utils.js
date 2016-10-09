@@ -117,7 +117,7 @@ function addExponentiallyWeightedToHistory (value, valuesArray) {
 // =================
 
 function truncateString(inputString, length) {
-    if (inputString.length > length) {
+    if (inputString != null && inputString.length > length) {
         return inputString.substring(0, length) + "...";
     }
 
