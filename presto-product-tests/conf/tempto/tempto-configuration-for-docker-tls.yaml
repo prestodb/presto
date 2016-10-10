@@ -4,6 +4,8 @@ databases:
   presto:
     host: presto-master.docker.cluster
     port: 7778
+    http_port: 8080
+    https_port: ${databases.presto.port}
     server_address: https://${databases.presto.host}:${databases.presto.port}
     jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?secure=true
     configured_hdfs_user: hive
