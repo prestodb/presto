@@ -111,15 +111,11 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
 import static com.facebook.presto.sql.planner.optimizations.LocalProperties.grouped;
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchange;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -762,16 +758,13 @@ public class AddExchanges
             PlanWithProperties left;
             PlanWithProperties right;
 
-            boolean isCrossJoin = type == INNER && leftSymbols.isEmpty();
-            if ((distributedJoins && !isCrossJoin && !isScalar(node.getRight())) || (type == FULL) || (type == RIGHT)) {
-                // The implementation of full outer join only works if the data is hash partitioned. See LookupJoinOperators#buildSideOuterJoinUnvisitedPositions
-
+            if (node.getDistributionType().orElseThrow(() -> new IllegalStateException("distributionType not yet set")) == JoinNode.DistributionType.PARTITIONED) {
                 SetMultimap<Symbol, Symbol> rightToLeft = createMapping(rightSymbols, leftSymbols);
                 SetMultimap<Symbol, Symbol> leftToRight = createMapping(leftSymbols, rightSymbols);
 
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.partitioned(ImmutableSet.copyOf(leftSymbols))));
 
-                if (left.getProperties().isNodePartitionedOn(leftSymbols) && !(left.getProperties().isSingleNode() && distributedJoins)) {
+                if (left.getProperties().isNodePartitionedOn(leftSymbols) && !left.getProperties().isSingleNode()) {
                     Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
                     right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.partitioned(rightPartitioning)));
                     if (!right.getProperties().isNodePartitionedWith(left.getProperties(), rightToLeft::get)) {
@@ -783,7 +776,7 @@ public class AddExchanges
                 else {
                     right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.partitioned(ImmutableSet.copyOf(rightSymbols))));
 
-                    if (right.getProperties().isNodePartitionedOn(rightSymbols) && !(right.getProperties().isSingleNode() && distributedJoins)) {
+                    if (right.getProperties().isNodePartitionedOn(rightSymbols) && !right.getProperties().isSingleNode()) {
                         Partitioning leftPartitioning = right.getProperties().translate(createTranslator(rightToLeft)).getNodePartitioning().get();
                         left = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, left.getNode(), new PartitioningScheme(leftPartitioning, left.getNode().getOutputSymbols())),
