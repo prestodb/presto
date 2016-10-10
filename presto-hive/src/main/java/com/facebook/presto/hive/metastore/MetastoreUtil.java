@@ -20,15 +20,28 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import org.apache.hadoop.hive.metastore.api.DateColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.Decimal;
+import org.apache.hadoop.hive.metastore.api.DecimalColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.DoubleColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
 
@@ -263,6 +276,102 @@ public class MetastoreUtil
         fromMetastoreApiStorageDescriptor(storageDescriptor, partitionBuilder.getStorageBuilder(), format("%s.%s", partition.getTableName(), partition.getValues()));
 
         return partitionBuilder.build();
+    }
+
+    public static ColumnStatistics fromMetastoreApiColumnStatistics(ColumnStatisticsObj columnStatistics)
+    {
+        if (columnStatistics.getStatsData().isSetLongStats()) {
+            LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
+            return new ColumnStatistics<>(
+                    Optional.of(longStatsData.getLowValue()),
+                    Optional.of(longStatsData.getHighValue()),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(longStatsData.getNumNulls()),
+                    OptionalLong.of(longStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetDoubleStats()) {
+            DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
+            return new ColumnStatistics<>(
+                    Optional.of(doubleStatsData.getLowValue()),
+                    Optional.of(doubleStatsData.getHighValue()),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(doubleStatsData.getNumNulls()),
+                    OptionalLong.of(doubleStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetDecimalStats()) {
+            DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
+            return new ColumnStatistics<>(
+                    Optional.of(fromMetastoreDecimal(decimalStatsData.getLowValue())),
+                    Optional.of(fromMetastoreDecimal(decimalStatsData.getHighValue())),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(decimalStatsData.getNumNulls()),
+                    OptionalLong.of(decimalStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetBooleanStats()) {
+            BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
+            return new ColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.of(booleanStatsData.getNumTrues()),
+                    OptionalLong.of(booleanStatsData.getNumFalses()),
+                    OptionalLong.of(booleanStatsData.getNumNulls()),
+                    OptionalLong.of((booleanStatsData.getNumFalses() > 0 ? 1 : 0) + (booleanStatsData.getNumTrues() > 0 ? 1 : 0)));
+        }
+        else if (columnStatistics.getStatsData().isSetDateStats()) {
+            DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
+            return new ColumnStatistics<>(
+                    Optional.of(dateStatsData.getLowValue()),
+                    Optional.of(dateStatsData.getHighValue()),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(dateStatsData.getNumNulls()),
+                    OptionalLong.of(dateStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetStringStats()) {
+            StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
+            return new ColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.of(stringStatsData.getMaxColLen()),
+                    OptionalDouble.of(stringStatsData.getAvgColLen()),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(stringStatsData.getNumNulls()),
+                    OptionalLong.of(stringStatsData.getNumDVs()));
+        }
+        else if (columnStatistics.getStatsData().isSetBinaryStats()) {
+            BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
+            return new ColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.of(binaryStatsData.getMaxColLen()),
+                    OptionalDouble.of(binaryStatsData.getAvgColLen()),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(binaryStatsData.getNumNulls()),
+                    OptionalLong.empty());
+        }
+        else {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+        }
+    }
+
+    private static BigDecimal fromMetastoreDecimal(Decimal decimal)
+    {
+        return new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale());
     }
 
     public static Set<HivePrivilegeInfo> toGrants(List<PrivilegeGrantInfo> userGrants)
