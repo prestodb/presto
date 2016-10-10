@@ -20,12 +20,23 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.ProtectMode;
+import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
+import org.apache.hadoop.hive.metastore.api.DateColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.Decimal;
+import org.apache.hadoop.hive.metastore.api.DecimalColumnStatsData;
+import org.apache.hadoop.hive.metastore.api.DoubleColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -263,6 +274,78 @@ public class MetastoreUtil
         fromMetastoreApiStorageDescriptor(storageDescriptor, partitionBuilder.getStorageBuilder(), format("%s.%s", partition.getTableName(), partition.getValues()));
 
         return partitionBuilder.build();
+    }
+
+    public static ColumnStatistics fromMetastoreApiColumnStatistics(ColumnStatisticsObj columnStatistics)
+    {
+        if (columnStatistics.getStatsData().isSetLongStats()) {
+            LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
+            return ColumnStatistics.columnStatistics(new LongColumnStatistics(
+                    longStatsData.getLowValue(),
+                    longStatsData.getHighValue(),
+                    longStatsData.getNumDVs(),
+                    longStatsData.getNumNulls()
+            ));
+        }
+        else if (columnStatistics.getStatsData().isSetDoubleStats()) {
+            DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
+            return ColumnStatistics.columnStatistics(new DoubleColumnStatistics(
+                    doubleStatsData.getLowValue(),
+                    doubleStatsData.getHighValue(),
+                    doubleStatsData.getNumDVs(),
+                    doubleStatsData.getNumNulls()
+            ));
+        }
+        else if (columnStatistics.getStatsData().isSetDecimalStats()) {
+            DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
+            return ColumnStatistics.columnStatistics(new DecimalColumnStatistics(
+                    fromMetastoreDecimal(decimalStatsData.getLowValue()),
+                    fromMetastoreDecimal(decimalStatsData.getHighValue()),
+                    decimalStatsData.getNumDVs(),
+                    decimalStatsData.getNumNulls()
+            ));
+        }
+        else if (columnStatistics.getStatsData().isSetBooleanStats()) {
+            BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
+            return ColumnStatistics.columnStatistics(new BooleanColumnStatistics(
+                    booleanStatsData.getNumTrues(),
+                    booleanStatsData.getNumFalses(),
+                    booleanStatsData.getNumNulls()
+            ));
+        }
+        else if (columnStatistics.getStatsData().isSetDateStats()) {
+            DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
+            return ColumnStatistics.columnStatistics(new DateColumnStatistics(
+                    dateStatsData.getLowValue(),
+                    dateStatsData.getHighValue(),
+                    dateStatsData.getNumDVs(),
+                    dateStatsData.getNumNulls()
+            ));
+        }
+        else if (columnStatistics.getStatsData().isSetStringStats()) {
+            StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
+            return ColumnStatistics.columnStatistics(new StringColumnStatistics(
+                    stringStatsData.getMaxColLen(),
+                    stringStatsData.getAvgColLen(),
+                    stringStatsData.getNumDVs(),
+                    stringStatsData.getNumNulls()
+            ));
+        }
+        else if (columnStatistics.getStatsData().isSetBinaryStats()) {
+            BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
+            return ColumnStatistics.columnStatistics(new BinaryColumnStatistics(
+                    binaryStatsData.getMaxColLen(),
+                    binaryStatsData.getAvgColLen(),
+                    binaryStatsData.getNumNulls()));
+        }
+        else {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+        }
+    }
+
+    private static BigDecimal fromMetastoreDecimal(Decimal decimal)
+    {
+        return new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale());
     }
 
     public static Set<HivePrivilegeInfo> toGrants(List<PrivilegeGrantInfo> userGrants)
