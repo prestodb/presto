@@ -14,15 +14,18 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastoreClient;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PartitionsStatsRequest;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -30,6 +33,7 @@ import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TTransport;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -132,6 +136,22 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_table(databaseName, tableName);
+    }
+
+    @Override
+    public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
+            throws TException
+    {
+        TableStatsRequest tableStatsRequest = new TableStatsRequest(databaseName, tableName, columnNames);
+        return client.get_table_statistics_req(tableStatsRequest).getTableStats();
+    }
+
+    @Override
+    public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> columnNames, List<String> partitionValues)
+            throws TException
+    {
+        PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(databaseName, tableName, columnNames, partitionValues);
+        return client.get_partitions_statistics_req(partitionsStatsRequest).getPartStats();
     }
 
     @Override
