@@ -20,6 +20,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
@@ -71,6 +72,33 @@ public class BridgingHiveMetastore
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         return delegate.getTable(databaseName, tableName).map(MetastoreUtil::fromMetastoreApiTable);
+    }
+
+    @Override
+    public Optional<Map<String, ColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        return delegate.getTableColumnStatistics(databaseName, tableName, columnNames).map(this::groupStatisticsByColumn);
+    }
+
+    @Override
+    public Optional<Map<String, Map<String, ColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        return delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNames, columnNames).map(
+                columnStatisticsMap -> ImmutableMap.copyOf(
+                        columnStatisticsMap.entrySet().stream()
+                                .collect(Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry -> groupStatisticsByColumn(entry.getValue())
+                                ))));
+    }
+
+    private Map<String, ColumnStatistics> groupStatisticsByColumn(Set<ColumnStatisticsObj> statistics)
+    {
+        return ImmutableMap.copyOf(
+                statistics.stream()
+                        .collect(Collectors.toMap(
+                                ColumnStatisticsObj::getColName,
+                                MetastoreUtil::fromMetastoreApiColumnStatistics)));
     }
 
     @Override
