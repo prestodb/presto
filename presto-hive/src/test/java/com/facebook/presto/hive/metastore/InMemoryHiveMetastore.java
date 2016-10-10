@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -75,6 +76,10 @@ public class InMemoryHiveMetastore
     private final Map<SchemaTableName, Table> views = new HashMap<>();
     @GuardedBy("this")
     private final Map<PartitionName, Partition> partitions = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<SchemaTableName, Map<String, ColumnStatisticsObj>> columnStatistics = new HashMap<>();
+    @GuardedBy("this")
+    private final Map<PartitionName, Map<String, ColumnStatisticsObj>> partitionColumnStatistics = new HashMap<>();
     @GuardedBy("this")
     private final Map<String, Set<String>> roleGrants = new HashMap<>();
     @GuardedBy("this")
@@ -420,6 +425,56 @@ public class InMemoryHiveMetastore
     {
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         return Optional.ofNullable(relations.get(schemaTableName));
+    }
+
+    @Override
+    public synchronized Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        if (!columnStatistics.containsKey(schemaTableName)) {
+            return Optional.empty();
+        }
+
+        Map<String, ColumnStatisticsObj> columnStatisticsMap = columnStatistics.get(schemaTableName);
+        return Optional.of(columnNames.stream()
+                .filter(columnStatisticsMap::containsKey)
+                .map(columnStatisticsMap::get)
+                .collect(toImmutableSet()));
+    }
+
+    public synchronized void setColumnStatistics(String databaseName, String tableName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    {
+        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        columnStatistics.computeIfAbsent(schemaTableName, key -> new HashMap<>()).put(columnName, columnStatisticsObj);
+    }
+
+    @Override
+    public synchronized Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        ImmutableMap.Builder<String, Set<ColumnStatisticsObj>> resultMap = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
+            if (!partitionColumnStatistics.containsKey(partitionKey)) {
+                continue;
+            }
+
+            Map<String, ColumnStatisticsObj> partitionColumnStatististicsMap = partitionColumnStatistics.get(partitionKey);
+            resultMap.put(
+                    partitionName,
+                    columnNames.stream()
+                            .filter(partitionColumnStatististicsMap::containsKey)
+                            .map(partitionColumnStatististicsMap::get)
+                            .collect(toImmutableSet()));
+        }
+        return Optional.of(resultMap.build());
+    }
+
+    public synchronized void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName, ColumnStatisticsObj columnStatisticsObj)
+    {
+        checkArgument(columnStatisticsObj.getColName().equals(columnName), "columnName argument and columnStatisticsObj.getColName() must be the same");
+        PartitionName partitionKey = PartitionName.partition(databaseName, tableName, partitionName);
+        partitionColumnStatistics.computeIfAbsent(partitionKey, partitionName1 -> new HashMap<>()).put(columnName, columnStatisticsObj);
     }
 
     @Override
