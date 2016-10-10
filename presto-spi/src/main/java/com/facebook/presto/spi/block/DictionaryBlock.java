@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.spi.block.BlockUtil.checkValidPositions;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
@@ -30,7 +29,7 @@ import static io.airlift.slice.Slices.copyOf;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toList;
 
 public class DictionaryBlock
         implements Block
@@ -303,30 +302,34 @@ public class DictionaryBlock
         return (DictionaryBlock) compactBlocks.get(0);
     }
 
+    /**
+     * Compacts the common dictionary of a {@link List} of {@link DictionaryBlock}s.
+     */
     public static List<Block> compactBlocks(List<Block> blocks)
     {
         verifyEligibleToCompact(blocks);
-
-        DictionaryBlock dictionaryBlock = (DictionaryBlock) blocks.get(0);
-        Block dictionary = dictionaryBlock.getDictionary();
-        Slice ids = dictionaryBlock.getIds();
-
-        int positionCount = dictionaryBlock.getPositionCount();
+        //
+        // Fetch the common DictionaryBlock from the first block
+        DictionaryBlock commonDictionaryBlock = (DictionaryBlock) blocks.get(0);
+        Block dictionary = commonDictionaryBlock.getDictionary();
         int dictionarySize = dictionary.getPositionCount();
 
         List<Integer> dictionaryPositionsToCopy = new ArrayList<>(dictionarySize);
         int[] remapIndex = new int[dictionarySize];
         Arrays.fill(remapIndex, -1);
-        int newIndex = 0;
 
-        boolean[] copied = new boolean[dictionarySize];
-        for (int i = 0; i < positionCount; i++) {
-            int position = getIndex(ids, i);
-            if (!copied[position]) {
-                dictionaryPositionsToCopy.add(position);
-                remapIndex[position] = newIndex;
-                newIndex++;
-                copied[position] = true;
+        int newIndex = 0;
+        for (Block block : blocks) {
+            DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+            Slice ids = dictionaryBlock.getIds();
+            int positionCount = dictionaryBlock.getPositionCount();
+            for (int i = 0; i < positionCount; i++) {
+                int position = getIndex(ids, i);
+                if (remapIndex[position] == -1) {
+                    dictionaryPositionsToCopy.add(position);
+                    remapIndex[position] = newIndex;
+                    newIndex++;
+                }
             }
         }
 
@@ -335,22 +338,20 @@ public class DictionaryBlock
             return blocks;
         }
 
-        Slice newIdsSlice = wrappedIntArray(getNewIds(positionCount, ids, remapIndex));
-        List<Block> outputDictionaryBlocks = new ArrayList<>(blocks.size());
-        DictionaryId dictionaryId = randomDictionaryId();
-
-        for (Block block : blocks) {
-            dictionaryBlock = ((DictionaryBlock) block);
-            try {
-                Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIdsSlice, true, dictionaryId));
-            }
-            catch (UnsupportedOperationException e) {
-                // ignore if copy positions is not supported for the dictionary
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, dictionaryBlock.getDictionary(), dictionaryBlock.getIds()));
-            }
+        Block compactDictionary;
+        try {
+            compactDictionary = commonDictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
         }
-        return outputDictionaryBlocks;
+        catch (UnsupportedOperationException e) {
+            // ignore if copy positions is not supported for the dictionary
+            return blocks;
+        }
+
+        DictionaryId dictionaryId = randomDictionaryId();
+        return blocks.stream().map(DictionaryBlock.class::cast).map(dictionaryBlock -> {
+            Slice newIdsSlice = wrappedIntArray(getNewIds(dictionaryBlock.positionCount, dictionaryBlock.ids, remapIndex));
+            return new DictionaryBlock(dictionaryBlock.positionCount, compactDictionary, newIdsSlice, true, dictionaryId);
+        }).collect(toList());
     }
 
     private static void verifyEligibleToCompact(List<Block> blocks)
@@ -361,12 +362,13 @@ public class DictionaryBlock
             }
         }
 
-        Set<DictionaryId> sourceIds = blocks.stream()
-                .map(block -> ((DictionaryBlock) block).getDictionarySourceId())
-                .distinct()
-                .collect(toSet());
+        // count the number of distinct source ids
+        long distinctSourceIds = blocks.stream()
+                .map(DictionaryBlock.class::cast)
+                .map(DictionaryBlock::getDictionarySourceId)
+                .distinct().count();
 
-        if (sourceIds.size() != 1) {
+        if (distinctSourceIds != 1) {
             throw new IllegalArgumentException("dictionarySourceIds must be the same");
         }
     }
@@ -375,11 +377,7 @@ public class DictionaryBlock
     {
         int[] newIds = new int[positionCount];
         for (int i = 0; i < positionCount; i++) {
-            int newId = remapIndex[getIndex(ids, i)];
-            if (newId == -1) {
-                throw new IllegalStateException("reference to a non-existent key");
-            }
-            newIds[i] = newId;
+            newIds[i] = remapIndex[getIndex(ids, i)];
         }
         return newIds;
     }
