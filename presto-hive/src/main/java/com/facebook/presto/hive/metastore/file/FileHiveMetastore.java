@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.ColumnStatistics;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -247,6 +248,18 @@ public class FileHiveMetastore
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         return readSchemaFile("table", tableMetadataDirectory, tableCodec)
                 .map(tableMetadata -> tableMetadata.toTable(databaseName, tableName, tableMetadataDirectory.toString()));
+    }
+
+    @Override
+    public Optional<Map<String, ColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
+    }
+
+    @Override
+    public Optional<Map<String, Map<String, ColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        return Optional.of(ImmutableMap.of());
     }
 
     private Table getRequiredTable(String databaseName, String tableName)
