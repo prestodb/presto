@@ -84,6 +84,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.hash.Hashing.md5;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.hash;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -183,7 +184,7 @@ public class TestOrcStorageManager
         List<RecordedShard> recordedShards = shardRecorder.getShards();
         assertEquals(recordedShards.size(), 1);
 
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shards.size(), 1);
         ShardInfo shardInfo = Iterables.getOnlyElement(shards);
@@ -262,7 +263,7 @@ public class TestOrcStorageManager
                 .build();
 
         sink.appendPages(pages);
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shards.size(), 1);
         UUID uuid = Iterables.getOnlyElement(shards).getShardUuid();
@@ -321,7 +322,7 @@ public class TestOrcStorageManager
                 .row(456L, "bye")
                 .build();
         sink.appendPages(pages);
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shardRecorder.getShards().size(), 1);
 
@@ -658,7 +659,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager();
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(rowPagesBuilder(columnTypes).rows(rows).build());
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shards.size(), 1);
         return Iterables.getOnlyElement(shards).getColumnStats();

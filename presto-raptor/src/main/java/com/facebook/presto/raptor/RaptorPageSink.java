@@ -35,7 +35,6 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -47,8 +46,8 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.allAsList;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
@@ -133,18 +132,17 @@ public class RaptorPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        List<ShardInfo> shards = new ArrayList<>();
-        for (PageBuffer pageBuffer : pageWriter.getPageBuffers()) {
+        List<CompletableFuture<? extends List<Slice>>> futureSlices = pageWriter.getPageBuffers().stream().map(pageBuffer -> {
             pageBuffer.flush();
-            shards.addAll(pageBuffer.getStoragePageSink().commit());
-        }
+            CompletableFuture<List<ShardInfo>> futureShards = pageBuffer.getStoragePageSink().commit();
+            return futureShards.thenApply(shards -> shards.stream()
+                    .map(shard -> Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(shard)))
+                    .collect(toList()));
+        }).collect(toList());
 
-        ImmutableList.Builder<Slice> fragments = ImmutableList.builder();
-        for (ShardInfo shard : shards) {
-            fragments.add(Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(shard)));
-        }
-        // TODO: process asynchronously
-        return completedFuture(fragments.build());
+        return allAsList(futureSlices).thenApply(lists -> lists.stream()
+                .flatMap(Collection::stream)
+                .collect(toList()));
     }
 
     @Override
