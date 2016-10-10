@@ -88,7 +88,7 @@ script:
   - |
     if [[ -v PRODUCT_TESTS ]]; then
       presto-product-tests/bin/run_on_docker.sh \
-        multinode-tls -g smoke,cli,group-by,join
+        multinode-tls -g smoke,cli,group-by,join,tls
     fi
   - |
     if [[ -v HIVE_TESTS ]]; then
