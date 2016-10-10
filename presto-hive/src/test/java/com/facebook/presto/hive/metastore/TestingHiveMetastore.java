@@ -495,13 +495,13 @@ public class TestingHiveMetastore
     }
 
     @Override
-    public Optional<Map<String, ColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    public Optional<Map<String, HiveColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
     {
         return Optional.of(ImmutableMap.of());
     }
 
     @Override
-    public Optional<Map<String, Map<String, ColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    public Optional<Map<String, Map<String, HiveColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
     {
         return Optional.of(ImmutableMap.of());
     }
