@@ -250,7 +250,7 @@ var QueryList = React.createClass({
             return stateFilteredQueries.filter(function(query) {
                 var term = searchString.toLowerCase();
                 if (query.queryId.toLowerCase().indexOf(term) != -1 ||
-                    query.humanReadableState.toLowerCase().indexOf(term) != -1 ||
+                    getHumanReadableState(query).toLowerCase().indexOf(term) != -1 ||
                     query.query.toLowerCase().indexOf(term) != -1) {
                     return true;
                 }
