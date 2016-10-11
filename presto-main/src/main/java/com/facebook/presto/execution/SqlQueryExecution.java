@@ -215,10 +215,11 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public void start()
+    public void start(Optional<String> resourceGroupName)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
+                resourceGroupName.ifPresent(groupName -> stateMachine.setResourceGroup(groupName));
                 // transition to planning
                 if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished

@@ -475,7 +475,7 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
             updateEligiblility();
-            executor.execute(query::start);
+            executor.execute(() -> query.start(Optional.of(id.toString())));
         }
     }
 

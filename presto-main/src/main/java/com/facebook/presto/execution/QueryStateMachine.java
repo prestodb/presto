@@ -125,6 +125,8 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
+    private final AtomicReference<String> resourceGroup = new AtomicReference<>();
+
     private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -240,6 +242,17 @@ public class QueryStateMachine
         if (currentMemoryValue > peakMemory.get()) {
             peakMemory.updateAndGet(x -> currentMemoryValue > x ? currentMemoryValue : x);
         }
+    }
+
+    public void setResourceGroup(String group)
+    {
+        requireNonNull(group, "group is null");
+        resourceGroup.compareAndSet(null, group);
+    }
+
+    public Optional<String> getResourceGroup()
+    {
+        return Optional.ofNullable(resourceGroup.get());
     }
 
     public QueryInfo getQueryInfoWithoutDetails()
@@ -409,7 +422,8 @@ public class QueryStateMachine
                 errorCode,
                 inputs.get(),
                 output.get(),
-                completeInfo);
+                completeInfo,
+                getResourceGroup());
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -739,8 +753,8 @@ public class QueryStateMachine
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
-                queryInfo.isCompleteInfo()
-        );
+                queryInfo.isCompleteInfo(),
+                queryInfo.getResourceGroupName());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
