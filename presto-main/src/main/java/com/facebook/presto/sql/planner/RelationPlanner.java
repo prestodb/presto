@@ -326,7 +326,7 @@ class RelationPlanner
         if (node.getType() != INNER && !complexJoinExpressions.isEmpty()) {
             Expression joinedFilterCondition = ExpressionUtils.and(complexJoinExpressions);
             joinedFilterCondition = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), joinedFilterCondition);
-            Expression rewritenFilterCondition = translationMap.rewrite(joinedFilterCondition);
+            Expression rewrittenFilterCondition = translationMap.rewrite(joinedFilterCondition);
             root = new JoinNode(idAllocator.getNextId(),
                     JoinNode.Type.typeConvert(node.getType()),
                     leftPlanBuilder.getRoot(),
@@ -336,7 +336,7 @@ class RelationPlanner
                             .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
                             .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
                             .build(),
-                    Optional.of(rewritenFilterCondition),
+                    Optional.of(rewrittenFilterCondition),
                     Optional.empty(),
                     Optional.empty());
         }
