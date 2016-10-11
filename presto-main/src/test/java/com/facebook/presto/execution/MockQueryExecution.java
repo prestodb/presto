@@ -102,7 +102,8 @@ public class MockQueryExecution
                 null,
                 ImmutableSet.of(),
                 Optional.empty(),
-                state.isDone());
+                state.isDone(),
+                Optional.empty());
     }
 
     @Override
@@ -154,7 +155,7 @@ public class MockQueryExecution
     }
 
     @Override
-    public void start()
+    public void start(Optional<String> resourceGroupName)
     {
         state = RUNNING;
         fireStateChange();

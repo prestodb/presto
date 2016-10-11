@@ -96,7 +96,8 @@ public class TestBasicQueryInfo
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),
                         ImmutableSet.of(),
                         Optional.empty(),
-                        false));
+                        false,
+                        Optional.empty()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

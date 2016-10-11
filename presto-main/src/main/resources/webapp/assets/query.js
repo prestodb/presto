@@ -1017,6 +1017,14 @@ var QueryDetail = React.createClass({
                                 </tr>
                                 <tr>
                                     <td className="info-title">
+                                        Resource Group
+                                    </td>
+                                    <td className="info-text">
+                                        { query.resourceGroupName }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
                                         Submission Time
                                     </td>
                                     <td className="info-text">

@@ -65,6 +65,7 @@ public class QueryInfo
     private final Set<Input> inputs;
     private final Optional<Output> output;
     private final boolean completeInfo;
+    private final Optional<String> resourceGroupName;
 
     @JsonCreator
     public QueryInfo(
@@ -89,7 +90,8 @@ public class QueryInfo
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
-            @JsonProperty("completeInfo") boolean completeInfo)
+            @JsonProperty("completeInfo") boolean completeInfo,
+            @JsonProperty("resourceGroupName") Optional<String> resourceGroupName)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -106,6 +108,7 @@ public class QueryInfo
         requireNonNull(outputStage, "outputStage is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
+        requireNonNull(resourceGroupName, "resourceGroupName is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -130,6 +133,7 @@ public class QueryInfo
         this.inputs = ImmutableSet.copyOf(inputs);
         this.output = output;
         this.completeInfo = completeInfo;
+        this.resourceGroupName = resourceGroupName;
     }
 
     @JsonProperty
@@ -272,6 +276,12 @@ public class QueryInfo
     public Optional<Output> getOutput()
     {
         return output;
+    }
+
+    @JsonProperty
+    public Optional<String> getResourceGroupName()
+    {
+        return resourceGroupName;
     }
 
     @Override
