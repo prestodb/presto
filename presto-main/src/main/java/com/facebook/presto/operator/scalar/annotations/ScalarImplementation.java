@@ -135,7 +135,9 @@ public class ScalarImplementation
             return Optional.empty();
         }
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
-            Class<?> argumentContainerType = getNullAwareContainerType(typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType(), nullableArguments.get(i) && !nullFlags.get(i));
+            Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
+            boolean nullableParameter = isParameterNullable(argumentType, nullableArguments.get(i), nullFlags.get(i));
+            Class<?> argumentContainerType = getNullAwareContainerType(argumentType, nullableParameter);
             if (!argumentNativeContainerTypes.get(i).isAssignableFrom(argumentContainerType)) {
                 return Optional.empty();
             }
@@ -160,6 +162,21 @@ public class ScalarImplementation
             return Primitives.wrap(clazz);
         }
         return clazz;
+    }
+
+    private static boolean isParameterNullable(Class<?> type, boolean nullableArgument, boolean nullFlag)
+    {
+        if (!nullableArgument) {
+            return false;
+        }
+        // void must be nullable even if the null flag is present
+        if (type == void.class) {
+            return true;
+        }
+        if (nullFlag) {
+            return !type.isPrimitive();
+        }
+        return true;
     }
 
     public boolean hasSpecializedTypeParameters()
@@ -402,10 +419,25 @@ public class ScalarImplementation
                     boolean nullableArgument = Stream.of(annotations).anyMatch(SqlNullable.class::isInstance);
                     checkArgument(nullableArgument || !containsLegacyNullable(annotations), "Method [%s] has parameter annotated with @Nullable but not @SqlNullable", method);
 
+                    boolean hasNullFlag = false;
+                    if (method.getParameterCount() > (i + 1)) {
+                        Annotation[] parameterAnnotations = method.getParameterAnnotations()[i + 1];
+                        if (Stream.of(parameterAnnotations).anyMatch(IsNull.class::isInstance)) {
+                            Class<?> isNullType = method.getParameterTypes()[i + 1];
+
+                            checkArgument(Stream.of(parameterAnnotations).filter(Parser::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
+                            checkArgument(isNullType == boolean.class, "Method [%s] has non-boolean parameter with @IsNull", method);
+                            checkArgument((parameterType == Void.class) || !Primitives.isWrapperType(parameterType), "Method [%s] uses @IsNull following a parameter with boxed primitive type: %s", method, parameterType.getSimpleName());
+
+                            nullableArgument = true;
+                            hasNullFlag = true;
+                        }
+                    }
+
                     if (Primitives.isWrapperType(parameterType)) {
                         checkArgument(nullableArgument, "Method [%s] has parameter with wrapper type %s that is missing @SqlNullable", method, parameterType.getSimpleName());
                     }
-                    else if (parameterType.isPrimitive()) {
+                    else if (parameterType.isPrimitive() && !hasNullFlag) {
                         checkArgument(!nullableArgument, "Method [%s] has parameter with primitive type %s annotated with @SqlNullable", method, parameterType.getSimpleName());
                     }
 
@@ -419,24 +451,12 @@ public class ScalarImplementation
                     argumentNativeContainerTypes.add(parameterType);
                     argumentTypes.add(parseTypeSignature(type.value(), literalParameters));
 
-                    boolean currentNullFlag = false;
-                    if (i + 1 < method.getParameterCount()) {
-                        annotations = method.getParameterAnnotations()[i + 1];
-                        if (Stream.of(annotations).anyMatch(IsNull.class::isInstance)) {
-                            Class<?> isNullType = method.getParameterTypes()[i + 1];
-
-                            checkArgument(Stream.of(annotations).filter(Parser::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
-                            checkArgument(isNullType == boolean.class, "Method [%s] has non-boolean parameter with @IsNull", method);
-                            checkArgument(!Primitives.isWrapperType(parameterType), "Method [%s] uses @IsNull following a parameter with boxed primitive type: %s", method, parameterType.getSimpleName());
-
-                            nullableArgument = true;
-                            currentNullFlag = true;
-                            // skip @IsNull on the next parameter
-                            i++;
-                        }
+                    if (hasNullFlag) {
+                        // skip @IsNull parameter
+                        i++;
                     }
                     nullableArguments.add(nullableArgument);
-                    nullFlags.add(currentNullFlag);
+                    nullFlags.add(hasNullFlag);
                 }
             }
         }

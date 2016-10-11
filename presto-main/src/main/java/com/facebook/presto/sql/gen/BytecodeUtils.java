@@ -199,6 +199,9 @@ public final class BytecodeUtils
                 }
                 else {
                     if (function.getNullFlags().get(realParameterIndex)) {
+                        if (type == Void.class) {
+                            block.append(boxPrimitiveIfNecessary(scope, type));
+                        }
                         block.append(scope.getVariable("wasNull"));
                         stackTypes.add(boolean.class);
                         currentParameterIndex++;

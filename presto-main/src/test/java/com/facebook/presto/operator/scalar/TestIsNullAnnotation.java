@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -81,6 +82,13 @@ public class TestIsNullAnnotation
         return utf8Slice(builder.toString());
     }
 
+    @ScalarFunction("test_is_null_void")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean testIsNullVoid(@SqlType("unknown") Void value, @IsNull boolean isNull)
+    {
+        return isNull;
+    }
+
     @Test
     public void testIsNull()
     {
@@ -94,5 +102,7 @@ public class TestIsNullAnnotation
         assertFunction("test_is_null(null, 'aaa', null, 'ccc')", VARCHAR, ":aaa::ccc");
         assertFunction("test_is_null(23, 'aaa', null, null)", VARCHAR, "23:aaa::");
         assertFunction("test_is_null(23, null, 'bbb', 'ccc')", VARCHAR, null);
+
+        assertFunction("test_is_null_void(null)", BOOLEAN, true);
     }
 }
