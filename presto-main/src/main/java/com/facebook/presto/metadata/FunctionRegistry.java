@@ -24,6 +24,8 @@ import com.facebook.presto.operator.aggregation.ApproximateRealPercentileArrayAg
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
 import com.facebook.presto.operator.aggregation.ArrayAggregationFunction;
 import com.facebook.presto.operator.aggregation.AverageAggregations;
+import com.facebook.presto.operator.aggregation.BitwiseAndAggregation;
+import com.facebook.presto.operator.aggregation.BitwiseOrAggregation;
 import com.facebook.presto.operator.aggregation.BooleanAndAggregation;
 import com.facebook.presto.operator.aggregation.BooleanOrAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
@@ -405,6 +407,8 @@ public class FunctionRegistry
                 .aggregate(RealRegressionAggregation.class)
                 .aggregate(DoubleCorrelationAggregation.class)
                 .aggregate(RealCorrelationAggregation.class)
+                .aggregate(BitwiseOrAggregation.class)
+                .aggregate(BitwiseAndAggregation.class)
                 .scalars(SequenceFunction.class)
                 .scalars(StringFunctions.class)
                 .scalars(VarbinaryFunctions.class)
