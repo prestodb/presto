@@ -34,7 +34,7 @@ import java.util.UUID;
 public interface ShardDao
 {
     int CLEANABLE_SHARDS_BATCH_SIZE = 1000;
-    int CLEANUP_TRANSACTIONS_BATCH_SIZE = 1_000_000;
+    int CLEANUP_TRANSACTIONS_BATCH_SIZE = 10_000;
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys
@@ -206,5 +206,5 @@ public interface ShardDao
             @Bind("bucketNumber") int bucketNumber,
             @Bind("nodeId") int nodeId);
 
-    void deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
+    int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
 }

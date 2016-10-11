@@ -44,9 +44,9 @@ public interface MySqlShardDao
     // 'order by' is needed in this statement in order to make it compatible with statement-based replication
     @SqlUpdate("DELETE FROM transactions\n" +
             "WHERE end_time < :maxEndTime\n" +
-            "  AND successful IS NOT NULL\n" +
+            "  AND successful IN (TRUE, FALSE)\n" +
             "  AND transaction_id NOT IN (SELECT transaction_id FROM created_shards)\n" +
-            "ORDER BY transaction_id\n" +
+            "ORDER BY end_time, transaction_id\n" +
             "LIMIT " + CLEANUP_TRANSACTIONS_BATCH_SIZE)
-    void deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
+    int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
 }

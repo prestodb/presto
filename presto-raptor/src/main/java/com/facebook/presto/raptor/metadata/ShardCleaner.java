@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
+import static com.facebook.presto.raptor.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -298,7 +299,12 @@ public class ShardCleaner
     @VisibleForTesting
     void deleteOldCompletedTransactions()
     {
-        dao.deleteOldCompletedTransactions(maxTimestamp(maxCompletedTransactionAge));
+        while (!Thread.currentThread().isInterrupted()) {
+            int deleted = dao.deleteOldCompletedTransactions(maxTimestamp(maxCompletedTransactionAge));
+            if (deleted < CLEANUP_TRANSACTIONS_BATCH_SIZE) {
+                break;
+            }
+        }
     }
 
     @VisibleForTesting
