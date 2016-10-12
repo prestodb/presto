@@ -199,9 +199,9 @@ Property Name                                Description
 ``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API credentials
                                              (defaults to ``true``). This works with IAM roles in EC2.
 
-``hive.s3.access-key``                       Default AWS access key to use.
+``hive.s3.aws-access-key``                       Default AWS access key to use.
 
-``hive.s3.secret-key``                       Default AWS secret key to use.
+``hive.s3.aws-secret-key``                       Default AWS secret key to use.
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
@@ -244,7 +244,7 @@ to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
 the case, your EC2 instances will need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
 to use.  This is much cleaner than setting AWS access and secret keys in
-the ``hive.s3.access-key`` and ``hive.s3.secret-key`` settings, and also
+the ``hive.s3.aws-access-key`` and ``hive.s3.aws-secret-key`` settings, and also
 allows EC2 to automatically rotate credentials on a regular basis without
 any additional work on your part.
 
