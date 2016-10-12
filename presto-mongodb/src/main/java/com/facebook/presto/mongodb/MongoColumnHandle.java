@@ -88,10 +88,7 @@ public class MongoColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(
-                connectorId,
-                name,
-                hidden);
+        return Objects.hash(name, type, hidden);
     }
 
     @Override
@@ -104,9 +101,9 @@ public class MongoColumnHandle
             return false;
         }
         MongoColumnHandle other = (MongoColumnHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.type, other.type) &&
-                Objects.equals(this.name, other.name);
+        return Objects.equals(name, other.name) &&
+                Objects.equals(type, other.type) &&
+                Objects.equals(hidden, other.hidden);
     }
 
     @Override
