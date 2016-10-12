@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
@@ -30,12 +31,51 @@ import static com.facebook.presto.operator.scalar.JsonExtract.ObjectFieldJsonExt
 import static com.facebook.presto.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static com.facebook.presto.operator.scalar.JsonExtract.generateExtractor;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestJsonExtract
+        extends AbstractTestFunctions
 {
+
+    @Test
+    public void testJsonExtractScalar()
+    {
+        long start;
+        long delta;
+
+        for (int round = 0; round < 5; round++) {
+            // Enable cache
+            JsonExtract.CACHE_ENABLED = true;
+
+            // A
+            start = System.currentTimeMillis();
+            for (int i = 0; i < 1000000; i++) {
+                assertEquals(doScalarExtract("{\"fuu\": " + String.valueOf(i) + "}", "$.fuu"), String.valueOf(i));
+            }
+            delta = System.currentTimeMillis() - start;
+            if (round > 0) {
+                System.out.println("cache " + delta);
+            }
+
+
+            // Disable cache
+            JsonExtract.CACHE_ENABLED = false;
+
+            // B
+            start = System.currentTimeMillis();
+            for (int i = 0; i < 1000000; i++) {
+                assertEquals(doScalarExtract("{\"fuu\": " + String.valueOf(i) + "}", "$.fuu"), String.valueOf(i));
+            }
+            delta = System.currentTimeMillis() - start;
+            if (round > 0) {
+                System.out.println("no cache " + delta);
+            }
+        }
+    }
+
     @Test
     public void testJsonTokenizer()
     {
