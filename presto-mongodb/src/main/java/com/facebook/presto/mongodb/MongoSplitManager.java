@@ -27,22 +27,16 @@ import java.util.List;
 
 import static com.facebook.presto.mongodb.TypeUtils.checkType;
 import static com.facebook.presto.spi.HostAddress.fromParts;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class MongoSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final List<HostAddress> addresses;
 
     @Inject
-    public MongoSplitManager(MongoConnectorId connectorId,
-                             MongoClientConfig config)
+    public MongoSplitManager(MongoClientConfig config)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-
         this.addresses = config.getSeeds().stream()
                 .map(s -> fromParts(s.getHost(), s.getPort()))
                 .collect(toList());
@@ -55,19 +49,10 @@ public class MongoSplitManager
         MongoTableHandle tableHandle = tableLayout.getTable();
 
         MongoSplit split = new MongoSplit(
-                connectorId,
                 tableHandle.getSchemaTableName(),
                 tableLayout.getTupleDomain(),
                 addresses);
 
         return new FixedSplitSource(ImmutableList.of(split));
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("clientId", connectorId)
-                .toString();
     }
 }

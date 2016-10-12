@@ -34,8 +34,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestMongoSession
 {
-    private static final MongoColumnHandle COL1 = new MongoColumnHandle("mongodb", "col1", BIGINT, false);
-    private static final MongoColumnHandle COL2 = new MongoColumnHandle("mongodb", "col2", createUnboundedVarcharType(), false);
+    private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false);
+    private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false);
 
     @Test
     public void testBuildQuery()

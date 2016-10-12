@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.MoreObjects.ToStringHelper;
 import org.bson.Document;
 
 import java.util.Objects;
@@ -31,28 +30,19 @@ public class MongoColumnHandle
 {
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "presto_sample_weight";
 
-    private final String connectorId;
     private final String name;
     private final Type type;
     private final boolean hidden;
 
     @JsonCreator
     public MongoColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("name") String name,
             @JsonProperty("columnType") Type type,
             @JsonProperty("hidden") boolean hidden)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "columnType is null");
         this.hidden = hidden;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -109,12 +99,10 @@ public class MongoColumnHandle
     @Override
     public String toString()
     {
-        ToStringHelper helper = toStringHelper(this)
-                .add("connectorId", connectorId)
+        return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
-                .add("hidden", hidden);
-
-        return helper.toString();
+                .add("hidden", hidden)
+                .toString();
     }
 }

@@ -26,24 +26,16 @@ import static java.util.Objects.requireNonNull;
 public class MongoInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    private final String connectorId;
     private final SchemaTableName schemaTableName;
     private final List<MongoColumnHandle> columns;
 
     @JsonCreator
-    public MongoInsertTableHandle(@JsonProperty("connectorId") String connectorId,
-                                  @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                                  @JsonProperty("columns") List<MongoColumnHandle> columns)
+    public MongoInsertTableHandle(
+            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("columns") List<MongoColumnHandle> columns)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty

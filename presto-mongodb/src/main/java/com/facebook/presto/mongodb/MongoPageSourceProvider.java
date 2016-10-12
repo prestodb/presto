@@ -29,13 +29,11 @@ import static java.util.Objects.requireNonNull;
 public class MongoPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final String connectorId;
     private final MongoSession mongoSession;
 
     @Inject
-    public MongoPageSourceProvider(MongoConnectorId connectorId, MongoSession mongoSession)
+    public MongoPageSourceProvider(MongoSession mongoSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
     }
 

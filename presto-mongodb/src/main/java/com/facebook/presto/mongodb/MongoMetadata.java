@@ -47,7 +47,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.mongodb.TypeUtils.checkType;
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -57,14 +56,11 @@ public class MongoMetadata
 {
     private static final Logger log = Logger.get(MongoMetadata.class);
 
-    private final String connectorId;
     private final MongoSession mongoSession;
 
     @Inject
-    public MongoMetadata(MongoConnectorId connectorId,
-                         MongoSession mongoSession)
+    public MongoMetadata(MongoSession mongoSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
     }
 
@@ -216,9 +212,9 @@ public class MongoMetadata
 
         mongoSession.createTable(tableMetadata.getTable(), columns);
 
-        return new MongoOutputTableHandle(connectorId,
-                                          tableMetadata.getTable(),
-                                          columns.stream().filter(c -> !c.isHidden()).collect(toList()));
+        return new MongoOutputTableHandle(
+                tableMetadata.getTable(),
+                columns.stream().filter(c -> !c.isHidden()).collect(toList()));
     }
 
     @Override
@@ -239,9 +235,9 @@ public class MongoMetadata
         MongoTableHandle table = checkType(tableHandle, MongoTableHandle.class, "tableHandle");
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
-        return new MongoInsertTableHandle(connectorId,
-                                          table.getSchemaTableName(),
-                                          columns.stream().filter(c -> !c.isHidden()).collect(toList()));
+        return new MongoInsertTableHandle(
+                table.getSchemaTableName(),
+                columns.stream().filter(c -> !c.isHidden()).collect(toList()));
     }
 
     @Override
@@ -283,18 +279,10 @@ public class MongoMetadata
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
-    private List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
+    private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         return tableMetadata.getColumns().stream()
-                .map(m -> new MongoColumnHandle(connectorId, m.getName(), m.getType(), m.isHidden()))
+                .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden()))
                 .collect(toList());
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .toString();
     }
 }

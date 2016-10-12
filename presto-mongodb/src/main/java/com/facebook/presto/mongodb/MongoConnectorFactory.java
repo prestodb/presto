@@ -61,10 +61,7 @@ public class MongoConnectorFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new MongoClientModule(),
-                    binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(MongoConnectorId.class).toInstance(new MongoConnectorId(connectorId));
-                    });
+                    binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
 
             Injector injector = app.strictConfig().doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
