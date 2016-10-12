@@ -14,11 +14,12 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -43,7 +44,7 @@ public class MongoSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorSession session, ConnectorTableLayoutHandle layout)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         MongoTableLayoutHandle tableLayout = checkType(layout, MongoTableLayoutHandle.class, "layout");
         MongoTableHandle tableHandle = tableLayout.getTable();

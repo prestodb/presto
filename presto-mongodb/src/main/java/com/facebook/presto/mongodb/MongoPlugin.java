@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +39,7 @@ public class MongoPlugin
     }
 
     @Override
-    public Iterable<ConnectorFactory> getLegacyConnectorFactories()
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new MongoConnectorFactory("mongodb"));
     }

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.Connector;
-import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
@@ -50,7 +50,7 @@ public class TestMongoPlugin
     {
         MongoPlugin plugin = new MongoPlugin();
 
-        ConnectorFactory factory = getOnlyElement(plugin.getLegacyConnectorFactories());
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new TestingConnectorContext());
 
         Type type = getOnlyElement(plugin.getTypes());

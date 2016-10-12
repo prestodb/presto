@@ -33,7 +33,6 @@ public class MongoClientModule
     public void configure(Binder binder)
     {
         binder.bind(MongoConnector.class).in(Scopes.SINGLETON);
-        binder.bind(MongoMetadata.class).in(Scopes.SINGLETON);
         binder.bind(MongoSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
