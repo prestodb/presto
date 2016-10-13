@@ -29,7 +29,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -58,6 +58,13 @@ import static java.util.Objects.requireNonNull;
 public final class BlackHolePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private final ListeningScheduledExecutorService executorService;
+
+    public BlackHolePageSourceProvider(ListeningScheduledExecutorService executorService)
+    {
+        this.executorService = requireNonNull(executorService, "executorService is null");
+    }
+
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,
@@ -74,11 +81,8 @@ public final class BlackHolePageSourceProvider
         }
         List<Type> types = builder.build();
 
-        Iterable<Page> pages = Iterables.limit(
-                Iterables.cycle(generateZeroPage(types, blackHoleSplit.getRowsPerPage(), blackHoleSplit.getFieldsLength())),
-                blackHoleSplit.getPagesCount()
-        );
-        return new DelayPageSource(pages, blackHoleSplit.getPageProcessingDelay());
+        Page page = generateZeroPage(types, blackHoleSplit.getRowsPerPage(), blackHoleSplit.getFieldsLength());
+        return new BlackHolePageSource(page, blackHoleSplit.getPagesCount(), executorService, blackHoleSplit.getPageProcessingDelay());
     }
 
     private Page generateZeroPage(List<Type> types, int rowsCount, int fieldLength)
