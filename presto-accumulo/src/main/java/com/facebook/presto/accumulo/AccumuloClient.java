@@ -566,24 +566,41 @@ public class AccumuloClient
 
     public void renameColumn(AccumuloTable table, String source, String target)
     {
-        if (table.getRowId().equalsIgnoreCase(source)) {
-            table.setRowId(target);
+        if (!table.getColumns().stream().anyMatch(columnHandle -> columnHandle.getName().equalsIgnoreCase(source))) {
+            throw new PrestoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
         }
 
-        // Locate the column to rename
+        // Copy existing column list, replacing the old column name with the new
+        ImmutableList.Builder<AccumuloColumnHandle> newColumnList = ImmutableList.builder();
         for (AccumuloColumnHandle columnHandle : table.getColumns()) {
             if (columnHandle.getName().equalsIgnoreCase(source)) {
-                // Rename the column
-                columnHandle.setName(target);
-
-                // Recreate the table metadata with the new name and exit
-                metaManager.deleteTableMetadata(new SchemaTableName(table.getSchema(), table.getTable()));
-                metaManager.createTableMetadata(table);
-                return;
+                newColumnList.add(new AccumuloColumnHandle(
+                        target,
+                        columnHandle.getFamily(),
+                        columnHandle.getQualifier(),
+                        columnHandle.getType(),
+                        columnHandle.getOrdinal(),
+                        columnHandle.getComment(),
+                        columnHandle.isIndexed()));
+            }
+            else {
+                newColumnList.add(columnHandle);
             }
         }
 
-        throw new PrestoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
+        // Create new table metadata
+        AccumuloTable newTable = new AccumuloTable(
+                table.getSchema(),
+                table.getTable(),
+                newColumnList.build(),
+                table.getRowId().equalsIgnoreCase(source) ? target : table.getRowId(),
+                table.isExternal(),
+                table.getSerializerClassName(),
+                table.getScanAuthorizations());
+
+        // Replace the table metadata
+        metaManager.deleteTableMetadata(new SchemaTableName(table.getSchema(), table.getTable()));
+        metaManager.createTableMetadata(newTable);
     }
 
     public Set<String> getSchemaNames()
