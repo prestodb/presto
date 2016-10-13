@@ -480,8 +480,14 @@ public class AccumuloClient
             throw new TableNotFoundException(oldName);
         }
 
-        AccumuloTable newTable = oldTable.clone();
-        newTable.setTable(newName.getTableName());
+        AccumuloTable newTable = new AccumuloTable(
+                oldTable.getSchema(),
+                newName.getTableName(),
+                oldTable.getColumns(),
+                oldTable.getRowId(),
+                oldTable.isExternal(),
+                oldTable.getSerializerClassName(),
+                oldTable.getScanAuthorizations());
 
         // Validate table existence
         if (!tableManager.exists(oldTable.getFullTableName())) {
