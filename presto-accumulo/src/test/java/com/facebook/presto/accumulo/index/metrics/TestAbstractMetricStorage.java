@@ -59,7 +59,6 @@ public abstract class TestAbstractMetricStorage
     protected AccumuloConfig config = new AccumuloConfig();
     protected AccumuloTable table;
     protected AccumuloTable table2;
-    protected AccumuloTable externalTable;
 
     protected AccumuloColumnHandle c1 = new AccumuloColumnHandle("id", Optional.empty(), Optional.empty(), VARCHAR, 0, "", false);
     protected AccumuloColumnHandle c2 = new AccumuloColumnHandle("age", Optional.of("cf"), Optional.of("age"), BIGINT, 1, "", true);
@@ -118,7 +117,6 @@ public abstract class TestAbstractMetricStorage
         storage = getMetricsStorage(config);
         table = new AccumuloTable("default", "index_test_table", ImmutableList.of(c1, c2, c3, c4), "id", false, LexicoderRowSerializer.class.getCanonicalName(), null, Optional.of(storage.getClass().getCanonicalName()), false);
         table2 = new AccumuloTable("default", "index_test_table_two", ImmutableList.of(c1, c2, c3, c4), "id", false, LexicoderRowSerializer.class.getCanonicalName(), null, Optional.of(storage.getClass().getCanonicalName()), false);
-        externalTable = new AccumuloTable("default", "index_test_table", ImmutableList.of(c1, c2, c3, c4), "id", true, LexicoderRowSerializer.class.getCanonicalName(), null, Optional.of(storage.getClass().getCanonicalName()), false);
     }
 
     @Test

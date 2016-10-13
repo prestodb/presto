@@ -62,7 +62,7 @@ public class AccumuloPageSinkProvider
     {
         try {
             AccumuloTableHandle tableHandle = checkType(outputTableHandle, AccumuloTableHandle.class, "tableHandle");
-            return new AccumuloPageSink(connector, config, connector.securityOperations().getUserAuthorizations(username), client.getTable(tableHandle.toSchemaTableName()));
+            return new AccumuloPageSink(connector, client.getTable(tableHandle.toSchemaTableName()), connector.securityOperations().getUserAuthorizations(username));
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get user authorizations for writing data. Configured Accumulo user must have super-user privileges", e);

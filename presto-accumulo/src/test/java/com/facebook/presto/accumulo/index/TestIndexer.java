@@ -94,7 +94,7 @@ public class TestIndexer
 
         connector = AccumuloQueryRunner.getAccumuloConnector();
         connector.securityOperations().changeUserAuthorizations("root", new Authorizations("private", "moreprivate", "foo", "bar", "xyzzy"));
-        metricsStorage = MetricsStorage.getDefault(connector, CONFIG);
+        metricsStorage = MetricsStorage.getDefault(connector);
 
         AccumuloColumnHandle c1 = new AccumuloColumnHandle("id", Optional.empty(), Optional.empty(), VARCHAR, 0, "", false);
         AccumuloColumnHandle c2 = new AccumuloColumnHandle("age", Optional.of("cf"), Optional.of("age"), BIGINT, 1, "", true);
@@ -151,8 +151,8 @@ public class TestIndexer
 
         MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
         BatchWriter dataWriter = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
-        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector, CONFIG).newWriter(table);
-        Indexer indexer = new Indexer(connector, CONFIG, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
+        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector).newWriter(table);
+        Indexer indexer = new Indexer(connector, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
 
         dataWriter.addMutation(m1);
         indexer.index(m1);
@@ -219,8 +219,8 @@ public class TestIndexer
 
         MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
         BatchWriter dataWriter = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
-        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector, CONFIG).newWriter(table);
-        Indexer indexer = new Indexer(connector, CONFIG, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
+        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector).newWriter(table);
+        Indexer indexer = new Indexer(connector, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
 
         dataWriter.addMutation(m1);
         indexer.index(m1);
@@ -324,8 +324,8 @@ public class TestIndexer
         testMutationIndex();
 
         MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
-        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector, CONFIG).newWriter(table);
-        Indexer indexer = new Indexer(connector, CONFIG, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
+        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector).newWriter(table);
+        Indexer indexer = new Indexer(connector, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
         indexer.delete(connector.securityOperations().getUserAuthorizations("root"), M1_ROWID);
         metricsWriter.flush();
         multiTableBatchWriter.flush();
@@ -380,8 +380,8 @@ public class TestIndexer
         testMutationIndexWithVisibilities();
 
         MultiTableBatchWriter multiTableBatchWriter = connector.createMultiTableBatchWriter(new BatchWriterConfig());
-        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector, CONFIG).newWriter(table);
-        Indexer indexer = new Indexer(connector, CONFIG, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
+        MetricsWriter metricsWriter = table.getMetricsStorageInstance(connector).newWriter(table);
+        Indexer indexer = new Indexer(connector, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter);
 
         indexer.delete(connector.securityOperations().getUserAuthorizations("root"), M1_ROWID);
         metricsWriter.flush();

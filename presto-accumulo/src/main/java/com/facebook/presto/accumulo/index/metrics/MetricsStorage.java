@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo.index.metrics;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
 import com.facebook.presto.spi.PrestoException;
@@ -65,7 +64,6 @@ public abstract class MetricsStorage
     public static final ByteBuffer METRICS_TABLE_ROW_ID = wrap("___METRICS_TABLE___".getBytes(UTF_8));
     public static final ByteBuffer METRICS_TABLE_ROWS_COLUMN = wrap("___rows___".getBytes(UTF_8));
 
-    protected final AccumuloConfig config;
     protected final Connector connector;
 
     private static final LexicoderRowSerializer SERIALIZER = new LexicoderRowSerializer();
@@ -75,18 +73,16 @@ public abstract class MetricsStorage
      * Gets the default implementation of {@link MetricsStorage}, {@link AccumuloMetricsStorage}
      *
      * @param connector Accumulo Connector
-     * @param config Connector configuration
      * @return The default implementation
      */
-    public static MetricsStorage getDefault(Connector connector, AccumuloConfig config)
+    public static MetricsStorage getDefault(Connector connector)
     {
-        return new AccumuloMetricsStorage(connector, config);
+        return new AccumuloMetricsStorage(connector);
     }
 
-    public MetricsStorage(Connector connector, AccumuloConfig config)
+    public MetricsStorage(Connector connector)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.config = requireNonNull(config, "config is null");
     }
 
     /**

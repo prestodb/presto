@@ -28,6 +28,7 @@ import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.TableNotFoundException;
+import org.apache.accumulo.core.security.Authorizations;
 
 import java.util.Collection;
 import java.util.List;
@@ -57,18 +58,16 @@ public class AccumuloPageSink
     public AccumuloPageSink(
             Connector connector,
             AccumuloTable table,
-            Authorizations auths,
-            String username)
+            Authorizations auths)
     {
         requireNonNull(connector, "connector is null");
-        requireNonNull(config, "config is null");
         requireNonNull(auths, "auths is null");
         requireNonNull(table, "table is null");
 
         this.columns = table.getColumns();
 
         try {
-            this.batchWriter = new PrestoBatchWriter(connector, config, auths, table);
+            this.batchWriter = new PrestoBatchWriter(connector, auths, table);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
             throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Accumulo error when creating PrestoBatchWriter", e);

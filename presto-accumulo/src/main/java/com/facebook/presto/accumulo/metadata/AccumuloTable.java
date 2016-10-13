@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo.metadata;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.Indexer;
 import com.facebook.presto.accumulo.index.metrics.AccumuloMetricsStorage;
 import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
@@ -199,14 +198,14 @@ public class AccumuloTable
     }
 
     @JsonIgnore
-    public MetricsStorage getMetricsStorageInstance(Connector connector, AccumuloConfig config)
+    public MetricsStorage getMetricsStorageInstance(Connector connector)
     {
         try {
-            return (MetricsStorage) Class.forName(metricsStorageClass.orElse(AccumuloMetricsStorage.class.getCanonicalName())).getConstructor(Connector.class, AccumuloConfig.class).newInstance(connector, config);
+            return (MetricsStorage) Class.forName(metricsStorageClass.orElse(AccumuloMetricsStorage.class.getCanonicalName())).getConstructor(Connector.class).newInstance(connector);
         }
         catch (ClassNotFoundException | IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
             e.printStackTrace();
-            throw new PrestoException(VALIDATION, "Configured metrics storage class not found", e);
+            throw new PrestoException(NOT_FOUND, "Configured metrics storage class not found", e);
         }
     }
 

@@ -98,7 +98,7 @@ public class TestPrestoBatchWriter
 
         connector = AccumuloQueryRunner.getAccumuloConnector();
         connector.securityOperations().changeUserAuthorizations("root", new Authorizations("private", "moreprivate", "foo", "bar", "xyzzy"));
-        metricsStorage = MetricsStorage.getDefault(connector, CONFIG);
+        metricsStorage = MetricsStorage.getDefault(connector);
 
         AccumuloColumnHandle c1 = new AccumuloColumnHandle("id", Optional.empty(), Optional.empty(), VARCHAR, 0, "", false);
         AccumuloColumnHandle c2 = new AccumuloColumnHandle("age", Optional.of("cf"), Optional.of("age"), BIGINT, 1, "", true);
@@ -169,7 +169,7 @@ public class TestPrestoBatchWriter
         connector.tableOperations().create(table.getIndexTableName());
         metricsStorage.create(table);
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.addRow(r1);
         prestoBatchWriter.flush();
 
@@ -305,7 +305,7 @@ public class TestPrestoBatchWriter
         connector.tableOperations().create(table.getIndexTableName());
         metricsStorage.create(table);
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.addRows(ImmutableList.of(r1, r2, r3));
         prestoBatchWriter.flush();
 
@@ -368,7 +368,7 @@ public class TestPrestoBatchWriter
         connector.tableOperations().create(table.getIndexTableName());
         metricsStorage.create(table);
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.addMutation(m1);
         prestoBatchWriter.flush();
 
@@ -507,7 +507,7 @@ public class TestPrestoBatchWriter
         connector.tableOperations().create(table.getIndexTableName());
         metricsStorage.create(table);
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.addMutations(ImmutableList.of(m1, m2v, m3v));
         prestoBatchWriter.close();
 
@@ -568,7 +568,7 @@ public class TestPrestoBatchWriter
     {
         testAddMutations();
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.updateColumnByName("row2", "age", 28L);
         prestoBatchWriter.flush();
 
@@ -744,7 +744,7 @@ public class TestPrestoBatchWriter
     {
         testAddMutations();
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.updateColumnByName("row2", ImmutableMap.of(Pair.of("age", new ColumnVisibility("moreprivate")), 28L, Pair.of("firstname", new ColumnVisibility("moreprivate")), "dave", Pair.of("arr", new ColumnVisibility("moreprivate")), ImmutableList.of("jkl", "mno", "pqr")));
         prestoBatchWriter.close();
 
@@ -808,7 +808,7 @@ public class TestPrestoBatchWriter
         // Populate the table with data
         testAddMutation();
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.deleteRow("row1");
         prestoBatchWriter.flush();
 
@@ -917,7 +917,7 @@ public class TestPrestoBatchWriter
     {
         testAddMutations();
 
-        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, CONFIG, connector.securityOperations().getUserAuthorizations("root"), table);
+        PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.deleteRows(ImmutableList.of("row1", "row2", "row3"));
         prestoBatchWriter.close();
 

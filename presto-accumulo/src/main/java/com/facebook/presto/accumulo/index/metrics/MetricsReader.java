@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo.index.metrics;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.Indexer;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.accumulo.core.data.Range;

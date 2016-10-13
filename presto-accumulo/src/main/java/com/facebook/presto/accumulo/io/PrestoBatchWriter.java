@@ -14,7 +14,6 @@
 package com.facebook.presto.accumulo.io;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.Indexer;
 import com.facebook.presto.accumulo.index.metrics.MetricsWriter;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
@@ -59,11 +58,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.INTERNAL_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.USER_ERROR;
-import static com.facebook.presto.accumulo.AccumuloErrorCode.VALIDATION;
+import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.serializers.AccumuloRowSerializer.getBlockFromArray;
 import static com.facebook.presto.accumulo.serializers.AccumuloRowSerializer.getBlockFromMap;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -100,53 +99,49 @@ public class PrestoBatchWriter
      * Creates a new PrestoBatchWriter with the default BatchWriterConfig for the underlying MultiTableBatchWriter
      *
      * @param connector Accumulo Connector
-     * @param config Presto connector configuration
      * @param auths Authorizations, used for updating/delete rows.  Expected to have super-user-like access to the data
      * @param table Accumulo table to write Mutations
      */
-    public PrestoBatchWriter(Connector connector, AccumuloConfig config, Authorizations auths, AccumuloTable table)
+    public PrestoBatchWriter(Connector connector, Authorizations auths, AccumuloTable table)
             throws AccumuloException, AccumuloSecurityException, TableNotFoundException
     {
-        this(connector, config, auths, table, new BatchWriterConfig());
+        this(connector, auths, table, new BatchWriterConfig());
     }
 
     /**
      * Creates a new PrestoBatchWriter using the provided BatchWriterConfig
      *
      * @param connector Accumulo Connector
-     * @param config Presto connector configuration
      * @param auths Authorizations, used for updating/delete rows.  Expected to have super-user-like access to the data
      * @param table Accumulo table to write Mutations
      * @param batchWriterConfig Configuration for the underlying MultiTableBatchWriter
      */
-    public PrestoBatchWriter(Connector connector, AccumuloConfig config, Authorizations auths, AccumuloTable table, BatchWriterConfig batchWriterConfig)
+    public PrestoBatchWriter(Connector connector, Authorizations auths, AccumuloTable table, BatchWriterConfig batchWriterConfig)
             throws AccumuloException, AccumuloSecurityException, TableNotFoundException
     {
-        this(connector, config, auths, table, connector.createMultiTableBatchWriter(batchWriterConfig));
+        this(connector, auths, table, connector.createMultiTableBatchWriter(batchWriterConfig));
     }
 
     /**
      * Creates a new PrestoBatchWriter using the provided MultiTableBatchWriter
      *
      * @param connector Accumulo Connector
-     * @param config Presto connector configuration
      * @param auths Authorizations, used for updating/delete rows.  Expected to have super-user-like access to the data
      * @param table Accumulo table to write Mutations
      * @param multiTableBatchWriter MultiTableBatchWriter for writing mutations to
      */
-    public PrestoBatchWriter(Connector connector, AccumuloConfig config, Authorizations auths, AccumuloTable table, MultiTableBatchWriter multiTableBatchWriter)
+    public PrestoBatchWriter(Connector connector, Authorizations auths, AccumuloTable table, MultiTableBatchWriter multiTableBatchWriter)
             throws AccumuloException, AccumuloSecurityException, TableNotFoundException
     {
         this.connector = requireNonNull(connector, "connector is null");
-        requireNonNull(config, "config is null");
         this.auths = requireNonNull(auths, "auths is null");
         this.table = requireNonNull(table, "table is null");
         this.multiTableBatchWriter = requireNonNull(multiTableBatchWriter, "multiTableBatchWriter is null");
 
         dataWriter = multiTableBatchWriter.getBatchWriter(table.getFullTableName());
         if (table.isIndexed()) {
-            metricsWriter = Optional.of(table.getMetricsStorageInstance(connector, config).newWriter(table));
-            indexer = Optional.of(new Indexer(connector, config, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter.get()));
+            metricsWriter = Optional.of(table.getMetricsStorageInstance(connector).newWriter(table));
+            indexer = Optional.of(new Indexer(connector, table, multiTableBatchWriter.getBatchWriter(table.getIndexTableName()), metricsWriter.get()));
         }
         else {
             indexer = Optional.empty();
@@ -162,7 +157,7 @@ public class PrestoBatchWriter
                 .findAny();
 
         if (!ordinal.isPresent()) {
-            throw new PrestoException(INTERNAL_ERROR, "Row ID ordinal not found");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Row ID ordinal not found");
         }
 
         this.rowIdOrdinal = ordinal.get();
@@ -439,7 +434,7 @@ public class PrestoBatchWriter
             }
         }
         catch (IOException e) {
-            throw new PrestoException(INTERNAL_ERROR, "Error decoding row", e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Error decoding row", e);
         }
         finally {
             if (scanner != null) {
@@ -482,7 +477,7 @@ public class PrestoBatchWriter
         Text value = new Text();
         Field rowField = row.getField(rowIdOrdinal);
         if (rowField.isNull()) {
-            throw new PrestoException(VALIDATION, "Column mapped as the Accumulo row ID cannot be null");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Column mapped as the Accumulo row ID cannot be null");
         }
 
         setText(rowField.getType(), rowField.getObject(), value, serializer);
@@ -504,10 +499,6 @@ public class PrestoBatchWriter
 
             // And add the bytes to the Mutation
             mutation.put(columnHandle.getFamily().get(), columnHandle.getQualifier().get(), new Value(value.copyBytes()));
-        }
-
-        if (mutation.size() == 0) {
-            throw new PrestoException(INTERNAL_ERROR, "Mutation contains no updates");
         }
 
         return mutation;
@@ -559,7 +550,7 @@ public class PrestoBatchWriter
                 serializer.setVarchar(destination, (String) fieldValue);
             }
             else {
-                throw new UnsupportedOperationException("Unsupported type " + type);
+                throw new PrestoException(NOT_FOUND, "Unsupported type " + type);
             }
         }
 
@@ -577,7 +568,7 @@ public class PrestoBatchWriter
             return column.get();
         }
         else {
-            throw new PrestoException(USER_ERROR, "Given column does not exist for the table");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Given column does not exist for the table");
         }
     }
 
@@ -589,11 +580,11 @@ public class PrestoBatchWriter
                 return Pair.of(column.get().getFamily().get(), column.get().getQualifier().get());
             }
             else {
-                throw new PrestoException(USER_ERROR, "Column definition has no mapping for family and/or qualifier, is this column mapped to the row ID?");
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Column definition has no mapping for family and/or qualifier, is this column mapped to the row ID?");
             }
         }
         else {
-            throw new PrestoException(USER_ERROR, "Given column name does not exist for the table");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Given column name does not exist for the table");
         }
     }
 }

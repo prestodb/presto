@@ -12,8 +12,6 @@ Overview
 The Accumulo connector supports reading and writing data from Apache Accumulo.
 Please read this page thoroughly to understand the capabilities and features of the connector.
 
-<<<<<<< b369d8c1c3a4a51e2271764b649287e0b889052a
-=======
 Table of Contents
 ~~~~~~~~~~~~~~~~~
 #. `Dependencies <#dependencies>`__
@@ -41,7 +39,6 @@ Dependencies
 -  Accumulo
 -  *presto-accumulo-iterators*, from `https://github.com/bloomberg/presto-accumulo <https://github.com/bloomberg/presto-accumulo>`_
 
->>>>>>> Refactor metrics storage and add timestamp truncates
 Installing the Iterator Dependency
 ----------------------------------
 
@@ -502,7 +499,7 @@ Property Name            Default Value    Description
 ``scan_auths``           (user auths)     Scan-time authorizations set on the batch scanner.
 ``metrics_storage``      ``default``      Metrics storage to use for this table.  Can either be 'default', 'accumulo', or a Java class name
 ``truncate_timestamps``  ``false``        True to enable truncating of timestamp-type column metrics                                                                                                                                                                       |
-
+======================== ================ ======================================================================================================
 
 Session Properties
 ------------------
@@ -531,6 +528,7 @@ Property Name                                 Default Value Description
 ``scan_username``                             (config)      User to impersonate when scanning the tables. This property trumps the ``scan_auths`` table property
 ``index_short_circuit_cardinality_fetch``     ``true``      Short circuit the retrieval of index metrics once any column is less than the lowest cardinality threshold
 ``index_cardinality_cache_polling_duration``  ``10ms``      Sets the cardinality cache polling duration for short circuit retrieval of index metrics
+============================================= ============= =======================================================================================================
 
 Adding Columns
 --------------

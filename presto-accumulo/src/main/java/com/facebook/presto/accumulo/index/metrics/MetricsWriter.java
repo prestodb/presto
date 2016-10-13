@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo.index.metrics;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.metrics.MetricsStorage.TimestampPrecision;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
@@ -44,7 +43,6 @@ public abstract class MetricsWriter
 {
     protected final Map<CardinalityKey, AtomicLong> metrics = new HashMap<>();
     protected final Map<TimestampTruncateKey, AtomicLong> timestampMetrics = new HashMap<>();
-    protected final AccumuloConfig config;
     protected final AccumuloTable table;
     protected final LexicoderRowSerializer serializer = new LexicoderRowSerializer();
 
@@ -53,12 +51,10 @@ public abstract class MetricsWriter
     /**
      * Creates a new instance of {@link MetricsWriter}
      *
-     * @param config Connector configuration
      * @param table Accumulo table metadata for the writer
      */
-    public MetricsWriter(AccumuloConfig config, AccumuloTable table)
+    public MetricsWriter(AccumuloTable table)
     {
-        this.config = requireNonNull(config, "config is null");
         this.table = requireNonNull(table, "table is null");
     }
 

@@ -19,7 +19,6 @@ import com.facebook.presto.accumulo.conf.AccumuloTableProperties;
 import com.facebook.presto.accumulo.index.IndexLookup;
 import com.facebook.presto.accumulo.index.Indexer;
 import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
-import com.facebook.presto.accumulo.io.AccumuloPageSink;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.metadata.AccumuloView;
 import com.facebook.presto.accumulo.metadata.ZooKeeperMetadataManager;
@@ -112,7 +111,7 @@ public class AccumuloClient
         this.auths = connector.securityOperations().getUserAuthorizations(username);
 
         // Create the index lookup utility
-        this.indexLookup = new IndexLookup(this.config, connector);
+        this.indexLookup = new IndexLookup(connector, config.getCardinalityCacheSize(), config.getCardinalityCacheExpiration());
     }
 
     public AccumuloTable createTable(ConnectorTableMetadata meta)
@@ -265,7 +264,7 @@ public class AccumuloClient
         }
 
         if (table.isIndexed()) {
-            if (tableManager.exists(table.getIndexTableName()) || table.getMetricsStorageInstance(connector, config).exists(table.getSchemaTableName())) {
+            if (tableManager.exists(table.getIndexTableName()) || table.getMetricsStorageInstance(connector).exists(table.getSchemaTableName())) {
                 throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
             }
         }
@@ -387,7 +386,7 @@ public class AccumuloClient
         tableManager.setLocalityGroups(table.getIndexTableName(), Indexer.getLocalityGroups(table));
 
         // Create the index metrics storage
-        table.getMetricsStorageInstance(connector, config).create(table);
+        table.getMetricsStorageInstance(connector).create(table);
     }
 
     /**
@@ -449,7 +448,7 @@ public class AccumuloClient
                     tableManager.deleteAccumuloTable(indexTableName);
                 }
 
-                table.getMetricsStorageInstance(connector, config).drop(table);
+                table.getMetricsStorageInstance(connector).drop(table);
             }
         }
     }
@@ -517,7 +516,7 @@ public class AccumuloClient
         }
 
         // Metric storage instance wouldn't have changed
-        MetricsStorage metricsStorage = oldTable.getMetricsStorageInstance(connector, config);
+        MetricsStorage metricsStorage = oldTable.getMetricsStorageInstance(connector);
 
         if (!metricsStorage.exists(oldTable.getSchemaTableName())) {
             throw new PrestoException(ACCUMULO_TABLE_DNE, format("Metrics storage exists for %s", oldTable.getFullTableName()));

@@ -14,7 +14,6 @@
 package com.facebook.presto.accumulo.index;
 
 import com.facebook.presto.accumulo.AccumuloClient;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.index.metrics.MetricsReader;
 import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
@@ -75,10 +74,10 @@ public class IndexLookup
     private final ColumnCardinalityCache cardinalityCache;
     private final ExecutorService executor;
 
-    public IndexLookup(AccumuloConfig config, Connector connector)
+    public IndexLookup(Connector connector, int cacheSize, Duration cacheExpireDuration)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.cardinalityCache = new ColumnCardinalityCache(requireNonNull(config, "config is null"));
+        this.cardinalityCache = new ColumnCardinalityCache(cacheSize, requireNonNull(cacheExpireDuration, "cacheExpireDuration is null"));
         AtomicLong threadCount = new AtomicLong(0);
         this.executor = MoreExecutors.getExitingExecutorService(
                 new ThreadPoolExecutor(1, 4 * Runtime.getRuntime().availableProcessors(), 60L,

@@ -14,7 +14,6 @@
 package com.facebook.presto.accumulo.index;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.metrics.MetricsWriter;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
@@ -117,14 +116,12 @@ public class Indexer
 
     public Indexer(
             Connector connector,
-            AccumuloConfig config,
             AccumuloTable table,
             BatchWriter indexWriter,
             MetricsWriter metricsWriter)
             throws TableNotFoundException
     {
         this.connector = requireNonNull(connector, "connector is null");
-        requireNonNull(config, "config is null");
         this.table = requireNonNull(table, "connector is null");
         this.indexWriter = requireNonNull(indexWriter, "indexWriter is null");
         this.metricsWriter = requireNonNull(metricsWriter, "metricsWriter is null");
