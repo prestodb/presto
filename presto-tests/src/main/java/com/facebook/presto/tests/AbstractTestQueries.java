@@ -2782,6 +2782,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInUncorrelatedSubquery()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT CASE WHEN false THEN 1 IN (VALUES 2) END",
+                "SELECT NULL");
+    }
+
+    @Test
     public void testLeftFilteredJoin()
             throws Exception
     {
