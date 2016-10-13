@@ -857,7 +857,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testExtractDistinctAggregationOptimizer()
-            throws Exception
     {
         assertQuery("SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
 
@@ -886,7 +885,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testAggregationFilter()
-            throws Exception
     {
         assertQuery("SELECT sum(x) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 4");
         assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(y) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 8, 5");
@@ -1509,7 +1507,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGroupingSetsAliasedGroupingColumns()
-            throws Exception
     {
         assertQuery("SELECT lna, lnb, SUM(quantity) " +
                         "FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) " +
@@ -2369,7 +2366,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinUsingSymbolsFromJustOneSideOfJoin()
-            throws Exception
     {
         assertQuery(
                 "SELECT b FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
@@ -2393,7 +2389,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinsWithTrueJoinCondition()
-            throws Exception
     {
         // inner join
         assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) JOIN (VALUES 10, 11) t2(b) ON TRUE",
@@ -2721,7 +2716,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithScalarSubqueryInOnClause()
-            throws Exception
     {
         assertQuery(
                 "SELECT count() FROM nation a" +
@@ -2752,7 +2746,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testInUncorrelatedSubquery()
-            throws Exception
     {
         assertQuery(
                 "SELECT CASE WHEN false THEN 1 IN (VALUES 2) END",
@@ -2767,7 +2760,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithExpressionsThatMayReturnNull()
-            throws Exception
     {
         assertQuery("" +
                         "SELECT *\n" +
@@ -3232,7 +3224,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithStatefulFilterFunction()
-            throws Exception
     {
         assertQuery("SELECT *\n" +
                         "FROM (VALUES 1, 2) a(id)\n" +
@@ -7815,7 +7806,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testQuantifiedComparison()
-            throws Exception
     {
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ANY (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
@@ -7984,7 +7974,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testSubqueriesWithDisjunction()
-            throws Exception
     {
         List<QueryTemplate.Parameter> projections = new QueryTemplate.Parameter("projection").of("count(*)", "*", "%condition%");
         List<QueryTemplate.Parameter> conditions = new QueryTemplate.Parameter("condition").of(
