@@ -34,15 +34,16 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMetadata;
-import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.transaction.LegacyTransactionConnector;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.TypeRegistry;
@@ -1197,15 +1198,20 @@ public class TestAnalyzer
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId)));
     }
 
-    @SuppressWarnings("deprecation")
     private static Connector createTestingConnector()
     {
-        return new LegacyTransactionConnector(new com.facebook.presto.spi.Connector()
+        return new Connector()
         {
             private final ConnectorMetadata metadata = new TestingMetadata();
 
             @Override
-            public ConnectorMetadata getMetadata()
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            {
+                return new ConnectorTransactionHandle() {};
+            }
+
+            @Override
+            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
                 return metadata;
             }
@@ -1215,6 +1221,6 @@ public class TestAnalyzer
             {
                 throw new UnsupportedOperationException();
             }
-        });
+        };
     }
 }
