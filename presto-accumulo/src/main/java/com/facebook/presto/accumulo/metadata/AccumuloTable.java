@@ -22,7 +22,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.InvocationTargetException;
@@ -46,10 +45,9 @@ public class AccumuloTable
     private final List<ColumnMetadata> columnsMetadata;
     private final boolean indexed;
     private final List<AccumuloColumnHandle> columns;
-
-    private String rowId;
-    private String table;
-    private SchemaTableName schemaTableName;
+    private final String rowId;
+    private final String table;
+    private final SchemaTableName schemaTableName;
 
     @JsonCreator
     public AccumuloTable(
@@ -100,12 +98,6 @@ public class AccumuloTable
         return rowId;
     }
 
-    @JsonSetter
-    public void setRowId(String rowId)
-    {
-        this.rowId = rowId;
-    }
-
     @JsonProperty
     public String getSchema()
     {
@@ -116,12 +108,6 @@ public class AccumuloTable
     public String getTable()
     {
         return table;
-    }
-
-    public void setTable(String table)
-    {
-        this.table = table;
-        this.schemaTableName = new SchemaTableName(getSchema(), getTable());
     }
 
     @JsonIgnore
@@ -205,13 +191,6 @@ public class AccumuloTable
     public static String getFullTableName(SchemaTableName tableName)
     {
         return getFullTableName(tableName.getSchemaName(), tableName.getTableName());
-    }
-
-    @Override
-    @JsonIgnore
-    public AccumuloTable clone()
-    {
-        return new AccumuloTable(getSchema(), getTable(), getColumns(), getRowId(), isExternal(), getSerializerClassName(), getScanAuthorizations());
     }
 
     @JsonIgnore
