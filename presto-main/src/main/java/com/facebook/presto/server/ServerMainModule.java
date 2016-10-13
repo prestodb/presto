@@ -74,8 +74,6 @@ import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.ForExchange;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -303,12 +301,10 @@ public class ServerMainModule
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, ConnectorPageSourceProvider.class);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);
         binder.bind(PageSinkProvider.class).to(PageSinkManager.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, ConnectorPageSinkProvider.class);
 
         // metadata
         binder.bind(StaticCatalogStore.class).in(Scopes.SINGLETON);

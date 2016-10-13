@@ -139,7 +139,6 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
-import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -415,14 +414,6 @@ public class LocalQueryRunner
     {
         nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
         connectorManager.addConnectorFactory(connectorFactory);
-        connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
-    }
-
-    @Deprecated
-    public void createCatalog(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
-    {
-        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
-        connectorManager.addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }
 

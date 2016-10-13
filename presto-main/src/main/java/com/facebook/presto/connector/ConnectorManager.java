@@ -46,7 +46,6 @@ import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
-import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -295,18 +294,13 @@ public class ConnectorManager
 
     private Connector createConnector(ConnectorId connectorId, ConnectorFactory factory, Map<String, String> properties)
     {
-        Class<?> factoryClass = factory.getClass();
-        if (factory instanceof LegacyTransactionConnectorFactory) {
-            factoryClass = ((LegacyTransactionConnectorFactory) factory).getConnectorFactory().getClass();
-        }
-
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
                 pageSorter,
                 pageIndexerFactory);
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factoryClass.getClassLoader())) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
         }
     }
