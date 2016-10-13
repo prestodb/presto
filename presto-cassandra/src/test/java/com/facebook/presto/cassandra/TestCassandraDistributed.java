@@ -36,6 +36,12 @@ public class TestCassandraDistributed
     }
 
     @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
     public void testGroupingSetMixedExpressionAndColumn()
             throws Exception
     {
@@ -71,41 +77,6 @@ public class TestCassandraDistributed
     }
 
     @Override
-    public void testView()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView2()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testViewMetadata()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Test
-    public void testViewCaseSensitivity()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
     public void testInsert()
             throws Exception
     {
@@ -133,6 +104,7 @@ public class TestCassandraDistributed
         // Cassandra connector currently does not support delete
     }
 
+    @Override
     public void testShowColumns()
             throws Exception
     {

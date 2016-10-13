@@ -86,12 +86,6 @@ public class TestMySqlIntegrationSmokeTest
         assertEquals(actualColumns, expectedColumns);
     }
 
-    @Override
-    public void testViewAccessControl()
-    {
-        // jdbc connector does not support views
-    }
-
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {

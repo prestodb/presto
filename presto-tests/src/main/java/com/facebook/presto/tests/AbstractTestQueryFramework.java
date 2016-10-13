@@ -29,6 +29,7 @@ import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
 import java.util.List;
@@ -289,5 +290,12 @@ public abstract class AbstractTestQueryFramework
                 queryRunner.getAccessControl(),
                 sqlParser,
                 ImmutableMap.of());
+    }
+
+    protected static void skipTestUnless(boolean requirement)
+    {
+        if (!requirement) {
+            throw new SkipException("requirement not met");
+        }
     }
 }

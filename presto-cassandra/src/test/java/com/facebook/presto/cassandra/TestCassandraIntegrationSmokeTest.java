@@ -43,10 +43,4 @@ public class TestCassandraIntegrationSmokeTest
         queryRunner.execute(createCassandraSession(keyspace), "select * from presto_test where key='key 2'");
         queryRunner.execute(createCassandraSession(keyspace), "select * from presto_test where key='key 3'");
     }
-
-    @Override
-    public void testViewAccessControl()
-    {
-        // cassandra does not support views
-    }
 }

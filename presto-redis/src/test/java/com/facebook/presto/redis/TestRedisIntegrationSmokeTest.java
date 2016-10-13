@@ -52,12 +52,6 @@ public class TestRedisIntegrationSmokeTest
         // because it generates a single split
     }
 
-    @Override
-    public void testViewAccessControl()
-    {
-        // redis does not support views
-    }
-
     @AfterClass(alwaysRun = true)
     public void destroy()
             throws IOException

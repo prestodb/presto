@@ -160,12 +160,6 @@ public class TestMongoIntegrationSmokeTest
         assertNotNull(results.getMaterializedRows().get(0).getField(0));
     }
 
-    @Override
-    public void testViewAccessControl()
-    {
-        // does not support views
-    }
-
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
