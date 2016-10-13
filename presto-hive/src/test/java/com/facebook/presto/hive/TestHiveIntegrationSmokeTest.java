@@ -550,6 +550,7 @@ public class TestHiveIntegrationSmokeTest
     public void testCreatePartitionedBucketedTableAsFewRows()
             throws Exception
     {
+        // go through all storage formats to make sure the empty buckets are correctly created
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             testCreatePartitionedBucketedTableAsFewRows(storageFormat.getSession(), storageFormat.getFormat());
         }
@@ -614,11 +615,11 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey' ], " +
+                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
                 "bucket_count = 11 " +
                 ") " +
                 "AS " +
-                "SELECT custkey, comment, orderstatus " +
+                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                 "FROM tpch.tiny.orders";
 
         assertUpdate(
@@ -650,15 +651,15 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey' ], " +
+                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
                 "bucket_count = 11 " +
                 ") " +
                 "AS " +
-                "SELECT custkey, comment, orderstatus " +
+                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                 "FROM tpch.tiny.orders " +
                 "WHERE length(comment) % 2 = 0 " +
                 "UNION ALL " +
-                "SELECT custkey, comment, orderstatus " +
+                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                 "FROM tpch.tiny.orders " +
                 "WHERE length(comment) % 2 = 1";
 
@@ -687,22 +688,22 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
         }
 
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey", "custkey2"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
 
         List<?> partitions = getPartitions(tableName);
         assertEquals(partitions.size(), 3);
 
-        assertQuery("SELECT * from " + tableName, "SELECT custkey, comment, orderstatus FROM orders");
+        assertQuery("SELECT * from " + tableName, "SELECT custkey, custkey, comment, orderstatus FROM orders");
 
         for (int i = 1; i <= 30; i++) {
             assertQuery(
-                    format("SELECT * from " + tableName + " where custkey = %d", i),
-                    format("SELECT custkey, comment, orderstatus FROM orders where custkey = %d", i));
+                    format("SELECT * from " + tableName + " where custkey = %d and custkey2 = %d", i, i),
+                    format("SELECT custkey, custkey, comment, orderstatus FROM orders where custkey = %d", i));
         }
 
         try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'comment', 'O')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1, 'comment', 'O')", 1);
             fail("expected failure");
         }
         catch (Exception e) {
@@ -714,6 +715,7 @@ public class TestHiveIntegrationSmokeTest
     public void testInsertPartitionedBucketedTableFewRows()
             throws Exception
     {
+        // go through all storage formats to make sure the empty buckets are correctly created
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
             testInsertPartitionedBucketedTableFewRows(storageFormat.getSession(), storageFormat.getFormat());
         }
@@ -801,12 +803,13 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
                 "  custkey bigint," +
+                "  custkey2 bigint," +
                 "  comment varchar," +
                 "  orderstatus varchar)" +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey' ], " +
+                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
                 "bucket_count = 11)");
 
         ImmutableList<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -817,7 +820,7 @@ public class TestHiveIntegrationSmokeTest
                     getSession().withSystemProperty("task_writer_count", "4"),
                     format(
                             "INSERT INTO " + tableName + " " +
-                                    "SELECT custkey, comment, orderstatus " +
+                                    "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s'",
                             orderStatus),
@@ -845,12 +848,13 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
                 "  custkey bigint," +
+                "  custkey2 bigint," +
                 "  comment varchar," +
                 "  orderstatus varchar)" +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
                 "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey' ], " +
+                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
                 "bucket_count = 11)");
 
         ImmutableList<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -861,11 +865,11 @@ public class TestHiveIntegrationSmokeTest
                     getSession().withSystemProperty("task_writer_count", "4"),
                     format(
                             "INSERT INTO " + tableName + " " +
-                                    "SELECT custkey, comment, orderstatus " +
+                                    "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s' and length(comment) %% 2 = 0 " +
                                     "UNION ALL " +
-                                    "SELECT custkey, comment, orderstatus " +
+                                    "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s' and length(comment) %% 2 = 1",
                             orderStatus, orderStatus),
