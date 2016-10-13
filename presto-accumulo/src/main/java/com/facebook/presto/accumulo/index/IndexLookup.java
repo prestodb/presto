@@ -24,8 +24,8 @@ import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.log.Logger;
@@ -168,19 +168,10 @@ public class IndexLookup
     private static Multimap<AccumuloColumnConstraint, Range> getIndexedConstraintRanges(Collection<AccumuloColumnConstraint> constraints, AccumuloRowSerializer serializer)
             throws AccumuloSecurityException, AccumuloException
     {
-        ImmutableListMultimap.Builder<AccumuloColumnConstraint, Range> builder = ImmutableListMultimap.builder();
-        for (AccumuloColumnConstraint columnConstraint : constraints) {
-            if (columnConstraint.isIndexed()) {
-                for (Range range : AccumuloClient.getRangesFromDomain(columnConstraint.getDomain(), serializer)) {
-                    builder.put(columnConstraint, range);
-                }
-            }
-            else {
-                LOG.warn(
-                        "Query containts constraint on non-indexed column %s. Is it worth indexing?",
-                        columnConstraint.getName());
-            }
-        }
+        ImmutableSetMultimap.Builder<AccumuloColumnConstraint, Range> builder = ImmutableSetMultimap.builder();
+        constraints.stream()
+                .filter(AccumuloColumnConstraint::isIndexed)
+                .forEach(constraint -> builder.putAll(constraint, AccumuloClient.getRangesFromDomain(constraint.getDomain(), serializer)));
         return builder.build();
     }
 
