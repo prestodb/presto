@@ -435,14 +435,13 @@ public class TestArrayOperators
     public void testElementAt()
             throws Exception
     {
-        String outOfBounds = "Array subscript out of bounds";
-        assertInvalidFunction("ELEMENT_AT(ARRAY [], -1)", outOfBounds);
         assertInvalidFunction("ELEMENT_AT(ARRAY [], 0)", "SQL array indices start at 1");
-        assertInvalidFunction("ELEMENT_AT(ARRAY [], 1)", outOfBounds);
         assertInvalidFunction("ELEMENT_AT(ARRAY [1, 2, 3], 0)", "SQL array indices start at 1");
-        assertInvalidFunction("ELEMENT_AT(ARRAY [1, 2, 3], 4)", outOfBounds);
-        assertInvalidFunction("ELEMENT_AT(ARRAY [1, 2, 3], -4)", outOfBounds);
 
+        assertFunction("ELEMENT_AT(ARRAY [], 1)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY [], -1)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], 4)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], -4)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL], 1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL], -1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL, NULL, NULL], 3)", UNKNOWN, null);
