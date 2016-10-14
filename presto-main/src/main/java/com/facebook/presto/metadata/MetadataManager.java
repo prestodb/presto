@@ -42,6 +42,7 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -808,6 +809,26 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+    }
+
+    @Override
+    public List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+        SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+
+        ImmutableSet.Builder<GrantInfo> grantInfos = ImmutableSet.builder();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
+            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+                grantInfos.addAll(metadata.listTablePrivileges(connectorSession, tablePrefix));
+            }
+        }
+        return ImmutableList.copyOf(grantInfos.build());
     }
 
     @Override

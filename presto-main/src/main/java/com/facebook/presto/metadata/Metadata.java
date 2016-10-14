@@ -25,6 +25,7 @@ import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -272,6 +273,11 @@ public interface Metadata
      * Revokes the specified privilege on the specified table from the specified user
      */
     void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
+
+    /**
+     * Gets the privileges for the specified table available to the given grantee
+     */
+    List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
     FunctionRegistry getFunctionRegistry();
 
