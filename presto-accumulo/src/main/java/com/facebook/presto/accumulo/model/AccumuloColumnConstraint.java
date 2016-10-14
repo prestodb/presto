@@ -16,7 +16,6 @@ package com.facebook.presto.accumulo.model;
 import com.facebook.presto.spi.predicate.Domain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -30,7 +29,7 @@ public class AccumuloColumnConstraint
     private final String family;
     private final String qualifier;
     private final boolean indexed;
-    private Optional<Domain> domain;
+    private final Optional<Domain> domain;
 
     @JsonCreator
     public AccumuloColumnConstraint(
@@ -75,12 +74,6 @@ public class AccumuloColumnConstraint
     public Optional<Domain> getDomain()
     {
         return domain;
-    }
-
-    @JsonSetter
-    public void setDomain(Optional<Domain> domain)
-    {
-        this.domain = domain;
     }
 
     @Override
