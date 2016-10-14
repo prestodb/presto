@@ -250,6 +250,12 @@ public class TestQueues
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         do {
+            // Heartbeat all the running queries, so they don't die while we're waiting
+            for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
+                if (queryInfo.getState() == RUNNING) {
+                    queryManager.recordHeartbeat(queryInfo.getQueryId());
+                }
+            }
             MILLISECONDS.sleep(500);
         }
         while (!expectedQueryStates.contains(queryManager.getQueryInfo(queryId).getState()));
