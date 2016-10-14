@@ -48,7 +48,9 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.PrivilegeInfo;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
@@ -133,6 +135,7 @@ import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -1243,6 +1246,27 @@ public class HiveMetadata
                 .collect(toSet());
 
         metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+    }
+
+    @Override
+    public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
+    {
+        ImmutableList.Builder<GrantInfo> grantInfos = ImmutableList.builder();
+        for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
+            Set<PrivilegeInfo> privileges = metastore.getTablePrivileges(session.getUser(), tableName.getSchemaName(), tableName.getTableName()).stream()
+                    .map(HivePrivilegeInfo::toPrivilegeInfo)
+                    .flatMap(Set::stream)
+                    .collect(toImmutableSet());
+
+            grantInfos.add(
+                    new GrantInfo(
+                            privileges,
+                            session.getIdentity(),
+                            tableName,
+                            Optional.empty(), // Can't access grantor
+                            Optional.empty())); // Can't access withHierarchy
+        }
+        return grantInfos.build();
     }
 
     @Override
