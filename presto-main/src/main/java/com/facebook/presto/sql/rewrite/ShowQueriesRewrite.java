@@ -61,6 +61,7 @@ import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
@@ -86,6 +87,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
@@ -195,6 +197,43 @@ final class ShowQueriesRewrite
                     from(schema.getCatalogName(), TABLE_TABLES),
                     predicate,
                     ordering(ascending("table_name")));
+        }
+
+        @Override
+        protected Node visitShowGrants(ShowGrants showGrants, Void context)
+        {
+            String catalogName = session.getCatalog().orElse(null);
+            Optional<Expression> predicate = Optional.empty();
+
+            Optional<QualifiedName> tableName = showGrants.getTableName();
+            if (tableName.isPresent()) {
+                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+
+                if (!metadata.getView(session, qualifiedTableName).isPresent() &&
+                        !metadata.getTableHandle(session, qualifiedTableName).isPresent()) {
+                    throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
+                }
+
+                catalogName = qualifiedTableName.getCatalogName();
+
+                predicate = Optional.of(equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName())));
+            }
+
+            if (catalogName == null) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, showGrants, "Catalog must be specified when session catalog is not set");
+            }
+
+            return simpleQuery(
+                    selectList(
+                            aliasedName("grantee", "Grantee"),
+                            aliasedName("table_catalog", "Catalog"),
+                            aliasedName("table_schema", "Schema"),
+                            aliasedName("table_name", "Table"),
+                            aliasedName("privilege_type", "Privilege"),
+                            aliasedName("is_grantable", "Grantable")),
+                    from(catalogName, TABLE_TABLE_PRIVILEGES),
+                    predicate,
+                    Optional.of(ordering(ascending("grantee"), ascending("table_name"))));
         }
 
         @Override
