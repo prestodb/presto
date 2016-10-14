@@ -2791,6 +2791,47 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithExpressionsThatMayReturnNull()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, nullif(a, 1)\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                "SELECT 1, NULL, 1");
+
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, contains(array[2, null], a)\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x\n",
+                "SELECT 1, NULL, 1");
+
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, array[null][a]\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                "SELECT 1, NULL, 1");
+
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, try(a / 0)\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                "SELECT 1, NULL, 1");
+    }
+
+    @Test
     public void testLeftFilteredJoin()
             throws Exception
     {
