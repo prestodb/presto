@@ -228,6 +228,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyShowGrants(String user)
+    {
+        denyShowGrants(user, null);
+    }
+
+    public static void denyShowGrants(String user, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show grants for user %s%s", user, formatExtraInfo(extraInfo)));
+    }
+
     public static void denySetSystemSessionProperty(String propertyName)
     {
         denySetSystemSessionProperty(propertyName, null);
