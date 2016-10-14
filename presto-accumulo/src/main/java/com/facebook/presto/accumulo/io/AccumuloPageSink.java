@@ -14,7 +14,6 @@
 package com.facebook.presto.accumulo.io;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.Indexer;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
@@ -84,10 +83,9 @@ public class AccumuloPageSink
 
     public AccumuloPageSink(
             Connector connector,
-            AccumuloConfig config,
-            AccumuloTable table)
+            AccumuloTable table,
+            String username)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(table, "table is null");
 
         this.columns = table.getColumns();
@@ -115,7 +113,7 @@ public class AccumuloPageSink
                 indexer = Optional.of(
                         new Indexer(
                                 connector,
-                                connector.securityOperations().getUserAuthorizations(config.getUsername()),
+                                connector.securityOperations().getUserAuthorizations(username),
                                 table,
                                 conf));
             }
