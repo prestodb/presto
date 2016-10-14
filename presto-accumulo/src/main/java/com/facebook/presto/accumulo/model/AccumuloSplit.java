@@ -20,7 +20,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.collect.ImmutableList;
 import org.apache.accumulo.core.data.Range;
 
@@ -44,7 +43,7 @@ public class AccumuloSplit
     private final Optional<String> hostPort;
     private final List<HostAddress> addresses;
     private final List<AccumuloColumnConstraint> constraints;
-    private List<WrappedRange> ranges;
+    private final List<WrappedRange> ranges;
 
     @JsonCreator
     public AccumuloSplit(
@@ -66,7 +65,7 @@ public class AccumuloSplit
         this.constraints = ImmutableList.copyOf(requireNonNull(constraints, "constraints is null"));
         this.scanAuthorizations = requireNonNull(scanAuthorizations, "scanAuthorizations is null");
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
-        this.ranges = ranges;
+        this.ranges = ImmutableList.copyOf(requireNonNull(ranges, "ranges is null"));
 
         // Parse the host address into a list of addresses, this would be an Accumulo Tablet server or some localhost thing
         if (hostPort.isPresent()) {
@@ -119,13 +118,7 @@ public class AccumuloSplit
         return this.serializerClassName;
     }
 
-    @JsonSetter
-    public void setWrappedRanges(List<WrappedRange> ranges)
-    {
-        this.ranges = ImmutableList.copyOf(ranges);
-    }
-
-    @JsonProperty
+    @JsonProperty("ranges")
     public List<WrappedRange> getWrappedRanges()
     {
         return ranges;
