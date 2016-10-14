@@ -435,7 +435,6 @@ nonReserved
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
-    | TRY
     | normalForm
     | POSITION
     | NO | DATA
@@ -564,7 +563,6 @@ TEXT: 'TEXT';
 GRAPHVIZ: 'GRAPHVIZ';
 LOGICAL: 'LOGICAL';
 DISTRIBUTED: 'DISTRIBUTED';
-TRY: 'TRY';
 CAST: 'CAST';
 TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';
