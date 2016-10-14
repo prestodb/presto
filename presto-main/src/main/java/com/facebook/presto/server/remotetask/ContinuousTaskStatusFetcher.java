@@ -47,6 +47,7 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class ContinuousTaskStatusFetcher
@@ -231,7 +232,7 @@ class ContinuousTaskStatusFetcher
         });
 
         if (taskMismatch.get()) {
-            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, REMOTE_TASK_MISMATCH_ERROR));
+            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, getTaskStatus().getSelf())));
         }
     }
 
