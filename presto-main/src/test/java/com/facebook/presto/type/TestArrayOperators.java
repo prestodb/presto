@@ -440,8 +440,8 @@ public class TestArrayOperators
 
         assertFunction("ELEMENT_AT(ARRAY [], 1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [], -1)", UNKNOWN, null);
-        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], 4)", UNKNOWN, null);
-        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], -4)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], 4)", INTEGER, null);
+        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], -4)", INTEGER, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL], 1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL], -1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL, NULL, NULL], 3)", UNKNOWN, null);
