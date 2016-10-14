@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.accumulo.io;
 
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
@@ -64,13 +63,13 @@ public class AccumuloRecordSet
     public AccumuloRecordSet(
             Connector connector,
             ConnectorSession session,
-            AccumuloConfig config,
             AccumuloSplit split,
+            String username,
             List<AccumuloColumnHandle> columnHandles)
     {
         requireNonNull(session, "session is null");
-        requireNonNull(config, "config is null");
         requireNonNull(split, "split is null");
+        requireNonNull(username, "username is null");
         constraints = requireNonNull(split.getConstraints(), "constraints is null");
 
         rowIdName = split.getRowId();
@@ -93,7 +92,7 @@ public class AccumuloRecordSet
 
         try {
             // Create the BatchScanner and set the ranges from the split
-            scanner = connector.createBatchScanner(split.getFullTableName(), getScanAuthorizations(session, split, config, connector), 10);
+            scanner = connector.createBatchScanner(split.getFullTableName(), getScanAuthorizations(session, split, connector, username), 10);
             scanner.setRanges(split.getRanges());
         }
         catch (Exception e) {
@@ -108,18 +107,18 @@ public class AccumuloRecordSet
      *
      * @param session Current session
      * @param split Accumulo split
-     * @param config Connector config
-     * @param conn Accumulo connector
+     * @param connector Accumulo connector
+     * @param username Accumulo username
      * @return Scan authorizations
      * @throws AccumuloException If a generic Accumulo error occurs
      * @throws AccumuloSecurityException If a security exception occurs
      */
-    private static Authorizations getScanAuthorizations(ConnectorSession session, AccumuloSplit split, AccumuloConfig config, Connector conn)
+    private static Authorizations getScanAuthorizations(ConnectorSession session, AccumuloSplit split, Connector connector, String username)
             throws AccumuloException, AccumuloSecurityException
     {
         String sessionScanUser = AccumuloSessionProperties.getScanUsername(session);
         if (sessionScanUser != null) {
-            Authorizations scanAuths = conn.securityOperations().getUserAuthorizations(sessionScanUser);
+            Authorizations scanAuths = connector.securityOperations().getUserAuthorizations(sessionScanUser);
             LOG.debug("Using session scanner auths for user %s: %s", sessionScanUser, scanAuths);
             return scanAuths;
         }
@@ -131,7 +130,7 @@ public class AccumuloRecordSet
             return auths;
         }
         else {
-            Authorizations auths = conn.securityOperations().getUserAuthorizations(config.getUsername());
+            Authorizations auths = connector.securityOperations().getUserAuthorizations(username);
             LOG.debug("scan_auths table property not set, using user auths: %s", auths);
             return auths;
         }

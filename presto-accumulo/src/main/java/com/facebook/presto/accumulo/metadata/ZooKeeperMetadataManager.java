@@ -45,14 +45,12 @@ public class ZooKeeperMetadataManager
 {
     private static final String DEFAULT_SCHEMA = "default";
 
-    protected final AccumuloConfig config;
     private final CuratorFramework curator;
-    protected final ObjectMapper mapper;
+    private final ObjectMapper mapper;
 
     @Inject
     public ZooKeeperMetadataManager(AccumuloConfig config, TypeManager typeManager)
     {
-        this.config = requireNonNull(config, "config is null");
         requireNonNull(typeManager, "typeManager is null");
 
         // Create JSON deserializer for the AccumuloTable
