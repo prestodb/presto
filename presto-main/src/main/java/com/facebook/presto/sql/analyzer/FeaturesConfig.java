@@ -46,6 +46,7 @@ public class FeaturesConfig
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
+    private boolean reorderJoins;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
@@ -124,6 +125,19 @@ public class FeaturesConfig
     public FeaturesConfig setColocatedJoinsEnabled(boolean colocatedJoinsEnabled)
     {
         this.colocatedJoinsEnabled = colocatedJoinsEnabled;
+        return this;
+    }
+
+    public boolean isJoinReorderingEnabled()
+    {
+        return reorderJoins;
+    }
+
+    @Config("reorder-joins")
+    @ConfigDescription("Experimental: Reorder joins to optimize plan")
+    public FeaturesConfig setJoinReorderingEnabled(boolean reorderJoins)
+    {
+        this.reorderJoins = reorderJoins;
         return this;
     }
 

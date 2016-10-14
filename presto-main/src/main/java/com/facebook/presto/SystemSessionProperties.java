@@ -57,6 +57,7 @@ public final class SystemSessionProperties
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String COLOCATED_JOIN = "colocated_join";
+    public static final String REORDER_JOINS = "reorder_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -231,6 +232,11 @@ public final class SystemSessionProperties
                         true,
                         false),
                 booleanSessionProperty(
+                        REORDER_JOINS,
+                        "Experimental: Reorder joins to optimize plan",
+                        featuresConfig.isJoinReorderingEnabled(),
+                        false),
+                booleanSessionProperty(
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
@@ -349,6 +355,11 @@ public final class SystemSessionProperties
     public static boolean planWithTableNodePartitioning(Session session)
     {
         return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
+    }
+
+    public static boolean isJoinReorderingEnabled(Session session)
+    {
+        return session.getSystemProperty(REORDER_JOINS, Boolean.class);
     }
 
     public static boolean isColocatedJoinEnabled(Session session)
