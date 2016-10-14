@@ -37,6 +37,7 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Void voidElementAt(@SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
+        indexInRange(array, index);
         checkedIndexToBlockPosition(array, index);
         return null;
     }
@@ -46,7 +47,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Long longElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        int position = checkedIndexToBlockPosition(array, index);
+        if(!indexInRange(array, index)) {
+            return null;
+        }
+        Integer position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -59,7 +63,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Boolean booleanElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        int position = checkedIndexToBlockPosition(array, index);
+        if(!indexInRange(array, index)) {
+            return null;
+        }
+        Integer position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -72,7 +79,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Double doubleElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        int position = checkedIndexToBlockPosition(array, index);
+        if(!indexInRange(array, index)) {
+            return null;
+        }
+        Integer position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -85,7 +95,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Slice sliceElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        int position = checkedIndexToBlockPosition(array, index);
+        if(!indexInRange(array, index)) {
+            return null;
+        }
+        Integer position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -98,7 +111,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Block blockElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        int position = checkedIndexToBlockPosition(array, index);
+        if(!indexInRange(array, index)) {
+            return null;
+        }
+        Integer position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -106,16 +122,21 @@ public final class ArrayElementAtFunction
         return (Block) elementType.getObject(array, position);
     }
 
-    private static int checkedIndexToBlockPosition(Block block, long index)
+    private static boolean indexInRange(Block block, long index)
     {
         int arrayLength = block.getPositionCount();
         if (index == 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
-        if (Math.abs(index) > arrayLength) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
+        else if (Math.abs(index) > arrayLength) {
+            return false;
         }
+        return true;
+    }
 
+    private static int checkedIndexToBlockPosition(Block block, long index)
+    {
+        int arrayLength = block.getPositionCount();
         if (index > 0) {
             return Ints.checkedCast(index - 1);
         }
