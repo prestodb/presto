@@ -100,12 +100,6 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    @Managed
-    public void flushCache()
-    {
-    }
-
-    @Override
     public List<String> getAllDatabases()
     {
         try {

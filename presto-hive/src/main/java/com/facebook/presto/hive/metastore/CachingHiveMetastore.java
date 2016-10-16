@@ -220,7 +220,6 @@ public class CachingHiveMetastore
                 }, executor));
     }
 
-    @Override
     @Managed
     public void flushCache()
     {
