@@ -91,6 +91,8 @@ public class HiveClientModule
             binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
             binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(BridgingHiveMetastore.class).in(Scopes.SINGLETON);
             binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(HiveMetastore.class)
+                    .as(generatedNameOf(ThriftHiveMetastore.class, connectorId));
             newExporter(binder).export(ExtendedHiveMetastore.class)
                     .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
         }
