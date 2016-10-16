@@ -670,12 +670,12 @@ public class AccumuloClient
 
             // Use the secondary index, if enabled
             if (AccumuloSessionProperties.isOptimizeIndexEnabled(session)) {
-                // Get the scan authorizations to query the index and set them in our lookup utility
-                indexLookup.setAuths(getScanAuthorizations(session, schema, table));
+                // Get the scan authorizations to query the index
+                Authorizations auths = getScanAuthorizations(session, schema, table);
 
                 // Check the secondary index based on the column constraints
                 // If this returns true, return the tablet splits to Presto
-                if (indexLookup.applyIndex(schema, table, session, constraints, rowIdRanges, tabletSplits, serializer)) {
+                if (indexLookup.applyIndex(schema, table, session, constraints, rowIdRanges, tabletSplits, serializer, auths)) {
                     return tabletSplits;
                 }
             }
