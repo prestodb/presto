@@ -20,8 +20,10 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Comparator;
@@ -33,14 +35,21 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class EliminateCrossJoins
         implements PlanOptimizer
 {
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            Map<Symbol, Type> types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator)
     {
         if (!SystemSessionProperties.isJoinReorderingEnabled(session)) {
             return plan;
@@ -54,8 +63,7 @@ public class EliminateCrossJoins
         JoinGraph graph = joinGraphs.get(0);
 
         List<Integer> joinOrder = getJoinOrder(graph);
-
-        return plan;
+        return rewriteWith(new Rewriter(idAllocator, graph, joinOrder), plan);
     }
 
     /**
@@ -106,5 +114,61 @@ public class EliminateCrossJoins
         return joinOrder.build().stream()
                 .map(node -> priorities.get(node.getId()))
                 .collect(toImmutableList());
+    }
+
+    private class Rewriter
+            extends SimplePlanRewriter<PlanNode>
+    {
+        private final PlanNodeIdAllocator idAllocator;
+        private final JoinGraph graph;
+        private final List<Integer> joinOrder;
+
+        public Rewriter(PlanNodeIdAllocator idAllocator, JoinGraph graph, List<Integer> joinOrder)
+        {
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.graph = requireNonNull(graph, "graph is null");
+            this.joinOrder = requireNonNull(joinOrder, "joinOrder is null");
+            checkState(joinOrder.size() >= 2);
+        }
+
+        @Override
+        public PlanNode visitPlan(PlanNode node, RewriteContext<PlanNode> context)
+        {
+            if (node.getId() != graph.getRootId()) {
+                return context.defaultRewrite(node, context.get());
+            }
+
+            PlanNode result = graph.getNode(joinOrder.get(0));
+            Set<PlanNodeId> alreadyJoinedNodes = new HashSet<>();
+            alreadyJoinedNodes.add(result.getId());
+
+            for (int i = 1; i < joinOrder.size(); i++) {
+                PlanNode rightNode = graph.getNode(joinOrder.get(i));
+                alreadyJoinedNodes.add(rightNode.getId());
+
+                ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
+
+                for (JoinGraph.Edge edge : graph.getEdges(rightNode)) {
+                    PlanNode targetNode = edge.getTargetNode();
+                    if (alreadyJoinedNodes.contains(targetNode.getId())) {
+                        criteria.add(new JoinNode.EquiJoinClause(
+                                edge.getTargetSymbol(),
+                                edge.getSourceSymbol()));
+                    }
+                }
+
+                result = new JoinNode(
+                        idAllocator.getNextId(),
+                        JoinNode.Type.INNER,
+                        result,
+                        rightNode,
+                        criteria.build(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty());
+            }
+
+            return result;
+        }
     }
 }
