@@ -71,6 +71,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorBucketFunction.getHashFunction;
 import static com.facebook.presto.raptor.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
@@ -319,17 +320,11 @@ public class RaptorMetadata
         }
 
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(handle.getTableId());
-        ImmutableList.Builder<Type> bucketColumnHandlesBuilder = ImmutableList.builder();
-        bucketColumnHandles.stream()
+        List<Type> bucketColumnTypes = bucketColumnHandles.stream()
                 .map(col -> col.getColumnType())
-                .forEach(bucketColumnHandlesBuilder::add);
+                .collect(toList());
 
-        if (handle.getSampleWeightColumnHandle().isPresent()) {
-            bucketColumnHandlesBuilder.add(BIGINT);
-        }
-
-        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong(),
-                bucketColumnHandlesBuilder.build());
+        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong(), bucketColumnTypes);
 
         boolean oneSplitPerBucket = handle.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session);
 
@@ -364,16 +359,11 @@ public class RaptorMetadata
                 .map(RaptorColumnHandle::getColumnName)
                 .collect(toList());
 
-        ImmutableList.Builder<Type> bucketTypesBuilder = ImmutableList.builder();
-        distribution.get().getBucketColumns().stream()
+        List<Type> bucketTypes = distribution.get().getBucketColumns().stream()
                 .map(RaptorColumnHandle::getColumnType)
-                .forEach(bucketTypesBuilder::add);
+                .collect(toList());
 
-        if (metadata.isSampled()) {
-            bucketTypesBuilder.add(BIGINT);
-        }
-
-        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId(), bucketTypesBuilder.build());
+        ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId(), bucketTypes);
         return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
     }
 

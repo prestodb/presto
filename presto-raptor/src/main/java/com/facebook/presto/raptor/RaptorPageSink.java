@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorBucketFunction.getHashFunction;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -239,17 +240,11 @@ public class RaptorPageSink
             checkArgument(temporalColumnIndex.isPresent() == temporalColumnType.isPresent(),
                     "temporalColumnIndex and temporalColumnType must be both present or absent");
 
-            ImmutableList.Builder<Type> bucketTypesBuilder = ImmutableList.builder();
-
-            Arrays.stream(bucketFields)
+            List<Type> bucketTypes = Arrays.stream(bucketFields)
                     .mapToObj(columnTypes::get)
-                    .forEach(bucketTypesBuilder::add);
+                    .collect(toList());
 
-            if (sampleWeightField > -1) {
-                bucketTypesBuilder.add(BIGINT);
-            }
-
-            this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt(), bucketTypesBuilder.build())) :
+            this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt(), bucketTypes)) :
                     Optional.empty();
             this.temporalFunction = temporalColumnType.map(type -> TemporalFunction.create(temporalColumnType.get()));
         }
