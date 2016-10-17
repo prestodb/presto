@@ -428,6 +428,8 @@ public class HiveMetadata
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
+        hiveStorageFormat.validateColumns(columnHandles);
+
         LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
 
@@ -566,6 +568,11 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        HiveStorageFormat partitionStorageFormat = respectTableFormat ? tableStorageFormat : defaultStorageFormat;
+
+        // unpartitioned tables ignore the partition storage format
+        HiveStorageFormat actualStorageFormat = partitionedBy.isEmpty() ? tableStorageFormat : partitionStorageFormat;
+        actualStorageFormat.validateColumns(columnHandles);
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
@@ -577,7 +584,7 @@ public class HiveMetadata
                 metastore.generatePageSinkMetadata(schemaTableName),
                 locationHandle,
                 tableStorageFormat,
-                respectTableFormat ? tableStorageFormat : defaultStorageFormat,
+                partitionStorageFormat,
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),

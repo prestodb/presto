@@ -243,6 +243,11 @@ public class TestHiveIntegrationSmokeTest
                 "partitioned_by = ARRAY[ '_partition_string', '_partition_varchar', '_partition_char', '_partition_tinyint', '_partition_smallint', '_partition_integer', '_partition_bigint', '_partition_decimal_short', '_partition_decimal_long' ]" +
                 ") ";
 
+        if (storageFormat == HiveStorageFormat.AVRO) {
+            createTable = createTable.replace(" _smallint SMALLINT,", " _smallint INTEGER,");
+            createTable = createTable.replace(" _tinyint TINYINT,", " _tinyint INTEGER,");
+        }
+
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table");
@@ -287,6 +292,11 @@ public class TestHiveIntegrationSmokeTest
                 ", CAST (1 AS BIGINT) _partition_bigint" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _partition_decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _partition_decimal_long";
+
+        if (storageFormat == HiveStorageFormat.AVRO) {
+            select = select.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
+            select = select.replace(" CAST (4 AS TINYINT) _tinyint,", " 4 _tinyint,");
+        }
 
         assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
         assertQuery(session, "SELECT * from test_partitioned_table", select);
@@ -439,6 +449,11 @@ public class TestHiveIntegrationSmokeTest
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long";
+
+        if (storageFormat == HiveStorageFormat.AVRO) {
+            select = select.replace(" CAST (3 AS SMALLINT) _smallint,", " 3 _smallint,");
+            select = select.replace(" CAST (4 AS TINYINT) _tinyint,", " 4 _tinyint,");
+        }
 
         String createTableAs = format("CREATE TABLE test_format_table WITH (format = '%s') AS %s", storageFormat, select);
 
@@ -914,6 +929,11 @@ public class TestHiveIntegrationSmokeTest
                 ") " +
                 "WITH (format = '" + storageFormat + "') ";
 
+        if (storageFormat == HiveStorageFormat.AVRO) {
+            createTable = createTable.replace(" _smallint SMALLINT,", " _smallint INTEGER,");
+            createTable = createTable.replace(" _tinyint TINYINT,", " _tinyint INTEGER,");
+        }
+
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_format_table");
@@ -936,6 +956,11 @@ public class TestHiveIntegrationSmokeTest
                 ", true _boolean" +
                 ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
                 ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long";
+
+        if (storageFormat == HiveStorageFormat.AVRO) {
+            select = select.replace(" CAST (43 AS SMALLINT) _smallint,", " 3 _smallint,");
+            select = select.replace(" CAST (44 AS TINYINT) _tinyint,", " 4 _tinyint,");
+        }
 
         assertUpdate(session, "INSERT INTO test_insert_format_table " + select, 1);
 
@@ -1628,6 +1653,16 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails("ALTER TABLE test_rename_column RENAME COLUMN orderstatus TO new_orderstatus", "com.facebook.presto.spi.PrestoException: Renaming partition columns is not supported");
         assertQuery("SELECT new_orderkey, orderstatus FROM test_rename_column", "SELECT orderkey, orderstatus FROM orders");
         assertUpdate("DROP TABLE test_rename_column");
+    }
+
+    @Test
+    public void testAvroTypeValidation()
+    {
+        assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column x has a non-varchar map key, which is not supported by Avro");
+        assertQueryFails("CREATE TABLE test_avro_types (x tinyint) WITH (format = 'AVRO')", "Column x is tinyint, which is not supported by Avro. Use integer instead.");
+        assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column x is smallint, which is not supported by Avro. Use integer instead.");
+
+        assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column z is smallint, which is not supported by Avro. Use integer instead.");
     }
 
     private void assertOneNotNullResult(@Language("SQL") String query)

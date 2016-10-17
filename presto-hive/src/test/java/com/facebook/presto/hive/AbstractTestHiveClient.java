@@ -128,6 +128,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
+import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -178,6 +179,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static com.google.common.collect.Sets.difference;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -261,7 +263,7 @@ public abstract class AbstractTestHiveClient
                     .row(6L, "bye", (byte) 46, (short) 346, 345, 456L, -754.2008f, 98.1, false, ImmutableList.of("ape", "bear"), ImmutableMap.of("three", 3L, "four", 4L), ImmutableList.of("false", 0L, false), "2015-07-04")
                     .build();
 
-    protected Set<HiveStorageFormat> createTableFormats = ImmutableSet.copyOf(HiveStorageFormat.values());
+    protected Set<HiveStorageFormat> createTableFormats = difference(ImmutableSet.copyOf(HiveStorageFormat.values()), ImmutableSet.of(AVRO));
 
     protected String clientId;
     protected String database;

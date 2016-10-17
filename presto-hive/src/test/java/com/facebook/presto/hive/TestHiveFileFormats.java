@@ -62,6 +62,7 @@ import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -212,6 +213,26 @@ public class TestHiveFileFormats
                 .withReadColumns(Lists.reverse(TEST_COLUMNS))
                 .withSession(session)
                 .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, true, HDFS_ENVIRONMENT));
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testAvro(int rowCount)
+            throws Exception
+    {
+        assertThatFileFormat(AVRO)
+                .withColumns(getTestColumnsSupportedByAvro())
+                .withRowsCount(rowCount)
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+    }
+
+    private static List<TestColumn> getTestColumnsSupportedByAvro()
+    {
+        // Avro only supports String for Map keys, and doesn't support smallint or tinyint.
+        return TEST_COLUMNS.stream()
+                .filter(column -> !column.getName().startsWith("t_map_") || column.getName().equals("t_map_string"))
+                .filter(column -> !column.getName().endsWith("_smallint"))
+                .filter(column -> !column.getName().endsWith("_tinyint"))
+                .collect(toList());
     }
 
     @Test(dataProvider = "rowCount")
@@ -415,6 +436,11 @@ public class TestHiveFileFormats
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(parquetPageSourcePushdown)
                 .isReadableByPageSource(new ParquetPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT));
+
+        assertThatFileFormat(AVRO)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
