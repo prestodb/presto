@@ -24,5 +24,5 @@ Hive Changes
 ------------
 
 * Fix handling of metastore cache TTL. With the introduction of the
-  transaction per-transaction cache, the cache timeout was reset
-  after each access, which means cache entries might never expire.
+  per-transaction cache, the cache timeout was reset after each access,
+  which means cache entries might never expire.
