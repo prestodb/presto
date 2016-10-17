@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -28,6 +29,14 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 public class TestReorderJoins
         extends BasePlanTest
 {
+    private static final PlanMatchPattern ORDERS_TABLESCAN = tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"));
+    private static final PlanMatchPattern SUPPLIER_TABLESCAN = tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"));
+    private static final PlanMatchPattern PART_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey"));
+    private static final PlanMatchPattern LINEITEM_TABLESCAN = tableScan(
+            "lineitem",
+            ImmutableMap.of(
+                    "L_PARTKEY", "partkey",
+                    "L_ORDERKEY", "orderkey"));
 
     public TestReorderJoins()
     {
@@ -42,11 +51,9 @@ public class TestReorderJoins
                         join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
                                 anyTree(
                                         join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
-                                                anyTree(tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey"))),
-                                                anyTree(tableScan("lineitem", ImmutableMap.of(
-                                                        "L_PARTKEY", "partkey",
-                                                        "L_ORDERKEY", "orderkey"))))),
-                                anyTree(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))));
+                                                anyTree(PART_TABLESCAN),
+                                                anyTree(LINEITEM_TABLESCAN))),
+                                anyTree(ORDERS_TABLESCAN))));
     }
 
     @Test
