@@ -50,6 +50,7 @@ public final class TestGroups
     public static final String BASIC_SQL = "basic_sql";
     public static final String AUTHORIZATION = "authorization";
     public static final String POST_HIVE_1_0_1 = "post_hive_1_0_1";
+    public static final String HIVE_COERCION = "hive_coercion";
 
     private TestGroups() {}
 }
