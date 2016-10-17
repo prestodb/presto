@@ -15,12 +15,14 @@ package com.facebook.presto.server.security;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -36,7 +38,8 @@ public class TestLdapConfig
                 .setLdapUrl(null)
                 .setUserBindSearchPattern(null)
                 .setUserBaseDistinguishedName(null)
-                .setGroupAuthorizationSearchPattern(null));
+                .setGroupAuthorizationSearchPattern(null)
+                .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS)));
     }
 
     @Test
@@ -47,13 +50,15 @@ public class TestLdapConfig
                 .put("authentication.ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com")
                 .put("authentication.ldap.user-base-dn", "dc=test,dc=com")
                 .put("authentication.ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
+                .put("authentication.ldap.cache-ttl", "2m")
                 .build();
 
         LdapConfig expected = new LdapConfig()
                 .setLdapUrl("ldaps://localhost:636")
                 .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
-                .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)");
+                .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
+                .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }

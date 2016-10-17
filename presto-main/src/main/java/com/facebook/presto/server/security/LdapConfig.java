@@ -29,9 +29,12 @@ package com.facebook.presto.server.security;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
+
+import java.util.concurrent.TimeUnit;
 
 public class LdapConfig
 {
@@ -39,6 +42,7 @@ public class LdapConfig
     private String userBindSearchPattern;
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
+    private Duration ldapCacheTtl = new Duration(1, TimeUnit.HOURS);
 
     @NotNull
     @Pattern(regexp = "^ldaps://.*", message = "LDAP without SSL/TLS unsupported. Expected ldaps://")
@@ -92,6 +96,19 @@ public class LdapConfig
     public LdapConfig setUserBaseDistinguishedName(String userBaseDistinguishedName)
     {
         this.userBaseDistinguishedName = userBaseDistinguishedName;
+        return this;
+    }
+
+    @NotNull
+    public Duration getLdapCacheTtl()
+    {
+        return ldapCacheTtl;
+    }
+
+    @Config("authentication.ldap.cache-ttl")
+    public LdapConfig setLdapCacheTtl(Duration ldapCacheTtl)
+    {
+        this.ldapCacheTtl = ldapCacheTtl;
         return this;
     }
 }
