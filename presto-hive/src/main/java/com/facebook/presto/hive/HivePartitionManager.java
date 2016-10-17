@@ -51,7 +51,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 
@@ -193,12 +192,12 @@ public class HivePartitionManager
 
         String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
         if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-            throw new TableOfflineException(tableName);
+            throw new TableOfflineException(tableName, false, null);
         }
 
         String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
         if (!isNullOrEmpty(prestoOffline)) {
-            throw new TableOfflineException(tableName, format("Table '%s' is offline for Presto: %s", tableName, prestoOffline));
+            throw new TableOfflineException(tableName, true, prestoOffline);
         }
 
         return table;

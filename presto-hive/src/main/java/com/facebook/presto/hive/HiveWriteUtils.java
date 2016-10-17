@@ -364,12 +364,18 @@ public final class HiveWriteUtils
 
         // verify online
         if (protectMode.offline) {
-            throw new TableOfflineException(tableName, format("%s is offline", tablePartitionDescription));
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
+            }
+            throw new TableOfflineException(tableName, false, null);
         }
 
         String prestoOffline = parameters.get(PRESTO_OFFLINE);
         if (!isNullOrEmpty(prestoOffline)) {
-            throw new TableOfflineException(tableName, format("%s is offline for Presto: %s", tablePartitionDescription, prestoOffline));
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
+            }
+            throw new TableOfflineException(tableName, true, prestoOffline);
         }
 
         // verify not read only
