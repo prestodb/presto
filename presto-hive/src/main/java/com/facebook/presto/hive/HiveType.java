@@ -122,20 +122,11 @@ public final class HiveType
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+        try {
+            return this == o || hiveTypeName.equals(((HiveType)o).hiveTypeName);
+        } catch (Exception e) {
             return false;
         }
-
-        HiveType hiveType = (HiveType) o;
-
-        if (!hiveTypeName.equals(hiveType.hiveTypeName)) {
-            return false;
-        }
-
-        return true;
     }
 
     @Override
