@@ -80,13 +80,13 @@ public class InMemoryHashAggregationBuilder
     {
         if (aggregators.isEmpty()) {
             groupByHash.addPage(page);
-            return;
         }
+        else {
+            GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
 
-        GroupByIdBlock groupIds = groupByHash.getGroupIds(page);
-
-        for (Aggregator aggregator : aggregators) {
-            aggregator.processPage(groupIds, page);
+            for (Aggregator aggregator : aggregators) {
+                aggregator.processPage(groupIds, page);
+            }
         }
         updateMemory();
     }
