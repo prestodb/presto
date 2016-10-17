@@ -15,11 +15,15 @@ package com.facebook.presto.server.security;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.log.Logger;
 
+import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
@@ -44,10 +48,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.server.security.util.jndi.JndiUtils.getInitialDirContext;
 import static com.google.common.base.CharMatcher.JAVA_ISO_CONTROL;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.airlift.http.client.HttpStatus.BAD_REQUEST;
 import static io.airlift.http.client.HttpStatus.INTERNAL_SERVER_ERROR;
@@ -55,6 +62,7 @@ import static io.airlift.http.client.HttpStatus.UNAUTHORIZED;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.naming.Context.INITIAL_CONTEXT_FACTORY;
 import static javax.naming.Context.PROVIDER_URL;
 import static javax.naming.Context.SECURITY_AUTHENTICATION;
@@ -74,6 +82,7 @@ public class LdapFilter
     private final Optional<String> groupAuthorizationSearchPattern;
     private final Optional<String> userBaseDistinguishedName;
     private final Map<String, String> basicEnvironment;
+    private final LoadingCache<Credentials, Principal> authenticationCache;
 
     @Inject
     public LdapFilter(LdapConfig serverConfig)
@@ -92,6 +101,17 @@ public class LdapFilter
                 .build();
         checkEnvironment(environment);
         this.basicEnvironment = environment;
+        this.authenticationCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(serverConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
+                .build(new CacheLoader<Credentials, Principal>()
+                {
+                    @Override
+                    public Principal load(@Nonnull Credentials key)
+                            throws AuthenticationException
+                    {
+                        return authenticate(key.getUser(), key.getPassword());
+                    }
+                });
     }
 
     private static void checkEnvironment(Map<String, String> environment)
@@ -136,8 +156,8 @@ public class LdapFilter
 
         try {
             String header = request.getHeader(AUTHORIZATION);
-            List<String> credentials = getCredentials(header);
-            Principal principal = authenticate(credentials.get(0), credentials.get(1));
+            Credentials credentials = getCredentials(header);
+            Principal principal = getPrincipal(credentials);
 
             // ldap authentication ok, continue
             nextFilter.doFilter(new HttpServletRequestWrapper(request)
@@ -155,6 +175,19 @@ public class LdapFilter
         }
     }
 
+    private Principal getPrincipal(Credentials credentials)
+            throws AuthenticationException
+    {
+        try {
+            return authenticationCache.get(credentials);
+        }
+        catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            propagateIfInstanceOf(cause, AuthenticationException.class);
+            throw Throwables.propagate(cause);
+        }
+    }
+
     private static void processAuthenticationException(AuthenticationException e, HttpServletResponse response)
             throws IOException
     {
@@ -164,7 +197,7 @@ public class LdapFilter
         response.sendError(e.getStatus().code(), e.getMessage());
     }
 
-    private static List<String> getCredentials(String header)
+    private static Credentials getCredentials(String header)
             throws AuthenticationException
     {
         if (header == null) {
@@ -179,7 +212,7 @@ public class LdapFilter
         if (parts.size() != 2 || parts.stream().anyMatch(String::isEmpty)) {
             throw new AuthenticationException(BAD_REQUEST, "Malformed decoded credentials");
         }
-        return parts;
+        return new Credentials(parts.get(0), parts.get(1));
     }
 
     private static String decodeCredentials(String base64EncodedCredentials)
@@ -325,6 +358,59 @@ public class LdapFilter
         public String toString()
         {
             return name;
+        }
+    }
+
+    private static class Credentials
+    {
+        private final String user;
+        private final String password;
+
+        private Credentials(String user, String password)
+        {
+            this.user = requireNonNull(user);
+            this.password = requireNonNull(password);
+        }
+
+        public String getUser()
+        {
+            return user;
+        }
+
+        public String getPassword()
+        {
+            return password;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            Credentials that = (Credentials) o;
+
+            return Objects.equals(this.user, that.user) &&
+                    Objects.equals(this.password, that.password);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(user, password);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("user", user)
+                    .add("password", password)
+                    .toString();
         }
     }
 
