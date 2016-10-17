@@ -37,7 +37,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
-import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -66,7 +65,7 @@ public class TestRaptorIntegrationSmokeTest
 
     protected TestRaptorIntegrationSmokeTest(QueryRunner queryRunner)
     {
-        super(queryRunner, createSampledSession());
+        super(queryRunner);
     }
 
     @Test

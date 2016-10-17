@@ -188,12 +188,6 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
 
-        assertCreateTableAsSelect(
-                "test_sampled",
-                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
-                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
-                "SELECT 10");
-
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
         assertCreateTableAsSelect(

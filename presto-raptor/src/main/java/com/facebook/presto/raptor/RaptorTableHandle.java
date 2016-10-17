@@ -38,7 +38,6 @@ public final class RaptorTableHandle
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final OptionalLong transactionId;
-    private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
     private final boolean delete;
 
     @JsonCreator
@@ -51,7 +50,6 @@ public final class RaptorTableHandle
             @JsonProperty("distributionName") Optional<String> distributionName,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("transactionId") OptionalLong transactionId,
-            @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle,
             @JsonProperty("delete") boolean delete)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -61,7 +59,6 @@ public final class RaptorTableHandle
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
 
-        this.sampleWeightColumnHandle = requireNonNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
         this.distributionName = requireNonNull(distributionName, "distributionName is null");
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
@@ -116,12 +113,6 @@ public final class RaptorTableHandle
     public OptionalLong getTransactionId()
     {
         return transactionId;
-    }
-
-    @JsonProperty
-    public Optional<RaptorColumnHandle> getSampleWeightColumnHandle()
-    {
-        return sampleWeightColumnHandle;
     }
 
     @JsonProperty
