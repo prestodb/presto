@@ -15,6 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionKind;
+import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -27,6 +28,7 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.type.Constraint;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +42,7 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -91,6 +94,8 @@ public class AggregationCompiler
 
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
+                    List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
+
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
                         List<TypeSignature> inputTypes = getInputTypesSignatures(inputFunction);
                         TypeSignature outputType = TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value());
@@ -101,7 +106,7 @@ public class AggregationCompiler
                                                 name,
                                                 FunctionKind.AGGREGATE,
                                                 ImmutableList.of(), // TODO parse constrains from annotations
-                                                ImmutableList.of(), // TODO parse constrains from annotations
+                                                longVariableConstraints,
                                                 outputType,
                                                 inputTypes,
                                                 false),
@@ -117,6 +122,13 @@ public class AggregationCompiler
         }
 
         return builder.build();
+    }
+
+    private static List<LongVariableConstraint> parseLongVariableConstraints(Method inputFunction)
+    {
+        return Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
+                .map(annotation -> new LongVariableConstraint(annotation.variable(), annotation.expression()))
+                .collect(toImmutableList());
     }
 
     public static boolean isParameterNullable(Annotation[] annotations)
