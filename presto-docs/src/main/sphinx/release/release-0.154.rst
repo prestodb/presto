@@ -11,6 +11,8 @@ General Changes
   subqueries in ``IN`` predicates to fail during planning.
 * Fix potential *"Input symbols do not match output symbols"*
   error when writing to bucketed tables.
+* Fix potential *"Requested array size exceeds VM limit"* error
+  that triggers the JVM's ``OutOfMemoryError`` handling.
 * Improve performance of window functions with identical partitioning and
   ordering but different frame specifications.
 * Add ``code-cache-collection-threshold`` config which controls when Presto
