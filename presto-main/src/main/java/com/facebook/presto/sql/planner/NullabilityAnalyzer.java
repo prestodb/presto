@@ -55,7 +55,8 @@ public final class NullabilityAnalyzer
         @Override
         protected Void visitCast(Cast node, AtomicBoolean result)
         {
-            result.set(node.isSafe()); // try_cast
+            // try_cast and cast(JSON 'null' AS ...) can return null
+            result.set(true);
             return null;
         }
 
