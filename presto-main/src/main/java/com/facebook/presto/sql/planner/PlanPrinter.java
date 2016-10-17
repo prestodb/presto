@@ -567,10 +567,10 @@ public class PlanPrinter
                 args.add(format("order by (%s)", Stream.concat(
                         node.getOrderBy().stream()
                                 .limit(node.getPreSortedOrderPrefix())
-                                .map(symbol -> "<" + symbol + ">"),
+                                .map(symbol -> "<" + symbol + " " + node.getOrderings().get(symbol) + ">"),
                         node.getOrderBy().stream()
                                 .skip(node.getPreSortedOrderPrefix())
-                                .map(Symbol::toString))
+                                .map(symbol -> symbol + " " + node.getOrderings().get(symbol)))
                         .collect(Collectors.joining(", "))));
             }
 
