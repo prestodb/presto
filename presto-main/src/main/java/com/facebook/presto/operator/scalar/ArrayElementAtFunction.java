@@ -47,7 +47,7 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Long longElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if(!indexInRange(array, index)) {
+        if (!indexInRange(array, index)) {
             return null;
         }
         Integer position = checkedIndexToBlockPosition(array, index);
@@ -63,7 +63,7 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Boolean booleanElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if(!indexInRange(array, index)) {
+        if (!indexInRange(array, index)) {
             return null;
         }
         Integer position = checkedIndexToBlockPosition(array, index);
@@ -79,7 +79,7 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Double doubleElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if(!indexInRange(array, index)) {
+        if (!indexInRange(array, index)) {
             return null;
         }
         Integer position = checkedIndexToBlockPosition(array, index);
@@ -95,7 +95,7 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Slice sliceElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if(!indexInRange(array, index)) {
+        if (!indexInRange(array, index)) {
             return null;
         }
         Integer position = checkedIndexToBlockPosition(array, index);
@@ -111,7 +111,7 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Block blockElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if(!indexInRange(array, index)) {
+        if (!indexInRange(array, index)) {
             return null;
         }
         Integer position = checkedIndexToBlockPosition(array, index);
