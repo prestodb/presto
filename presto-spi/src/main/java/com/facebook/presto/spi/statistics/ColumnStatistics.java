@@ -22,9 +22,13 @@ public final class ColumnStatistics
     public static final ColumnStatistics EMPTY_STATISTICS = ColumnStatistics.builder().build();
 
     private final Estimate dataSize;
+    private final Estimate nullsCount;
+    private final Estimate distinctValuesCount;
 
-    private ColumnStatistics(Estimate dataSize)
+    private ColumnStatistics(Estimate dataSize, Estimate nullsCount, Estimate distinctValuesCount)
     {
+        this.nullsCount = nullsCount;
+        this.distinctValuesCount = distinctValuesCount;
         this.dataSize = requireNonNull(dataSize, "dataSize can not be null");
     }
 
@@ -44,6 +48,8 @@ public final class ColumnStatistics
     public static final class Builder
     {
         private Estimate dataSize = unknownValue();
+        private Estimate nullsCount = unknownValue();
+        private Estimate distinctValuesCount = unknownValue();
 
         public Builder setDataSize(Estimate dataSize)
         {
@@ -51,9 +57,21 @@ public final class ColumnStatistics
             return this;
         }
 
+        public Builder setNullsCount(Estimate nullsCount)
+        {
+            this.nullsCount = nullsCount;
+            return this;
+        }
+
+        public Builder setDistinctValuesCount(Estimate distinctValuesCount)
+        {
+            this.distinctValuesCount = distinctValuesCount;
+            return this;
+        }
+
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(dataSize);
+            return new ColumnStatistics(dataSize, nullsCount, distinctValuesCount);
         }
     }
 }
