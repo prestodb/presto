@@ -36,7 +36,10 @@ function stop_unnecessary_hadoop_services() {
 }
 
 function run_in_application_runner_container() {
-  environment_compose run --rm -T application-runner "$@"
+  local CONTAINER_NAME=$( environment_compose run -d application-runner "$@" )
+  echo "Showing logs from $CONTAINER_NAME:"
+  docker logs -f $CONTAINER_NAME
+  return $( docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME )
 }
 
 function check_presto() {
