@@ -50,7 +50,7 @@ public final class ArrayElementAtFunction
         if (!indexInRange(array, index)) {
             return null;
         }
-        Integer position = checkedIndexToBlockPosition(array, index);
+        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -66,7 +66,7 @@ public final class ArrayElementAtFunction
         if (!indexInRange(array, index)) {
             return null;
         }
-        Integer position = checkedIndexToBlockPosition(array, index);
+        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -82,7 +82,7 @@ public final class ArrayElementAtFunction
         if (!indexInRange(array, index)) {
             return null;
         }
-        Integer position = checkedIndexToBlockPosition(array, index);
+        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -98,7 +98,7 @@ public final class ArrayElementAtFunction
         if (!indexInRange(array, index)) {
             return null;
         }
-        Integer position = checkedIndexToBlockPosition(array, index);
+        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -114,7 +114,7 @@ public final class ArrayElementAtFunction
         if (!indexInRange(array, index)) {
             return null;
         }
-        Integer position = checkedIndexToBlockPosition(array, index);
+        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
