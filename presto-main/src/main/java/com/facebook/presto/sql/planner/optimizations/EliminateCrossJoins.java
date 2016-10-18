@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -180,7 +181,13 @@ public class EliminateCrossJoins
                         filter);
             }
 
-            return result;
+            if (!graph.getAssignments().isPresent()) {
+                return result;
+            }
+            return new ProjectNode(
+                    idAllocator.getNextId(),
+                    result,
+                    graph.getAssignments().get());
         }
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -73,6 +74,18 @@ public class ProjectNode
     public PlanNode getSource()
     {
         return source;
+    }
+
+    public boolean isIdentity()
+    {
+        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            Expression expression = entry.getValue();
+            Symbol symbol = entry.getKey();
+            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
