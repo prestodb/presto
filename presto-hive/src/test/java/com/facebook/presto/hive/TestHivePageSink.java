@@ -226,6 +226,7 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 Optional.empty(),
                 "test",
+                ImmutableMap.of(),
                 ImmutableMap.of());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HdfsEnvironment hdfsEnvironment = createTestHdfsEnvironment(config);

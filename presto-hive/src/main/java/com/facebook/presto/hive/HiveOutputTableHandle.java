@@ -33,6 +33,7 @@ public class HiveOutputTableHandle
     private final List<String> partitionedBy;
     private final String tableOwner;
     private final Map<String, String> additionalTableParameters;
+    private final Map<String, String> serdeParameters;
 
     @JsonCreator
     public HiveOutputTableHandle(
@@ -48,7 +49,8 @@ public class HiveOutputTableHandle
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("tableOwner") String tableOwner,
-            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
+            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters,
+            @JsonProperty("serdeParameters") Map<String, String> serdeParameters)
     {
         super(
                 clientId,
@@ -65,6 +67,7 @@ public class HiveOutputTableHandle
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");
         this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
+        this.serdeParameters = ImmutableMap.copyOf(requireNonNull(serdeParameters, "serdeParameters is null"));
     }
 
     @JsonProperty
@@ -83,5 +86,11 @@ public class HiveOutputTableHandle
     public Map<String, String> getAdditionalTableParameters()
     {
         return additionalTableParameters;
+    }
+
+    @JsonProperty
+    public Map<String, String> getSerdeParameters()
+    {
+        return serdeParameters;
     }
 }
