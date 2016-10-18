@@ -71,7 +71,6 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorBucketFunction.getHashFunction;
 import static com.facebook.presto.raptor.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;

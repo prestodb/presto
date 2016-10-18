@@ -41,10 +41,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.raptor.RaptorBucketFunction.getHashFunction;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
