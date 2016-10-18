@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.AccumulatorState;
-import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -28,10 +28,13 @@ import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
+import com.facebook.presto.type.LiteralParameter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
@@ -42,9 +45,13 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.containsMetaParameter;
+import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.createTypeVariableConstraints;
+import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.parseDependency;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -87,42 +94,76 @@ public class AggregationCompiler
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(aggregationDefinition.getClassLoader());
-
         ImmutableList.Builder<BindableAggregationFunction> builder = ImmutableList.builder();
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
-            AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateClass, classLoader);
-
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
+                    List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction);
 
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
                         List<TypeSignature> inputTypes = getInputTypesSignatures(inputFunction);
                         TypeSignature outputType = TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value());
-
+                        Signature signature = new Signature(
+                                name,
+                                FunctionKind.AGGREGATE,
+                                typeVariableConstraints,
+                                longVariableConstraints,
+                                outputType,
+                                inputTypes,
+                                false);
+                        AggregationImplementation onlyImplementation = new AggregationImplementation(signature, aggregationDefinition, stateClass, inputFunction, outputFunction);
                         builder.add(
                                 new BindableAggregationFunction(
-                                        new Signature(
-                                                name,
-                                                FunctionKind.AGGREGATE,
-                                                ImmutableList.of(), // TODO parse constrains from annotations
-                                                longVariableConstraints,
-                                                outputType,
-                                                inputTypes,
-                                                false),
-                                        getDescription(aggregationDefinition, outputFunction),
-                                        aggregationAnnotation.decomposable(),
-                                        aggregationDefinition,
-                                        stateClass,
-                                        inputFunction,
-                                        outputFunction));
+                                        signature,
+                                        new AggregationHeader(
+                                                getDescription(aggregationDefinition, outputFunction),
+                                                aggregationAnnotation.decomposable()),
+                                        new AggregationImplementations(
+                                                ImmutableMap.of(signature, onlyImplementation),
+                                                ImmutableList.of(),
+                                                ImmutableList.of())));
                     }
                 }
             }
         }
 
+        return builder.build();
+    }
+
+    private static List<TypeVariableConstraint> parseTypeVariableConstraints(Method inputFunction)
+    {
+        return createTypeVariableConstraints(Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class)), parseImplementationDependencies(inputFunction));
+    }
+
+    private static List<ScalarImplementation.ImplementationDependency> parseImplementationDependencies(Method inputFunction)
+    {
+        ImmutableList.Builder<ScalarImplementation.ImplementationDependency> builder = ImmutableList.builder();
+        List<TypeParameter> typeParameters = Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class));
+        Set<String> literalParameters = getLiteralParameter(inputFunction);
+
+        for (int i = 0; i < inputFunction.getParameterCount(); i++) {
+            Class<?> parameterType = inputFunction.getParameterTypes()[i];
+            Annotation[] annotations = inputFunction.getParameterAnnotations()[i];
+
+            // Skip injected parameters
+            if (parameterType == ConnectorSession.class) {
+                continue;
+            }
+
+            if (containsMetaParameter(annotations)) {
+                checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", inputFunction);
+                Annotation annotation = annotations[0];
+                if (annotation instanceof TypeParameter) {
+                    checkArgument(typeParameters.contains(annotation), "Injected type parameters must be declared with @TypeParameter annotation on the method [%s]", inputFunction);
+                }
+                if (annotation instanceof LiteralParameter) {
+                    checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", inputFunction);
+                }
+                builder.add(parseDependency(annotation, literalParameters));
+            }
+        }
         return builder.build();
     }
 
@@ -259,14 +300,14 @@ public class AggregationCompiler
         return id;
     }
 
-    private static String getDescription(AnnotatedElement base, AnnotatedElement override)
+    private static Optional<String> getDescription(AnnotatedElement base, AnnotatedElement override)
     {
         Description description = override.getAnnotation(Description.class);
         if (description != null) {
-            return description.value();
+            return Optional.of(description.value());
         }
         description = base.getAnnotation(Description.class);
-        return (description == null) ? null : description.value();
+        return (description == null) ? Optional.empty() : Optional.of(description.value());
     }
 
     private static Set<String> getLiteralParameter(Method inputFunction)

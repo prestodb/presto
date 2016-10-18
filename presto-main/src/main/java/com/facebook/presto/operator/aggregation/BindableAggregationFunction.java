@@ -54,40 +54,33 @@ import static java.util.Objects.requireNonNull;
 public class BindableAggregationFunction
     extends SqlAggregationFunction
 {
-    private final String description;
-    private final boolean decomposable;
-
-    private final Class<?> definitionClass;
-    private final Class<?> stateClass;
-    private final Method inputFunction;
-    private final Method outputFunction;
+    AggregationHeader details;
+    AggregationImplementations implementations;
 
     public BindableAggregationFunction(Signature signature,
-            String description,
-            boolean decomposable,
-            Class<?> definitionClass,
-            Class<?> stateClass,
-            Method inputFunction,
-            Method outputFunction)
+            AggregationHeader details,
+            AggregationImplementations implementations)
     {
         super(signature);
-        this.description = description;
-        this.decomposable = decomposable;
-        this.definitionClass = definitionClass;
-        this.stateClass = stateClass;
-        this.inputFunction = inputFunction;
-        this.outputFunction = outputFunction;
+        this.details = details;
+        this.implementations = implementations;
     }
 
     @Override
     public String getDescription()
     {
-        return description;
+        return details.getDescription().orElse("");
     }
 
     @Override
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
+        AggregationImplementation implementation = implementations.getExactImplementations().get(getSignature());
+        Class<?> definitionClass = implementation.getDefinitionClass();
+        Class<?> stateClass = implementation.getStateClass();
+        Method inputFunction = implementation.getInputFunction();
+        Method outputFunction = implementation.getOutputFunction();
+
         // bind variables
         Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
         List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
@@ -129,7 +122,7 @@ public class BindableAggregationFunction
                 inputTypes,
                 intermediateType,
                 outputType,
-                decomposable,
+                details.isDecomposable(),
                 factory);
     }
 
