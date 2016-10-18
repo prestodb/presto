@@ -19,12 +19,15 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 public class InternalCommunicationConfig
 {
     public static final String INTERNAL_COMMUNICATION_KERBEROS_ENABLED = "internal-communication.kerberos.enabled";
+    public static final String INTERNAL_COMMUNICATION_LDAP_PASSWORD = "internal-communication.ldap.password";
 
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
     private boolean kerberosEnabled;
     private boolean kerberosUseCanonicalHostname = true;
+    private String internalLdapCommunicationUser;
+    private String internalLdapCommunicationPassword;
 
     public boolean isHttpsRequired()
     {
@@ -84,6 +87,30 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
     {
         this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
+        return this;
+    }
+
+    public String getInternalLdapCommunicationUser()
+    {
+        return internalLdapCommunicationUser;
+    }
+
+    @Config("internal-communication.ldap.username")
+    public InternalCommunicationConfig setInternalLdapCommunicationUser(String internalLdapCommunicationUser)
+    {
+        this.internalLdapCommunicationUser = internalLdapCommunicationUser;
+        return this;
+    }
+
+    public String getInternalLdapCommunicationPassword()
+    {
+        return internalLdapCommunicationPassword;
+    }
+
+    @Config(INTERNAL_COMMUNICATION_LDAP_PASSWORD)
+    public InternalCommunicationConfig setInternalLdapCommunicationPassword(String internalLdapCommunicationPassword)
+    {
+        this.internalLdapCommunicationPassword = internalLdapCommunicationPassword;
         return this;
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.client.BasicAuthRequestFilter;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.spnego.KerberosConfig;
 
@@ -25,10 +26,12 @@ import java.net.UnknownHostException;
 import java.util.Locale;
 
 import static com.facebook.presto.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
+import static com.facebook.presto.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_LDAP_PASSWORD;
 import static com.facebook.presto.server.security.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class InternalCommunicationModule
         extends AbstractConfigurationAwareModule
@@ -42,6 +45,10 @@ public class InternalCommunicationModule
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
         });
 
+        if (internalCommunicationConfig.getInternalLdapCommunicationUser() != null) {
+            verify(internalCommunicationConfig.getInternalLdapCommunicationPassword() != null, "%s must be set", INTERNAL_COMMUNICATION_LDAP_PASSWORD);
+            httpClientBinder(binder).bindGlobalFilter(new BasicAuthRequestFilter(internalCommunicationConfig.getInternalLdapCommunicationUser(), internalCommunicationConfig.getInternalLdapCommunicationPassword()));
+        }
         install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
     }
 
