@@ -68,16 +68,16 @@ public class SliceDictionaryStreamReader
     private boolean[] isNullVector = new boolean[0];
 
     @Nonnull
-    private StreamSource<ByteArrayStream> dictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
-    private boolean dictionaryOpen;
-    private int dictionarySize;
+    private StreamSource<ByteArrayStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
+    private boolean stripeDictionaryOpen;
+    private int stripeDictionarySize;
     @Nonnull
-    private Slice[] dictionary = new Slice[1];
+    private Slice[] stripeDictionary = new Slice[1];
 
-    private Block dictionaryBlock = createNewDictionaryBlock();
+    private Block stripeDictionaryBlock = createNewDictionaryBlock();
 
     @Nonnull
-    private StreamSource<LongStream> dictionaryLengthStreamSource = missingStreamSource(LongStream.class);
+    private StreamSource<LongStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongStream.class);
 
     @Nonnull
     private StreamSource<BooleanStream> inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
@@ -190,7 +190,7 @@ public class SliceDictionaryStreamReader
                     builder.appendNull();
                 }
                 else if (inDictionary[i]) {
-                    type.writeSlice(builder, dictionary[dataVector[i]]);
+                    type.writeSlice(builder, stripeDictionary[dataVector[i]]);
                 }
                 else {
                     type.writeSlice(builder, rowGroupDictionary[dataVector[i]]);
@@ -202,12 +202,12 @@ public class SliceDictionaryStreamReader
             for (int i = 0; i < dataVector.length; i++) {
                 if (isNullVector[i]) {
                     // null is the last entry in the dictionary
-                    dataVector[i] = dictionarySize;
+                    dataVector[i] = stripeDictionarySize;
                 }
             }
             // copy ids into a private array for this block since data vector is reused
             Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
-            block = new DictionaryBlock(nextBatchSize, dictionaryBlock, ids);
+            block = new DictionaryBlock(nextBatchSize, stripeDictionaryBlock, ids);
         }
 
         readOffset = 0;
@@ -217,32 +217,32 @@ public class SliceDictionaryStreamReader
 
     private Block createNewDictionaryBlock()
     {
-        return new SliceArrayBlock(dictionary.length, dictionary, true);
+        return new SliceArrayBlock(stripeDictionary.length, stripeDictionary, true);
     }
 
     private void openRowGroup(Type type)
             throws IOException
     {
         // read the dictionary
-        if (!dictionaryOpen) {
+        if (!stripeDictionaryOpen) {
             // We must always create a new dictionary array because we need the last slot to be null
-            dictionary = new Slice[dictionarySize + 1];
-            dictionaryBlock = createNewDictionaryBlock();
-            if (dictionarySize > 0) {
-                int[] dictionaryLength = new int[dictionarySize];
+            stripeDictionary = new Slice[stripeDictionarySize + 1];
+            stripeDictionaryBlock = createNewDictionaryBlock();
+            if (stripeDictionarySize > 0) {
+                int[] dictionaryLength = new int[stripeDictionarySize];
 
                 // read the lengths
-                LongStream lengthStream = dictionaryLengthStreamSource.openStream();
+                LongStream lengthStream = stripeDictionaryLengthStreamSource.openStream();
                 if (lengthStream == null) {
                     throw new OrcCorruptionException("Dictionary is not empty but dictionary length stream is not present");
                 }
-                lengthStream.nextIntVector(dictionarySize, dictionaryLength);
+                lengthStream.nextIntVector(stripeDictionarySize, dictionaryLength);
 
-                ByteArrayStream dictionaryDataStream = dictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, dictionary, type);
+                ByteArrayStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
+                readDictionary(dictionaryDataStream, stripeDictionarySize, dictionaryLength, stripeDictionary, type);
             }
         }
-        dictionaryOpen = true;
+        stripeDictionaryOpen = true;
 
         // read row group dictionary
         RowGroupDictionaryLengthStream dictionaryLengthStream = rowGroupDictionaryLengthStreamSource.openStream();
@@ -295,10 +295,10 @@ public class SliceDictionaryStreamReader
     public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        dictionaryDataStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class);
-        dictionaryLengthStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class);
-        dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
-        dictionaryOpen = false;
+        stripeDictionaryDataStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class);
+        stripeDictionaryLengthStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class);
+        stripeDictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
+        stripeDictionaryOpen = false;
 
         presentStreamSource = missingStreamSource(BooleanStream.class);
         dataStreamSource = missingStreamSource(LongStream.class);
