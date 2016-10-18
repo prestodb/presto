@@ -14,3 +14,6 @@ databases:
     configured_hdfs_user: hive
     https_keystore_path: /docker/volumes/conf/presto/etc/docker.cluster.jks
     https_keystore_password: '123456'
+    jdbc_user: admin
+    jdbc_password: admin
+    cli_ldap_authentication: true

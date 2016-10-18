@@ -1,16 +1,22 @@
 version: '2'
 services:
 
+  ldapserver:
+    image: 'teradatalabs/centos6-java8-oracle-openldap:${DOCKER_IMAGES_VERSION}'
+
   presto-master:
     domainname: docker.cluster
     hostname: presto-master
-    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-master run
+    image: 'teradatalabs/centos6-java8-oracle-ldap:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-ldap-master run
     ports:
       - '7778:7778'
     networks:
       default:
         aliases:
          - presto-master.docker.cluster
+    depends_on:
+      - ldapserver
 
   presto-worker-1:
     domainname: docker.cluster
@@ -18,7 +24,8 @@ services:
     extends:
       file: ../common/standard.yml
       service: java-8-base
-    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    image: 'teradatalabs/centos6-java8-oracle-ldap:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-ldap-worker run
     networks:
       default:
         aliases:
@@ -34,7 +41,8 @@ services:
     extends:
       file: ../common/standard.yml
       service: java-8-base
-    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-worker run
+    image: 'teradatalabs/centos6-java8-oracle-ldap:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-ldap-worker run
     networks:
       default:
         aliases:
@@ -45,5 +53,6 @@ services:
       - presto-master
 
   application-runner:
+    image: 'teradatalabs/centos6-java8-oracle-ldap:${DOCKER_IMAGES_VERSION}'
     volumes:
-      - ../../../conf/tempto/tempto-configuration-for-docker-tls.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml
+      - ../../../conf/tempto/tempto-configuration-for-docker-tls-ldap.yaml:/docker/volumes/tempto/tempto-configuration-local.yaml

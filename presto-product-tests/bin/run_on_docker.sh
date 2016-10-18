@@ -56,7 +56,8 @@ function run_product_tests() {
   mkdir -p "${REPORT_DIR}"
   run_in_application_runner_container \
     java "-Djava.util.logging.config.file=/docker/volumes/conf/tempto/logging.properties" \
-    -jar "/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
+    -classpath "/docker/volumes/jdbc/driver.jar:/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
+    com.facebook.presto.tests.TemptoProductTestRunner \
     --report-dir "/docker/volumes/test-reports" \
     --config-local "/docker/volumes/tempto/tempto-configuration-local.yaml" \
     "$@" \
@@ -181,13 +182,13 @@ shift 1
 PRESTO_SERVICES="presto-master"
 if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
-elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
-   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
+elif [[ "$ENVIRONMENT" == "multinode-tls-ldap" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2 ldapserver"
 fi
 
 CLI_ARGUMENTS="--server presto-master:8080"
-if [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
-    CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456"
+if [[ "$ENVIRONMENT" == "multinode-tls-ldap" ]]; then
+    CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456 --user admin -P admin"
 fi
 
 # check docker and docker compose installation

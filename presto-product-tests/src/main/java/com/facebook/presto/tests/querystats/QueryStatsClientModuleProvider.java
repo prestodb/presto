@@ -14,6 +14,7 @@
 package com.facebook.presto.tests.querystats;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Exposed;
 import com.google.inject.Inject;
 import com.google.inject.Module;
@@ -22,13 +23,16 @@ import com.google.inject.Provides;
 import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.initialization.AutoModuleProvider;
 import com.teradata.tempto.initialization.SuiteModuleProvider;
+import io.airlift.http.client.BasicAuthRequestFilter;
 import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.ObjectMapperProvider;
 
 import javax.inject.Named;
 
 import java.net.URI;
+import java.util.Set;
 
 @AutoModuleProvider
 public class QueryStatsClientModuleProvider
@@ -50,14 +54,19 @@ public class QueryStatsClientModuleProvider
             @Inject
             @Provides
             @Exposed
-            QueryStatsClient getQueryStatsClient(ObjectMapper objectMapper, @Named("databases.presto.server_address") String serverAddress)
+            QueryStatsClient getQueryStatsClient(
+                    ObjectMapper objectMapper,
+                    @Named("databases.presto.server_address") String serverAddress,
+                    @Named("databases.presto.jdbc_user") String user,
+                    @Named("databases.presto.jdbc_password") String password)
             {
                 // @Singleton does not work due: https://github.com/prestodb/tempto/issues/94
                 if (httpQueryStatsClient == null) {
                     HttpClientConfig httpClientConfig = new HttpClientConfig();
                     httpClientConfig.setKeyStorePath(configuration.getString("databases.presto.https_keystore_path").orElse(null));
                     httpClientConfig.setKeyStorePassword(configuration.getString("databases.presto.https_keystore_password").orElse(null));
-                    httpQueryStatsClient = new HttpQueryStatsClient(new JettyHttpClient(httpClientConfig), objectMapper, URI.create(serverAddress));
+                    Set<HttpRequestFilter> filters = ImmutableSet.of(new BasicAuthRequestFilter(user, password));
+                    httpQueryStatsClient = new HttpQueryStatsClient(new JettyHttpClient(httpClientConfig, filters), objectMapper, URI.create(serverAddress));
                 }
                 return httpQueryStatsClient;
             }
