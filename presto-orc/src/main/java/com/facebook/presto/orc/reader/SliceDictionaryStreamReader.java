@@ -23,8 +23,6 @@ import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
 import com.facebook.presto.orc.stream.StreamSource;
 import com.facebook.presto.orc.stream.StreamSources;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.Type;
@@ -74,7 +72,7 @@ public class SliceDictionaryStreamReader
     @Nonnull
     private Slice[] stripeDictionary = new Slice[1];
 
-    private Block stripeDictionaryBlock = createNewDictionaryBlock();
+    private SliceArrayBlock dictionaryBlock = new SliceArrayBlock(stripeDictionary.length, stripeDictionary, true);
 
     @Nonnull
     private StreamSource<LongStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongStream.class);
@@ -174,50 +172,37 @@ public class SliceDictionaryStreamReader
             inDictionaryStream.getSetBits(nextBatchSize, inDictionary, isNullVector);
         }
 
-        boolean rowGroupDictionaryReferenced = false;
+        // create the dictionary ids
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNullVector[i] && !inDictionary[i]) {
-                rowGroupDictionaryReferenced = true;
-                break;
+            if (isNullVector[i]) {
+                // null is the last entry in the slice dictionary
+                dataVector[i] = dictionaryBlock.getPositionCount() - 1;
+            }
+            else if (inDictionary[i]) {
+                // stripe dictionary elements have the same dictionary id
+            }
+            else {
+                // row group dictionary elements are after the main dictionary
+                dataVector[i] += stripeDictionarySize;
             }
         }
 
-        Block block;
-        if (rowGroupDictionaryReferenced) {
-            BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), nextBatchSize);
-            for (int i = 0; i < nextBatchSize; i++) {
-                if (isNullVector[i]) {
-                    builder.appendNull();
-                }
-                else if (inDictionary[i]) {
-                    type.writeSlice(builder, stripeDictionary[dataVector[i]]);
-                }
-                else {
-                    type.writeSlice(builder, rowGroupDictionary[dataVector[i]]);
-                }
-            }
-            block = builder.build();
-        }
-        else {
-            for (int i = 0; i < dataVector.length; i++) {
-                if (isNullVector[i]) {
-                    // null is the last entry in the dictionary
-                    dataVector[i] = stripeDictionarySize;
-                }
-            }
-            // copy ids into a private array for this block since data vector is reused
-            Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
-            block = new DictionaryBlock(nextBatchSize, stripeDictionaryBlock, ids);
-        }
+        // copy ids into a private array for this block since data vector is reused
+        Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
+        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, ids);
 
         readOffset = 0;
         nextBatchSize = 0;
         return block;
     }
 
-    private Block createNewDictionaryBlock()
+    private void setDictionaryBlockData(Slice[] dictionary)
     {
-        return new SliceArrayBlock(stripeDictionary.length, stripeDictionary, true);
+        // only update the block if the array changed to prevent creation of new Block objects, since
+        // the engine currently uses identity equality to test if dictionaries are the same
+        if (dictionaryBlock.getValues() != dictionary) {
+            dictionaryBlock = new SliceArrayBlock(dictionary.length, dictionary, true);
+        }
     }
 
     private void openRowGroup(Type type)
@@ -225,9 +210,9 @@ public class SliceDictionaryStreamReader
     {
         // read the dictionary
         if (!stripeDictionaryOpen) {
-            // We must always create a new dictionary array because we need the last slot to be null
+            // We must always create a new dictionary array because the previous dictionary may still be referenced
+            // add one extra entry for null
             stripeDictionary = new Slice[stripeDictionarySize + 1];
-            stripeDictionaryBlock = createNewDictionaryBlock();
             if (stripeDictionarySize > 0) {
                 int[] dictionaryLength = new int[stripeDictionarySize];
 
@@ -238,8 +223,9 @@ public class SliceDictionaryStreamReader
                 }
                 lengthStream.nextIntVector(stripeDictionarySize, dictionaryLength);
 
+                // read dictionary values
                 ByteArrayStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, stripeDictionarySize, dictionaryLength, stripeDictionary, type);
+                readDictionary(dictionaryDataStream, stripeDictionarySize, dictionaryLength, 0, stripeDictionary, type);
             }
         }
         stripeDictionaryOpen = true;
@@ -249,17 +235,26 @@ public class SliceDictionaryStreamReader
         if (dictionaryLengthStream != null) {
             int rowGroupDictionarySize = dictionaryLengthStream.getEntryCount();
 
-            // resize the dictionary array if necessary
-            if (rowGroupDictionary.length < rowGroupDictionarySize) {
-                rowGroupDictionary = new Slice[rowGroupDictionarySize];
+            // We must always create a new dictionary array because the previous dictionary may still be referenced
+            // The first elements of the dictionary are from the stripe dictionary, then the row group dictionary elements, and then a null
+            rowGroupDictionary = Arrays.copyOf(stripeDictionary, stripeDictionarySize + rowGroupDictionarySize + 1);
+            setDictionaryBlockData(rowGroupDictionary);
+
+            // resize the dictionary lengths array if necessary
+            if (rowGroupDictionaryLength.length < rowGroupDictionarySize) {
                 rowGroupDictionaryLength = new int[rowGroupDictionarySize];
             }
 
             // read the lengths
             dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength);
 
+            // read dictionary values
             ByteArrayStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, rowGroupDictionary, type);
+            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionary, type);
+        }
+        else {
+            // there is no row group dictionary so use the stripe dictionary
+            setDictionaryBlockData(stripeDictionary);
         }
 
         presentStream = presentStreamSource.openStream();
@@ -269,14 +264,20 @@ public class SliceDictionaryStreamReader
         rowGroupOpen = true;
     }
 
-    private static void readDictionary(@Nullable ByteArrayStream dictionaryDataStream, int dictionarySize, int[] dictionaryLength, Slice[] dictionary, Type type)
+    private static void readDictionary(
+            @Nullable ByteArrayStream dictionaryDataStream,
+            int dictionarySize,
+            int[] dictionaryLength,
+            int dictionaryOutputOffset,
+            Slice[] dictionary,
+            Type type)
             throws IOException
     {
         // build dictionary slices
         for (int i = 0; i < dictionarySize; i++) {
             int length = dictionaryLength[i];
             if (length == 0) {
-                dictionary[i] = Slices.EMPTY_SLICE;
+                dictionary[dictionaryOutputOffset + i] = Slices.EMPTY_SLICE;
             }
             else {
                 Slice value = Slices.wrappedBuffer(dictionaryDataStream.next(length));
@@ -286,7 +287,7 @@ public class SliceDictionaryStreamReader
                 if (isCharType(type)) {
                     value = trimSpacesAndTruncateToLength(value, type);
                 }
-                dictionary[i] = value;
+                dictionary[dictionaryOutputOffset + i] = value;
             }
         }
     }
