@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -30,6 +31,9 @@ public class TestReorderJoins
         extends BasePlanTest
 {
     private static final PlanMatchPattern ORDERS_TABLESCAN = tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"));
+    private static final PlanMatchPattern ORDERS_WITH_SHIPPRIORITY_TABLESCAN = tableScan(
+            "orders",
+            ImmutableMap.of("O_ORDERKEY", "orderkey", "O_SHIPPRIORITY", "shippriority"));
     private static final PlanMatchPattern SUPPLIER_TABLESCAN = tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"));
     private static final PlanMatchPattern PART_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey"));
     private static final PlanMatchPattern LINEITEM_TABLESCAN = tableScan(
@@ -37,6 +41,13 @@ public class TestReorderJoins
             ImmutableMap.of(
                     "L_PARTKEY", "partkey",
                     "L_ORDERKEY", "orderkey"));
+    private static final PlanMatchPattern LINEITEM_WITH_RETURNFLAG_TABLESCAN = tableScan(
+            "lineitem",
+            ImmutableMap.of(
+                    "L_PARTKEY", "partkey",
+                    "L_ORDERKEY", "orderkey",
+                    "L_RETURNFLAG", "returnflag"));
+
 
     public TestReorderJoins()
     {
@@ -67,5 +78,31 @@ public class TestReorderJoins
                                                 tableScan("part"),
                                                 anyTree(tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))),
                                 anyTree(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))));
+    }
+
+    @Test
+    public void testEliminateCrossJoinWithNonEqualityCondition()
+    {
+        assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
+                                anyTree(
+                                        join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
+                                                anyTree(PART_TABLESCAN),
+                                                anyTree(filter("L_PARTKEY <> L_ORDERKEY", LINEITEM_TABLESCAN)))),
+                                anyTree(ORDERS_TABLESCAN))));
+    }
+
+    @Test
+    public void testEliminateCrossJoinPreserveFilters()
+    {
+        assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l " +
+                        "WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND l.returnflag = 'R' AND shippriority >= 10",
+                anyTree(join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
+                        anyTree(
+                                join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
+                                        anyTree(PART_TABLESCAN),
+                                        anyTree(filter("L_RETURNFLAG = 'R'", LINEITEM_WITH_RETURNFLAG_TABLESCAN)))),
+                        anyTree(filter("O_SHIPPRIORITY >= 10", ORDERS_WITH_SHIPPRIORITY_TABLESCAN)))));
     }
 }

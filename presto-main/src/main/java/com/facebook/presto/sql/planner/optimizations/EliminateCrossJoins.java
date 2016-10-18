@@ -20,10 +20,12 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Comparator;
@@ -167,6 +169,15 @@ public class EliminateCrossJoins
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());
+            }
+
+            List<Expression> filters = graph.getFilters();
+
+            for (Expression filter : filters) {
+                result = new FilterNode(
+                        idAllocator.getNextId(),
+                        result,
+                        filter);
             }
 
             return result;
