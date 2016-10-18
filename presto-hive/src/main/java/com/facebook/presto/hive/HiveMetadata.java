@@ -106,6 +106,7 @@ import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
+import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -691,23 +692,26 @@ public class HiveMetadata
         boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
 
         Properties schema;
-        String outputFormat;
+        StorageFormat format;
         if (partition.isPresent()) {
             schema = getHiveSchema(partition.get(), table);
-            outputFormat = partition.get().getStorage().getStorageFormat().getOutputFormat();
+            format = partition.get().getStorage().getStorageFormat();
         }
         else {
             schema = getHiveSchema(table);
-            outputFormat = table.getStorage().getStorageFormat().getOutputFormat();
+            format = table.getStorage().getStorageFormat();
         }
 
         for (String fileName : fileNames) {
-            writeEmptyFile(new Path(path, fileName), conf, compress, schema, outputFormat);
+            writeEmptyFile(new Path(path, fileName), conf, compress, schema, format.getSerDe(), format.getOutputFormat());
         }
     }
 
-    private static void writeEmptyFile(Path target, JobConf conf, boolean compress, Properties properties, String outputFormatName)
+    private static void writeEmptyFile(Path target, JobConf conf, boolean compress, Properties properties, String serDe, String outputFormatName)
     {
+        // Some serializers such as Avro set a property in the schema.
+        initializeSerializer(conf, properties, serDe);
+
         // The code below is not a try with resources because RecordWriter is not Closeable.
         FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, compress, properties, outputFormatName);
         try {
