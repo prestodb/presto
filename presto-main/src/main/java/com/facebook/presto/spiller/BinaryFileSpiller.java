@@ -15,6 +15,8 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.execution.buffer.PagesSerde;
 import com.facebook.presto.execution.buffer.PagesSerdeUtil;
+import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Closer;
@@ -42,6 +44,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -57,6 +60,7 @@ public class BinaryFileSpiller
     private final Closer closer = Closer.create();
     private final PagesSerde serde;
     private final AtomicLong totalSpilledDataSize;
+    private final SpillContext localSpillContext;
 
     private final ListeningExecutorService executor;
 
@@ -67,11 +71,13 @@ public class BinaryFileSpiller
             PagesSerde serde,
             ListeningExecutorService executor,
             Path spillPath,
-            AtomicLong totalSpilledDataSize)
+            AtomicLong totalSpilledDataSize,
+            SpillContext spillContext)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.totalSpilledDataSize = requireNonNull(totalSpilledDataSize, "totalSpilledDataSize is null");
+        this.localSpillContext = spillContext.newLocalSpillContext();
         try {
             this.targetDirectory = Files.createTempDirectory(spillPath, "presto-spill");
         }
@@ -93,7 +99,14 @@ public class BinaryFileSpiller
     private void writePages(Iterator<Page> pageIterator, Path spillPath)
     {
         try (SliceOutput output = new OutputStreamSliceOutput(new BufferedOutputStream(new FileOutputStream(spillPath.toFile())))) {
-            totalSpilledDataSize.addAndGet(PagesSerdeUtil.writePages(serde, output, pageIterator));
+            while (pageIterator.hasNext()) {
+                Page page = pageIterator.next();
+                SerializedPage serializedPage = serde.serialize(page);
+                long pageSize = serializedPage.getSizeInBytes();
+                localSpillContext.updateBytes(pageSize);
+                totalSpilledDataSize.addAndGet(pageSize);
+                writeSerializedPage(output, serializedPage);
+            }
         }
         catch (UncheckedIOException | IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
@@ -136,6 +149,9 @@ public class BinaryFileSpiller
                     GENERIC_INTERNAL_ERROR,
                     String.format("Failed to delete directory [%s]", targetDirectory),
                     e);
+        }
+        finally {
+            localSpillContext.close();
         }
     }
 

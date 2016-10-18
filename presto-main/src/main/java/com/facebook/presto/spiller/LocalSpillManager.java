@@ -11,19 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.type.Type;
-import org.weakref.jmx.Managed;
+import com.google.inject.Inject;
 
-import java.util.List;
+import static java.util.Objects.requireNonNull;
 
-public interface SpillerFactory
+public final class LocalSpillManager
 {
-    Spiller create(List<Type> types, SpillContext localSpillContext);
+    private final SpillSpaceTracker spillSpaceTracker;
 
-    @Managed
-    long getTotalSpilledBytes();
+    @Inject
+    public LocalSpillManager(NodeSpillConfig config)
+    {
+        requireNonNull(config, "config is null");
+        spillSpaceTracker = new SpillSpaceTracker(config.getMaxSpillPerNode());
+    }
+
+    public SpillSpaceTracker getSpillSpaceTracker()
+    {
+        return spillSpaceTracker;
+    }
 }
