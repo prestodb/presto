@@ -15,10 +15,12 @@
 package com.facebook.presto.sql.planner.optimizations.joins;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -41,6 +43,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class JoinGraph
 {
+    private final List<Expression> filters;
     private final List<PlanNode> nodes; // nodes in order of their appearance in tree plan (left, right, parent)
     private final Multimap<PlanNodeId, Edge> edges;
     private final PlanNodeId rootId;
@@ -57,17 +60,33 @@ public class JoinGraph
 
     public JoinGraph(PlanNode node)
     {
-        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId());
+        this(ImmutableList.of(node), ImmutableMultimap.of(), node.getId(), ImmutableList.of());
     }
 
     public JoinGraph(
             List<PlanNode> nodes,
             Multimap<PlanNodeId, Edge> edges,
-            PlanNodeId rootId)
+            PlanNodeId rootId,
+            List<Expression> filters)
     {
         this.nodes = nodes;
         this.edges = edges;
         this.rootId = rootId;
+        this.filters = filters;
+    }
+
+    public JoinGraph withFilter(Expression expression)
+    {
+        ImmutableList.Builder<Expression> filters = ImmutableList.builder();
+        filters.addAll(this.filters);
+        filters.add(expression);
+
+        return new JoinGraph(nodes, edges, rootId, filters.build());
+    }
+
+    public List<Expression> getFilters()
+    {
+        return filters;
     }
 
     public PlanNodeId getRootId()
@@ -77,7 +96,7 @@ public class JoinGraph
 
     public JoinGraph withRootId(PlanNodeId rootId)
     {
-        return new JoinGraph(nodes, edges, rootId);
+        return new JoinGraph(nodes, edges, rootId, filters);
     }
 
     public boolean isEmpty()
@@ -143,6 +162,11 @@ public class JoinGraph
                 .putAll(this.edges)
                 .putAll(other.edges);
 
+        List<Expression> joinedFilters = ImmutableList.<Expression>builder()
+                .addAll(this.filters)
+                .addAll(other.filters)
+                .build();
+
         for (JoinNode.EquiJoinClause edge : joinClauses) {
             Symbol leftSymbol = edge.getLeft();
             Symbol rightSymbol = edge.getRight();
@@ -155,7 +179,7 @@ public class JoinGraph
             edges.put(right.getId(), new Edge(left, rightSymbol, leftSymbol));
         }
 
-        return new JoinGraph(nodes, edges.build(), newRoot);
+        return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters);
     }
 
     private static class Builder
@@ -179,17 +203,29 @@ public class JoinGraph
         }
 
         @Override
+        public JoinGraph visitFilter(FilterNode node, Context context)
+        {
+            JoinGraph graph = node.getSource().accept(this, context);
+            return graph.withFilter(node.getPredicate());
+        }
+
+        @Override
         public JoinGraph visitJoin(JoinNode node, Context context)
         {
-            //TODO: add support for non inner joins and filter functions
-            if (node.getType() != INNER || node.getFilter().isPresent()) {
+            //TODO: add support for non inner joins
+            if (node.getType() != INNER) {
                 return visitPlan(node, context);
             }
 
             JoinGraph left = node.getLeft().accept(this, context);
             JoinGraph right = node.getRight().accept(this, context);
 
-            return left.joinWith(right, node.getCriteria(), context, node.getId());
+            JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId());
+
+            if (node.getFilter().isPresent()) {
+                return graph.withFilter(node.getFilter().get());
+            }
+            return graph;
         }
     }
 
