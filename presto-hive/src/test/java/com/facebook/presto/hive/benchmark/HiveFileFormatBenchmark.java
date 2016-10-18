@@ -80,6 +80,7 @@ public class HiveFileFormatBenchmark
 
     @SuppressWarnings("deprecation")
     public static final HiveClientConfig CONFIG = new HiveClientConfig()
+            .setRcfileOptimizedReaderEnabled(true)
             .setParquetOptimizedReaderEnabled(true);
 
     public static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG)
@@ -146,8 +147,8 @@ public class HiveFileFormatBenchmark
                         BigintType.BIGINT.writeLong(noDateBlockBuilder, column.getIdentifier(lineItem));
                         break;
                     case INTEGER:
-                        IntegerType.INTEGER.writeLong(blockBuilder, column.getIdentifier(lineItem));
-                        IntegerType.INTEGER.writeLong(noDateBlockBuilder, column.getIdentifier(lineItem));
+                        IntegerType.INTEGER.writeLong(blockBuilder, column.getInteger(lineItem));
+                        IntegerType.INTEGER.writeLong(noDateBlockBuilder, column.getInteger(lineItem));
                         break;
                     case DATE:
                         DateType.DATE.writeLong(blockBuilder, column.getDate(lineItem));
@@ -224,8 +225,7 @@ public class HiveFileFormatBenchmark
                 targetFile,
                 columnNames,
                 fileFormat.supportsDate() ? columnTypes : noDateColumnTypes,
-                compression
-        )) {
+                compression)) {
             for (Page page : inputPages) {
                 formatWriter.writePage(page);
             }

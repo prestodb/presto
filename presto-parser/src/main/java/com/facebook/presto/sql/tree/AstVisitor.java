@@ -97,6 +97,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitDescribeInput(DescribeInput node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitQuery(Query node, C context)
     {
         return visitStatement(node, context);
@@ -480,6 +485,16 @@ public abstract class AstVisitor<R, C>
     protected R visitTableElement(TableElement node, C context)
     {
         return visitNode(node, context);
+    }
+
+    protected R visitColumnDefinition(ColumnDefinition node, C context)
+    {
+        return visitTableElement(node, context);
+    }
+
+    protected R visitLikeClause(LikeClause node, C context)
+    {
+        return visitTableElement(node, context);
     }
 
     protected R visitCreateSchema(CreateSchema node, C context)

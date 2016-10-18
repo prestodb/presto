@@ -36,7 +36,7 @@ public final class HyperLogLogFunctions
     @ScalarFunction
     @Description("an empty HyperLogLog instance")
     @SqlType(StandardTypes.HYPER_LOG_LOG)
-    public static Slice empty_approx_set()
+    public static Slice emptyApproxSet()
     {
         return ApproximateSetAggregation.newHyperLogLog().serialize();
     }

@@ -2782,6 +2782,56 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testInUncorrelatedSubquery()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT CASE WHEN false THEN 1 IN (VALUES 2) END",
+                "SELECT NULL");
+    }
+
+    @Test
+    public void testJoinWithExpressionsThatMayReturnNull()
+            throws Exception
+    {
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, nullif(a, 1)\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                "SELECT 1, NULL, 1");
+
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, contains(array[2, null], a)\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x\n",
+                "SELECT 1, NULL, 1");
+
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, array[null][a]\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                "SELECT 1, NULL, 1");
+
+        assertQuery("" +
+                        "SELECT *\n" +
+                        "FROM (\n" +
+                        "    SELECT a, try(a / 0)\n" +
+                        "    FROM (VALUES 1) w(a)\n" +
+                        ") t(a,b)\n" +
+                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                "SELECT 1, NULL, 1");
+    }
+
+    @Test
     public void testLeftFilteredJoin()
             throws Exception
     {
@@ -3797,6 +3847,19 @@ public abstract class AbstractTestQueries
                 .build();
 
         assertEquals(actual, expected);
+
+        actual = computeActual("" +
+                "SELECT (MAX(x.a) OVER () - x.a) * 100.0 / MAX(x.a) OVER ()\n" +
+                "FROM (VALUES 1, 2, 3, 4) x(a)");
+
+        expected = resultBuilder(getSession(), DOUBLE)
+                .row(75.0)
+                .row(50.0)
+                .row(25.0)
+                .row(0.0)
+                .build();
+
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -4493,6 +4556,9 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT coalesce(try_cast('foo' AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
         assertQuery("SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
+
+        assertQuery("SELECT CAST(x AS BIGINT) FROM (VALUES 1, 2, 3, NULL) t (x)", "VALUES 1, 2, 3, NULL");
+        assertQuery("SELECT try_cast(x AS BIGINT) FROM (VALUES 1, 2, 3, NULL) t (x)", "VALUES 1, 2, 3, NULL");
     }
 
     @Test
@@ -7854,5 +7920,33 @@ public abstract class AbstractTestQueries
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "line 1:1: Incorrect number of parameters: expected 1 but found 0");
         }
+    }
+
+    @Test
+    public void testDescribeInput()
+    {
+        Session session = getSession().withPreparedStatement("my_query", "select ? from nation where nationkey = ? and name < ?");
+        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
+        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "unknown")
+                .row(1, "bigint")
+                .row(2, "varchar")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testDescribeInputNoParameters()
+    {
+        Session session = getSession().withPreparedStatement("my_query", "select * from nation");
+        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
+        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR).build();
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testDescribeInputNoSuchQuery()
+    {
+        assertQueryFails("DESCRIBE INPUT my_query", "Prepared statement not found: my_query");
     }
 }

@@ -544,7 +544,7 @@ public class UnaliasSymbolReferences
                     node.getColumnNames(),
                     node.getOutputSymbols(),
                     canonicalize(node.getSampleWeightSymbol()),
-                    node.getPartitioningScheme().map(this::canonicalizePartitionFunctionBinding));
+                    node.getPartitioningScheme().map(partitioningScheme -> canonicalizePartitionFunctionBinding(partitioningScheme, source)));
         }
 
         @Override
@@ -658,11 +658,20 @@ public class UnaliasSymbolReferences
             return builder.build();
         }
 
-        private PartitioningScheme canonicalizePartitionFunctionBinding(PartitioningScheme scheme)
+        private PartitioningScheme canonicalizePartitionFunctionBinding(PartitioningScheme scheme, PlanNode source)
         {
+            Set<Symbol> addedOutputs = new HashSet<>();
+            ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+            for (Symbol symbol : source.getOutputSymbols()) {
+                Symbol canonicalOutput = canonicalize(symbol);
+                if (addedOutputs.add(canonicalOutput)) {
+                    outputs.add(canonicalOutput);
+                }
+            }
+
             return new PartitioningScheme(
                     scheme.getPartitioning().translate(this::canonicalize),
-                    canonicalize(scheme.getOutputLayout()),
+                    outputs.build(),
                     canonicalize(scheme.getHashColumn()),
                     scheme.isReplicateNulls(),
                     scheme.getBucketToPartition());

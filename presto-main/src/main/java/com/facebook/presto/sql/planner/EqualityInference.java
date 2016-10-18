@@ -253,7 +253,7 @@ public class EqualityInference
     {
         return expression -> {
             expression = normalizeInPredicateToEquality(expression);
-            if (DeterminismEvaluator.isDeterministic(expression) && expression instanceof ComparisonExpression) {
+            if (expression instanceof ComparisonExpression && DeterminismEvaluator.isDeterministic(expression) && !NullabilityAnalyzer.mayReturnNullOnNonNullInput(expression)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
                 if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
                     // We should only consider equalities that have distinct left and right components

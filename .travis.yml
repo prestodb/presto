@@ -5,8 +5,9 @@ env:
     - MAVEN_OPTS="-Xmx256M"
     - MAVEN_SKIP_CHECKS_AND_DOCS="-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
   matrix:
-    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql
+    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql,!presto-accumulo
     - TEST_MODULES=presto-tests
+    - TEST_MODULES=presto-accumulo
     - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
     - PRODUCT_TESTS=true
     - INTEGRATION_TESTS=true

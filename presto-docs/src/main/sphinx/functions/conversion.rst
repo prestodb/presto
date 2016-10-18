@@ -27,4 +27,8 @@ Miscellaneous
 
 .. function:: typeof(expr) -> varchar
 
-    Returns name of the type of the provided expression.
+    Returns the name of the type of the provided expression::
+
+        SELECT typeof(123); -- integer
+        SELECT typeof('cat'); -- varchar(3)
+        SELECT typeof(cos(2) + 1.5); -- double

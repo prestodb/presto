@@ -44,10 +44,12 @@ import java.util.Map;
 
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static com.facebook.presto.hive.PrestoS3FileSystem.S3_KMS_KEY_ID;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
-import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT;
+import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
+import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -335,6 +337,19 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testKMSEncryptionMaterialsProvider()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_KMS_KEY_ID, "test-key-id");
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(fs.getS3Client(), AmazonS3EncryptionClient.class);
+        }
+    }
+
     @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
     public void testUnrecoverableS3ExceptionMessage()
             throws Exception
@@ -368,6 +383,21 @@ public class TestPrestoS3FileSystem
     }
 
     @Test
+    public void testUserAgentPrefix()
+            throws Exception
+    {
+        String userAgentPrefix = "agent_prefix";
+        Configuration config = new Configuration();
+        config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            ClientConfiguration clientConfig = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);
+            assertEquals(clientConfig.getUserAgentSuffix(), S3_USER_AGENT_SUFFIX);
+            assertEquals(clientConfig.getUserAgentPrefix(), userAgentPrefix);
+        }
+    }
+
+    @Test
     public void testDefaultS3ClientConfiguration()
             throws Exception
     {
@@ -379,7 +409,8 @@ public class TestPrestoS3FileSystem
             assertEquals(config.getConnectionTimeout(), defaults.getS3ConnectTimeout().toMillis());
             assertEquals(config.getSocketTimeout(), defaults.getS3SocketTimeout().toMillis());
             assertEquals(config.getMaxConnections(), defaults.getS3MaxConnections());
-            assertEquals(config.getUserAgentSuffix(), S3_USER_AGENT);
+            assertEquals(config.getUserAgentSuffix(), S3_USER_AGENT_SUFFIX);
+            assertEquals(config.getUserAgentPrefix(), "");
         }
     }
 

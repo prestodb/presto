@@ -16,7 +16,7 @@ function canonical_path() {
 
 source ${BASH_SOURCE%/*}/../../../bin/locations.sh
 
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-7}
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-10}
 export HADOOP_MASTER_IMAGE=${HADOOP_MASTER_IMAGE:-"teradatalabs/cdh5-hive:${DOCKER_IMAGES_VERSION}"}
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
@@ -40,3 +40,5 @@ if [[ -z ${PRODUCT_TESTS_JAR} ]]; then
     PRODUCT_TESTS_JAR="${PRODUCT_TESTS_ROOT}/target/presto-product-tests-${PRESTO_VERSION}-executable.jar"
 fi
 export PRODUCT_TESTS_JAR=$(canonical_path ${PRODUCT_TESTS_JAR})
+
+export HIVE_PROXY_PORT=${HIVE_PROXY_PORT:-1180}

@@ -47,7 +47,7 @@ statement
     | ALTER TABLE tableName=qualifiedName
         RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
     | ALTER TABLE tableName=qualifiedName
-        ADD COLUMN column=tableElement                                 #addColumn
+        ADD COLUMN column=columnDefinition                             #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
@@ -83,6 +83,7 @@ statement
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+    | DESCRIBE INPUT identifier                                        #describeInput
     ;
 
 query
@@ -94,7 +95,16 @@ with
     ;
 
 tableElement
+    : columnDefinition
+    | likeClause
+    ;
+
+columnDefinition
     : identifier type
+    ;
+
+likeClause
+    : LIKE qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
     ;
 
 tableProperties
@@ -425,7 +435,6 @@ nonReserved
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
-    | TRY
     | normalForm
     | POSITION
     | NO | DATA
@@ -435,6 +444,7 @@ nonReserved
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
+    | INPUT
     ;
 
 normalForm
@@ -553,7 +563,6 @@ TEXT: 'TEXT';
 GRAPHVIZ: 'GRAPHVIZ';
 LOGICAL: 'LOGICAL';
 DISTRIBUTED: 'DISTRIBUTED';
-TRY: 'TRY';
 CAST: 'CAST';
 TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';
@@ -604,8 +613,12 @@ CALL: 'CALL';
 PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
+INPUT: 'INPUT';
 CASCADE: 'CASCADE';
 RESTRICT: 'RESTRICT';
+INCLUDING: 'INCLUDING';
+EXCLUDING: 'EXCLUDING';
+PROPERTIES: 'PROPERTIES';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

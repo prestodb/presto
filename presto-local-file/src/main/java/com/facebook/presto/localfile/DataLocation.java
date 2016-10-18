@@ -26,10 +26,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_ERROR_CODE;
+import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_FILESYSTEM_ERROR;
+import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_NO_FILES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 import static java.nio.file.Files.newDirectoryStream;
 import static java.util.Objects.requireNonNull;
 
@@ -90,14 +90,14 @@ final class DataLocation
             List<File> files = builder.build();
 
             if (files.isEmpty()) {
-                throw new PrestoException(LOCAL_FILE_ERROR_CODE, format("Failed to list files at %s", location));
+                throw new PrestoException(LOCAL_FILE_NO_FILES, "No matching files found in directory: " + location);
             }
             return files.stream()
                     .sorted((o1, o2) -> Long.compare(o2.lastModified(), o1.lastModified()))
                     .collect(Collectors.toList());
         }
         catch (IOException e) {
-            throw new PrestoException(LOCAL_FILE_ERROR_CODE, format("Error getting list of files at %s", location), e);
+            throw new PrestoException(LOCAL_FILE_FILESYSTEM_ERROR, "Error listing files in directory: " + location, e);
         }
     }
 }

@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.153-SNAPSHOT</version>
+    <version>0.155-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -46,9 +46,9 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.5.1</dep.antlr.version>
-        <dep.airlift.version>0.137</dep.airlift.version>
+        <dep.airlift.version>0.138</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.24</dep.slice.version>
+        <dep.slice.version>0.27</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
         <dep.tempto.version>1.14</dep.tempto.version>
 
@@ -79,9 +79,11 @@
         <module>presto-record-decoder</module>
         <module>presto-kafka</module>
         <module>presto-redis</module>
+        <module>presto-accumulo</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
         <module>presto-orc</module>
+        <module>presto-rcfile</module>
         <module>presto-hive</module>
         <module>presto-hive-hadoop1</module>
         <module>presto-hive-hadoop2</module>
@@ -151,6 +153,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-orc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-rcfile</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -312,7 +320,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>0.8</version>
+                <version>0.9</version>
             </dependency>
 
             <dependency>
@@ -366,6 +374,12 @@
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java</artifactId>
                 <version>2.4.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>aircompressor</artifactId>
+                <version>0.3</version>
             </dependency>
 
             <dependency>
@@ -785,7 +799,7 @@
             <dependency>
                 <groupId>org.anarres.lzo</groupId>
                 <artifactId>lzo-hadoop</artifactId>
-                <version>1.0.4</version>
+                <version>1.0.5</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.hadoop</groupId>

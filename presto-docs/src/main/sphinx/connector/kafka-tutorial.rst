@@ -2,6 +2,11 @@
 Kafka Connector Tutorial
 ========================
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 2
+
 Introduction
 ============
 

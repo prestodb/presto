@@ -38,7 +38,6 @@ public class RaptorOutputTableHandle
     private final String tableName;
     private final List<RaptorColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
     private final List<RaptorColumnHandle> sortColumnHandles;
     private final List<SortOrder> sortOrders;
     private final Optional<RaptorColumnHandle> temporalColumnHandle;
@@ -54,7 +53,6 @@ public class RaptorOutputTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
             @JsonProperty("columnTypes") List<Type> columnTypes,
-            @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle,
             @JsonProperty("sortColumnHandles") List<RaptorColumnHandle> sortColumnHandles,
             @JsonProperty("sortOrders") List<SortOrder> sortOrders,
             @JsonProperty("temporalColumnHandle") Optional<RaptorColumnHandle> temporalColumnHandle,
@@ -68,7 +66,6 @@ public class RaptorOutputTableHandle
         this.tableName = checkTableName(tableName);
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-        this.sampleWeightColumnHandle = requireNonNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
         this.sortOrders = requireNonNull(sortOrders, "sortOrders is null");
         this.sortColumnHandles = requireNonNull(sortColumnHandles, "sortColumnHandles is null");
         this.temporalColumnHandle = requireNonNull(temporalColumnHandle, "temporalColumnHandle is null");
@@ -111,12 +108,6 @@ public class RaptorOutputTableHandle
     public List<Type> getColumnTypes()
     {
         return columnTypes;
-    }
-
-    @JsonProperty
-    public Optional<RaptorColumnHandle> getSampleWeightColumnHandle()
-    {
-        return sampleWeightColumnHandle;
     }
 
     @JsonProperty

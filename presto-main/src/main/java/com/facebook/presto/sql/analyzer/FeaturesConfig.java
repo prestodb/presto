@@ -18,9 +18,12 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
+import io.airlift.units.DataSize;
 
 import javax.validation.constraints.Min;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
@@ -55,6 +58,10 @@ public class FeaturesConfig
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
+    private boolean spillEnabled;
+    private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
+    private Path spillerSpillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills");
+    private int spillerThreads = 4;
 
     public boolean isResourceGroupsEnabled()
     {
@@ -252,6 +259,54 @@ public class FeaturesConfig
     public FeaturesConfig setRegexLibrary(RegexLibrary regexLibrary)
     {
         this.regexLibrary = regexLibrary;
+        return this;
+    }
+
+    public boolean isSpillEnabled()
+    {
+        return spillEnabled;
+    }
+
+    @Config("experimental.spill-enabled")
+    public FeaturesConfig setSpillEnabled(boolean spillEnabled)
+    {
+        this.spillEnabled = spillEnabled;
+        return this;
+    }
+
+    public DataSize getOperatorMemoryLimitBeforeSpill()
+    {
+        return operatorMemoryLimitBeforeSpill;
+    }
+
+    @Config("experimental.operator-memory-limit-before-spill")
+    public FeaturesConfig setOperatorMemoryLimitBeforeSpill(DataSize operatorMemoryLimitBeforeSpill)
+    {
+        this.operatorMemoryLimitBeforeSpill = operatorMemoryLimitBeforeSpill;
+        return this;
+    }
+
+    public Path getSpillerSpillPath()
+    {
+        return spillerSpillPath;
+    }
+
+    @Config("experimental.spiller-spill-path")
+    public FeaturesConfig setSpillerSpillPath(String spillPath)
+    {
+        this.spillerSpillPath = Paths.get(spillPath);
+        return this;
+    }
+
+    public int getSpillerThreads()
+    {
+        return spillerThreads;
+    }
+
+    @Config("experimental.spiller-threads")
+    public FeaturesConfig setSpillerThreads(int spillerThreads)
+    {
+        this.spillerThreads = spillerThreads;
         return this;
     }
 }

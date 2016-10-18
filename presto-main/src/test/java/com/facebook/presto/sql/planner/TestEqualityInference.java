@@ -15,19 +15,37 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NullIfExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
@@ -316,6 +334,33 @@ public class TestEqualityInference
 
         Expression scopedCanonical = inference.getScopedCanonical(nameReference("e1"), symbolBeginsWith("a"));
         assertEquals(scopedCanonical, nameReference("a1"));
+    }
+
+    @Test
+    public void testExpressionsThatMayReturnNullOnNonNullInput()
+            throws Exception
+    {
+        List<Expression> candidates = ImmutableList.of(
+                new Cast(nameReference("b"), "BIGINT", true), // try_cast
+                new FunctionCall(QualifiedName.of("try"), ImmutableList.of(nameReference("b"))),
+                new NullIfExpression(nameReference("b"), number(1)),
+                new IfExpression(nameReference("b"), number(1), new NullLiteral()),
+                new DereferenceExpression(nameReference("b"), "x"),
+                new InPredicate(nameReference("b"), new InListExpression(ImmutableList.of(new NullLiteral()))),
+                new SearchedCaseExpression(ImmutableList.of(new WhenClause(new IsNotNullPredicate(nameReference("b")), new NullLiteral())), Optional.empty()),
+                new SimpleCaseExpression(nameReference("b"), ImmutableList.of(new WhenClause(number(1), new NullLiteral())), Optional.empty()),
+                new SubscriptExpression(new ArrayConstructor(ImmutableList.of(new NullLiteral())), nameReference("b")));
+
+        for (Expression candidate : candidates) {
+            EqualityInference.Builder builder = new EqualityInference.Builder();
+            builder.extractInferenceCandidates(equals(nameReference("b"), nameReference("x")));
+            builder.extractInferenceCandidates(equals(nameReference("a"), candidate));
+
+            EqualityInference inference = builder.build();
+            List<Expression> equalities = inference.generateEqualitiesPartitionedBy(matchesSymbols("b")).getScopeStraddlingEqualities();
+            assertEquals(equalities.size(), 1);
+            assertTrue(equalities.get(0).equals(equals(nameReference("x"), nameReference("b"))) || equalities.get(0).equals(equals(nameReference("b"), nameReference("x"))));
+        }
     }
 
     private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)

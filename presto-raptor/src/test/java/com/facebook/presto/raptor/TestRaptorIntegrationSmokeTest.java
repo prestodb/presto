@@ -37,7 +37,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
-import static com.facebook.presto.raptor.RaptorQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -66,7 +65,7 @@ public class TestRaptorIntegrationSmokeTest
 
     protected TestRaptorIntegrationSmokeTest(QueryRunner queryRunner)
     {
-        super(queryRunner, createSampledSession());
+        super(queryRunner);
     }
 
     @Test
@@ -334,6 +333,32 @@ public class TestRaptorIntegrationSmokeTest
         assertQuery("SELECT count(DISTINCT \"$bucket_number\") FROM orders_bucketed", "SELECT 50");
 
         assertUpdate("DROP TABLE orders_bucketed");
+    }
+
+    @Test
+    public void testCreateBucketedTableLike()
+            throws Exception
+    {
+        assertUpdate("" +
+                "CREATE TABLE orders_bucketed_original (" +
+                "  orderkey bigint" +
+                ", custkey bigint" +
+                ") " +
+                "WITH (bucket_count = 50, bucketed_on = ARRAY['orderkey'])");
+
+        assertUpdate("" +
+                "CREATE TABLE orders_bucketed_like (" +
+                "  orderdate date" +
+                ", LIKE orders_bucketed_original INCLUDING PROPERTIES" +
+                ")");
+
+        assertUpdate("INSERT INTO orders_bucketed_like SELECT orderdate, orderkey, custkey FROM orders", "SELECT count(*) FROM orders");
+        assertUpdate("INSERT INTO orders_bucketed_like SELECT orderdate, orderkey, custkey FROM orders", "SELECT count(*) FROM orders");
+
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed_like", "SELECT 50 * 2");
+
+        assertUpdate("DROP TABLE orders_bucketed_original");
+        assertUpdate("DROP TABLE orders_bucketed_like");
     }
 
     @Test

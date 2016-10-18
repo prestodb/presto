@@ -56,7 +56,6 @@ public class RaptorPageSink
     private final long transactionId;
     private final StorageManager storageManager;
     private final JsonCodec<ShardInfo> shardInfoCodec;
-    private final int sampleWeightField;
     private final PageSorter pageSorter;
     private final List<Long> columnIds;
     private final List<Type> columnTypes;
@@ -77,7 +76,6 @@ public class RaptorPageSink
             long transactionId,
             List<Long> columnIds,
             List<Type> columnTypes,
-            Optional<Long> sampleWeightColumnId,
             List<Long> sortColumnIds,
             List<SortOrder> sortOrders,
             OptionalInt bucketCount,
@@ -92,9 +90,6 @@ public class RaptorPageSink
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
         this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.maxBufferBytes = requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes();
-
-        requireNonNull(sampleWeightColumnId, "sampleWeightColumnId is null");
-        this.sampleWeightField = columnIds.indexOf(sampleWeightColumnId.orElse(-1L));
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
@@ -123,10 +118,6 @@ public class RaptorPageSink
     {
         if (page.getPositionCount() == 0) {
             return NOT_BLOCKED;
-        }
-
-        if (sampleWeightField >= 0) {
-            page = createPageWithSampleWeightBlock(page, sampleWeightBlock);
         }
 
         pageWriter.appendPage(page);
@@ -178,27 +169,6 @@ public class RaptorPageSink
                 sortFields,
                 sortOrders,
                 pageSorter);
-    }
-
-    /**
-     * @return page with the sampleWeightBlock at the sampleWeightField index
-     */
-    private Page createPageWithSampleWeightBlock(Page page, Block sampleWeightBlock)
-    {
-        checkArgument(page.getPositionCount() == sampleWeightBlock.getPositionCount(), "position count of page and sampleWeightBlock must match");
-        int outputChannelCount = page.getChannelCount() + 1;
-        Block[] blocks = new Block[outputChannelCount];
-        blocks[sampleWeightField] = sampleWeightBlock;
-
-        int pageChannel = 0;
-        for (int channel = 0; channel < outputChannelCount; channel++) {
-            if (channel == sampleWeightField) {
-                continue;
-            }
-            blocks[channel] = page.getBlock(pageChannel);
-            pageChannel++;
-        }
-        return new Page(blocks);
     }
 
     private interface PageWriter

@@ -14,6 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionListBuilder;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
@@ -198,6 +200,86 @@ public class TestScalarValidation
         @ScalarFunction
         @SqlType(StandardTypes.BIGINT)
         public static long bad(@Nullable @SqlType(StandardTypes.DOUBLE) Double value)
+        {
+            return 0;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has @IsNull parameter that does not follow a @SqlType parameter")
+    public void testParameterWithConnectorAndIsNull()
+    {
+        extractScalars(ParameterWithConnectorAndIsNull.class);
+    }
+
+    public static final class ParameterWithConnectorAndIsNull
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bad(ConnectorSession session, @IsNull boolean isNull)
+        {
+            return 0;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has @IsNull parameter that does not follow a @SqlType parameter")
+    public void testParameterWithOnlyIsNull()
+    {
+        extractScalars(ParameterWithOnlyIsNull.class);
+    }
+
+    public static final class ParameterWithOnlyIsNull
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bad(@IsNull boolean isNull)
+        {
+            return 0;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has non-boolean parameter with @IsNull")
+    public void testParameterWithNonBooleanIsNull()
+    {
+        extractScalars(ParameterWithNonBooleanIsNull.class);
+    }
+
+    public static final class ParameterWithNonBooleanIsNull
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bad(@SqlType(StandardTypes.BIGINT) long value, @IsNull int isNull)
+        {
+            return 0;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* uses @IsNull following a parameter with boxed primitive type: Long")
+    public void testParameterWithBoxedPrimitiveIsNull()
+    {
+        extractScalars(ParameterWithBoxedPrimitiveIsNull.class);
+    }
+
+    public static final class ParameterWithBoxedPrimitiveIsNull
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bad(@SqlNullable @SqlType(StandardTypes.BIGINT) Long value, @IsNull boolean isNull)
+        {
+            return 0;
+        }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* has @IsNull parameter that has other annotations")
+    public void testParameterWithOtherAnnotationsWithIsNull()
+    {
+        extractScalars(ParameterWithOtherAnnotationsWithIsNull.class);
+    }
+
+    public static final class ParameterWithOtherAnnotationsWithIsNull
+    {
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bad(@SqlType(StandardTypes.BIGINT) long value, @IsNull @SqlNullable boolean isNull)
         {
             return 0;
         }

@@ -47,7 +47,7 @@ import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
-import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_ERROR_CODE;
+import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_READ_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -315,7 +315,7 @@ public class LocalFileRecordCursor
                 return magic == GZIP_MAGIC;
             }
             catch (IOException e) {
-                throw new PrestoException(LOCAL_FILE_ERROR_CODE, format("error reading file %s", file.getName()));
+                throw new PrestoException(LOCAL_FILE_READ_ERROR, "Error reading file: " + file.getName(), e);
             }
         }
 
@@ -359,8 +359,7 @@ public class LocalFileRecordCursor
                 try {
                     reader.close();
                 }
-                catch (IOException e) {
-                    throw Throwables.propagate(e);
+                catch (IOException ignored) {
                 }
             }
         }

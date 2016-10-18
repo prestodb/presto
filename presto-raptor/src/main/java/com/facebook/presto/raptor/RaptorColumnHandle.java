@@ -28,9 +28,6 @@ import static java.util.Objects.requireNonNull;
 public final class RaptorColumnHandle
         implements ColumnHandle
 {
-    // This is intentionally not named "$sampleWeight" because column names are lowercase and case insensitive
-    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "$sample_weight";
-
     // Generated rowId column for updates
     private static final long SHARD_ROW_ID_COLUMN_ID = -1;
     private static final String SHARD_ROW_ID_COLUMN_NAME = "$shard_row_id";

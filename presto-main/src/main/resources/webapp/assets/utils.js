@@ -18,7 +18,7 @@
 var GLYPHICON_DEFAULT = {color: '#1edcff'};
 var GLYPHICON_HIGHLIGHT = {color: '#999999'};
 
-var QUERY_STATE_COLOR_MAP = {
+var STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
     RUNNING: '#19874e',
     PLANNING: '#824b98',
@@ -31,59 +31,120 @@ var QUERY_STATE_COLOR_MAP = {
     UNKNOWN_ERROR: '#943524'
 };
 
-function getReadableErrorCode(errorType, errorCode)
+function getQueryStateColor(query)
 {
-    if (typeof errorType === 'undefined') {
-        return "UNKNOWN ERROR";
-    }
-
-    switch (errorType) {
-        case "USER_ERROR":
-            if (errorCode.name === 'USER_CANCELED') {
-                return "USER CANCELED";
-            }
-            return "USER ERROR";
-        case "INTERNAL_ERROR":
-            return "INTERNAL ERROR";
-        case "INSUFFICIENT_RESOURCES":
-            return "INSUFFICIENT RESOURCES";
-        case "EXTERNAL":
-            return "EXTERNAL ERROR";
-    }
-    return errorType;
-}
-
-function getQueryStateColor(state, errorType, errorCode)
-{
-    switch (state) {
+    switch (query.state) {
         case "QUEUED":
-            return QUERY_STATE_COLOR_MAP.QUEUED;
+            return STATE_COLOR_MAP.QUEUED;
         case "PLANNING":
-            return QUERY_STATE_COLOR_MAP.PLANNING;
+            return STATE_COLOR_MAP.PLANNING;
         case "STARTING":
         case "RUNNING":
         case "FINISHING":
-            return QUERY_STATE_COLOR_MAP.RUNNING;
+            return STATE_COLOR_MAP.RUNNING;
         case "FAILED":
-            switch (errorType) {
+            switch (query.errorType) {
                 case "USER_ERROR":
-                    if (errorCode.name === 'USER_CANCELED') {
-                        return QUERY_STATE_COLOR_MAP.USER_CANCELED;
+                    if (query.errorCode.name === 'USER_CANCELED') {
+                        return STATE_COLOR_MAP.USER_CANCELED;
                     }
-                    return QUERY_STATE_COLOR_MAP.USER_ERROR;
+                    return STATE_COLOR_MAP.USER_ERROR;
                 case "EXTERNAL":
-                    return QUERY_STATE_COLOR_MAP.EXTERNAL_ERROR;
+                    return STATE_COLOR_MAP.EXTERNAL_ERROR;
                 case "INSUFFICIENT_RESOURCES":
-                    return QUERY_STATE_COLOR_MAP.INSUFFICIENT_RESOURCES;
+                    return STATE_COLOR_MAP.INSUFFICIENT_RESOURCES;
                 default:
-                    return QUERY_STATE_COLOR_MAP.UNKNOWN_ERROR;
+                    return STATE_COLOR_MAP.UNKNOWN_ERROR;
             }
         case "FINISHED":
-            return QUERY_STATE_COLOR_MAP.FINISHED;
+            return STATE_COLOR_MAP.FINISHED;
         default:
-            return QUERY_STATE_COLOR_MAP.QUEUED;
+            return STATE_COLOR_MAP.QUEUED;
     }
 };
+
+function getStageStateColor(state)
+{
+    switch (state) {
+        case "PLANNED":
+            return STATE_COLOR_MAP.QUEUED;
+        case "SCHEDULING":
+        case "SCHEDULING_SPLITS":
+        case "SCHEDULED":
+            return STATE_COLOR_MAP.PLANNING;
+        case "RUNNING":
+            return STATE_COLOR_MAP.RUNNING;
+        case "FINISHED":
+            return STATE_COLOR_MAP.FINISHED;
+        case "CANCELED":
+        case "ABORTED":
+        case "FAILED":
+            return STATE_COLOR_MAP.UNKNOWN_ERROR
+        default:
+            return "#b5b5b5"
+    }
+}
+
+// This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
+// necessary to compute this string, and that these fields are consistently named.
+function getHumanReadableState(query)
+{
+    if (query.state == "RUNNING") {
+        if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
+            return "RUNNING";
+        }
+
+        if (query.queryStats.fullyBlocked) {
+            return "BLOCKED (" + query.queryStats.blockedReasons.join(", ") + ")";
+        }
+
+        if (query.memoryPool === "reserved") {
+            return "RUNNING (RESERVED)";
+        }
+    }
+
+    if (query.state == "FAILED") {
+        switch (query.errorType) {
+            case "USER_ERROR":
+                if (query.errorCode.name === "USER_CANCELED") {
+                    return "USER CANCELED";
+                }
+                return "USER ERROR";
+            case "INTERNAL_ERROR":
+                return "INTERNAL ERROR";
+            case "INSUFFICIENT_RESOURCES":
+                return "INSUFFICIENT RESOURCES";
+            case "EXTERNAL":
+                return "EXTERNAL ERROR";
+        }
+    }
+
+    return query.state;
+}
+
+function isProgressMeaningful(query)
+{
+    return query.scheduled && query.state == "RUNNING" && query.queryStats.totalDrivers > 0 && query.queryStats.completedDrivers > 0;
+}
+
+function getProgressBarPercentage(query)
+{
+    if (isProgressMeaningful(query)) {
+        return Math.round((query.queryStats.completedDrivers * 100.0) / query.queryStats.totalDrivers);
+    }
+
+    // progress bars should appear 'full' when query progress is not meaningful
+    return 100;
+}
+
+function getProgressBarTitle(query)
+{
+    if (isProgressMeaningful(query)) {
+        return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
+    }
+
+    return getHumanReadableState(query)
+}
 
 // Sparkline-related functions
 // ===========================
@@ -117,11 +178,15 @@ function addExponentiallyWeightedToHistory (value, valuesArray) {
 // =================
 
 function truncateString(inputString, length) {
-    if (inputString.length > length) {
+    if (inputString && inputString.length > length) {
         return inputString.substring(0, length) + "...";
     }
 
     return inputString;
+}
+
+function getStageId(stageId) {
+    return stageId.slice(stageId.indexOf('.') + 1, stageId.length)
 }
 
 function getTaskIdSuffix(taskId) {

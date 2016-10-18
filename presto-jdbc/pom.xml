@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.153-SNAPSHOT</version>
+        <version>0.155-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -201,6 +201,10 @@
                                 <relocation>
                                     <pattern>org.eclipse.jetty</pattern>
                                     <shadedPattern>${shadeBase}.jetty</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.HdrHistogram</pattern>
+                                    <shadedPattern>${shadeBase}.HdrHistogram</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>

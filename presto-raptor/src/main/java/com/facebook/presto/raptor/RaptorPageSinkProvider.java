@@ -29,7 +29,6 @@ import io.airlift.units.DataSize;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.raptor.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +62,6 @@ public class RaptorPageSinkProvider
                 handle.getTransactionId(),
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                handle.getSampleWeightColumnHandle().map(RaptorColumnHandle::getColumnId),
                 toColumnIds(handle.getSortColumnHandles()),
                 handle.getSortOrders(),
                 handle.getBucketCount(),
@@ -83,7 +81,6 @@ public class RaptorPageSinkProvider
                 handle.getTransactionId(),
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
-                Optional.empty(),
                 toColumnIds(handle.getSortColumnHandles()),
                 handle.getSortOrders(),
                 handle.getBucketCount(),

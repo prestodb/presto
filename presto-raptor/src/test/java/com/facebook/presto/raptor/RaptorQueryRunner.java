@@ -20,7 +20,6 @@ import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -51,9 +50,6 @@ public final class RaptorQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        queryRunner.installPlugin(new SampledTpchPlugin());
-        queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
-
         queryRunner.installPlugin(new RaptorPlugin());
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();
         Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
@@ -70,7 +66,6 @@ public final class RaptorQueryRunner
 
         if (loadTpch) {
             copyTables(queryRunner, "tpch", createSession(), bucketed);
-            copyTables(queryRunner, "tpch_sampled", createSampledSession(), bucketed);
         }
 
         return queryRunner;
@@ -121,11 +116,6 @@ public final class RaptorQueryRunner
     public static Session createSession()
     {
         return createSession("tpch");
-    }
-
-    public static Session createSampledSession()
-    {
-        return createSession("tpch_sampled");
     }
 
     public static Session createSession(String schema)

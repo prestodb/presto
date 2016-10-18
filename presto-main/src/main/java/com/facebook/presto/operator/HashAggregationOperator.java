@@ -248,7 +248,7 @@ public class HashAggregationOperator
             return null;
         }
 
-        if (outputIterator == null || !outputIterator.hasNext()) {
+        if (outputIterator == null) {
             // current output iterator is done
             outputIterator = null;
 
@@ -271,20 +271,28 @@ public class HashAggregationOperator
             }
 
             outputIterator = aggregationBuilder.buildResult();
-            aggregationBuilder = null;
 
             if (!outputIterator.hasNext()) {
                 // current output iterator is done
-                outputIterator = null;
+                closeAggregationBuilder();
                 return null;
             }
         }
 
-        return outputIterator.next();
+        Page output = outputIterator.next();
+        if (!outputIterator.hasNext()) {
+            closeAggregationBuilder();
+        }
+        return output;
     }
 
     @Override
     public void close()
+    {
+        closeAggregationBuilder();
+    }
+
+    private void closeAggregationBuilder()
     {
         outputIterator = null;
         if (aggregationBuilder != null) {
