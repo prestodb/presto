@@ -106,12 +106,16 @@ function stop_docker_compose_containers() {
 }
 
 function prefetch_images_silently() {
-  local IMAGES=`environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq`
+  local IMAGES=$( docker_images_used )
   for IMAGE in $IMAGES
   do
     echo "Pulling docker image [$IMAGE]"
     docker pull $IMAGE > /dev/null
   done
+}
+
+function docker_images_used() {
+  environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq
 }
 
 function environment_compose() {
@@ -178,6 +182,10 @@ stop_all_containers
 
 if [[ "$CONTINUOUS_INTEGRATION" == 'true' ]]; then
     prefetch_images_silently
+    # This has to be done after fetching the images
+    # or will present stale / no data for images that changed.
+    echo "Docker images versions:"
+    docker_images_used | xargs -n 1 docker inspect --format='ID: {{.ID}}, tags: {{.RepoTags}}'
 fi
 
 # catch terminate signals
