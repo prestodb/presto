@@ -11,19 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.type.Type;
-import org.weakref.jmx.Managed;
 
-import java.util.List;
-
-public interface SpillerFactory
+public class LocalSpillContext
+    implements SpillContext
 {
-    Spiller create(List<Type> types, SpillContext localSpillContext);
+    private final SpillContext parentSpillContext;
+    private long spilledBytes;
 
-    @Managed
-    long getTotalSpilledBytes();
+    public LocalSpillContext(SpillContext parentSpillContext)
+    {
+        this.parentSpillContext = parentSpillContext;
+    }
+
+    @Override
+    public void updateBytes(long bytes)
+    {
+        parentSpillContext.updateBytes(bytes);
+        spilledBytes += bytes;
+    }
+
+    public void close()
+    {
+        parentSpillContext.updateBytes(-spilledBytes);
+    }
 }

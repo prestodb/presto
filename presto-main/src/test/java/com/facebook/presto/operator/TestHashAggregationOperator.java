@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.PageBuilderStatus;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.LocalSpillContext;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerFactoryWithStats;
@@ -551,7 +552,7 @@ public class TestHashAggregationOperator
             extends SpillerFactoryWithStats
     {
         @Override
-        public Spiller create(List<Type> types)
+        public Spiller create(List<Type> types, SpillContext spillContext)
         {
             return new Spiller()
             {
@@ -582,7 +583,7 @@ public class TestHashAggregationOperator
             extends SpillerFactoryWithStats
     {
         @Override
-        public Spiller create(List<Type> types)
+        public Spiller create(List<Type> types, SpillContext spillContext)
         {
             return new Spiller() {
                 @Override

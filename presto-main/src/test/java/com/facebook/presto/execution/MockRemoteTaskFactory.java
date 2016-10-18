@@ -28,6 +28,7 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -168,7 +169,8 @@ public class MockRemoteTaskFactory
 
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
-            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor);
+            SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
+            QueryContext queryContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor, new DataSize(1, MEGABYTE), spillSpaceTracker);
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true);
 
             this.location = URI.create("fake://task/" + taskId);

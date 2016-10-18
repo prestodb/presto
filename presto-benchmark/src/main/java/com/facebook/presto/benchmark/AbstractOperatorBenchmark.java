@@ -26,6 +26,7 @@ import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.transaction.TransactionId;
@@ -126,8 +127,9 @@ public abstract class AbstractOperatorBenchmark
         ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
+        SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
+        TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor, new DataSize(256, MEGABYTE), spillSpaceTracker)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
                         session,
                         false,

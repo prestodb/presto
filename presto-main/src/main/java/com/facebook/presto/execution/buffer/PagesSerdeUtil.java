@@ -57,7 +57,7 @@ public class PagesSerdeUtil
         return new Page(positionCount, blocks);
     }
 
-    private static void writeSerializedPage(SliceOutput output, SerializedPage page)
+    public static void writeSerializedPage(SliceOutput output, SerializedPage page)
     {
         output.writeInt(page.getPositionCount());
         output.writeByte(page.getCompression().getMarker());

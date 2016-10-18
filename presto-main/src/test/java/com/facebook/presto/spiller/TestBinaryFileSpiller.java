@@ -49,7 +49,7 @@ public class TestBinaryFileSpiller
     public void testFileSpiller()
             throws Exception
     {
-        try (Spiller spiller = factory.create(TYPES)) {
+        try (Spiller spiller = factory.create(TYPES, bytes -> { })) {
             testSimpleSpiller(spiller);
         }
     }
@@ -70,7 +70,7 @@ public class TestBinaryFileSpiller
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
-        try (Spiller spiller = factory.create(TYPES)) {
+        try (Spiller spiller = factory.create(TYPES, bytes -> { })) {
             testSpiller(types, spiller, ImmutableList.of(page));
         }
     }

@@ -103,7 +103,7 @@ public class BenchmarkBinaryFileSpiller
                 throws ExecutionException, InterruptedException
         {
             pages = createInputPages();
-            readSpiller = spillerFactory.create(TYPES);
+            readSpiller = spillerFactory.create(TYPES, bytes -> { });
             readSpiller.spill(pages.iterator()).get();
         }
 
@@ -155,7 +155,7 @@ public class BenchmarkBinaryFileSpiller
 
         public Spiller createSpiller()
         {
-            return spillerFactory.create(TYPES);
+            return spillerFactory.create(TYPES, bytes -> { });
         }
     }
 }

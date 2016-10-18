@@ -11,19 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.operator;
 
-package com.facebook.presto.spiller;
+import com.facebook.presto.spiller.LocalSpillContext;
 
-import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.type.Type;
-import org.weakref.jmx.Managed;
+import java.io.Closeable;
 
-import java.util.List;
-
-public interface SpillerFactory
+@FunctionalInterface
+public interface SpillContext
+        extends Closeable
 {
-    Spiller create(List<Type> types, SpillContext localSpillContext);
+    void updateBytes(long bytes);
 
-    @Managed
-    long getTotalSpilledBytes();
+    default SpillContext newLocalSpillContext()
+    {
+        return new LocalSpillContext(this);
+    }
+
+    @Override
+    default void close() {}
 }

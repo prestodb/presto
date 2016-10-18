@@ -164,6 +164,12 @@ public class TaskContext
         return future;
     }
 
+    public synchronized ListenableFuture<?> reserveSpill(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        return queryContext.reserveSpill(bytes);
+    }
+
     public synchronized boolean tryReserveMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -189,6 +195,12 @@ public class TaskContext
         checkArgument(bytes <= systemMemoryReservation.get(), "tried to free more memory than is reserved");
         systemMemoryReservation.getAndAdd(-bytes);
         queryContext.freeSystemMemory(bytes);
+    }
+
+    public synchronized void freeSpill(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        queryContext.freeSpill(bytes);
     }
 
     public void moreMemoryAvailable()
