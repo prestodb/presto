@@ -26,6 +26,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
@@ -75,6 +76,7 @@ public class SliceDictionaryStreamReader
     private Slice[] dictionary = new Slice[1];
 
     private Block dictionaryBlock = createNewDictionaryBlock();
+    private DictionaryId dictionaryId = DictionaryId.randomDictionaryId();
 
     @Nonnull
     private StreamSource<LongStream> dictionaryLengthStreamSource = missingStreamSource(LongStream.class);
@@ -207,7 +209,7 @@ public class SliceDictionaryStreamReader
             }
             // copy ids into a private array for this block since data vector is reused
             Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
-            block = new DictionaryBlock(nextBatchSize, dictionaryBlock, ids);
+            block = new DictionaryBlock(nextBatchSize, dictionaryBlock, ids, dictionaryId);
         }
 
         readOffset = 0;
@@ -228,6 +230,8 @@ public class SliceDictionaryStreamReader
             // We must always create a new dictionary array because we need the last slot to be null
             dictionary = new Slice[dictionarySize + 1];
             dictionaryBlock = createNewDictionaryBlock();
+            dictionaryId = DictionaryId.randomDictionaryId();
+
             if (dictionarySize > 0) {
                 int[] dictionaryLength = new int[dictionarySize];
 
