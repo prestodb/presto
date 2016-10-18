@@ -30,7 +30,6 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
@@ -40,7 +39,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -86,6 +84,7 @@ import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.createFieldSetter;
 import static com.facebook.presto.hive.HiveWriteUtils.getField;
 import static com.facebook.presto.hive.HiveWriteUtils.getRowColumnInspectors;
+import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -768,19 +767,6 @@ public class HivePageSink
                     writePath,
                     targetPath,
                     ImmutableList.of(fileName));
-        }
-
-        @SuppressWarnings("deprecation")
-        private static Serializer initializeSerializer(Configuration conf, Properties properties, String serializerName)
-        {
-            try {
-                Serializer result = (Serializer) Class.forName(serializerName).getConstructor().newInstance();
-                result.initialize(conf, properties);
-                return result;
-            }
-            catch (SerDeException | ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
         }
 
         @Override
