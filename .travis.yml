@@ -143,6 +143,10 @@ script:
       presto-product-tests/bin/run_on_docker.sh \
         multinode-tls-kerberos -g cli,group-by,join,tls
     fi
+    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        multinode-tls-ldap -g cli,group-by,join,tls
+    fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       presto-product-tests/bin/run_on_docker.sh \
