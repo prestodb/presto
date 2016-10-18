@@ -14,7 +14,13 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.ColumnStatistics;
+import com.google.common.collect.ImmutableMap;
+
+import java.util.Map;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class PartitionStatistics
 {
@@ -23,25 +29,29 @@ public class PartitionStatistics
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            ImmutableMap.of());
 
     private final boolean columnStatsAcurate;
     private final Optional<Long> numFiles;
     private final Optional<Long> numRows;
     private final Optional<Long> rawDataSize;
     private final Optional<Long> totalSize;
+    private final Map<String, ColumnStatistics> columnStatistics;
 
     public PartitionStatistics(boolean columnStatsAcurate,
             Optional<Long> numFiles,
             Optional<Long> numRows,
             Optional<Long> rawDataSize,
-            Optional<Long> totalSize)
+            Optional<Long> totalSize,
+            Map<String, ColumnStatistics> columnStatistics)
     {
         this.columnStatsAcurate = columnStatsAcurate;
         this.numFiles = numFiles;
         this.numRows = numRows;
         this.rawDataSize = rawDataSize;
         this.totalSize = totalSize;
+        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics can not be null"));
     }
 
     public boolean isColumnStatsAcurate()
@@ -67,5 +77,10 @@ public class PartitionStatistics
     public Optional<Long> getTotalSize()
     {
         return totalSize;
+    }
+
+    public Map<String, ColumnStatistics> getColumnStatistics()
+    {
+        return columnStatistics;
     }
 }
