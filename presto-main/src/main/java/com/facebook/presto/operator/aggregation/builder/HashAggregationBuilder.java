@@ -27,8 +27,6 @@ public interface HashAggregationBuilder
 
     boolean isFull();
 
-    boolean isBusy();
-
     void updateMemory();
 
     @Override
@@ -37,4 +35,6 @@ public interface HashAggregationBuilder
     CompletableFuture<?> startMemoryRevoke();
 
     void finishMemoryRevoke();
+
+    CompletableFuture<?> isBlocked();
 }

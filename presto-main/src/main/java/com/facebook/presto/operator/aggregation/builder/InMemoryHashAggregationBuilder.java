@@ -137,9 +137,9 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public boolean isBusy()
+    public CompletableFuture<?> isBlocked()
     {
-        return false;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
