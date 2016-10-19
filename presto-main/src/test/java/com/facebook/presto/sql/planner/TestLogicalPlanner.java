@@ -421,6 +421,62 @@ public class TestLogicalPlanner
                                 .withNumberOfOutputColumns(3)));
     }
 
+    @Test
+    public void testAliasCriteriaSymbolsAfterJoin()
+    {
+        assertPlan("SELECT c.custkey, o.orderkey FROM customer c, orders o WHERE c.custkey = o.orderkey",
+                anyTree(
+                        project(
+                                node(JoinNode.class,
+                                        anyTree(
+                                                tableScan("customer").withExactSymbol("custkey", "C")),
+                                        anyTree())
+                        ).withExactSymbol("custkey", "C").withNumberOfOutputColumns(1)));
+    }
+
+    @Test
+    public void testDoesNotAliasCriteriaSymbolsAfterJoinWithDifferentTypes()
+    {
+        assertPlan("SELECT b.val AS val FROM (VALUES (DECIMAL '1.23')) AS a (val), (VALUES (DECIMAL '232.32')) AS b (val) WHERE a.val = b.val",
+                anyTree(
+                        project(
+                                anyTree(
+                                        anyTree(),
+                                        anyTree(node(ValuesNode.class).withExactSymbol("field", "V"))
+                                )
+                        ).withExactSymbol("field", "V")));
+    }
+
+    @Test
+    public void testExecutesCanonicalizedJoinsInSameStage()
+    {
+        assertDistributedPlan("" +
+                        "  SELECT" +
+                        "   ps.partkey," +
+                        "   ps.suppkey" +
+                        "  FROM" +
+                        "   part p," +
+                        "   supplier s," +
+                        "   lineitem l," +
+                        "   partsupp ps" +
+                        "  WHERE" +
+                        "   s.suppkey = l.suppkey AND" +
+                        "   ps.suppkey = l.suppkey AND" +
+                        "   ps.partkey = l.partkey AND" +
+                        "   p.partkey = l.partkey",
+                anyTree(
+                        project(
+                                node(JoinNode.class,
+                                        project(
+                                                node(JoinNode.class,
+                                                        node(ExchangeNode.class, anyTree())
+                                                                .withExactSymbol("partkey", "P")
+                                                                .withExactSymbol("suppkey", "S"),
+                                                        anyTree())),
+                                        anyTree())
+                        ).withExactSymbol("partkey", "P").withExactSymbol("suppkey", "S")));
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, pattern);
