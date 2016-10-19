@@ -101,7 +101,20 @@ public class TestGrantRevoke
     }
 
     @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
-    public void testGrantRevokeAll()
+    public void testShowGrants()
+    {
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
+        aliceExecutor.executeQuery(format("GRANT INSERT ON %s TO bob", tableName));
+
+        assertThat(bobExecutor.executeQuery(format("SHOW GRANTS ON %s", tableName)))
+                .containsOnly(ImmutableList.of(
+                        row("bob", "hive", "default", "alice_owned_table", "SELECT", Boolean.TRUE),
+                        row("bob", "hive", "default", "alice_owned_table", "INSERT", Boolean.FALSE)
+                ));
+    }
+
+    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAll()
     {
         aliceExecutor.executeQuery(format("GRANT ALL PRIVILEGES ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (4, 13)", tableName))).hasRowsCount(1);
@@ -111,6 +124,8 @@ public class TestGrantRevoke
 
         aliceExecutor.executeQuery(format("REVOKE ALL PRIVILEGES ON %s FROM bob", tableName));
         assertAccessDeniedOnAllOperationsOnTable(bobExecutor, tableName);
+
+        assertThat(bobExecutor.executeQuery(format("SHOW GRANTS ON %s", tableName))).hasNoRows();
     }
 
     @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
