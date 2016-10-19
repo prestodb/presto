@@ -82,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
@@ -110,13 +111,19 @@ public class UnaliasSymbolReferences
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(types), plan);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private final Map<Symbol, Symbol> mapping = new HashMap<>();
+        private final Map<Symbol, Type> types;
+
+        private Rewriter(Map<Symbol, Type> types)
+        {
+            this.types = types;
+        }
 
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
@@ -533,7 +540,18 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalizeJoinCriteria(node.getCriteria()), node.getFilter().map(this::canonicalize), canonicalize(node.getLeftHashSymbol()), canonicalize(node.getRightHashSymbol()));
+            List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
+            Optional<Expression> canonicalFilter = node.getFilter().map(this::canonicalize);
+            Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
+            Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
+
+            if (node.getType().equals(INNER)) {
+                canonicalCriteria.stream()
+                        .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
+                        .forEach(clause -> map(clause.getRight(), clause.getLeft()));
+            }
+
+            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol);
         }
 
         @Override
