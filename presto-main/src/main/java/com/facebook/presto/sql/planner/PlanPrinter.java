@@ -523,7 +523,23 @@ public class PlanPrinter
         @Override
         public Void visitGroupId(GroupIdNode node, Integer indent)
         {
-            print(indent, "- GroupId%s => [%s]", node.getGroupingSets(), formatOutputs(node.getOutputSymbols()));
+            // grouping sets are easier to understand in terms of inputs
+            List<List<Symbol>> inputGroupingSetSymbols = node.getGroupingSets().stream()
+                    .map(set -> set.stream()
+                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .collect(Collectors.toList()))
+                    .collect(Collectors.toList());
+
+            print(indent, "- GroupId%s => [%s]", inputGroupingSetSymbols, formatOutputs(node.getOutputSymbols()));
+            printStats(indent + 2, node.getId());
+
+            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingSetMappings().entrySet()) {
+                print(indent + 2, "%s := %s", mapping.getKey(), mapping.getValue());
+            }
+            for (Map.Entry<Symbol, Symbol> argument : node.getArgumentMappings().entrySet()) {
+                print(indent + 2, "%s := %s", argument.getKey(), argument.getValue());
+            }
+
             return processChildren(node, indent + 1);
         }
 

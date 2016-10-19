@@ -60,6 +60,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -383,47 +384,81 @@ class QueryPlanner
 
         // 2. Aggregate
 
-        // 2.a. Rewrite group by expressions in terms of pre-projected inputs
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
-        ImmutableList.Builder<List<Symbol>> groupingSetsSymbolsBuilder = ImmutableList.builder();
+        // 2.a. Rewrite aggregate arguments
+        TranslationMap argumentTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        ImmutableMap.Builder<Symbol, Symbol> argumentMappingBuilder = ImmutableMap.builder();
+        for (Expression argument : arguments) {
+            Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), argument);
+            argumentTranslations.addIntermediateMapping(argument, parametersReplaced);
+            Symbol input = subPlan.translate(parametersReplaced);
+
+            if (!argumentTranslations.containsSymbol(parametersReplaced)) {
+                Symbol output = symbolAllocator.newSymbol(parametersReplaced, analysis.getTypeWithCoercions(parametersReplaced), "arg");
+                argumentMappingBuilder.put(output, input);
+                argumentTranslations.put(parametersReplaced, output);
+            }
+        }
+        Map<Symbol, Symbol> argumentMappings  = argumentMappingBuilder.build();
+
+        // 2.b. Rewrite grouping columns
+        TranslationMap groupingTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        Map<Symbol, Symbol> groupingSetMappings = new HashMap<>();
+        List<List<Symbol>> groupingSymbols = new ArrayList<>();
+
         for (List<Expression> groupingSet : groupingSets) {
-            ImmutableList.Builder<Symbol> groupingColumns = ImmutableList.builder();
+            ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
             for (Expression expression : groupingSet) {
-                Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-                translations.addIntermediateMapping(expression, rewritten);
-                Symbol symbol = subPlan.translate(rewritten);
-                groupingColumns.add(symbol);
-                translations.put(rewritten, symbol);
+                Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
+                groupingTranslations.addIntermediateMapping(expression, parametersReplaced);
+                Symbol input = subPlan.translate(expression);
+
+                Symbol output;
+                if (!groupingTranslations.containsSymbol(parametersReplaced)) {
+                    output = symbolAllocator.newSymbol(parametersReplaced, analysis.getTypeWithCoercions(expression), "gid");
+                    groupingTranslations.put(parametersReplaced, output);
+                }
+                else {
+                    output = groupingTranslations.get(parametersReplaced);
+                }
+
+                groupingSetMappings.put(output, input);
+                symbols.add(output);
             }
-            groupingSetsSymbolsBuilder.add(groupingColumns.build());
+            groupingSymbols.add(symbols.build());
         }
 
-        // 2.b. Add a groupIdNode and groupIdSymbol if there are multiple grouping sets
+        // 2.c. Generate GroupIdNode (multiple grouping sets) or ProjectNode (single grouping set)
         Optional<Symbol> groupIdSymbol = Optional.empty();
-        List<List<Symbol>> groupingSetsSymbols = groupingSetsSymbolsBuilder.build();
         if (groupingSets.size() > 1) {
-            ImmutableMap.Builder<Symbol, Symbol> identityMapping = ImmutableMap.builder();
-            for (Expression argument : ImmutableSet.copyOf(arguments)) {
-                Symbol output = symbolAllocator.newSymbol(argument, analysis.getTypeWithCoercions(argument), "id");
-                identityMapping.put(subPlan.translate(argument), output);
-
-                // relies on the fact that group by expressions have already been re-written, and will not be affected by this mapping change
-                subPlan.getTranslations().put(argument, output);
+            groupIdSymbol = Optional.of(symbolAllocator.newSymbol("groupId", BIGINT));
+            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSymbols, groupingSetMappings, argumentMappings, groupIdSymbol.get());
+            subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
+        }
+        else {
+            Map<Symbol, Expression> projections = new HashMap<>();
+            for (Symbol output : argumentMappings.keySet()) {
+                projections.putIfAbsent(output, argumentMappings.get(output).toSymbolReference());
             }
 
-            groupIdSymbol = Optional.of(symbolAllocator.newSymbol("groupId", BIGINT));
-            GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSetsSymbols, identityMapping.build(), groupIdSymbol.get());
-            subPlan = subPlan.withNewRoot(groupId);
+            for (Symbol output : groupingSetMappings.keySet()) {
+                projections.putIfAbsent(output, groupingSetMappings.get(output).toSymbolReference());
+            }
+
+            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections);
+            subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
         }
 
-        // 2.c. Rewrite aggregates in terms of pre-projected inputs
+        TranslationMap aggregationTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+        aggregationTranslations.copyMappingsFrom(groupingTranslations);
+
+        // 2.d. Rewrite aggregates
         ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Signature> functions = ImmutableMap.builder();
         boolean needPostProjectionCoercion = false;
         for (FunctionCall aggregate : analysis.getAggregates(node)) {
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), aggregate);
-            translations.addIntermediateMapping(aggregate, parametersReplaced);
-            Expression rewritten = subPlan.rewrite(parametersReplaced);
+            aggregationTranslations.addIntermediateMapping(aggregate, parametersReplaced);
+            Expression rewritten = argumentTranslations.rewrite(parametersReplaced);
             Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(aggregate));
 
             // TODO: this is a hack, because we apply coercions to the output of expressions, rather than the arguments to expressions.
@@ -433,12 +468,12 @@ class QueryPlanner
                 needPostProjectionCoercion = true;
             }
             aggregationAssignments.put(newSymbol, (FunctionCall) rewritten);
-            translations.put(parametersReplaced, newSymbol);
+            aggregationTranslations.put(parametersReplaced, newSymbol);
 
             functions.put(newSymbol, analysis.getFunctionSignature(aggregate));
         }
 
-        // 2.d. Mark distinct rows for each aggregate that has DISTINCT
+        // 2.e. Mark distinct rows for each aggregate that has DISTINCT
         // Map from aggregate function arguments to marker symbols, so that we can reuse the markers, if two aggregates have the same argument
         Map<Set<Expression>, Symbol> argumentMarkers = new HashMap<>();
         // Map from aggregate functions to marker symbols
@@ -446,7 +481,7 @@ class QueryPlanner
         for (FunctionCall aggregate : Iterables.filter(analysis.getAggregates(node), FunctionCall::isDistinct)) {
             Set<Expression> args = ImmutableSet.copyOf(aggregate.getArguments());
             Symbol marker = argumentMarkers.get(args);
-            Symbol aggregateSymbol = translations.get(aggregate);
+            Symbol aggregateSymbol = aggregationTranslations.get(aggregate);
             if (marker == null) {
                 if (args.size() == 1) {
                     marker = symbolAllocator.newSymbol(getOnlyElement(args), BOOLEAN, "distinct");
@@ -462,14 +497,14 @@ class QueryPlanner
 
         for (Map.Entry<Set<Expression>, Symbol> entry : argumentMarkers.entrySet()) {
             ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-            builder.addAll(groupingSetsSymbols.stream()
+            builder.addAll(groupingSymbols.stream()
                     .flatMap(Collection::stream)
                     .distinct()
                     .collect(Collectors.toList()));
             groupIdSymbol.ifPresent(builder::add);
 
             for (Expression expression : entry.getKey()) {
-                builder.add(subPlan.translate(expression));
+                builder.add(argumentTranslations.get(expression));
             }
             subPlan = subPlan.withNewRoot(
                     new MarkDistinctNode(
@@ -486,12 +521,12 @@ class QueryPlanner
                 aggregationAssignments.build(),
                 functions.build(),
                 masks,
-                groupingSetsSymbols,
+                groupingSymbols,
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 groupIdSymbol);
 
-        subPlan = new PlanBuilder(translations, aggregationNode, analysis.getParameters());
+        subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
 
         // 3. Post-projection
         // Add back the implicit casts that we removed in 2.a

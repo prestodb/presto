@@ -113,7 +113,8 @@ public final class SymbolExtractor
             node.getSource().accept(this, context);
 
             builder.add(node.getGroupIdSymbol());
-            builder.addAll(node.getIdentityMappings().values());
+            builder.addAll(node.getGroupingSetMappings().keySet());
+            builder.addAll(node.getArgumentMappings().keySet());
 
             return null;
         }

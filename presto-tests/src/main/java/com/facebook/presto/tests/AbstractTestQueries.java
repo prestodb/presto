@@ -1517,6 +1517,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupingSetsAliasedGroupingColumns()
+            throws Exception
+    {
+        assertQuery("SELECT lna, lnb, SUM(quantity) " +
+                        "FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) " +
+                        "GROUP BY GROUPING SETS ((lna, lnb), (lna), (lnb), ())",
+                "SELECT linenumber, linenumber, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT linenumber, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, linenumber, SUM(CAST(quantity AS BIGINT)) FROM lineitem GROUP BY linenumber UNION ALL " +
+                        "SELECT NULL, NULL, SUM(CAST(quantity AS BIGINT)) FROM lineitem");
+    }
+
+    @Test
     public void testGroupingSetMixedExpressionAndColumn()
             throws Exception
     {

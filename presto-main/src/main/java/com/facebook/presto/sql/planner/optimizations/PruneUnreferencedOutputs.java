@@ -68,15 +68,16 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
@@ -408,23 +409,31 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Set<Symbol>> context)
         {
-            checkState(node.getDistinctGroupingColumns().stream().allMatch(column -> context.get().contains(column)));
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
-            ImmutableMap.Builder<Symbol, Symbol> identityMappingBuilder = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Symbol> entry : node.getIdentityMappings().entrySet()) {
-                if (context.get().contains(entry.getValue())) {
-                    identityMappingBuilder.put(entry);
+            Map<Symbol, Symbol> newArgumentMappings = node.getArgumentMappings().entrySet().stream()
+                    .filter(entry -> context.get().contains(entry.getKey()))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            expectedInputs.addAll(newArgumentMappings.values());
+
+            ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
+            Map<Symbol, Symbol> newGroupingMapping = new HashMap<>();
+
+            for (List<Symbol> groupingSet : node.getGroupingSets()) {
+                ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
+
+                for (Symbol output : groupingSet) {
+                    if (context.get().contains(output)) {
+                        newGroupingSet.add(output);
+                        newGroupingMapping.putIfAbsent(output, node.getGroupingSetMappings().get(output));
+                        expectedInputs.add(node.getGroupingSetMappings().get(output));
+                    }
                 }
+                newGroupingSets.add(newGroupingSet.build());
             }
 
-            Map<Symbol, Symbol> identityMapping = identityMappingBuilder.build();
-
-            PlanNode source = context.rewrite(node.getSource(), ImmutableSet.<Symbol>builder()
-                    .addAll(identityMapping.keySet())
-                    .addAll(node.getDistinctGroupingColumns())
-                    .build());
-
-            return new GroupIdNode(node.getId(), source, node.getGroupingSets(), identityMapping, node.getGroupIdSymbol());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMapping, newArgumentMappings, node.getGroupIdSymbol());
         }
 
         @Override
