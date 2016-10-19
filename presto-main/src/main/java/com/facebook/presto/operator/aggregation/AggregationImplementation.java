@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -34,8 +35,20 @@ public class AggregationImplementation
     private final Method inputFunction;
     private final Method outputFunction;
     private final List<Class<?>> argumentNativeContainerTypes;
+    private final List<ScalarImplementation.ImplementationDependency> inputDependencies;
+    private final List<ScalarImplementation.ImplementationDependency> combineDependencies;
+    private final List<ScalarImplementation.ImplementationDependency> outputDependencies;
 
-    public AggregationImplementation(Signature signature, Class<?> definitionClass, Class<?> stateClass, Method inputFunction, Method outputFunction, List<Class<?>> argumentNativeContainerTypes)
+    public AggregationImplementation(
+            Signature signature,
+            Class<?> definitionClass,
+            Class<?> stateClass,
+            Method inputFunction,
+            Method outputFunction,
+            List<Class<?>> argumentNativeContainerTypes,
+            List<ScalarImplementation.ImplementationDependency> inputDependencies,
+            List<ScalarImplementation.ImplementationDependency> combineDependencies,
+            List<ScalarImplementation.ImplementationDependency> outputDependencies)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
@@ -43,6 +56,9 @@ public class AggregationImplementation
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
         this.argumentNativeContainerTypes = requireNonNull(argumentNativeContainerTypes, "argumentNativeContainerTypes cannot be null");
+        this.inputDependencies = requireNonNull(inputDependencies, "inputDependencies cannot be null");
+        this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
+        this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
     }
 
     public Signature getSignature()
@@ -73,6 +89,21 @@ public class AggregationImplementation
     public boolean hasSpecializedTypeParameters()
     {
         return false;
+    }
+
+    public List<ScalarImplementation.ImplementationDependency> getInputDependencies()
+    {
+        return inputDependencies;
+    }
+
+    public List<ScalarImplementation.ImplementationDependency> getOutputDependencies()
+    {
+        return outputDependencies;
+    }
+
+    public List<ScalarImplementation.ImplementationDependency> getCombineDependencies()
+    {
+        return combineDependencies;
     }
 
     public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)

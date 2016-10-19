@@ -98,6 +98,7 @@ public class AggregationCompiler
         ImmutableList.Builder<BindableAggregationFunction> builder = ImmutableList.builder();
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
+            Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
@@ -105,7 +106,7 @@ public class AggregationCompiler
                                 name,
                                 getDescription(aggregationDefinition, outputFunction),
                                 aggregationAnnotation.decomposable());
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction);
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction);
                         builder.add(
                                 new BindableAggregationFunction(
                                         onlyImplementation.getSignature(),
@@ -131,9 +132,10 @@ public class AggregationCompiler
         AggregationHeader header = parseHeader(aggregationDefinition);
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
+            Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction);
+                    AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction);
                     if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
                             && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
                             && !implementation.getSignature().getReturnType().isCalculated()) {
@@ -166,12 +168,15 @@ public class AggregationCompiler
                                 genericImplementations.build()));
     }
 
-    private static AggregationImplementation parseImplementation(Class<?> aggregationDefinition, AggregationHeader header, Class<?> stateClass, Method inputFunction, Method outputFunction)
+    private static AggregationImplementation parseImplementation(Class<?> aggregationDefinition, AggregationHeader header, Class<?> stateClass, Method inputFunction, Method combineFunction, Method outputFunction)
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
 
+        List<ScalarImplementation.ImplementationDependency> inputDependencies = parseImplementationDependencies(inputFunction);
+        List<ScalarImplementation.ImplementationDependency> combineDependencies = parseImplementationDependencies(combineFunction);
+        List<ScalarImplementation.ImplementationDependency> outputDependencies = parseImplementationDependencies(outputFunction);
         List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
-        List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction);
+        List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction, inputDependencies);
         List<Class<?>> signatureArgumentsTypes = parseSignatureArgumentsTypes(inputFunction);
 
         List<TypeSignature> inputTypes = getInputTypesSignatures(inputFunction);
@@ -186,7 +191,7 @@ public class AggregationCompiler
                 inputTypes,
                 false);
 
-        return new AggregationImplementation(signature, aggregationDefinition, stateClass, inputFunction, outputFunction, signatureArgumentsTypes);
+        return new AggregationImplementation(signature, aggregationDefinition, stateClass, inputFunction, outputFunction, signatureArgumentsTypes, inputDependencies, combineDependencies, outputDependencies);
     }
 
     private static List<Class<?>> parseSignatureArgumentsTypes(Method inputFunction)
@@ -221,9 +226,9 @@ public class AggregationCompiler
         return new AggregationHeader(aggregationAnnotation.value(), getDescription(aggregationDefinition), aggregationAnnotation.decomposable());
     }
 
-    private static List<TypeVariableConstraint> parseTypeVariableConstraints(Method inputFunction)
+    private static List<TypeVariableConstraint> parseTypeVariableConstraints(Method inputFunction, List<ScalarImplementation.ImplementationDependency> dependencies)
     {
-        return createTypeVariableConstraints(Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class)), parseImplementationDependencies(inputFunction));
+        return createTypeVariableConstraints(Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class)), dependencies);
     }
 
     private static List<ScalarImplementation.ImplementationDependency> parseImplementationDependencies(Method inputFunction)
