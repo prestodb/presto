@@ -76,9 +76,13 @@ public interface Operator
      * After calling this method operator should revoke all reserved revocable memory.
      * As soon as memory is revoked returned future should be marked as done.
      */
-    default ListenableFuture<?> revokeMemory()
+    default ListenableFuture<?> startMemoryRevoke()
     {
         return NOT_BLOCKED;
+    }
+
+    default void finishMemoryRevoke()
+    {
     }
 
     /**
