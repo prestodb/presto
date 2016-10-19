@@ -19,13 +19,20 @@ import static java.util.Objects.requireNonNull;
 
 public class AggregationHeader
 {
+    private final String name;
     private final Optional<String> description;
     private final boolean decomposable;
 
-    public AggregationHeader(Optional<String> description, boolean decomposable)
+    public AggregationHeader(String name, Optional<String> description, boolean decomposable)
     {
+        this.name = requireNonNull(name, "name cannot be null");
         this.description = requireNonNull(description, "description cannot be null");
         this.decomposable = decomposable;
+    }
+
+    public String getName()
+    {
+        return name;
     }
 
     public Optional<String> getDescription()

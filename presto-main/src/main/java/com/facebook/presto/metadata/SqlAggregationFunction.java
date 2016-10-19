@@ -31,7 +31,12 @@ public abstract class SqlAggregationFunction
 {
     private final Signature signature;
 
-    public static List<SqlAggregationFunction> createByAnnotations(Class<?> aggregationDefinition)
+    public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
+    {
+        return ImmutableList.of(AggregationCompiler.generateBindableAggregationFunction(aggregationDefinition));
+    }
+
+    public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
     {
         return AggregationCompiler.generateBindableAggregationFunctions(aggregationDefinition)
                 .stream()

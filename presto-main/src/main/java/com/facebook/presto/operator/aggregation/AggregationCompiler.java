@@ -51,6 +51,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.containsMetaParameter;
 import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.createTypeVariableConstraints;
+import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.isMetaParameter;
 import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.parseDependency;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,37 +100,125 @@ public class AggregationCompiler
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
-                    List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction);
-
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
-                        List<TypeSignature> inputTypes = getInputTypesSignatures(inputFunction);
-                        TypeSignature outputType = TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value());
-                        Signature signature = new Signature(
+                        AggregationHeader header = new AggregationHeader(
                                 name,
-                                FunctionKind.AGGREGATE,
-                                typeVariableConstraints,
-                                longVariableConstraints,
-                                outputType,
-                                inputTypes,
-                                false);
-                        AggregationImplementation onlyImplementation = new AggregationImplementation(signature, aggregationDefinition, stateClass, inputFunction, outputFunction);
+                                getDescription(aggregationDefinition, outputFunction),
+                                aggregationAnnotation.decomposable());
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction);
                         builder.add(
                                 new BindableAggregationFunction(
-                                        signature,
-                                        new AggregationHeader(
-                                                getDescription(aggregationDefinition, outputFunction),
-                                                aggregationAnnotation.decomposable()),
+                                        onlyImplementation.getSignature(),
+                                        header,
                                         new AggregationImplementations(
-                                                ImmutableMap.of(signature, onlyImplementation),
+                                                ImmutableMap.of(),
                                                 ImmutableList.of(),
-                                                ImmutableList.of())));
+                                                ImmutableList.of(onlyImplementation))));
                     }
                 }
             }
         }
 
         return builder.build();
+    }
+
+    public static BindableAggregationFunction generateBindableAggregationFunction(Class<?> aggregationDefinition)
+    {
+        ImmutableMap.Builder<Signature, AggregationImplementation> exactImplementations = ImmutableMap.builder();
+        ImmutableList.Builder<AggregationImplementation> specializedImplementations = ImmutableList.builder();
+        ImmutableList.Builder<AggregationImplementation> genericImplementations = ImmutableList.builder();
+        Optional<Signature> genericSignature = Optional.empty();
+        AggregationHeader header = parseHeader(aggregationDefinition);
+
+        for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
+            for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
+                for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
+                    AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction);
+                    if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
+                            && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
+                            && !implementation.getSignature().getReturnType().isCalculated()) {
+                        exactImplementations.put(implementation.getSignature(), implementation);
+                        continue;
+                    }
+
+                    if (implementation.hasSpecializedTypeParameters()) {
+                        specializedImplementations.add(implementation);
+                    }
+                    else {
+                        genericImplementations.add(implementation);
+                    }
+
+                    if (!genericSignature.isPresent()) {
+                        genericSignature = Optional.of(implementation.getSignature());
+                    }
+                    // TODO validateSignature(signature, implementation.getSignature());
+                }
+            }
+        }
+
+        Signature aggregateSignature = genericSignature.orElseGet(() -> getOnlyElement(exactImplementations.build().keySet()));
+
+        return new BindableAggregationFunction(aggregateSignature,
+                        header,
+                        new AggregationImplementations(
+                                exactImplementations.build(),
+                                specializedImplementations.build(),
+                                genericImplementations.build()));
+    }
+
+    private static AggregationImplementation parseImplementation(Class<?> aggregationDefinition, AggregationHeader header, Class<?> stateClass, Method inputFunction, Method outputFunction)
+    {
+        AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
+
+        List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
+        List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction);
+        List<Class<?>> signatureArgumentsTypes = parseSignatureArgumentsTypes(inputFunction);
+
+        List<TypeSignature> inputTypes = getInputTypesSignatures(inputFunction);
+        TypeSignature outputType = TypeSignature.parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value());
+
+        Signature signature = new Signature(
+                header.getName(),
+                FunctionKind.AGGREGATE,
+                typeVariableConstraints,
+                longVariableConstraints,
+                outputType,
+                inputTypes,
+                false);
+
+        return new AggregationImplementation(signature, aggregationDefinition, stateClass, inputFunction, outputFunction, signatureArgumentsTypes);
+    }
+
+    private static List<Class<?>> parseSignatureArgumentsTypes(Method inputFunction)
+    {
+        ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
+
+        int stateId = findAggregationStateParamId(inputFunction);
+
+        for (int i = 0; i < inputFunction.getParameterCount(); i++) {
+            Class<?> parameterType = inputFunction.getParameterTypes()[i];
+            Annotation[] annotations = inputFunction.getParameterAnnotations()[i];
+
+            // Skip injected parameters
+            if (parameterType == ConnectorSession.class) {
+                continue;
+            }
+
+            if (Arrays.stream(annotations).anyMatch(AggregationCompiler::isAggregationMetaAnnotation)) {
+                continue;
+            }
+
+            builder.add(inputFunction.getParameterTypes()[i]);
+        }
+
+        return builder.build();
+    }
+
+    private static AggregationHeader parseHeader(Class<?> aggregationDefinition)
+    {
+        AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
+        requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
+        return new AggregationHeader(aggregationAnnotation.value(), getDescription(aggregationDefinition), aggregationAnnotation.decomposable());
     }
 
     private static List<TypeVariableConstraint> parseTypeVariableConstraints(Method inputFunction)
@@ -275,12 +364,12 @@ public class AggregationCompiler
         return inputFunction.getParameterTypes()[findAggregationStateParamId(inputFunction)];
     }
 
-    public static int findAggregationStateParamId(Method method)
+    private static int findAggregationStateParamId(Method method)
     {
         return findAggregationStateParamId(method, 0);
     }
 
-    public static int findAggregationStateParamId(Method method, int id)
+    private static int findAggregationStateParamId(Method method, int id)
     {
         int currentParamId = 0;
         int found = 0;
@@ -307,6 +396,12 @@ public class AggregationCompiler
             return Optional.of(description.value());
         }
         description = base.getAnnotation(Description.class);
+        return (description == null) ? Optional.empty() : Optional.of(description.value());
+    }
+
+    private static Optional<String> getDescription(AnnotatedElement base)
+    {
+        Description description = base.getAnnotation(Description.class);
         return (description == null) ? Optional.empty() : Optional.of(description.value());
     }
 
@@ -338,5 +433,10 @@ public class AggregationCompiler
             }
         }
         return methods.build();
+    }
+
+    static boolean isAggregationMetaAnnotation(Annotation annotation)
+    {
+        return annotation instanceof BlockIndex || annotation instanceof AggregationState || isMetaParameter(annotation);
     }
 }

@@ -13,10 +13,16 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.TypeManager;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationImplementation
@@ -27,14 +33,16 @@ public class AggregationImplementation
     private final Class<?> stateClass;
     private final Method inputFunction;
     private final Method outputFunction;
+    private final List<Class<?>> argumentNativeContainerTypes;
 
-    public AggregationImplementation(Signature signature, Class<?> definitionClass, Class<?> stateClass, Method inputFunction, Method outputFunction)
+    public AggregationImplementation(Signature signature, Class<?> definitionClass, Class<?> stateClass, Method inputFunction, Method outputFunction, List<Class<?>> argumentNativeContainerTypes)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
         this.stateClass = requireNonNull(stateClass, "stateClass cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
+        this.argumentNativeContainerTypes = requireNonNull(argumentNativeContainerTypes, "argumentNativeContainerTypes cannot be null");
     }
 
     public Signature getSignature()
@@ -60,5 +68,26 @@ public class AggregationImplementation
     public Method getOutputFunction()
     {
         return outputFunction;
+    }
+
+    public boolean hasSpecializedTypeParameters()
+    {
+        return false;
+    }
+
+    public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    {
+        checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
+
+        // TODO specialized functions variants support is missing here
+        for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
+            Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
+            // FIXME check if Block argument is really @BlockPosition annotated
+            if (!(argumentType.isAssignableFrom(argumentNativeContainerTypes.get(i)) || Block.class.isAssignableFrom(argumentNativeContainerTypes.get(i)))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

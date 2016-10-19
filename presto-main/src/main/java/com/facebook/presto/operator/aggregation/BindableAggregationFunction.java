@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -38,16 +39,22 @@ import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.aggregation.AggregationCompiler.isAggregationMetaAnnotation;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterBlock;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterNullable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromSqlType;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.isMetaParameter;
+import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -75,14 +82,32 @@ public class BindableAggregationFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
-        AggregationImplementation implementation = implementations.getExactImplementations().get(getSignature());
-        Class<?> definitionClass = implementation.getDefinitionClass();
-        Class<?> stateClass = implementation.getStateClass();
-        Method inputFunction = implementation.getInputFunction();
-        Method outputFunction = implementation.getOutputFunction();
+        Optional<AggregationImplementation> implementation = Optional.empty();
 
-        // bind variables
         Signature boundSignature = applyBoundVariables(getSignature(), variables, arity);
+        if (implementations.getExactImplementations().containsKey(boundSignature)) {
+            implementation = Optional.of(implementations.getExactImplementations().get(boundSignature));
+        }
+        else {
+            for (AggregationImplementation genericImpl : implementations.getGenericImplementations()) {
+                if (genericImpl.areTypesAssignable(boundSignature, variables, typeManager, functionRegistry)) {
+                    if (implementation.isPresent()) {
+                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getSignature()));
+                    }
+                    implementation = Optional.of(genericImpl);
+                }
+            }
+        }
+
+        if (!implementation.isPresent()) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
+        }
+
+        Class<?> definitionClass = implementation.get().getDefinitionClass();
+        Class<?> stateClass = implementation.get().getStateClass();
+        Method inputFunction = implementation.get().getInputFunction();
+        Method outputFunction = implementation.get().getOutputFunction();
+
         List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
 
@@ -100,6 +125,7 @@ public class BindableAggregationFunction
         try {
             MethodHandle inputHandle = lookup().unreflect(inputFunction);
             MethodHandle combineHandle = lookup().unreflect(combineFunction);
+            // FIXME
             MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
             metadata = new AggregationMetadata(
                     generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
@@ -162,8 +188,14 @@ public class BindableAggregationFunction
 
         for (; i < annotations.length; i++) {
             Annotation baseTypeAnnotation = baseTypeAnnotation(annotations[i], methodName);
-            if (baseTypeAnnotation instanceof SqlType) {
-                builder.add(fromSqlType(inputTypes.get(i - 1), isParameterBlock(annotations[i]), isParameterNullable(annotations[i]), methodName));
+            if (isMetaParameter(baseTypeAnnotation)) {
+                // skip, this is bound at this point
+            }
+            else if (baseTypeAnnotation instanceof AggregationState) {
+                builder.add(new ParameterMetadata(STATE));
+            }
+            else if (baseTypeAnnotation instanceof SqlType) {
+                builder.add(fromSqlType(inputTypes.get(inputId++), isParameterBlock(annotations[i]), isParameterNullable(annotations[i]), methodName));
             }
             else if (baseTypeAnnotation instanceof BlockIndex) {
                 builder.add(new ParameterMetadata(BLOCK_INDEX));
@@ -181,7 +213,7 @@ public class BindableAggregationFunction
     private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
     {
         List<Annotation> baseTypes = Arrays.asList(annotations).stream()
-                .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex || annotation instanceof AggregationState)
+                .filter(annotation -> isAggregationMetaAnnotation(annotation) || annotation instanceof SqlType)
                 .collect(toImmutableList());
 
         checkArgument(baseTypes.size() == 1, "Parameter of %s must have exactly one of @SqlType, @BlockIndex", methodName);
