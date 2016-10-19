@@ -40,7 +40,7 @@ public class MergingHashAggregationBuilder
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final List<Type> groupByTypes;
     private final LocalMemoryContext systemMemoryContext;
-    private final long memorySizeBeforeSpill;
+    private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
 
     public MergingHashAggregationBuilder(
@@ -52,7 +52,7 @@ public class MergingHashAggregationBuilder
             OperatorContext operatorContext,
             Iterator<Page> sortedPages,
             LocalMemoryContext systemMemoryContext,
-            long memorySizeBeforeSpill,
+            long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset)
     {
         ImmutableList.Builder<Integer> groupByPartialChannels = ImmutableList.builder();
@@ -69,7 +69,7 @@ public class MergingHashAggregationBuilder
         this.sortedPages = sortedPages;
         this.groupByTypes = groupByTypes;
         this.systemMemoryContext = systemMemoryContext;
-        this.memorySizeBeforeSpill = memorySizeBeforeSpill;
+        this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
 
         rebuildHashAggregationBuilder();
@@ -114,7 +114,7 @@ public class MergingHashAggregationBuilder
 
     private boolean shouldProduceOutput(long memorySize)
     {
-        return (memorySizeBeforeSpill > 0 && memorySize > memorySizeBeforeSpill);
+        return (memoryLimitForMerge > 0 && memorySize > memoryLimitForMerge);
     }
 
     private void rebuildHashAggregationBuilder()
