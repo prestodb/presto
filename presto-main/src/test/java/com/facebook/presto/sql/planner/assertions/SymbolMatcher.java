@@ -28,11 +28,18 @@ final class SymbolMatcher
 {
     private final Pattern pattern;
     private final String alias;
+    private final boolean exact;
 
     SymbolMatcher(String pattern, String alias)
     {
+        this(pattern, alias, false);
+    }
+
+    SymbolMatcher(String pattern, String alias, boolean exact)
+    {
         this.pattern = Pattern.compile(pattern);
         this.alias = alias;
+        this.exact = exact;
     }
 
     @Override
@@ -47,7 +54,7 @@ final class SymbolMatcher
         }
         if (symbol != null) {
             expressionAliases.put(alias, symbol.toSymbolReference());
-            return true;
+            return !exact || expressionAliases.get(alias).size() == 1;
         }
         return false;
     }

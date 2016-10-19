@@ -16,9 +16,11 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 
+import java.util.Collection;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -36,7 +38,7 @@ public final class ExpressionAliases
     public ExpressionAliases(ExpressionAliases expressionAliases)
     {
         requireNonNull(expressionAliases, "symbolAliases are null");
-        this.map = ArrayListMultimap.create(expressionAliases.map);
+        this.map = HashMultimap.create(expressionAliases.map);
     }
 
     public void put(String alias, Expression expression)
@@ -49,6 +51,11 @@ public final class ExpressionAliases
             checkState(!map.values().contains(expression), "Expression '%s' is already pointed by different alias than '%s', check mapping for '%s'", expression, alias, map);
             map.put(alias, expression);
         }
+    }
+
+    public Collection<Expression> get(String alias)
+    {
+        return map.get(alias(alias));
     }
 
     private String alias(String alias)

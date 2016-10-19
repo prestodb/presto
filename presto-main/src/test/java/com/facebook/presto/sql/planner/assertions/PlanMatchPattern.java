@@ -166,6 +166,14 @@ public final class PlanMatchPattern
         return with(new SymbolMatcher(pattern, alias));
     }
 
+    /**
+     * Binds symbol that matches pattern with a given alias. Only one symbol can be bound to a given alias.
+     */
+    public PlanMatchPattern withExactSymbol(String pattern, String alias)
+    {
+        return with(new SymbolMatcher(pattern, alias, true));
+    }
+
     public PlanMatchPattern withNumberOfOutputColumns(int numberOfSymbols)
     {
         return with(new SymbolCardinalityMatcher(numberOfSymbols));
