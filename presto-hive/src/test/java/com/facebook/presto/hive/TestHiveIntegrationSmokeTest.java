@@ -1458,8 +1458,8 @@ public class TestHiveIntegrationSmokeTest
                         "   c1 bigint,\n" +
                         "   \"c 2\" varchar,\n" +
                         "   \"c'3\" array(bigint),\n" +
-                        "   c4 map(bigint, varchar),\n" +
-                        "   c5 double\n)\n" +
+                        "   c4 map(bigint, varchar) COMMENT 'comment test',\n" +
+                        "   c5 double COMMENT 'comment test'\n)\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +
@@ -1467,9 +1467,10 @@ public class TestHiveIntegrationSmokeTest
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "\"test_show_create_table'2\"");
+        String showCreateTableResult = createTableSql.replaceAll("comment test", "Partition Key: comment test");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), showCreateTableResult);
     }
 
     @Test

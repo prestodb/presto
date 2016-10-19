@@ -100,7 +100,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type
+    : identifier type (COMMENT STRING)?
     ;
 
 likeClause
@@ -440,6 +440,7 @@ nonReserved
     | NO | DATA
     | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
     | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
+    | COMMENT
     | CALL
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
@@ -543,6 +544,7 @@ VALUES: 'VALUES';
 CREATE: 'CREATE';
 SCHEMA: 'SCHEMA';
 TABLE: 'TABLE';
+COMMENT: 'COMMENT';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
 INSERT: 'INSERT';
