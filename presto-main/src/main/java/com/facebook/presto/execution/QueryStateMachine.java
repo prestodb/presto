@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -558,7 +559,7 @@ public class QueryStateMachine
                             transitionToFinished();
                         }
                         else {
-                            transitionToFailed(throwable);
+                            transitionToFailed(unwrapCompletionException(throwable));
                         }
                     });
         }
@@ -747,5 +748,14 @@ public class QueryStateMachine
     private Duration nanosSince(long start)
     {
         return succinctNanos(tickerNanos() - start);
+    }
+
+    // TODO: move to Airlift MoreFutures
+    private static Throwable unwrapCompletionException(Throwable throwable)
+    {
+        if (throwable instanceof CompletionException) {
+            return throwable.getCause();
+        }
+        return throwable;
     }
 }
