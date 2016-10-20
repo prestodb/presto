@@ -37,7 +37,6 @@ public class Analyzer
     private final AccessControl accessControl;
     private final Session session;
     private final Optional<QueryExplainer> queryExplainer;
-    private final boolean experimentalSyntaxEnabled;
     private final List<Expression> parameters;
 
     public Analyzer(Session session,
@@ -45,7 +44,6 @@ public class Analyzer
             SqlParser sqlParser,
             AccessControl accessControl,
             Optional<QueryExplainer> queryExplainer,
-            boolean experimentalSyntaxEnabled,
             List<Expression> parameters)
     {
         this.session = requireNonNull(session, "session is null");
@@ -53,7 +51,6 @@ public class Analyzer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
-        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         this.parameters = parameters;
     }
 
@@ -64,9 +61,9 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl, experimentalSyntaxEnabled);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl);
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         analyzer.process(rewrittenStatement, Scope.builder().markQueryBoundary().build());
         return analysis;
     }

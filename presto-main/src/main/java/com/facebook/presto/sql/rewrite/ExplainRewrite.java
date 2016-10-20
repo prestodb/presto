@@ -51,8 +51,7 @@ final class ExplainRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl,
-            boolean experimentalSyntaxEnables)
+            AccessControl accessControl)
     {
         return (Statement) new Visitor(session, parser, queryExplainer).process(node, null);
     }

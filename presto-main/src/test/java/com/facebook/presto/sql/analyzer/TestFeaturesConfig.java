@@ -35,7 +35,6 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
-                .setExperimentalSyntaxEnabled(false)
                 .setResourceGroupsEnabled(false)
                 .setDistributedIndexJoinsEnabled(false)
                 .setDistributedJoinsEnabled(true)
@@ -61,7 +60,6 @@ public class TestFeaturesConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
-                .put("analyzer.experimental-syntax-enabled", "true")
                 .put("experimental.resource-groups-enabled", "true")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("distributed-index-joins-enabled", "true")
@@ -83,7 +81,6 @@ public class TestFeaturesConfig
                 .put("experimental.spiller-threads", "42")
                 .build();
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("experimental-syntax-enabled", "true")
                 .put("experimental.resource-groups-enabled", "true")
                 .put("deprecated.legacy-array-agg", "true")
                 .put("distributed-index-joins-enabled", "true")
@@ -106,7 +103,6 @@ public class TestFeaturesConfig
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
-                .setExperimentalSyntaxEnabled(true)
                 .setResourceGroupsEnabled(true)
                 .setDistributedIndexJoinsEnabled(true)
                 .setDistributedJoinsEnabled(false)

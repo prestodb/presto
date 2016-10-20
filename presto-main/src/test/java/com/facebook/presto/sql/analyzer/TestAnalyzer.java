@@ -1016,7 +1016,7 @@ public class TestAnalyzer
         accessControl = new AccessControlManager(transactionManager);
 
         metadata = new MetadataManager(
-                new FeaturesConfig().setExperimentalSyntaxEnabled(true),
+                new FeaturesConfig(),
                 typeManager,
                 new BlockEncodingManager(typeManager),
                 new SessionPropertyManager(),
@@ -1131,7 +1131,7 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata, boolean experimentalSyntaxEnabled)
+    private static Analyzer createAnalyzer(Session session, Metadata metadata)
     {
         return new Analyzer(
                 session,
@@ -1139,7 +1139,6 @@ public class TestAnalyzer
                 SQL_PARSER,
                 new AllowAllAccessControl(),
                 Optional.empty(),
-                experimentalSyntaxEnabled,
                 emptyList());
     }
 
@@ -1155,20 +1154,7 @@ public class TestAnalyzer
                 .readUncommitted()
                 .readOnly()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, true);
-                    Statement statement = SQL_PARSER.createStatement(query);
-                    analyzer.analyze(statement);
-                });
-    }
-
-    private void analyzeWithoutExperimentalSyntax(@Language("SQL") String query)
-    {
-        transaction(transactionManager, accessControl)
-                .singleStatement()
-                .readUncommitted()
-                .readOnly()
-                .execute(CLIENT_SESSION, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, false);
+                    Analyzer analyzer = createAnalyzer(session, metadata);
                     Statement statement = SQL_PARSER.createStatement(query);
                     analyzer.analyze(statement);
                 });
@@ -1183,19 +1169,6 @@ public class TestAnalyzer
     {
         try {
             analyze(session, query);
-            fail(format("Expected error %s, but analysis succeeded", error));
-        }
-        catch (SemanticException e) {
-            if (e.getCode() != error) {
-                fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
-            }
-        }
-    }
-
-    private void assertFailsWithoutExperimentalSyntax(SemanticErrorCode error, @Language("SQL") String query)
-    {
-        try {
-            analyzeWithoutExperimentalSyntax(query);
             fail(format("Expected error %s, but analysis succeeded", error));
         }
         catch (SemanticException e) {

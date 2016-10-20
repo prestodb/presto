@@ -44,11 +44,10 @@ public final class StatementRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, accessControl, experimentalSyntaxEnabled), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, accessControl), "Statement rewrite returned null");
         }
         return node;
     }
@@ -62,7 +61,6 @@ public final class StatementRewrite
                 Optional<QueryExplainer> queryExplainer,
                 Statement node,
                 List<Expression> parameters,
-                AccessControl accessControl,
-                boolean experimentalSyntaxEnabled);
+                AccessControl accessControl);
     }
 }

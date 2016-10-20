@@ -134,8 +134,7 @@ final class ShowQueriesRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl)
     {
         return (Statement) new Visitor(metadata, parser, session, parameters).process(node, null);
     }

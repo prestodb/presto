@@ -420,7 +420,6 @@ public class TestMergeWindows
     private Plan unitPlan(@Language("SQL") String sql)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = ImmutableList.of(

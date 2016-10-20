@@ -35,7 +35,7 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.asse
 public abstract class AbstractTestAggregationFunction
 {
     protected final TypeRegistry typeRegistry = new TypeRegistry();
-    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
     public abstract Block[] getSequenceBlocks(int start, int length);
 

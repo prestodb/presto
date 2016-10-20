@@ -226,7 +226,7 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), false);
+        this(defaultSession, new FeaturesConfig(), false);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
@@ -354,7 +354,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), true);
     }
 
     @Override
@@ -651,7 +651,6 @@ public class LocalQueryRunner
         assertFormattedSql(sqlParser, statement);
 
         FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true);
@@ -683,9 +682,8 @@ public class LocalQueryRunner
                 metadata,
                 accessControl,
                 sqlParser,
-                dataDefinitionTask,
-                featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled(), parameters);
+                dataDefinitionTask);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser);
 

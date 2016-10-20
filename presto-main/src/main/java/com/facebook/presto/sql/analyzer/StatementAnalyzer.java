@@ -163,7 +163,6 @@ class StatementAnalyzer
     private final Analysis analysis;
     private final Metadata metadata;
     private final Session session;
-    private final boolean experimentalSyntaxEnabled;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
 
@@ -171,15 +170,13 @@ class StatementAnalyzer
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
-            AccessControl accessControl, Session session,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl, Session session)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
-        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     @Override
@@ -290,9 +287,7 @@ class StatementAnalyzer
                 metadata,
                 sqlParser,
                 new AllowAllAccessControl(),
-                session,
-                experimentalSyntaxEnabled
-        );
+                session);
 
         Scope tableScope = analyzer.process(table, scope);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, tableScope, where));
@@ -354,9 +349,7 @@ class StatementAnalyzer
                 metadata,
                 sqlParser,
                 new ViewAccessControl(accessControl),
-                session,
-                experimentalSyntaxEnabled
-        );
+                session);
 
         Scope queryScope = analyzer.process(node.getQuery(), scope);
 
@@ -615,7 +608,7 @@ class StatementAnalyzer
     @Override
     protected Scope visitTableSubquery(TableSubquery node, Scope scope)
     {
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         Scope queryScope = analyzer.process(node.getQuery(), scope);
         return createScope(node, scope, queryScope.getRelationType());
     }
@@ -770,7 +763,7 @@ class StatementAnalyzer
 
             // ensure all names can be resolved, types match, etc (we don't need to record resolved names, subexpression types, etc. because
             // we do it further down when after we determine which subexpressions apply to left vs right tuple)
-            ExpressionAnalyzer analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
+            ExpressionAnalyzer analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl);
 
             Type clauseType = analyzer.analyze(expression, output);
             if (!clauseType.equals(BOOLEAN)) {
@@ -806,7 +799,7 @@ class StatementAnalyzer
             }
             // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
             // to re-analyze coercions that might be necessary
-            analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
+            analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl);
             analyzer.analyze((Expression) optimizedExpression, output);
             analysis.addCoercions(analyzer.getExpressionCoercions(), analyzer.getTypeOnlyCoercions());
 
@@ -1447,7 +1440,7 @@ class StatementAnalyzer
                     .setStartTime(session.getStartTime())
                     .build();
 
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, experimentalSyntaxEnabled);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);
             Scope queryScope = analyzer.process(query, Scope.create());
             return queryScope.getRelationType().withAlias(name.getObjectName(), null);
         }
@@ -1495,7 +1488,6 @@ class StatementAnalyzer
                 sqlParser,
                 scope,
                 analysis,
-                experimentalSyntaxEnabled,
                 expression);
     }
 
@@ -1575,7 +1567,6 @@ class StatementAnalyzer
                     accessControl, sqlParser,
                     scope,
                     analysis,
-                    experimentalSyntaxEnabled,
                     expression);
             analysis.recordSubqueries(node, expressionAnalysis);
 

@@ -47,7 +47,6 @@ public class CreateViewTask
 {
     private final JsonCodec<ViewDefinition> codec;
     private final SqlParser sqlParser;
-    private final boolean experimentalSyntaxEnabled;
 
     @Inject
     public CreateViewTask(
@@ -59,7 +58,6 @@ public class CreateViewTask
         this.codec = requireNonNull(codec, "codec is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         requireNonNull(featuresConfig, "featuresConfig is null");
-        this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
     }
 
     @Override
@@ -100,7 +98,7 @@ public class CreateViewTask
 
     private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.<QueryExplainer>empty(), experimentalSyntaxEnabled, parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.<QueryExplainer>empty(), parameters);
         return analyzer.analyze(statement);
     }
 }

@@ -49,7 +49,7 @@ public class TestDoubleHistogramAggregation
     public TestDoubleHistogramAggregation()
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
         InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
