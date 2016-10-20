@@ -321,12 +321,12 @@ public class PagesIndex
         return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
     }
 
-    private Optional<JoinFilterFunctionVerifier> createJoinFilterFunctionVerifier(Optional<JoinFilterFunction> filterFunctionOptional, List<List<Block>> channels)
+    private Optional<JoinFilterFunctionVerifier> createJoinFilterFunctionVerifier(Optional<InternalJoinFilterFunction> filterFunctionOptional, List<List<Block>> channels)
     {
         return filterFunctionOptional.map(filterFunction -> joinCompiler.compileJoinFilterFunctionVerifierFactory(filterFunction).createJoinFilterFunctionVerifier(filterFunction, channels));
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunction> filterFunction)
+    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<InternalJoinFilterFunction> filterFunction)
     {
         if (!joinChannels.isEmpty()) {
             // todo compiled implementation of lookup join does not support when we are joining with empty join channels.

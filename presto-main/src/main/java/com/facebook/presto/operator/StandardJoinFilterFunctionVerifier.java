@@ -26,10 +26,10 @@ public class StandardJoinFilterFunctionVerifier
 {
     private static final Block[] EMPTY_BLOCK_ARRAY = new Block[0];
 
-    private final JoinFilterFunction filterFunction;
+    private final InternalJoinFilterFunction filterFunction;
     private final List<Block[]> pages;
 
-    public StandardJoinFilterFunctionVerifier(JoinFilterFunction filterFunction, List<List<Block>> channels)
+    public StandardJoinFilterFunctionVerifier(InternalJoinFilterFunction filterFunction, List<List<Block>> channels)
     {
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null");
 

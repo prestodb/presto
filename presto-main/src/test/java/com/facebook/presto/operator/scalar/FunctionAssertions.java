@@ -48,7 +48,7 @@ import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.InterpretedFilterFunction;
+import com.facebook.presto.sql.planner.InterpretedInternalFilterFunction;
 import com.facebook.presto.sql.planner.InterpretedProjectionFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolToInputRewriter;
@@ -557,7 +557,7 @@ public final class FunctionAssertions
 
     private Operator interpretedFilterProject(Expression filter, Expression projection, Session session)
     {
-        FilterFunction filterFunction = new InterpretedFilterFunction(
+        FilterFunction filterFunction = new InterpretedInternalFilterFunction(
                 filter,
                 SYMBOL_TYPES,
                 INPUT_MAPPING,

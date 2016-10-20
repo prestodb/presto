@@ -44,7 +44,7 @@ public class HashBuilderOperator
         private final SettableLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
-        private final Optional<JoinFilterFunction> filterFunction;
+        private final Optional<InternalJoinFilterFunction> filterFunction;
 
         private final int expectedPositions;
         private State state = State.NOT_CREATED;
@@ -57,7 +57,7 @@ public class HashBuilderOperator
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel,
                 boolean outer,
-                Optional<JoinFilterFunction> filterFunction,
+                Optional<InternalJoinFilterFunction> filterFunction,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -118,7 +118,7 @@ public class HashBuilderOperator
     private final SettableLookupSourceSupplier lookupSourceSupplier;
     private final List<Integer> hashChannels;
     private final Optional<Integer> hashChannel;
-    private final Optional<JoinFilterFunction> filterFunction;
+    private final Optional<InternalJoinFilterFunction> filterFunction;
 
     private final PagesIndex pagesIndex;
 
@@ -129,7 +129,7 @@ public class HashBuilderOperator
             SettableLookupSourceSupplier lookupSourceSupplier,
             List<Integer> hashChannels,
             Optional<Integer> hashChannel,
-            Optional<JoinFilterFunction> filterFunction,
+            Optional<InternalJoinFilterFunction> filterFunction,
             int expectedPositions)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");

@@ -27,7 +27,7 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
-import com.facebook.presto.operator.JoinFilterFunction;
+import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunctionVerifier;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesHashStrategy;
@@ -96,11 +96,11 @@ public class JoinCompiler
                 }
             });
 
-    private final LoadingCache<Class<? extends JoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>> joinFilterFunctionVerifierClasses = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<Class<? extends JoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>>()
+    private final LoadingCache<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>> joinFilterFunctionVerifierClasses = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>>()
             {
                 @Override
-                public Class<? extends JoinFilterFunctionVerifier> load(Class<? extends JoinFilterFunction> key)
+                public Class<? extends JoinFilterFunctionVerifier> load(Class<? extends InternalJoinFilterFunction> key)
                         throws Exception
                 {
                     return IsolatedClass.isolateClass(
@@ -121,13 +121,13 @@ public class JoinCompiler
         }
     }
 
-    public JoinFilterFunctionVerifierFactory compileJoinFilterFunctionVerifierFactory(JoinFilterFunction joinFilterFunction)
+    public JoinFilterFunctionVerifierFactory compileJoinFilterFunctionVerifierFactory(InternalJoinFilterFunction internalJoinFilterFunction)
     {
         return ((filterFunction, channels) -> {
             try {
                 return joinFilterFunctionVerifierClasses
-                        .get(joinFilterFunction.getClass())
-                        .getConstructor(JoinFilterFunction.class, List.class)
+                        .get(internalJoinFilterFunction.getClass())
+                        .getConstructor(InternalJoinFilterFunction.class, List.class)
                         .newInstance(filterFunction, channels);
             }
             catch (ExecutionException | UncheckedExecutionException | ExecutionError | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
@@ -753,7 +753,7 @@ public class JoinCompiler
 
     public interface JoinFilterFunctionVerifierFactory
     {
-        JoinFilterFunctionVerifier createJoinFilterFunctionVerifier(JoinFilterFunction filterFunction, List<List<Block>> channels);
+        JoinFilterFunctionVerifier createJoinFilterFunctionVerifier(InternalJoinFilterFunction filterFunction, List<List<Block>> channels);
     }
 
     private static final class CacheKey

@@ -195,7 +195,7 @@ public class TestInterpretedFilterFunction
     {
         Expression parsed = createExpression(expression, METADATA, ImmutableMap.<Symbol, Type>of());
 
-        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
+        InterpretedInternalFilterFunction filterFunction = new InterpretedInternalFilterFunction(parsed,
                 ImmutableMap.<Symbol, Type>of(),
                 ImmutableMap.<Symbol, Integer>of(),
                 METADATA,

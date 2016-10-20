@@ -23,7 +23,7 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.JoinFilterFunction;
+import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -66,20 +66,20 @@ public class JoinFilterFunctionCompiler
         this.metadata = metadata;
     }
 
-    private final LoadingCache<JoinFilterCacheKey, Class<? extends JoinFilterFunction>> joinFilterFunctions = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<JoinFilterCacheKey, Class<? extends JoinFilterFunction>>()
+    private final LoadingCache<JoinFilterCacheKey, Class<? extends InternalJoinFilterFunction>> joinFilterFunctions = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<JoinFilterCacheKey, Class<? extends InternalJoinFilterFunction>>()
             {
                 @Override
-                public Class<? extends JoinFilterFunction> load(JoinFilterCacheKey key)
+                public Class<? extends InternalJoinFilterFunction> load(JoinFilterCacheKey key)
                         throws Exception
                 {
                     return compileFilterFunctionInternal(key.getFilter(), key.getLeftBlocksSize());
                 }
             });
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
+    public InternalJoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
     {
-        Class<? extends JoinFilterFunction> joinFilterFunction = joinFilterFunctions.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
+        Class<? extends InternalJoinFilterFunction> joinFilterFunction = joinFilterFunctions.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
         return (session) -> {
             try {
                 return joinFilterFunction.getConstructor(ConnectorSession.class).newInstance(session);
@@ -90,13 +90,13 @@ public class JoinFilterFunctionCompiler
         };
     }
 
-    private Class<? extends JoinFilterFunction> compileFilterFunctionInternal(RowExpression filterExpression, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileFilterFunctionInternal(RowExpression filterExpression, int leftBlocksSize)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName("JoinFilterFunction"),
                 type(Object.class),
-                type(JoinFilterFunction.class));
+                type(InternalJoinFilterFunction.class));
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -113,7 +113,7 @@ public class JoinFilterFunctionCompiler
                         .add("leftBlocksSize", leftBlocksSize)
                         .toString());
 
-        return defineClass(classDefinition, JoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
     private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
@@ -251,9 +251,9 @@ public class JoinFilterFunctionCompiler
     }
 
     @FunctionalInterface
-    public interface JoinFilterFunctionFactory
+    public interface InternalJoinFilterFunctionFactory
     {
-        JoinFilterFunction create(ConnectorSession session);
+        InternalJoinFilterFunction create(ConnectorSession session);
     }
 
     private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(

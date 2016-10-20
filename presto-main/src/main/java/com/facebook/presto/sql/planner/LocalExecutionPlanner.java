@@ -39,7 +39,7 @@ import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.HashSemiJoinOperator.HashSemiJoinOperatorFactory;
-import com.facebook.presto.operator.JoinFilterFunction;
+import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinOperatorFactory;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.LocalPlannerAware;
@@ -1051,7 +1051,7 @@ public class LocalExecutionPlanner
 
             FilterFunction filterFunction;
             if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
-                filterFunction = new InterpretedFilterFunction(filterExpression, context.getTypes(), sourceLayout, metadata, sqlParser, context.getSession());
+                filterFunction = new InterpretedInternalFilterFunction(filterExpression, context.getTypes(), sourceLayout, metadata, sqlParser, context.getSession());
             }
             else {
                 filterFunction = FilterFunctions.TRUE_FUNCTION;
@@ -1499,7 +1499,7 @@ public class LocalExecutionPlanner
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
 
-            Optional<JoinFilterFunction> filterFunction = node.getFilter()
+            Optional<InternalJoinFilterFunction> filterFunction = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(filterExpression, probeLayout, buildSource.getLayout(), context.getTypes(), context.getSession()));
 
             OperatorFactory operatorFactory;
@@ -1546,7 +1546,7 @@ public class LocalExecutionPlanner
             return lookupSourceSupplier;
         }
 
-        private JoinFilterFunction compileJoinFilterFunction(
+        private InternalJoinFilterFunction compileJoinFilterFunction(
                 Expression filterExpression,
                 Map<Symbol, Integer> probeLayout,
                 Map<Symbol, Integer> buildLayout,

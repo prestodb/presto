@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.JoinFilterFunction;
+import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -34,13 +34,13 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static java.lang.Boolean.TRUE;
 import static java.util.Collections.emptyList;
 
-public class InterpretedFilterFunction
-        implements FilterFunction, JoinFilterFunction
+public class InterpretedInternalFilterFunction
+        implements FilterFunction, InternalJoinFilterFunction
 {
     private final ExpressionInterpreter evaluator;
     private final Set<Integer> inputChannels;
 
-    public InterpretedFilterFunction(
+    public InterpretedInternalFilterFunction(
             Expression predicate,
             Map<Symbol, Type> symbolTypes,
             Map<Symbol, Integer> symbolToInputMappings,

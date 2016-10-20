@@ -43,7 +43,7 @@ public class ParallelHashBuildOperator
         private final PartitionedLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
         private final Optional<Integer> preComputedHashChannel;
-        private final Optional<JoinFilterFunction> filterFunction;
+        private final Optional<InternalJoinFilterFunction> filterFunction;
 
         private final int expectedPositions;
 
@@ -58,7 +58,7 @@ public class ParallelHashBuildOperator
                 List<Integer> hashChannels,
                 Optional<Integer> preComputedHashChannel,
                 boolean outer,
-                Optional<JoinFilterFunction> filterFunction,
+                Optional<InternalJoinFilterFunction> filterFunction,
                 int expectedPositions,
                 int partitionCount)
         {
@@ -129,7 +129,7 @@ public class ParallelHashBuildOperator
 
     private final List<Integer> hashChannels;
     private final Optional<Integer> preComputedHashChannel;
-    private final Optional<JoinFilterFunction> filterFunction;
+    private final Optional<InternalJoinFilterFunction> filterFunction;
 
     private final PagesIndex index;
 
@@ -141,7 +141,7 @@ public class ParallelHashBuildOperator
             int partitionIndex,
             List<Integer> hashChannels,
             Optional<Integer> preComputedHashChannel,
-            Optional<JoinFilterFunction> filterFunction,
+            Optional<InternalJoinFilterFunction> filterFunction,
             int expectedPositions)
     {
         this.operatorContext = operatorContext;

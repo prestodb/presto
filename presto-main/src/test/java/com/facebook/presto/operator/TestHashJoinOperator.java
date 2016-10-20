@@ -319,7 +319,7 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        JoinFilterFunction filterFunction = new TestJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) -> BIGINT.getLong(rightBlocks[1], rightPosition) >= 1025));
 
         // build
@@ -416,7 +416,7 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        JoinFilterFunction filterFunction = new TestJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) -> VARCHAR.getSlice(rightBlocks[0], rightPosition).toStringAscii().equals("a")));
 
         // build
@@ -508,7 +508,7 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        JoinFilterFunction filterFunction = new TestJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) ->
                         ImmutableSet.of("a", "c").contains(VARCHAR.getSlice(rightBlocks[0], rightPosition).toStringAscii())));
 
@@ -601,7 +601,7 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        JoinFilterFunction filterFunction = new TestJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
                 (leftPosition, leftBlocks, rightPosition, rightBlocks) ->
                         ImmutableSet.of("a", "c").contains(VARCHAR.getSlice(rightBlocks[0], rightPosition).toStringAscii())));
 
@@ -672,7 +672,7 @@ public class TestHashJoinOperator
         return hashChannels.build();
     }
 
-    private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<JoinFilterFunction> filterFunction)
+    private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<InternalJoinFilterFunction> filterFunction)
     {
         if (parallelBuild) {
             LocalExchange localExchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, PARTITION_COUNT, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
@@ -750,8 +750,8 @@ public class TestHashJoinOperator
         }
     }
 
-    private static class TestJoinFilterFunction
-            implements JoinFilterFunction
+    private static class TestInternalJoinFilterFunction
+            implements InternalJoinFilterFunction
     {
         public interface Lambda
         {
@@ -760,7 +760,7 @@ public class TestHashJoinOperator
 
         private final Lambda lambda;
 
-        private TestJoinFilterFunction(Lambda lambda)
+        private TestInternalJoinFilterFunction(Lambda lambda)
         {
             this.lambda = lambda;
         }
