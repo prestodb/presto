@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
-import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
+import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -172,9 +172,9 @@ public class AggregationCompiler
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
 
-        List<ScalarImplementation.ImplementationDependency> inputDependencies = parseImplementationDependencies(inputFunction);
-        List<ScalarImplementation.ImplementationDependency> combineDependencies = parseImplementationDependencies(combineFunction);
-        List<ScalarImplementation.ImplementationDependency> outputDependencies = parseImplementationDependencies(outputFunction);
+        List<ImplementationDependency> inputDependencies = parseImplementationDependencies(inputFunction);
+        List<ImplementationDependency> combineDependencies = parseImplementationDependencies(combineFunction);
+        List<ImplementationDependency> outputDependencies = parseImplementationDependencies(outputFunction);
         List<LongVariableConstraint> longVariableConstraints = parseLongVariableConstraints(inputFunction);
         List<TypeVariableConstraint> typeVariableConstraints = parseTypeVariableConstraints(inputFunction, inputDependencies);
         List<Class<?>> signatureArgumentsTypes = parseSignatureArgumentsTypes(inputFunction);
@@ -226,14 +226,14 @@ public class AggregationCompiler
         return new AggregationHeader(aggregationAnnotation.value(), getDescription(aggregationDefinition), aggregationAnnotation.decomposable());
     }
 
-    private static List<TypeVariableConstraint> parseTypeVariableConstraints(Method inputFunction, List<ScalarImplementation.ImplementationDependency> dependencies)
+    private static List<TypeVariableConstraint> parseTypeVariableConstraints(Method inputFunction, List<ImplementationDependency> dependencies)
     {
         return createTypeVariableConstraints(Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class)), dependencies);
     }
 
-    private static List<ScalarImplementation.ImplementationDependency> parseImplementationDependencies(Method inputFunction)
+    private static List<ImplementationDependency> parseImplementationDependencies(Method inputFunction)
     {
-        ImmutableList.Builder<ScalarImplementation.ImplementationDependency> builder = ImmutableList.builder();
+        ImmutableList.Builder<ImplementationDependency> builder = ImmutableList.builder();
         List<TypeParameter> typeParameters = Arrays.asList(inputFunction.getAnnotationsByType(TypeParameter.class));
         Set<String> literalParameters = getLiteralParameter(inputFunction);
 

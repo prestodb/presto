@@ -20,7 +20,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
+import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -125,18 +125,18 @@ public class BindableAggregationFunction
 
         try {
             MethodHandle inputHandle = lookup().unreflect(inputFunction);
-            for (ScalarImplementation.ImplementationDependency dependency : implementation.get().getInputDependencies()) {
+            for (ImplementationDependency dependency : implementation.get().getInputDependencies()) {
                 inputHandle = inputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
             }
 
             MethodHandle combineHandle = lookup().unreflect(combineFunction);
-            for (ScalarImplementation.ImplementationDependency dependency : implementation.get().getCombineDependencies()) {
+            for (ImplementationDependency dependency : implementation.get().getCombineDependencies()) {
                 combineHandle = combineHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
             }
 
             // FIXME
             MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
-            for (ScalarImplementation.ImplementationDependency dependency : implementation.get().getOutputDependencies()) {
+            for (ImplementationDependency dependency : implementation.get().getOutputDependencies()) {
                 outputHandle = outputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
             }
 

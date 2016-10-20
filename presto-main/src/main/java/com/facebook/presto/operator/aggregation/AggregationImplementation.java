@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
+import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -35,9 +35,9 @@ public class AggregationImplementation
     private final Method inputFunction;
     private final Method outputFunction;
     private final List<Class<?>> argumentNativeContainerTypes;
-    private final List<ScalarImplementation.ImplementationDependency> inputDependencies;
-    private final List<ScalarImplementation.ImplementationDependency> combineDependencies;
-    private final List<ScalarImplementation.ImplementationDependency> outputDependencies;
+    private final List<ImplementationDependency> inputDependencies;
+    private final List<ImplementationDependency> combineDependencies;
+    private final List<ImplementationDependency> outputDependencies;
 
     public AggregationImplementation(
             Signature signature,
@@ -46,9 +46,9 @@ public class AggregationImplementation
             Method inputFunction,
             Method outputFunction,
             List<Class<?>> argumentNativeContainerTypes,
-            List<ScalarImplementation.ImplementationDependency> inputDependencies,
-            List<ScalarImplementation.ImplementationDependency> combineDependencies,
-            List<ScalarImplementation.ImplementationDependency> outputDependencies)
+            List<ImplementationDependency> inputDependencies,
+            List<ImplementationDependency> combineDependencies,
+            List<ImplementationDependency> outputDependencies)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
@@ -91,17 +91,17 @@ public class AggregationImplementation
         return false;
     }
 
-    public List<ScalarImplementation.ImplementationDependency> getInputDependencies()
+    public List<ImplementationDependency> getInputDependencies()
     {
         return inputDependencies;
     }
 
-    public List<ScalarImplementation.ImplementationDependency> getOutputDependencies()
+    public List<ImplementationDependency> getOutputDependencies()
     {
         return outputDependencies;
     }
 
-    public List<ScalarImplementation.ImplementationDependency> getCombineDependencies()
+    public List<ImplementationDependency> getCombineDependencies()
     {
         return combineDependencies;
     }

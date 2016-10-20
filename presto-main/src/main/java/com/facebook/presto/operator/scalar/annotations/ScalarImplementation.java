@@ -18,6 +18,11 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.operator.annotations.FunctionImplementationDependency;
+import com.facebook.presto.operator.annotations.ImplementationDependency;
+import com.facebook.presto.operator.annotations.LiteralImplementationDependency;
+import com.facebook.presto.operator.annotations.OperatorImplementationDependency;
+import com.facebook.presto.operator.annotations.TypeImplementationDependency;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionDependency;
@@ -29,7 +34,6 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -63,11 +67,8 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.internalOperator;
-import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
@@ -266,102 +267,6 @@ public class ScalarImplementation
         public Optional<MethodHandle> getConstructor()
         {
             return constructor;
-        }
-    }
-
-    // FIXME This should be moved outside of scalar package
-    public interface ImplementationDependency
-    {
-        Object resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry);
-    }
-
-    private static final class FunctionImplementationDependency
-            extends ScalarImplementationDependency
-    {
-        private FunctionImplementationDependency(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
-        {
-            super(internalScalarFunction(name, returnType, argumentTypes));
-        }
-    }
-
-    private static final class OperatorImplementationDependency
-            extends ScalarImplementationDependency
-    {
-        private final OperatorType operator;
-
-        private OperatorImplementationDependency(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
-        {
-            super(internalOperator(operator, returnType, argumentTypes));
-            this.operator = requireNonNull(operator, "operator is null");
-        }
-
-        public OperatorType getOperator()
-        {
-            return operator;
-        }
-    }
-
-    private abstract static class ScalarImplementationDependency
-            implements ImplementationDependency
-    {
-        private final Signature signature;
-
-        private ScalarImplementationDependency(Signature signature)
-        {
-            this.signature = requireNonNull(signature, "signature is null");
-        }
-
-        public Signature getSignature()
-        {
-            return signature;
-        }
-
-        @Override
-        public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            Signature signature = applyBoundVariables(this.signature, boundVariables, this.signature.getArgumentTypes().size());
-            ScalarFunctionImplementation scalarFunctionImplementation = functionRegistry.getScalarFunctionImplementation(signature);
-            if (scalarFunctionImplementation.getInstanceFactory().isPresent()) {
-                // TODO: This feature is useful for a few casts, e.g. MapToMapCast, JsonToMapCast
-                // Implementing this requires a revamp because we must be able to defer binding of MethodHandles,
-                // and be able to express such need in a recursive way in ScalarFunctionImplementation.
-                throw new UnsupportedOperationException("OperatorDependency/FunctionDependency cannot refer to methods with instance factory");
-            }
-            return scalarFunctionImplementation.getMethodHandle();
-        }
-    }
-
-    private static final class TypeImplementationDependency
-            implements ImplementationDependency
-    {
-        private final TypeSignature signature;
-
-        private TypeImplementationDependency(String signature)
-        {
-            this.signature = parseTypeSignature(requireNonNull(signature, "signature is null"));
-        }
-
-        @Override
-        public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            return typeManager.getType(applyBoundVariables(signature, boundVariables));
-        }
-    }
-
-    private static final class LiteralImplementationDependency
-            implements ImplementationDependency
-    {
-        private final String literalName;
-
-        private LiteralImplementationDependency(String literalName)
-        {
-            this.literalName = requireNonNull(literalName, "literalName is null");
-        }
-
-        @Override
-        public Long resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
-        {
-            return boundVariables.getLongVariable(literalName);
         }
     }
 
