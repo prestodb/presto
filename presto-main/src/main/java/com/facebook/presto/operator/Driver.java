@@ -49,7 +49,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.getUnchecked;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 //
@@ -68,6 +68,7 @@ public class Driver
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
     private final ConcurrentMap<PlanNodeId, TaskSource> newSources = new ConcurrentHashMap<>();
+    private final Map<Operator, ListenableFuture<?>> revokingOperators = new HashMap<>();
 
     private final AtomicReference<State> state = new AtomicReference<>(State.ALIVE);
 
@@ -333,16 +334,7 @@ public class Driver
     {
         checkLockHeld("Lock must be held to call processInternal");
 
-        // revoke operators memory
-        // do this synchronously for now
-        for (int i = 0; i < operators.size() && !driverContext.isDone(); i++) {
-            Operator current = operators.get(i);
-            if (current.getOperatorContext().isSystemMemoryRevokingRequested()) {
-                getUnchecked(current.startMemoryRevoke());
-                current.finishMemoryRevoke();
-                current.getOperatorContext().resetSystemMemoryRevokingRequested();
-            }
-        }
+        handleMemoryRevoke();
 
         try {
             if (!newSources.isEmpty()) {
@@ -442,6 +434,33 @@ public class Driver
         }
     }
 
+    private void handleMemoryRevoke()
+    {
+        for (int i = 0; i < operators.size() && !driverContext.isDone(); i++) {
+            Operator operator = operators.get(i);
+
+            if (revokingOperators.containsKey(operator)) {
+                checkOperatorFinishedRevoking(operator);
+            }
+            else if (operator.getOperatorContext().isSystemMemoryRevokingRequested()) {
+                ListenableFuture<?> future = operator.startMemoryRevoke();
+                revokingOperators.put(operator, future);
+                checkOperatorFinishedRevoking(operator);
+            }
+        }
+    }
+
+    private void checkOperatorFinishedRevoking(Operator operator)
+    {
+        ListenableFuture<?> future = revokingOperators.get(operator);
+        if (future.isDone()) {
+            getFutureValue(future);
+            revokingOperators.remove(operator);
+            operator.finishMemoryRevoke();
+            operator.getOperatorContext().resetSystemMemoryRevokingRequested();
+        }
+    }
+
     private void destroyIfNecessary()
     {
         checkLockHeld("Lock must be held to call destroyIfNecessary");
@@ -518,9 +537,12 @@ public class Driver
         }
     }
 
-    private static ListenableFuture<?> isBlocked(Operator operator)
+    private ListenableFuture<?> isBlocked(Operator operator)
     {
         ListenableFuture<?> blocked = operator.isBlocked();
+        if (blocked.isDone() && revokingOperators.containsKey(operator)) {
+            blocked = revokingOperators.get(operator);
+        }
         if (blocked.isDone()) {
             blocked = operator.getOperatorContext().isWaitingForMemory();
         }
