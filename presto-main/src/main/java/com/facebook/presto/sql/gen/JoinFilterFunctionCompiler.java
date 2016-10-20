@@ -124,11 +124,11 @@ public class JoinFilterFunctionCompiler
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
-        generateConstructor(classDefinition, sessionField);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter, leftBlocksSize, sessionField);
+        generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
 
-    private void generateConstructor(ClassDefinition classDefinition, FieldDefinition sessionField)
+    private void generateConstructor(ClassDefinition classDefinition, FieldDefinition sessionField, CachedInstanceBinder cachedInstanceBinder)
     {
         Parameter sessionParameter = arg("session", ConnectorSession.class);
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
@@ -141,6 +141,9 @@ public class JoinFilterFunctionCompiler
                 .invokeConstructor(Object.class);
 
         body.append(thisVariable.setField(sessionField, sessionParameter));
+
+        cachedInstanceBinder.generateInitializations(thisVariable, body);
+
         body.ret();
     }
 

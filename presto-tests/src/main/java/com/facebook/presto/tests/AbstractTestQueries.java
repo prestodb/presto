@@ -3305,6 +3305,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testJoinWithStatefulFilterFunction()
+            throws Exception
+    {
+        assertQuery("SELECT *\n" +
+                "FROM (VALUES 1, 2) a(id)\n" +
+                "FULL JOIN (VALUES 2, 3) b(id)\n" +
+                "ON (array_intersect(array[a.id], array[b.id]) = array[a.id])",
+                "VALUES (1, null), (2, 2), (null, 3)");
+    }
+
+    @Test
     public void testAggregationOverRigthJoinOverSingleStreamProbe()
             throws Exception
     {
