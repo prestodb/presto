@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Collection;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
@@ -81,9 +82,12 @@ public class SingleDistinctOptimizer
             if (masks.size() != 1 || node.getMasks().size() != node.getAggregations().size()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
-            if (!Iterables.getOnlyElement(masks).getName().contains("distinct")) {
+            // If the aggregation is not distinct, don't optimize
+            FunctionCall aggregation = Iterables.getOnlyElement(node.getAggregations().values());
+            if (!aggregation.isDistinct()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
+
             PlanNode source = context.rewrite(node.getSource(), Optional.of(Iterables.getOnlyElement(masks)));
 
             Map<Symbol, FunctionCall> aggregations = ImmutableMap.copyOf(Maps.transformValues(node.getAggregations(), call -> new FunctionCall(call.getName(), call.getWindow(), false, call.getArguments())));
