@@ -50,7 +50,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromSqlType;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
-import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.isMetaParameter;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -201,7 +201,7 @@ public class BindableAggregationFunction
 
         for (; i < annotations.length; i++) {
             Annotation baseTypeAnnotation = baseTypeAnnotation(annotations[i], methodName);
-            if (isMetaParameter(baseTypeAnnotation)) {
+            if (isImplementationDependencyAnnotation(baseTypeAnnotation)) {
                 // skip, this is bound at this point
             }
             else if (baseTypeAnnotation instanceof AggregationState) {

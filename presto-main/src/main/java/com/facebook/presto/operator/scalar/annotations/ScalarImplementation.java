@@ -17,19 +17,11 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TypeVariableConstraint;
-import com.facebook.presto.operator.annotations.FunctionImplementationDependency;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
-import com.facebook.presto.operator.annotations.LiteralImplementationDependency;
-import com.facebook.presto.operator.annotations.OperatorImplementationDependency;
-import com.facebook.presto.operator.annotations.TypeImplementationDependency;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OperatorDependency;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -43,7 +35,6 @@ import com.facebook.presto.type.LiteralParameter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Primitives;
 
 import javax.annotation.Nullable;
@@ -66,25 +57,16 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
-import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
-import static com.facebook.presto.metadata.Signature.typeVariable;
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.permuteArguments;
@@ -272,9 +254,6 @@ public class ScalarImplementation
 
     public static final class Parser
     {
-        private static final Set<OperatorType> COMPARABLE_TYPE_OPERATORS = ImmutableSet.of(EQUAL, NOT_EQUAL, HASH_CODE);
-        private static final Set<OperatorType> ORDERABLE_TYPE_OPERATORS = ImmutableSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, BETWEEN);
-
         private final String functionName;
         private final boolean nullable;
         private final List<Boolean> nullableArguments = new ArrayList<>();
@@ -351,7 +330,7 @@ public class ScalarImplementation
                 if (parameterType == ConnectorSession.class) {
                     continue;
                 }
-                if (containsMetaParameter(annotations)) {
+                if (containsImplementationDependencyAnnotation(annotations)) {
                     checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", method);
                     checkArgument(argumentTypes.isEmpty(), "Meta parameter must come before parameters [%s]", method);
                     Annotation annotation = annotations[0];
@@ -361,7 +340,7 @@ public class ScalarImplementation
                     if (annotation instanceof LiteralParameter) {
                         checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", method);
                     }
-                    dependencies.add(parseDependency(annotation, literalParameters));
+                    dependencies.add(createDependency(annotation, literalParameters));
                 }
                 else {
                     checkArgument(!Stream.of(annotations).anyMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that does not follow a @SqlType parameter", method);
@@ -452,13 +431,13 @@ public class ScalarImplementation
             checkArgument(constructor != null, "Method [%s] is an instance method and requires a public constructor to be declared with %s type parameters", method, typeParameters);
             for (int i = 0; i < constructor.getParameterCount(); i++) {
                 Annotation[] annotations = constructor.getParameterAnnotations()[i];
-                checkArgument(containsMetaParameter(annotations), "Constructors may only have meta parameters [%s]", constructor);
+                checkArgument(containsImplementationDependencyAnnotation(annotations), "Constructors may only have meta parameters [%s]", constructor);
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", constructor);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter) {
                     checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value()), method, typeParameterNames);
                 }
-                constructorDependencies.add(parseDependency(annotation, literalParameters));
+                constructorDependencies.add(createDependency(annotation, literalParameters));
             }
             MethodHandle result = constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor);
             // Change type of return value to Object to make sure callers won't have classloader issues
@@ -504,97 +483,6 @@ public class ScalarImplementation
             return methodHandle;
         }
 
-        // FIXME This should be moved outside of scalar package
-        public static List<TypeVariableConstraint> createTypeVariableConstraints(Iterable<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)
-        {
-            Set<String> orderableRequired = new HashSet<>();
-            Set<String> comparableRequired = new HashSet<>();
-            for (ImplementationDependency dependency : dependencies) {
-                if (dependency instanceof OperatorImplementationDependency) {
-                    OperatorType operator = ((OperatorImplementationDependency) dependency).getOperator();
-                    if (operator == CAST) {
-                        continue;
-                    }
-                    Set<String> argumentTypes = ((OperatorImplementationDependency) dependency).getSignature().getArgumentTypes().stream()
-                            .map(TypeSignature::getBase)
-                            .collect(toImmutableSet());
-                    checkArgument(argumentTypes.size() == 1, "Operator dependency must only have arguments of a single type");
-                    String argumentType = Iterables.getOnlyElement(argumentTypes);
-                    if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
-                        comparableRequired.add(argumentType);
-                    }
-                    if (ORDERABLE_TYPE_OPERATORS.contains(operator)) {
-                        orderableRequired.add(argumentType);
-                    }
-                }
-            }
-            ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
-            for (TypeParameter typeParameter : typeParameters) {
-                String name = typeParameter.value();
-                if (orderableRequired.contains(name)) {
-                    typeVariableConstraints.add(orderableTypeParameter(name));
-                }
-                else if (comparableRequired.contains(name)) {
-                    typeVariableConstraints.add(comparableTypeParameter(name));
-                }
-                else {
-                    typeVariableConstraints.add(typeVariable(name));
-                }
-            }
-            return typeVariableConstraints.build();
-        }
-
-        // FIXME This should be moved outside of scalar package
-        public static ImplementationDependency parseDependency(Annotation annotation, Set<String> literalParameters)
-        {
-            if (annotation instanceof TypeParameter) {
-                return new TypeImplementationDependency(((TypeParameter) annotation).value());
-            }
-            if (annotation instanceof LiteralParameter) {
-                return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
-            }
-            if (annotation instanceof FunctionDependency) {
-                FunctionDependency function = (FunctionDependency) annotation;
-                return new FunctionImplementationDependency(
-                        function.name(),
-                        parseTypeSignature(function.returnType(), literalParameters),
-                        Arrays.stream(function.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
-                                .collect(toImmutableList()));
-            }
-            if (annotation instanceof OperatorDependency) {
-                OperatorDependency operator = (OperatorDependency) annotation;
-                return new OperatorImplementationDependency(
-                        operator.operator(),
-                        parseTypeSignature(operator.returnType(), literalParameters),
-                        Arrays.stream(operator.argumentTypes())
-                                .map(signature -> parseTypeSignature(signature, literalParameters))
-                                .collect(toImmutableList()));
-            }
-
-            throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
-        }
-
-        // FIXME This should be moved outside of scalar package
-        public static boolean containsMetaParameter(Annotation[] annotations)
-        {
-            for (Annotation annotation : annotations) {
-                if (isMetaParameter(annotation)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // FIXME This should be moved outside of scalar package
-        public static boolean isMetaParameter(Annotation annotation)
-        {
-            return annotation instanceof TypeParameter ||
-                    annotation instanceof LiteralParameter ||
-                    annotation instanceof FunctionDependency ||
-                    annotation instanceof OperatorDependency;
-        }
-
         public ScalarImplementation get()
         {
             Signature signature = new Signature(
@@ -634,7 +522,7 @@ public class ScalarImplementation
 
         private static boolean isPrestoAnnotation(Annotation annotation)
         {
-            return isMetaParameter(annotation) ||
+            return isImplementationDependencyAnnotation(annotation) ||
                     annotation instanceof SqlType ||
                     annotation instanceof SqlNullable ||
                     annotation instanceof IsNull;

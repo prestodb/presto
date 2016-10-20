@@ -49,10 +49,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.containsMetaParameter;
-import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.createTypeVariableConstraints;
-import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.isMetaParameter;
-import static com.facebook.presto.operator.scalar.annotations.ScalarImplementation.Parser.parseDependency;
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
+import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -246,7 +246,7 @@ public class AggregationCompiler
                 continue;
             }
 
-            if (containsMetaParameter(annotations)) {
+            if (containsImplementationDependencyAnnotation(annotations)) {
                 checkArgument(annotations.length == 1, "Meta parameters may only have a single annotation [%s]", inputFunction);
                 Annotation annotation = annotations[0];
                 if (annotation instanceof TypeParameter) {
@@ -255,7 +255,7 @@ public class AggregationCompiler
                 if (annotation instanceof LiteralParameter) {
                     checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", inputFunction);
                 }
-                builder.add(parseDependency(annotation, literalParameters));
+                builder.add(createDependency(annotation, literalParameters));
             }
         }
         return builder.build();
@@ -442,6 +442,6 @@ public class AggregationCompiler
 
     static boolean isAggregationMetaAnnotation(Annotation annotation)
     {
-        return annotation instanceof BlockIndex || annotation instanceof AggregationState || isMetaParameter(annotation);
+        return annotation instanceof BlockIndex || annotation instanceof AggregationState || isImplementationDependencyAnnotation(annotation);
     }
 }
