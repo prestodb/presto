@@ -110,6 +110,11 @@ public class OptimizeMixedDistinctAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
+            if (node.getAggregations().values().stream().map(FunctionCall::getFilter).anyMatch(Optional::isPresent)) {
+                // Skip if any aggregation contains a filter
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
             AggregateInfo aggregateInfo = new AggregateInfo(
                     node.getGroupingKeys(),
                     Iterables.getOnlyElement(masks),

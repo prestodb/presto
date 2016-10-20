@@ -966,6 +966,11 @@ class StatementAnalyzer
         List<FunctionCall> windowFunctions = extractor.getWindowFunctions();
 
         for (FunctionCall windowFunction : windowFunctions) {
+            // filter with window function is not supported yet
+            if (windowFunction.getFilter().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
+            }
+
             Window window = windowFunction.getWindow().get();
 
             WindowFunctionExtractor nestedExtractor = new WindowFunctionExtractor();

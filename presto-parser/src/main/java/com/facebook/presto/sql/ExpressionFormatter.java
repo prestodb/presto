@@ -335,6 +335,10 @@ public final class ExpressionFormatter
             builder.append(formatQualifiedName(node.getName()))
                     .append('(').append(arguments).append(')');
 
+            if (node.getFilter().isPresent()) {
+                builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), unmangleNames));
+            }
+
             if (node.getWindow().isPresent()) {
                 builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
             }
@@ -538,6 +542,11 @@ public final class ExpressionFormatter
         protected String visitInListExpression(InListExpression node, Boolean unmangleNames)
         {
             return "(" + joinExpressions(node.getValues(), unmangleNames) + ")";
+        }
+
+        private String visitFilter(Expression node, Boolean unmangleNames)
+        {
+            return "(WHERE " + process(node, unmangleNames) + ')';
         }
 
         @Override

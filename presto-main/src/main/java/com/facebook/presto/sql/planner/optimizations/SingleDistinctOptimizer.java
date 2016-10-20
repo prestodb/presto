@@ -82,6 +82,11 @@ public class SingleDistinctOptimizer
                 return context.defaultRewrite(node, Optional.empty());
             }
 
+            if (node.getAggregations().values().stream().map(FunctionCall::getFilter).anyMatch(Optional::isPresent)) {
+                // Skip if any aggregation contains a filter
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
             Result<Boolean> source = context.rewrite(node.getSource(), Optional.of(Iterables.getOnlyElement(masks)));
             if (source.getPayload() == null || !source.getPayload()) {
                 return context.defaultRewrite(node, Optional.empty());

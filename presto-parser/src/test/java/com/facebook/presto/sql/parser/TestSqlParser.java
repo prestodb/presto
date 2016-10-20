@@ -1622,6 +1622,33 @@ public class TestSqlParser
         assertStatement("DESCRIBE INPUT myquery", new DescribeInput("myquery"));
     }
 
+    @Test
+    public void testAggregationFilter()
+    {
+        assertStatement("SELECT SUM(x) FILTER (WHERE x > 4)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new FunctionCall(
+                                                QualifiedName.of("SUM"),
+                                                Optional.empty(),
+                                                Optional.of(new ComparisonExpression(
+                                                        ComparisonExpression.Type.GREATER_THAN,
+                                                        new QualifiedNameReference(QualifiedName.of("x")),
+                                                        new LongLiteral("4"))),
+                                                false,
+                                                ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x"))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.of(),
+                        Optional.empty()));
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);

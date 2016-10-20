@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -230,7 +231,7 @@ public class PartialAggregationPushDown
                 signatureMap.put(symbol, node.getFunctions().get(entry.getKey()));
 
                 List<Expression> arguments = replaceArguments(entry.getValue().getArguments(), exchangeMap);
-                functionCallMap.put(symbol, new FunctionCall(entry.getValue().getName(), arguments));
+                functionCallMap.put(symbol, new FunctionCall(entry.getValue().getName(), Optional.empty(), entry.getValue().getFilter(), false, arguments));
                 if (node.getMasks().containsKey(entry.getKey())) {
                     mask.put(symbol, exchangeMap.get(node.getMasks().get(entry.getKey())));
                 }
