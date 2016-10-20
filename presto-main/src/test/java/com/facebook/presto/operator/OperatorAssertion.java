@@ -34,6 +34,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -81,6 +82,11 @@ public final class OperatorAssertion
                     operator.finish();
                     finishing = true;
                 }
+            }
+
+            if (!operator.getOperatorContext().isWaitingForSystemRevocableMemory().isDone()) {
+                getFutureValue(operator.startMemoryRevoke());
+                operator.finishMemoryRevoke();
             }
 
             Page outputPage = operator.getOutput();
