@@ -21,15 +21,15 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class StandardJoinFilterFunctionVerifier
-        implements JoinFilterFunctionVerifier
+public class StandardJoinFilterFunction
+        implements JoinFilterFunction
 {
     private static final Block[] EMPTY_BLOCK_ARRAY = new Block[0];
 
     private final InternalJoinFilterFunction filterFunction;
     private final List<Block[]> pages;
 
-    public StandardJoinFilterFunctionVerifier(InternalJoinFilterFunction filterFunction, List<List<Block>> channels)
+    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, List<List<Block>> channels)
     {
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null");
 
@@ -49,7 +49,7 @@ public class StandardJoinFilterFunctionVerifier
     }
 
     @Override
-    public boolean applyFilterFunction(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks)
+    public boolean filter(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks)
     {
         return filterFunction.filter(leftPosition, getLeftBlocks(leftBlockIndex), rightPosition, allRightBlocks);
     }

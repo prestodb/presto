@@ -28,10 +28,10 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
 import com.facebook.presto.operator.InternalJoinFilterFunction;
-import com.facebook.presto.operator.JoinFilterFunctionVerifier;
+import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesHashStrategy;
-import com.facebook.presto.operator.StandardJoinFilterFunctionVerifier;
+import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -96,17 +96,17 @@ public class JoinCompiler
                 }
             });
 
-    private final LoadingCache<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>> joinFilterFunctionVerifierClasses = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>>()
+    private final LoadingCache<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunction>> joinFilterFunctionClasses = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunction>>()
             {
                 @Override
-                public Class<? extends JoinFilterFunctionVerifier> load(Class<? extends InternalJoinFilterFunction> key)
+                public Class<? extends JoinFilterFunction> load(Class<? extends InternalJoinFilterFunction> key)
                         throws Exception
                 {
                     return IsolatedClass.isolateClass(
                             new DynamicClassLoader(getClass().getClassLoader()),
-                            JoinFilterFunctionVerifier.class,
-                            StandardJoinFilterFunctionVerifier.class
+                            JoinFilterFunction.class,
+                            StandardJoinFilterFunction.class
                     );
                 }
             });
@@ -121,11 +121,11 @@ public class JoinCompiler
         }
     }
 
-    public JoinFilterFunctionVerifierFactory compileJoinFilterFunctionVerifierFactory(InternalJoinFilterFunction internalJoinFilterFunction)
+    public JoinFilterFunctionFactory compileJoinFilterFunctionFactory(InternalJoinFilterFunction internalJoinFilterFunction)
     {
         return ((filterFunction, channels) -> {
             try {
-                return joinFilterFunctionVerifierClasses
+                return joinFilterFunctionClasses
                         .get(internalJoinFilterFunction.getClass())
                         .getConstructor(InternalJoinFilterFunction.class, List.class)
                         .newInstance(filterFunction, channels);
@@ -714,11 +714,11 @@ public class JoinCompiler
             }
         }
 
-        public LookupSource createLookupSource(LongArrayList addresses, List<List<Block>> channels, Optional<Integer> hashChannel, Optional<JoinFilterFunctionVerifier> joinFilterFunctionVerifier)
+        public LookupSource createLookupSource(LongArrayList addresses, List<List<Block>> channels, Optional<Integer> hashChannel, Optional<JoinFilterFunction> joinFilterFunction)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(addresses, pagesHashStrategy, joinFilterFunctionVerifier);
+                return constructor.newInstance(addresses, pagesHashStrategy, joinFilterFunction);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
@@ -751,9 +751,9 @@ public class JoinCompiler
         }
     }
 
-    public interface JoinFilterFunctionVerifierFactory
+    public interface JoinFilterFunctionFactory
     {
-        JoinFilterFunctionVerifier createJoinFilterFunctionVerifier(InternalJoinFilterFunction filterFunction, List<List<Block>> channels);
+        JoinFilterFunction create(InternalJoinFilterFunction filterFunction, List<List<Block>> channels);
     }
 
     private static final class CacheKey

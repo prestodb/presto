@@ -321,9 +321,9 @@ public class PagesIndex
         return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
     }
 
-    private Optional<JoinFilterFunctionVerifier> createJoinFilterFunctionVerifier(Optional<InternalJoinFilterFunction> filterFunctionOptional, List<List<Block>> channels)
+    private Optional<JoinFilterFunction> createJoinFilterFunction(Optional<InternalJoinFilterFunction> filterFunctionOptional, List<List<Block>> channels)
     {
-        return filterFunctionOptional.map(filterFunction -> joinCompiler.compileJoinFilterFunctionVerifierFactory(filterFunction).createJoinFilterFunctionVerifier(filterFunction, channels));
+        return filterFunctionOptional.map(filterFunction -> joinCompiler.compileJoinFilterFunctionFactory(filterFunction).create(filterFunction, channels));
     }
 
     public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<InternalJoinFilterFunction> filterFunction)
@@ -340,7 +340,7 @@ public class PagesIndex
                         valueAddresses,
                         ImmutableList.copyOf(channels),
                         hashChannel,
-                        createJoinFilterFunctionVerifier(filterFunction, ImmutableList.copyOf(channels)));
+                        createJoinFilterFunction(filterFunction, ImmutableList.copyOf(channels)));
             }
             catch (Exception e) {
                 log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -355,7 +355,7 @@ public class PagesIndex
                 hashChannel
         );
 
-        return new InMemoryJoinHash(valueAddresses, hashStrategy, createJoinFilterFunctionVerifier(filterFunction, ImmutableList.copyOf(channels)));
+        return new InMemoryJoinHash(valueAddresses, hashStrategy, createJoinFilterFunction(filterFunction, ImmutableList.copyOf(channels)));
     }
 
     @Override

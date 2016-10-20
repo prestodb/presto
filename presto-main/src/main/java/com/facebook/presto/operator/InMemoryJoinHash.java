@@ -39,10 +39,10 @@ public final class InMemoryJoinHash
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
-    // we unwrap Optinal<JoinFilterFunctionVerifier> to actual verifier or null in constructor for performance reasons
-    // we do quick check for `filterFunctionVerifier == null` in `getNextJoinPositionFrom` to avoid calls to applyFilterFunction
+    // we unwrap Optional<JoinFilterFunction> to actual verifier or null in constructor for performance reasons
+    // we do quick check for `filterFunction == null` in `getNextJoinPositionFrom` to avoid calls to applyFilterFunction
     @Nullable
-    private final JoinFilterFunctionVerifier filterFunctionVerifier;
+    private final JoinFilterFunction filterFunction;
 
     private final int channelCount;
     private final int mask;
@@ -55,11 +55,11 @@ public final class InMemoryJoinHash
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
-    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, Optional<JoinFilterFunctionVerifier> filterFunctionVerifierOptional)
+    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, Optional<JoinFilterFunction> filterFunction)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
-        this.filterFunctionVerifier = requireNonNull(filterFunctionVerifierOptional, "filterFunctionVerifierOptional can not be null").orElse(null);
+        this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null").orElse(null);
         this.channelCount = pagesHashStrategy.getChannelCount();
 
         // reserve memory for the arrays
@@ -174,7 +174,7 @@ public final class InMemoryJoinHash
     private long getNextJoinPositionFrom(int startJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         int currentJoinPosition = Ints.checkedCast(startJoinPosition);
-        while (filterFunctionVerifier != null && currentJoinPosition != -1 && !applyFilterFilterFunction((currentJoinPosition), probePosition, allProbeChannelsPage)) {
+        while (filterFunction != null && currentJoinPosition != -1 && !applyFilterFilterFunction((currentJoinPosition), probePosition, allProbeChannelsPage)) {
             currentJoinPosition = positionLinks[Ints.checkedCast(currentJoinPosition)];
         }
         return currentJoinPosition;
@@ -234,7 +234,7 @@ public final class InMemoryJoinHash
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
-        return filterFunctionVerifier.applyFilterFunction(blockIndex, blockPosition, rightPosition, rightPage.getBlocks());
+        return filterFunction.filter(blockIndex, blockPosition, rightPosition, rightPage.getBlocks());
     }
 
     private boolean positionEqualsPositionIgnoreNulls(int leftPosition, int rightPosition)
