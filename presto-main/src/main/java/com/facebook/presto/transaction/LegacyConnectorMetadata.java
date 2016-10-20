@@ -96,18 +96,6 @@ public class LegacyConnectorMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return metadata.getSampleWeightColumnHandle(session, tableHandle);
-    }
-
-    @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        return metadata.canCreateSampledTables(session);
-    }
-
-    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return metadata.getColumnHandles(session, tableHandle);

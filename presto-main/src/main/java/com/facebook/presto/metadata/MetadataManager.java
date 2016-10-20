@@ -381,26 +381,6 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<ColumnHandle> getSampleWeightColumnHandle(Session session, TableHandle tableHandle)
-    {
-        requireNonNull(tableHandle, "tableHandle is null");
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        ColumnHandle handle = metadata.getSampleWeightColumnHandle(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
-
-        return Optional.ofNullable(handle);
-    }
-
-    @Override
-    public boolean canCreateSampledTables(Session session, String catalogName)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        return metadata.canCreateSampledTables(session.toConnectorSession(connectorId));
-    }
-
-    @Override
     public Map<QualifiedObjectName, List<ColumnMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");

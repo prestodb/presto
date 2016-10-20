@@ -38,7 +38,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -118,8 +117,6 @@ public class PartialAggregationPushDown
                     intermediateMask,
                     node.getGroupingSets(),
                     PARTIAL,
-                    node.getSampleWeight(),
-                    node.getConfidence(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol());
 
@@ -131,8 +128,6 @@ public class PartialAggregationPushDown
                     ImmutableMap.of(),
                     node.getGroupingSets(),
                     FINAL,
-                    Optional.empty(),
-                    node.getConfidence(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol());
         }
@@ -268,8 +263,6 @@ public class PartialAggregationPushDown
                     mask,
                     groupingSets.build(),
                     PARTIAL,
-                    node.getSampleWeight(),
-                    node.getConfidence(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol().map(exchangeMap::get));
 

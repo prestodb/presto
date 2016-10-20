@@ -18,7 +18,6 @@ import com.facebook.presto.sql.parser.SqlBaseParser.TablePropertyContext;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -407,8 +406,7 @@ class AstBuilder
                 visitIfPresent(context.with(), With.class),
                 body.getQueryBody(),
                 body.getOrderBy(),
-                body.getLimit(),
-                body.getApproximate());
+                body.getLimit());
     }
 
     @Override
@@ -449,9 +447,7 @@ class AstBuilder
                             visit(context.sortItem(), SortItem.class),
                             getTextIfPresent(context.limit)),
                     ImmutableList.of(),
-                    Optional.<String>empty(),
-                    getTextIfPresent(context.confidence)
-                            .map(confidence -> new Approximate(getLocation(context), confidence)));
+                    Optional.<String>empty());
         }
 
         return new Query(
@@ -459,9 +455,7 @@ class AstBuilder
                 Optional.<With>empty(),
                 term,
                 visit(context.sortItem(), SortItem.class),
-                getTextIfPresent(context.limit),
-                getTextIfPresent(context.confidence)
-                        .map(confidence -> new Approximate(getLocation(context), confidence)));
+                getTextIfPresent(context.limit));
     }
 
     @Override
@@ -820,18 +814,11 @@ class AstBuilder
             return child;
         }
 
-        Optional<List<Expression>> stratifyOn = Optional.empty();
-        if (context.STRATIFY() != null) {
-            stratifyOn = Optional.of(visit(context.stratify, Expression.class));
-        }
-
         return new SampledRelation(
                 getLocation(context),
                 child,
                 getSamplingMethod((Token) context.sampleType().getChild(0).getPayload()),
-                (Expression) visit(context.percentage),
-                context.RESCALED() != null,
-                stratifyOn);
+                (Expression) visit(context.percentage));
     }
 
     @Override
@@ -1635,8 +1622,6 @@ class AstBuilder
                 return SampledRelation.Type.BERNOULLI;
             case SqlBaseLexer.SYSTEM:
                 return SampledRelation.Type.SYSTEM;
-            case SqlBaseLexer.POISSONIZED:
-                return SampledRelation.Type.POISSONIZED;
         }
 
         throw new IllegalArgumentException("Unsupported sampling method: " + token.getText());

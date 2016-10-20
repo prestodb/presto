@@ -200,8 +200,6 @@ public class TestTypeValidator
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),
-                0,
-                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -264,8 +262,6 @@ public class TestTypeValidator
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
                 Optional.empty(),
-                0,
-                Optional.empty(),
                 Optional.empty());
 
         assertTypesValid(node);
@@ -295,8 +291,6 @@ public class TestTypeValidator
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of(columnA, columnB)),
                 SINGLE,
-                Optional.empty(),
-                0,
                 Optional.empty(),
                 Optional.empty());
 

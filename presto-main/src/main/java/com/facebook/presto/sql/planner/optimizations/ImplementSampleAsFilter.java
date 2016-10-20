@@ -63,8 +63,7 @@ public class ImplementSampleAsFilter
                         new DoubleLiteral(Double.toString(node.getSampleRatio())));
                 return new FilterNode(node.getId(), rewrittenSource, expression);
             }
-            else if (node.getSampleType() == SampleNode.Type.POISSONIZED ||
-                    node.getSampleType() == SampleNode.Type.SYSTEM) {
+            else if (node.getSampleType() == SampleNode.Type.SYSTEM) {
                 return context.defaultRewrite(node);
             }
             throw new UnsupportedOperationException("not yet implemented");

@@ -19,7 +19,6 @@ import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
-import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static org.testng.Assert.assertEquals;
@@ -33,7 +32,7 @@ public class TestCassandraDistributed
     public TestCassandraDistributed()
             throws Exception
     {
-        super(createCassandraQueryRunner(TpchTable.getTables()), createSampledSession());
+        super(createCassandraQueryRunner(TpchTable.getTables()));
     }
 
     @Override

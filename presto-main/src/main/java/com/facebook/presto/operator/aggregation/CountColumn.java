@@ -92,11 +92,10 @@ public class CountColumn
                 LongState.class,
                 stateSerializer,
                 stateFactory,
-                BIGINT,
-                false);
+                BIGINT);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

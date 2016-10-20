@@ -45,6 +45,14 @@ public class TestRedisIntegrationSmokeTest
     }
 
     @Override
+    public void testTableSampleSystem()
+            throws Exception
+    {
+        // tablesample system doesn't work reliably with this connector
+        // because it generates a single split
+    }
+
+    @Override
     public void testViewAccessControl()
     {
         // redis does not support views

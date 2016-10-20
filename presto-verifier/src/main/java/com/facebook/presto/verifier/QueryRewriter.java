@@ -163,10 +163,10 @@ public class QueryRewriter
                     querySpecification.getOrderBy(),
                     Optional.of("0"));
 
-            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.empty(), createSelectClause.getApproximate());
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.empty());
         }
         else {
-            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.of("0"), createSelectClause.getApproximate());
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.of("0"));
         }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();

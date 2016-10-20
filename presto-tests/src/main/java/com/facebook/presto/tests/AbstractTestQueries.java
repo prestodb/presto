@@ -7107,41 +7107,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testTableSamplePoissonized()
-            throws Exception
-    {
-        DescriptiveStatistics stats = new DescriptiveStatistics();
-
-        long total = (long) computeExpected("SELECT COUNT(*) FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().get(0).getField(0);
-
-        for (int i = 0; i < 100; i++) {
-            String value = (String) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) APPROXIMATE AT 95 CONFIDENCE").getMaterializedRows().get(0).getField(0);
-            stats.addValue(Long.parseLong(value.split(" ")[0]) * 1.0 / total);
-        }
-
-        double mean = stats.getGeometricMean();
-        assertTrue(mean > 0.45 && mean < 0.55, format("Expected mean sampling rate to be ~0.5, but was %s", mean));
-    }
-
-    @Test
-    public void testTableSamplePoissonizedRescaled()
-            throws Exception
-    {
-        DescriptiveStatistics stats = new DescriptiveStatistics();
-
-        long total = (long) computeExpected("SELECT COUNT(*) FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().get(0).getField(0);
-
-        for (int i = 0; i < 100; i++) {
-            String value = (String) computeActual("SELECT COUNT(*) FROM orders TABLESAMPLE POISSONIZED (50) RESCALED APPROXIMATE AT 95 CONFIDENCE").getMaterializedRows().get(0).getField(0);
-            stats.addValue(Long.parseLong(value.split(" ")[0]) * 1.0 / total);
-        }
-
-        double mean = stats.getGeometricMean();
-        assertTrue(mean > 0.90 && mean < 1.1, format("Expected sample to be rescaled to ~1.0, but was %s", mean));
-        assertTrue(stats.getVariance() > 0, "Samples all had the exact same size");
-    }
-
-    @Test
     public void testFunctionNotRegistered()
     {
         assertQueryFails(

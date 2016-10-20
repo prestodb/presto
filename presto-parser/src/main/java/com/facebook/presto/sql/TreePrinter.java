@@ -362,12 +362,7 @@ public class TreePrinter
             @Override
             protected Void visitSampledRelation(SampledRelation node, Integer indentLevel)
             {
-                String stratifyOn = "";
-                if (node.getColumnsToStratifyOn().isPresent()) {
-                    stratifyOn = " STRATIFY ON (" + node.getColumnsToStratifyOn().get().toString() + ")";
-                }
-
-                print(indentLevel, "TABLESAMPLE[" + node.getType() + " (" + node.getSamplePercentage() + ")" + stratifyOn + "]");
+                print(indentLevel, "TABLESAMPLE[" + node.getType() + " (" + node.getSamplePercentage() + ")]");
 
                 super.visitSampledRelation(node, indentLevel + 1);
 

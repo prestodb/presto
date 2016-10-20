@@ -86,20 +86,6 @@ public interface Metadata
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
 
     /**
-     * Returns the handle for the sample weight column.
-     *
-     * @throws RuntimeException if the table handle is no longer valid
-     */
-    @NotNull
-    Optional<ColumnHandle> getSampleWeightColumnHandle(Session session, TableHandle tableHandle);
-
-    /**
-     * Returns true iff this catalog supports creation of sampled tables
-     *
-     */
-    boolean canCreateSampledTables(Session session, String catalogName);
-
-    /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid

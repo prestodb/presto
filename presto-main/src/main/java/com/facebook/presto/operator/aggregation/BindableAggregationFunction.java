@@ -42,7 +42,6 @@ import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterBlock;
 import static com.facebook.presto.operator.aggregation.AggregationCompiler.isParameterNullable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.SAMPLE_WEIGHT;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromSqlType;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -55,7 +54,6 @@ public class BindableAggregationFunction
     extends SqlAggregationFunction
 {
     private final String description;
-    private final boolean approximate;
     private final boolean decomposable;
 
     private final Class<?> definitionClass;
@@ -65,7 +63,6 @@ public class BindableAggregationFunction
 
     public BindableAggregationFunction(Signature signature,
             String description,
-            boolean approximate,
             boolean decomposable,
             Class<?> definitionClass,
             Class<?> stateClass,
@@ -74,7 +71,6 @@ public class BindableAggregationFunction
     {
         super(signature);
         this.description = description;
-        this.approximate = approximate;
         this.decomposable = decomposable;
         this.definitionClass = definitionClass;
         this.stateClass = stateClass;
@@ -120,8 +116,7 @@ public class BindableAggregationFunction
                     stateClass,
                     stateSerializer,
                     stateFactory,
-                    outputType,
-                    aggregationAnnotation.approximate());
+                    outputType);
         }
         catch (IllegalAccessException e) {
             throw Throwables.propagate(e);
@@ -134,7 +129,6 @@ public class BindableAggregationFunction
                 intermediateType,
                 outputType,
                 decomposable,
-                approximate,
                 factory);
     }
 
@@ -172,9 +166,6 @@ public class BindableAggregationFunction
             else if (baseTypeAnnotation instanceof BlockIndex) {
                 builder.add(new ParameterMetadata(BLOCK_INDEX));
             }
-            else if (baseTypeAnnotation instanceof SampleWeight) {
-                builder.add(new ParameterMetadata(SAMPLE_WEIGHT));
-            }
             else {
                 throw new IllegalArgumentException("Unsupported annotation: " + annotations[i]);
             }
@@ -185,10 +176,10 @@ public class BindableAggregationFunction
     private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
     {
         List<Annotation> baseTypes = Arrays.asList(annotations).stream()
-                .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex || annotation instanceof SampleWeight)
+                .filter(annotation -> annotation instanceof SqlType || annotation instanceof BlockIndex)
                 .collect(toImmutableList());
 
-        checkArgument(baseTypes.size() == 1, "Parameter of %s must have exactly one of @SqlType, @BlockIndex, and @SampleWeight", methodName);
+        checkArgument(baseTypes.size() == 1, "Parameter of %s must have exactly one of @SqlType, @BlockIndex", methodName);
 
         boolean nullable = isParameterNullable(annotations);
         boolean isBlock = isParameterBlock(annotations);

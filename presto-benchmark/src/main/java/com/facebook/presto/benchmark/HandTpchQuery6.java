@@ -71,7 +71,7 @@ public class HandTpchQuery6
                 new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(
-                        doubleSum.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)
+                        doubleSum.bind(ImmutableList.of(0), Optional.empty())
                 ));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);

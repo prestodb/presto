@@ -303,9 +303,6 @@ public class PruneUnreferencedOutputs
                     functions.put(symbol, node.getFunctions().get(symbol));
                 }
             }
-            if (node.getSampleWeight().isPresent()) {
-                expectedInputs.add(node.getSampleWeight().get());
-            }
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
@@ -316,8 +313,6 @@ public class PruneUnreferencedOutputs
                     masks.build(),
                     node.getGroupingSets(),
                     node.getStep(),
-                    node.getSampleWeight(),
-                    node.getConfidence(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol());
         }
@@ -614,9 +609,6 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(node.getColumns());
-            if (node.getSampleWeightSymbol().isPresent()) {
-                expectedInputs.add(node.getSampleWeightSymbol().get());
-            }
             if (node.getPartitioningScheme().isPresent()) {
                 PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
                 partitioningScheme.getPartitioning().getColumns().stream()
@@ -632,7 +624,6 @@ public class PruneUnreferencedOutputs
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getOutputSymbols(),
-                    node.getSampleWeightSymbol(),
                     node.getPartitioningScheme());
         }
 

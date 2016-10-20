@@ -36,16 +36,11 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestDistributedQueries
-        extends AbstractTestApproximateQueries
+        extends AbstractTestQueries
 {
     protected AbstractTestDistributedQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
-    }
-
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner, Session sampledSession)
-    {
-        super(queryRunner, sampledSession);
     }
 
     @Test
@@ -740,18 +735,6 @@ public abstract class AbstractTestDistributedQueries
 
         assertContains(all, fullSample);
         assertEquals(emptySample.getMaterializedRows().size(), 0);
-    }
-
-    @Override
-    @Test
-    public void testTableSamplePoissonizedRescaled()
-            throws Exception
-    {
-        MaterializedResult sample = computeActual("SELECT * FROM orders TABLESAMPLE POISSONIZED (10) RESCALED");
-        MaterializedResult all = computeExpected("SELECT * FROM orders", sample.getTypes());
-
-        assertTrue(!sample.getMaterializedRows().isEmpty());
-        assertContains(all, sample);
     }
 
     @Test

@@ -237,10 +237,7 @@ public class TransformCorrelatedScalarAggregationToJoin
                             ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())));
                     List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                             symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
-                    functions.put(symbol, functionRegistry.resolveFunction(
-                            count,
-                            scalarAggregationSourceTypeSignatures,
-                            false));
+                    functions.put(symbol, functionRegistry.resolveFunction(count, scalarAggregationSourceTypeSignatures));
                 }
                 else {
                     aggregations.put(symbol, entry.getValue());
@@ -257,8 +254,6 @@ public class TransformCorrelatedScalarAggregationToJoin
                     scalarAggregation.getMasks(),
                     ImmutableList.of(groupBySymbols),
                     scalarAggregation.getStep(),
-                    scalarAggregation.getSampleWeight(),
-                    scalarAggregation.getConfidence(),
                     scalarAggregation.getHashSymbol(),
                     Optional.empty()));
         }

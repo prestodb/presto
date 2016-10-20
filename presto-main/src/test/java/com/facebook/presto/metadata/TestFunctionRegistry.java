@@ -100,7 +100,7 @@ public class TestFunctionRegistry
 
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
-        Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
+        Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes());
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -390,7 +390,7 @@ public class TestFunctionRegistry
         {
             FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, blockEncoding, new FeaturesConfig().setExperimentalSyntaxEnabled(false));
             functionRegistry.addFunctions(createFunctionsFromSignatures());
-            return functionRegistry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), parameterTypes, false);
+            return functionRegistry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), parameterTypes);
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()

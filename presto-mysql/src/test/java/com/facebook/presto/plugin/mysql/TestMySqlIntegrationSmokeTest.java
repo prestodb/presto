@@ -57,6 +57,14 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Override
+    public void testTableSampleSystem()
+            throws Exception
+    {
+        // tablesample system doesn't work reliably with this connector
+        // because it generates a single split
+    }
+
+    @Override
     public void testDescribeTable()
             throws Exception
     {

@@ -31,14 +31,12 @@ class RelationPlan
     private final PlanNode root;
     private final List<Symbol> outputSymbols;
     private final Scope scope;
-    private final Optional<Symbol> sampleWeight;
 
-    public RelationPlan(PlanNode root, Scope scope, List<Symbol> outputSymbols, Optional<Symbol> sampleWeight)
+    public RelationPlan(PlanNode root, Scope scope, List<Symbol> outputSymbols)
     {
         requireNonNull(root, "root is null");
         requireNonNull(outputSymbols, "outputSymbols is null");
         requireNonNull(scope, "scope is null");
-        requireNonNull(sampleWeight, "sampleWeight is null");
 
         checkArgument(scope.getRelationType().getAllFieldCount() == outputSymbols.size(),
                 "Number of outputs (%s) doesn't match scope size (%s)", outputSymbols.size(), scope.getRelationType().getAllFieldCount());
@@ -46,12 +44,6 @@ class RelationPlan
         this.root = root;
         this.scope = scope;
         this.outputSymbols = ImmutableList.copyOf(outputSymbols);
-        this.sampleWeight = sampleWeight;
-    }
-
-    public Optional<Symbol> getSampleWeight()
-    {
-        return sampleWeight;
     }
 
     public Optional<Symbol> getSymbol(Expression expression)

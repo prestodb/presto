@@ -107,7 +107,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -404,10 +403,8 @@ class StatementAnalyzer
     protected Scope visitQuery(Query node, Scope scope)
     {
         Scope withScope = analyzeWith(node, scope);
-        boolean approximate = isApproximate(node);
         Scope queryScope = Scope.builder()
                 .withParent(withScope)
-                .withApproximate(approximate)
                 .build();
         Scope queryBodyScope = process(node.getQueryBody(), queryScope);
         analyzeOrderBy(node, queryBodyScope);
@@ -418,22 +415,9 @@ class StatementAnalyzer
         queryScope = Scope.builder()
                 .withParent(withScope)
                 .withRelationType(queryBodyScope.getRelationType())
-                .withApproximate(approximate)
                 .build();
         analysis.setScope(node, queryScope);
         return queryScope;
-    }
-
-    private boolean isApproximate(Query node)
-    {
-        boolean approximate = false;
-        if (node.getApproximate().isPresent()) {
-            if (!experimentalSyntaxEnabled) {
-                throw new SemanticException(NOT_SUPPORTED, node, "approximate queries are not enabled");
-            }
-            approximate = true;
-        }
-        return approximate;
     }
 
     @Override
@@ -592,10 +576,6 @@ class StatementAnalyzer
     @Override
     protected Scope visitSampledRelation(SampledRelation relation, Scope scope)
     {
-        if (relation.getColumnsToStratifyOn().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
-        }
-
         if (!DependencyExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
             throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
         }
@@ -623,12 +603,8 @@ class StatementAnalyzer
         if (samplePercentageValue < 0.0) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
         }
-        if ((samplePercentageValue > 100.0) && ((relation.getType() != SampledRelation.Type.POISSONIZED) || relation.isRescaled())) {
+        if ((samplePercentageValue > 100.0)) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
-        }
-
-        if (relation.isRescaled() && !experimentalSyntaxEnabled) {
-            throw new SemanticException(NOT_SUPPORTED, relation, "Rescaling is not enabled");
         }
 
         analysis.setSampleRatio(relation, samplePercentageValue / 100);
@@ -1032,8 +1008,8 @@ class StatementAnalyzer
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-            FunctionKind kind = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false).getKind();
-            if (kind != AGGREGATE && kind != APPROXIMATE_AGGREGATE && kind != WINDOW) {
+            FunctionKind kind = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes).getKind();
+            if (kind != AGGREGATE && kind != WINDOW) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
         }
@@ -1386,12 +1362,6 @@ class StatementAnalyzer
             Set<Expression> columnReferences)
     {
         List<FunctionCall> aggregates = extractAggregates(node);
-
-        if (scope.isApproximate()) {
-            if (aggregates.stream().anyMatch(FunctionCall::isDistinct)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
-            }
-        }
 
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {

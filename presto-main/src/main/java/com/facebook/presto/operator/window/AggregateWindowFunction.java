@@ -45,7 +45,7 @@ public class AggregateWindowFunction
     {
         this.function = requireNonNull(function, "function is null");
         this.argumentChannels = Ints.toArray(argumentChannels);
-        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty(), Optional.empty(), 1.0);
+        this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
     }
 
     @Override

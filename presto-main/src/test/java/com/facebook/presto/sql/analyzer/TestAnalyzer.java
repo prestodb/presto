@@ -316,20 +316,6 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testApproximateNotEnabled()
-            throws Exception
-    {
-        assertFailsWithoutExperimentalSyntax(NOT_SUPPORTED, "SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
-    }
-
-    @Test
-    public void testApproximateQuery()
-            throws Exception
-    {
-        analyze("SELECT AVG(a) FROM t1 APPROXIMATE AT 99.0 CONFIDENCE");
-    }
-
-    @Test
     public void testDistinctAggregations()
             throws Exception
     {

@@ -57,7 +57,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN)));
         assertAggregation(
                 booleanAgg,
-                1.0,
                 null,
                 createBooleansBlock((Boolean) null));
     }
@@ -70,7 +69,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.BOOLEAN)));
         assertAggregation(
                 booleanAgg,
-                1.0,
                 true,
                 createBooleansBlock(true, true));
     }
@@ -83,7 +81,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 longAgg,
-                1.0,
                 null,
                 createLongsBlock(null, null));
     }
@@ -96,7 +93,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 longAgg,
-                1.0,
                 1L,
                 createLongsBlock(1L, null));
     }
@@ -109,7 +105,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)));
         assertAggregation(
                 doubleAgg,
-                1.0,
                 null,
                 createDoublesBlock(null, null));
     }
@@ -122,7 +117,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)));
         assertAggregation(
                 doubleAgg,
-                1.0,
                 2.0,
                 createDoublesBlock(null, 2.0));
     }
@@ -135,7 +129,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 stringAgg,
-                1.0,
                 null,
                 createStringsBlock(null, null));
     }
@@ -148,7 +141,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 stringAgg,
-                1.0,
                 "a",
                 createStringsBlock("a", "a"));
     }
@@ -161,7 +153,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
         assertAggregation(
                 arrayAgg,
-                1.0,
                 null,
                 createArrayBigintBlock(Arrays.asList(null, null, null, null)));
     }
@@ -174,7 +165,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature("array(bigint)")));
         assertAggregation(
                 arrayAgg,
-                1.0,
                 ImmutableList.of(23L, 45L),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L), ImmutableList.of(23L, 45L))));
     }
@@ -187,7 +177,6 @@ public class TestArbitraryAggregation
                 new Signature("arbitrary", AGGREGATE, parseTypeSignature("integer"), parseTypeSignature("integer")));
         assertAggregation(
                 arrayAgg,
-                1.0,
                 3,
                 createIntsBlock(3, 3, null));
     }

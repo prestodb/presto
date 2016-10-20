@@ -49,6 +49,14 @@ public class TestMongoIntegrationSmokeTest
         this.runner = runner;
     }
 
+    @Override
+    public void testTableSampleSystem()
+            throws Exception
+    {
+        // tablesample system doesn't work reliably with this connector
+        // because it generates a single split
+    }
+
     @Test
     public void createTableWithEveryType()
             throws Exception

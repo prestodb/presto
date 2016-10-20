@@ -20,7 +20,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.testing.Assertions;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -42,28 +41,14 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    private final Optional<Session> sampledSession;
-
     protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner)
     {
-        this(queryRunner, Optional.empty());
-    }
-
-    protected AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Session sampledSession)
-    {
-        this(queryRunner, Optional.of(requireNonNull(sampledSession, "sampledSession is null")));
-    }
-
-    private AbstractTestIntegrationSmokeTest(QueryRunner queryRunner, Optional<Session> sampledSession)
-    {
         super(queryRunner);
-        this.sampledSession = requireNonNull(sampledSession, "sampledSession is null");
     }
 
     @Test
@@ -73,13 +58,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT SUM(orderkey) FROM ORDERS");
         assertQuery("SELECT SUM(totalprice) FROM ORDERS");
         assertQuery("SELECT MAX(comment) FROM ORDERS");
-    }
-
-    @Test
-    public void testApproximateQuerySum()
-            throws Exception
-    {
-        assertApproximateQuery("SELECT SUM(totalprice) FROM orders APPROXIMATE AT 99.999 CONFIDENCE", "SELECT 2 * SUM(totalprice) FROM orders");
     }
 
     @Test
@@ -142,10 +120,6 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testTableSampleSystem()
             throws Exception
     {
-        if (!sampledSession.isPresent()) {
-             return;
-        }
-
         int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
 
         boolean sampleSizeFound = false;
@@ -167,10 +141,6 @@ public abstract class AbstractTestIntegrationSmokeTest
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR)
                 .row("tpch");
-
-        if (sampledSession.isPresent()) {
-            resultBuilder.row("tpch_sampled");
-        }
 
         assertContains(actualSchemas, resultBuilder.build());
     }
@@ -335,14 +305,6 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .row("shippriority", "integer", "")
                     .row("comment", "varchar(79)", "")
                     .build();
-        }
-    }
-
-    protected void assertApproximateQuery(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
-    {
-        if (sampledSession.isPresent()) {
-            assertApproximateQuery(sampledSession.get(), actual, expected);
         }
     }
 }

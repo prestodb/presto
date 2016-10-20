@@ -179,7 +179,6 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         subquery,
                         ImmutableList.copyOf(correlation.values())),
-                subPlan.getSampleWeight(),
                 analysis.getParameters());
     }
 
@@ -248,12 +247,10 @@ class SubqueryPlanner
                 idAllocator.getNextId(),
                 subqueryPlan,
                 ImmutableMap.of(count, new FunctionCall(countFunction, ImmutableList.of())),
-                ImmutableMap.of(count, functionRegistry.resolveFunction(countFunction, ImmutableList.of(), false)),
+                ImmutableMap.of(count, functionRegistry.resolveFunction(countFunction, ImmutableList.of())),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                1.0,
                 Optional.empty(),
                 Optional.empty());
 
@@ -294,7 +291,7 @@ class SubqueryPlanner
         PlanNode root = subPlan.getRoot();
         if (root.getOutputSymbols().isEmpty()) {
             // there is nothing to join with - e.g. SELECT (SELECT 1)
-            return new PlanBuilder(translations, subqueryNode, subPlan.getSampleWeight(), analysis.getParameters());
+            return new PlanBuilder(translations, subqueryNode, analysis.getParameters());
         }
         else {
             return new PlanBuilder(translations,
@@ -302,7 +299,6 @@ class SubqueryPlanner
                             root,
                             subqueryNode,
                             ImmutableList.copyOf(correlation.values())),
-                    subPlan.getSampleWeight(),
                     analysis.getParameters());
         }
     }

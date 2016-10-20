@@ -121,7 +121,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitSample(SampleNode node, List<PlanNode> newChildren)
     {
-        return new SampleNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getSampleRatio(), node.getSampleType(), node.isRescaled(), node.getSampleWeightSymbol());
+        return new SampleNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getSampleRatio(), node.getSampleType());
     }
 
     @Override
@@ -162,8 +162,6 @@ public class ChildReplacer
                 node.getMasks(),
                 node.getGroupingSets(),
                 node.getStep(),
-                node.getSampleWeight(),
-                node.getConfidence(),
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());
     }
@@ -227,7 +225,6 @@ public class ChildReplacer
                 node.getColumns(),
                 node.getColumnNames(),
                 node.getOutputSymbols(),
-                node.getSampleWeightSymbol(),
                 node.getPartitioningScheme());
     }
 

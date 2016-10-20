@@ -20,7 +20,6 @@ import java.util.Date;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
-import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.initializeTestData;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
@@ -31,7 +30,7 @@ public class TestCassandraIntegrationSmokeTest
     public TestCassandraIntegrationSmokeTest()
             throws Exception
     {
-        super(createCassandraQueryRunner(ORDERS), createSampledSession());
+        super(createCassandraQueryRunner(ORDERS));
     }
 
     @Test

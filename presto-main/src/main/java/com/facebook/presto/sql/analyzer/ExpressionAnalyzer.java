@@ -735,7 +735,7 @@ public class ExpressionAnalyzer
 
             Signature function;
             try {
-                function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), scope.isApproximate());
+                function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build());
             }
             catch (PrestoException e) {
                 if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1223,10 +1223,10 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             Scope scope,
             Analysis analysis,
-            boolean approximateQueriesEnabled,
+            boolean experimentalSyntaxEnabled,
             Expression expression)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of(), approximateQueriesEnabled);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of(), experimentalSyntaxEnabled);
         analyzer.analyze(expression, scope);
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();

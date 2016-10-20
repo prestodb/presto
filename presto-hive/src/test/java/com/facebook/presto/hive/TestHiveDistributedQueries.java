@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
-import static com.facebook.presto.hive.HiveQueryRunner.createSampledSession;
 import static io.airlift.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedQueries
@@ -25,7 +24,7 @@ public class TestHiveDistributedQueries
     public TestHiveDistributedQueries()
             throws Exception
     {
-        super(createQueryRunner(getTables()), createSampledSession());
+        super(createQueryRunner(getTables()));
     }
 
     @Override

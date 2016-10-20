@@ -162,7 +162,7 @@ public class TestHivePageSink
             }
         }
         Page page = pageBuilder.build();
-        pageSink.appendPage(page, null);
+        pageSink.appendPage(page);
         pageSink.finish();
 
         File outputDir = new File(outputPath);

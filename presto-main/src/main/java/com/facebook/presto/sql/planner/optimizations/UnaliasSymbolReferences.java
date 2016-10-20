@@ -149,8 +149,6 @@ public class UnaliasSymbolReferences
                     masks.build(),
                     groupingSets,
                     node.getStep(),
-                    canonicalize(node.getSampleWeight()),
-                    node.getConfidence(),
                     canonicalize(node.getHashSymbol()),
                     canonicalize(node.getGroupIdSymbol()));
         }
@@ -308,7 +306,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
         {
-            return new SampleNode(node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType(), node.isRescaled(), canonicalize(node.getSampleWeightSymbol()));
+            return new SampleNode(node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType());
         }
 
         @Override
@@ -543,7 +541,6 @@ public class UnaliasSymbolReferences
                     columns,
                     node.getColumnNames(),
                     node.getOutputSymbols(),
-                    canonicalize(node.getSampleWeightSymbol()),
                     node.getPartitioningScheme().map(partitioningScheme -> canonicalizePartitionFunctionBinding(partitioningScheme, source)));
         }
 

@@ -57,7 +57,7 @@ public class TestDoubleHistogramAggregation
                         parseTypeSignature(StandardTypes.BIGINT),
                         parseTypeSignature(StandardTypes.DOUBLE),
                         parseTypeSignature(StandardTypes.DOUBLE)));
-        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0);
+        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);
     }

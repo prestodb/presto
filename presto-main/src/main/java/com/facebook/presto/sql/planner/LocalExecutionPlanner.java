@@ -58,7 +58,6 @@ import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputF
 import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.RowNumberOperator;
-import com.facebook.presto.operator.SampleOperator.SampleOperatorFactory;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
@@ -903,13 +902,6 @@ public class LocalExecutionPlanner
                 return node.getSource().accept(this, context);
             }
 
-            if (node.getSampleType() == SampleNode.Type.POISSONIZED) {
-                PhysicalOperation source = node.getSource().accept(this, context);
-                OperatorFactory operatorFactory = new SampleOperatorFactory(context.getNextOperatorId(), node.getId(), node.getSampleRatio(), node.isRescaled(), source.getTypes());
-                checkState(node.getSampleWeightSymbol().isPresent(), "sample weight symbol missing");
-                return new PhysicalOperation(operatorFactory, makeLayout(node), source);
-            }
-
             throw new UnsupportedOperationException("not yet implemented: " + node);
         }
 
@@ -1675,8 +1667,6 @@ public class LocalExecutionPlanner
             // serialize writes by forcing data through a single writer
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            Optional<Integer> sampleWeightChannel = node.getSampleWeightSymbol().map(source::symbolToChannel);
-
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(source::symbolToChannel)
                     .collect(toImmutableList());
@@ -1687,7 +1677,6 @@ public class LocalExecutionPlanner
                     pageSinkManager,
                     node.getTarget(),
                     inputChannels,
-                    sampleWeightChannel,
                     session);
 
             Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
@@ -1836,9 +1825,7 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 Signature function,
                 FunctionCall call,
-                @Nullable Symbol mask,
-                Optional<Symbol> sampleWeight,
-                double confidence)
+                @Nullable Symbol mask)
         {
             List<Integer> arguments = new ArrayList<>();
             for (Expression argument : call.getArguments()) {
@@ -1851,12 +1838,7 @@ public class LocalExecutionPlanner
                 maskChannel = Optional.of(source.getLayout().get(mask));
             }
 
-            Optional<Integer> sampleWeightChannel = Optional.empty();
-            if (sampleWeight.isPresent()) {
-                sampleWeightChannel = Optional.of(source.getLayout().get(sampleWeight.get()));
-            }
-
-            return metadata.getFunctionRegistry().getAggregateFunctionImplementation(function).bind(arguments, maskChannel, sampleWeightChannel, confidence);
+            return metadata.getFunctionRegistry().getAggregateFunctionImplementation(function).bind(arguments, maskChannel);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)
@@ -1870,9 +1852,7 @@ public class LocalExecutionPlanner
                 accumulatorFactories.add(buildAccumulatorFactory(source,
                         node.getFunctions().get(symbol),
                         entry.getValue(),
-                        node.getMasks().get(entry.getKey()),
-                        node.getSampleWeight(),
-                        node.getConfidence()));
+                        node.getMasks().get(entry.getKey())));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
@@ -1894,9 +1874,7 @@ public class LocalExecutionPlanner
                         source,
                         node.getFunctions().get(symbol),
                         entry.getValue(),
-                        node.getMasks().get(entry.getKey()),
-                        node.getSampleWeight(),
-                        node.getConfidence()));
+                        node.getMasks().get(entry.getKey())));
                 aggregationOutputSymbols.add(symbol);
             }
 

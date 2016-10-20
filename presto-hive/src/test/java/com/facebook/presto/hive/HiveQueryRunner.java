@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,7 +56,6 @@ public final class HiveQueryRunner
     public static final String HIVE_CATALOG = "hive";
     public static final String HIVE_BUCKETED_CATALOG = "hive_bucketed";
     public static final String TPCH_SCHEMA = "tpch";
-    private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
 
@@ -90,14 +88,10 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            queryRunner.installPlugin(new SampledTpchPlugin());
-            queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
-
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             InMemoryHiveMetastore metastore = new InMemoryHiveMetastore(baseDir);
             metastore.setUserRoles(createSession().getUser(), ImmutableSet.of(ADMIN_ROLE_NAME));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_SCHEMA));
-            metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_SAMPLED_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(baseDir, TPCH_BUCKETED_SCHEMA));
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, new BridgingHiveMetastore(metastore)));
 
@@ -120,7 +114,6 @@ public final class HiveQueryRunner
             queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-            copyTpchTables(queryRunner, "tpch_sampled", TINY_SCHEMA_NAME, createSampledSession(), tables);
             copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(), tables);
 
             return queryRunner;
@@ -144,14 +137,6 @@ public final class HiveQueryRunner
         return testSessionBuilder()
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
-                .build();
-    }
-
-    public static Session createSampledSession()
-    {
-        return testSessionBuilder()
-                .setCatalog(HIVE_CATALOG)
-                .setSchema(TPCH_SAMPLED_SCHEMA)
                 .build();
     }
 

@@ -128,13 +128,6 @@ public class TestStatementBuilder
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
 
-        printStatement("select * from foo tablesample bernoulli (10) stratify on (id)");
-        printStatement("select * from foo tablesample system (50) stratify on (id, name)");
-
-        printStatement("select * from foo tablesample poissonized (100)");
-
-        printStatement("select * from foo approximate at 90 confidence");
-
         printStatement("create table foo as (select * from abc)");
         printStatement("create table if not exists foo as (select * from abc)");
         printStatement("create table foo with (a = 'apple', b = 'banana') as select * from abc");

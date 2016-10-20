@@ -154,8 +154,6 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
-                1.0,
-                Optional.empty(),
                 Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
@@ -181,8 +179,6 @@ public class TestEffectivePredicateExtractor
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.FINAL,
-                Optional.empty(),
-                1.0,
                 Optional.empty(),
                 Optional.empty());
 

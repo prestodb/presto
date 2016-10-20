@@ -159,8 +159,6 @@ public class HashGenerationOptimizer
                             node.getMasks(),
                             node.getGroupingSets(),
                             node.getStep(),
-                            node.getSampleWeight(),
-                            node.getConfidence(),
                             hashSymbol,
                             node.getGroupIdSymbol()),
                     hashSymbol.isPresent() ? ImmutableMap.of(groupByHash.get(), hashSymbol.get()) : ImmutableMap.of());

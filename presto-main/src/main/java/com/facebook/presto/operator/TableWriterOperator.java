@@ -30,7 +30,6 @@ import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -54,7 +53,6 @@ public class TableWriterOperator
         private final PageSinkManager pageSinkManager;
         private final WriterTarget target;
         private final List<Integer> inputChannels;
-        private final Optional<Integer> sampleWeightChannel;
         private final Session session;
         private boolean closed;
 
@@ -63,7 +61,6 @@ public class TableWriterOperator
                 PageSinkManager pageSinkManager,
                 WriterTarget writerTarget,
                 List<Integer> inputChannels,
-                Optional<Integer> sampleWeightChannel,
                 Session session)
         {
             this.operatorId = operatorId;
@@ -72,7 +69,6 @@ public class TableWriterOperator
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
-            this.sampleWeightChannel = requireNonNull(sampleWeightChannel, "sampleWeightChannel is null");
             this.session = session;
         }
 
@@ -87,7 +83,7 @@ public class TableWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableWriterOperator.class.getSimpleName());
-            return new TableWriterOperator(context, createPageSink(), inputChannels, sampleWeightChannel);
+            return new TableWriterOperator(context, createPageSink(), inputChannels);
         }
 
         private ConnectorPageSink createPageSink()
@@ -110,7 +106,7 @@ public class TableWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, inputChannels, sampleWeightChannel, session);
+            return new TableWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, inputChannels, session);
         }
     }
 
@@ -121,7 +117,6 @@ public class TableWriterOperator
 
     private final OperatorContext operatorContext;
     private final ConnectorPageSink pageSink;
-    private final Optional<Integer> sampleWeightChannel;
     private final List<Integer> inputChannels;
 
     private ListenableFuture<?> blocked = NOT_BLOCKED;
@@ -132,12 +127,10 @@ public class TableWriterOperator
 
     public TableWriterOperator(OperatorContext operatorContext,
             ConnectorPageSink pageSink,
-            List<Integer> inputChannels,
-            Optional<Integer> sampleWeightChannel)
+            List<Integer> inputChannels)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
-        this.sampleWeightChannel = requireNonNull(sampleWeightChannel, "sampleWeightChannel is null");
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }
 
@@ -199,12 +192,8 @@ public class TableWriterOperator
         for (int outputChannel = 0; outputChannel < inputChannels.size(); outputChannel++) {
             blocks[outputChannel] = page.getBlock(inputChannels.get(outputChannel));
         }
-        Block sampleWeightBlock = null;
-        if (sampleWeightChannel.isPresent()) {
-            sampleWeightBlock = page.getBlock(sampleWeightChannel.get());
-        }
 
-        CompletableFuture<?> future = pageSink.appendPage(new Page(blocks), sampleWeightBlock);
+        CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
         if (!future.isDone()) {
             this.blocked = MoreFutures.toListenableFuture(future);
         }

@@ -87,24 +87,21 @@ class QueryPlanner
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
     private final Session session;
-    private final Optional<Double> approximationConfidence;
     private final SubqueryPlanner subqueryPlanner;
 
-    QueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, Optional<Double> approximationConfidence)
+    QueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
-        requireNonNull(approximationConfidence, "approximationConfidence is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
         this.metadata = metadata;
         this.session = session;
-        this.approximationConfidence = approximationConfidence;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, analysis.getParameters());
     }
 
@@ -125,8 +122,7 @@ class QueryPlanner
         return new RelationPlan(
                 builder.getRoot(),
                 analysis.getScope(query),
-                computeOutputs(builder, analysis.getOutputExpressions(query)),
-                builder.getSampleWeight());
+                computeOutputs(builder, analysis.getOutputExpressions(query)));
     }
 
     public RelationPlan plan(QuerySpecification node)
@@ -153,8 +149,7 @@ class QueryPlanner
         return new RelationPlan(
                 builder.getRoot(),
                 analysis.getScope(node),
-                computeOutputs(builder, analysis.getOutputExpressions(node)),
-                builder.getSampleWeight());
+                computeOutputs(builder, analysis.getOutputExpressions(node)));
     }
 
     public DeleteNode plan(Delete node)
@@ -185,12 +180,12 @@ class QueryPlanner
         // create table scan
         PlanNode tableScan = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols.build(), columns.build(), Optional.empty(), TupleDomain.all(), null);
         Scope scope = Scope.builder().withRelationType(new RelationType(fields.build())).build();
-        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build(), Optional.empty());
+        RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build());
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis);
         translations.setFieldMappings(relationPlan.getOutputSymbols());
 
-        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight(), analysis.getParameters());
+        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
 
         if (node.getWhere().isPresent()) {
             builder = filter(builder, node.getWhere().get(), node);
@@ -225,7 +220,7 @@ class QueryPlanner
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the QuerySpecification directly
         translations.setFieldMappings(relationPlan.getOutputSymbols());
 
-        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight(), analysis.getParameters());
+        return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
     }
 
     private PlanBuilder planFrom(QuerySpecification node)
@@ -246,7 +241,7 @@ class QueryPlanner
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
         translations.setFieldMappings(relationPlan.getOutputSymbols());
 
-        return new PlanBuilder(translations, relationPlan.getRoot(), relationPlan.getSampleWeight(), analysis.getParameters());
+        return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
     }
 
     private RelationPlan planImplicitTable(QuerySpecification node)
@@ -256,8 +251,7 @@ class QueryPlanner
         return new RelationPlan(
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
                 scope,
-                ImmutableList.<Symbol>of(),
-                Optional.empty());
+                ImmutableList.<Symbol>of());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)
@@ -289,16 +283,10 @@ class QueryPlanner
             outputTranslations.put(rewritten, symbol);
         }
 
-        if (subPlan.getSampleWeight().isPresent()) {
-            Symbol symbol = subPlan.getSampleWeight().get();
-            projections.put(symbol, symbol.toSymbolReference());
-        }
-
         return new PlanBuilder(outputTranslations, new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 projections.build()),
-                subPlan.getSampleWeight(),
                 analysis.getParameters());
     }
 
@@ -347,7 +335,6 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 projections.build()),
-                subPlan.getSampleWeight(),
                 analysis.getParameters());
     }
 
@@ -366,7 +353,6 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 projections.build()),
-                subPlan.getSampleWeight(),
                 analysis.getParameters());
     }
 
@@ -494,8 +480,6 @@ class QueryPlanner
                             Optional.empty()));
         }
 
-        double confidence = approximationConfidence.orElse(1.0);
-
         AggregationNode aggregationNode = new AggregationNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
@@ -504,12 +488,10 @@ class QueryPlanner
                 masks,
                 groupingSetsSymbols,
                 AggregationNode.Step.SINGLE,
-                subPlan.getSampleWeight(),
-                confidence,
                 Optional.empty(),
                 groupIdSymbol);
 
-        subPlan = new PlanBuilder(translations, aggregationNode, Optional.empty(), analysis.getParameters());
+        subPlan = new PlanBuilder(translations, aggregationNode, analysis.getParameters());
 
         // 3. Post-projection
         // Add back the implicit casts that we removed in 2.a
@@ -638,7 +620,6 @@ class QueryPlanner
                             Optional.empty(),
                             ImmutableSet.of(),
                             0),
-                    subPlan.getSampleWeight(),
                     analysis.getParameters());
 
             if (needCoercion) {
@@ -673,8 +654,6 @@ class QueryPlanner
                             ImmutableMap.of(),
                             ImmutableList.of(subPlan.getRoot().getOutputSymbols()),
                             AggregationNode.Step.SINGLE,
-                            Optional.empty(),
-                            1.0,
                             Optional.empty(),
                             Optional.empty()));
         }

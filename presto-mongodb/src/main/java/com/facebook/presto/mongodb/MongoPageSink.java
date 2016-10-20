@@ -80,9 +80,8 @@ public class MongoPageSink
     }
 
     @Override
-    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page)
     {
-        // TODO: handle sampleWeightBlock
         MongoCollection<Document> collection = mongoSession.getCollection(schemaTableName);
         List<Document> batch = new ArrayList<>(page.getPositionCount());
 

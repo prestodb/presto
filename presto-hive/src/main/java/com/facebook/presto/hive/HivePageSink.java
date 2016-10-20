@@ -70,7 +70,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -219,11 +218,8 @@ public class HivePageSink
         Object2IntMap<String> dataColumnNameToIdMap = new Object2IntOpenHashMap<>();
         Map<String, HiveType> dataColumnNameToTypeMap = new HashMap<>();
         // sample weight column is passed separately, so index must be calculated without this column
-        List<HiveColumnHandle> inputColumnsWithoutSample = inputColumns.stream()
-                .filter(column -> !column.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME))
-                .collect(toList());
-        for (int inputIndex = 0; inputIndex < inputColumnsWithoutSample.size(); inputIndex++) {
-            HiveColumnHandle column = inputColumnsWithoutSample.get(inputIndex);
+        for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
+            HiveColumnHandle column = inputColumns.get(inputIndex);
             if (column.isPartitionKey()) {
                 partitionColumns.add(inputIndex);
             }
@@ -361,13 +357,13 @@ public class HivePageSink
     }
 
     @Override
-    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page)
     {
         if (page.getPositionCount() == 0) {
             return NOT_BLOCKED;
         }
 
-        Block[] dataBlocks = getDataBlocks(page, sampleWeightBlock);
+        Block[] dataBlocks = getDataBlocks(page);
         Block[] partitionBlocks = getPartitionBlocks(page);
 
         int[] indexes = pageIndexer.indexPage(new Page(page.getPositionCount(), partitionBlocks));
@@ -590,16 +586,12 @@ public class HivePageSink
         }
     }
 
-    private Block[] getDataBlocks(Page page, Block sampleWeightBlock)
+    private Block[] getDataBlocks(Page page)
     {
-        Block[] blocks = new Block[dataColumnInputIndex.length + (sampleWeightBlock != null ? 1 : 0)];
+        Block[] blocks = new Block[dataColumnInputIndex.length];
         for (int i = 0; i < dataColumnInputIndex.length; i++) {
             int dataColumn = dataColumnInputIndex[i];
             blocks[i] = page.getBlock(dataColumn);
-        }
-        if (sampleWeightBlock != null) {
-            // sample weight block is always last
-            blocks[blocks.length - 1] = sampleWeightBlock;
         }
         return blocks;
     }

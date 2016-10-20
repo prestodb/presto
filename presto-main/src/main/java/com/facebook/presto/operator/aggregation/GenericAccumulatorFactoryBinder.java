@@ -21,13 +21,11 @@ import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class GenericAccumulatorFactoryBinder
         implements AccumulatorFactoryBinder
 {
-    private final boolean approximationSupported;
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
@@ -37,29 +35,23 @@ public class GenericAccumulatorFactoryBinder
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
             Class<? extends Accumulator> accumulatorClass,
-            Class<? extends GroupedAccumulator> groupedAccumulatorClass,
-            boolean approximationSupported)
+            Class<? extends GroupedAccumulator> groupedAccumulatorClass)
     {
         this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
-        this.approximationSupported = approximationSupported;
 
         try {
             accumulatorConstructor = accumulatorClass.getConstructor(
                     AccumulatorStateSerializer.class,
                     AccumulatorStateFactory.class,
                     List.class,
-                    Optional.class,
-                    Optional.class,
-                    double.class);
+                    Optional.class);
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
                     AccumulatorStateSerializer.class,
                     AccumulatorStateFactory.class,
                     List.class,
-                    Optional.class,
-                    Optional.class,
-                    double.class);
+                    Optional.class);
         }
         catch (NoSuchMethodException e) {
             throw Throwables.propagate(e);
@@ -67,12 +59,8 @@ public class GenericAccumulatorFactoryBinder
     }
 
     @Override
-    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
+    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel)
     {
-        if (!approximationSupported) {
-            checkArgument(confidence == 1.0, "Approximate queries not supported");
-            checkArgument(!sampleWeightChannel.isPresent(), "Sampled data not supported");
-        }
-        return new GenericAccumulatorFactory(stateSerializer, stateFactory, accumulatorConstructor, groupedAccumulatorConstructor, argumentChannels, maskChannel, sampleWeightChannel, confidence);
+        return new GenericAccumulatorFactory(stateSerializer, stateFactory, accumulatorConstructor, groupedAccumulatorConstructor, argumentChannels, maskChannel);
     }
 }

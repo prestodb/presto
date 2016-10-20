@@ -37,8 +37,6 @@ import com.facebook.presto.sql.gen.CompilerOperations;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
-import javax.annotation.Nullable;
-
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +50,6 @@ import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
 import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
-import static com.facebook.presto.bytecode.OpCode.NOP;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
@@ -64,7 +61,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.count
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 public class AccumulatorCompiler
 {
@@ -84,8 +80,7 @@ public class AccumulatorCompiler
                 metadata.getStateSerializer(),
                 metadata.getStateFactory(),
                 accumulatorClass,
-                groupedAccumulatorClass,
-                metadata.isApproximate());
+                groupedAccumulatorClass);
     }
 
     private static <T> Class<? extends T> generateAccumulatorClass(
@@ -94,7 +89,6 @@ public class AccumulatorCompiler
             DynamicClassLoader classLoader)
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
-        boolean approximate = metadata.isApproximate();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -111,12 +105,6 @@ public class AccumulatorCompiler
         FieldDefinition stateFactoryField = definition.declareField(a(PRIVATE, FINAL), "stateFactory", AccumulatorStateFactory.class);
         FieldDefinition inputChannelsField = definition.declareField(a(PRIVATE, FINAL), "inputChannels", type(List.class, Integer.class));
         FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", type(Optional.class, Integer.class));
-        FieldDefinition sampleWeightChannelField = null;
-        FieldDefinition confidenceField = null;
-        if (approximate) {
-            sampleWeightChannelField = definition.declareField(a(PRIVATE, FINAL), "sampleWeightChannel", type(Optional.class, Integer.class));
-            confidenceField = definition.declareField(a(PRIVATE, FINAL), "confidence", double.class);
-        }
         FieldDefinition stateField = definition.declareField(a(PRIVATE, FINAL), "state", grouped ? stateFactory.getGroupedStateClass() : stateFactory.getSingleStateClass());
 
         // Generate constructor
@@ -126,13 +114,11 @@ public class AccumulatorCompiler
                 stateFactoryField,
                 inputChannelsField,
                 maskChannelField,
-                sampleWeightChannelField,
-                confidenceField,
                 stateField,
                 grouped);
 
         // Generate methods
-        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, sampleWeightChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
+        generateAddInput(definition, stateField, inputChannelsField, maskChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
         generateGetEstimatedSize(definition, stateField);
         generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
@@ -147,10 +133,10 @@ public class AccumulatorCompiler
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, confidenceField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
+            generateGroupedEvaluateFinal(definition, stateField, metadata.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, confidenceField, stateField, metadata.getOutputFunction(), metadata.isApproximate(), callSiteBinder);
+            generateEvaluateFinal(definition, stateField, metadata.getOutputFunction(), callSiteBinder);
         }
 
         return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
@@ -191,7 +177,6 @@ public class AccumulatorCompiler
             FieldDefinition stateField,
             FieldDefinition inputChannelsField,
             FieldDefinition maskChannelField,
-            @Nullable FieldDefinition sampleWeightChannelField,
             List<ParameterMetadata> parameterMetadatas,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -218,10 +203,6 @@ public class AccumulatorCompiler
             parameterVariables.add(scope.declareVariable(Block.class, "block" + i));
         }
         Variable masksBlock = scope.declareVariable(Block.class, "masksBlock");
-        Variable sampleWeightsBlock = null;
-        if (sampleWeightChannelField != null) {
-            sampleWeightsBlock = scope.declareVariable(Block.class, "sampleWeightsBlock");
-        }
         body.comment("masksBlock = maskChannel.map(page.blockGetter()).orElse(null);")
                 .append(thisVariable.getField(maskChannelField))
                 .append(page)
@@ -231,17 +212,6 @@ public class AccumulatorCompiler
                 .invokeVirtual(Optional.class, "orElse", Object.class, Object.class)
                 .checkCast(Block.class)
                 .putVariable(masksBlock);
-
-        if (sampleWeightChannelField != null) {
-            body.comment("sampleWeightsBlock = sampleWeightChannel.map(page.blockGetter()).get();")
-                    .append(thisVariable.getField(sampleWeightChannelField))
-                    .append(page)
-                    .invokeStatic(type(AggregationUtils.class), "pageBlockGetter", type(Function.class, Integer.class, Block.class), type(Page.class))
-                    .invokeVirtual(Optional.class, "map", Optional.class, Function.class)
-                    .invokeVirtual(Optional.class, "get", Object.class)
-                    .checkCast(Block.class)
-                    .putVariable(sampleWeightsBlock);
-        }
 
         // Get all parameter blocks
         for (int i = 0; i < countInputChannels(parameterMetadatas); i++) {
@@ -255,7 +225,7 @@ public class AccumulatorCompiler
                     .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
                     .putVariable(parameterVariables.get(i));
         }
-        BytecodeBlock block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, scope, parameterVariables, masksBlock, sampleWeightsBlock, callSiteBinder, grouped);
+        BytecodeBlock block = generateInputForLoop(stateField, parameterMetadatas, inputFunction, scope, parameterVariables, masksBlock, callSiteBinder, grouped);
 
         body.append(block);
         body.ret();
@@ -268,17 +238,12 @@ public class AccumulatorCompiler
             Scope scope,
             List<Variable> parameterVariables,
             Variable masksBlock,
-            @Nullable Variable sampleWeightsBlock,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
         // For-loop over rows
         Variable page = scope.getVariable("page");
         Variable positionVariable = scope.declareVariable(int.class, "position");
-        Variable sampleWeightVariable = null;
-        if (sampleWeightsBlock != null) {
-            sampleWeightVariable = scope.declareVariable(long.class, "sampleWeight");
-        }
         Variable rowsVariable = scope.declareVariable(int.class, "rows");
 
         BytecodeBlock block = new BytecodeBlock()
@@ -286,11 +251,8 @@ public class AccumulatorCompiler
                 .invokeVirtual(Page.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable)
                 .initializeVariable(positionVariable);
-        if (sampleWeightVariable != null) {
-            block.initializeVariable(sampleWeightVariable);
-        }
 
-        BytecodeNode loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, sampleWeightVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
+        BytecodeNode loopBody = generateInvokeInputFunction(scope, stateField, positionVariable, parameterVariables, parameterMetadatas, inputFunction, callSiteBinder, grouped);
 
         //  Wrap with null checks
         List<Boolean> nullable = new ArrayList<>();
@@ -319,19 +281,12 @@ public class AccumulatorCompiler
             }
         }
 
-        // Check that sample weight is > 0 (also checks the mask)
-        if (sampleWeightVariable != null) {
-            loopBody = generateComputeSampleWeightAndCheckGreaterThanZero(loopBody, sampleWeightVariable, masksBlock, sampleWeightsBlock, positionVariable);
-        }
-        // Otherwise just check the mask
-        else {
-            loopBody = new IfStatement("if(testMask(%s, position))", masksBlock.getName())
-                    .condition(new BytecodeBlock()
-                            .getVariable(masksBlock)
-                            .getVariable(positionVariable)
-                            .invokeStatic(CompilerOperations.class, "testMask", boolean.class, Block.class, int.class))
-                    .ifTrue(loopBody);
-        }
+        loopBody = new IfStatement("if(testMask(%s, position))", masksBlock.getName())
+                .condition(new BytecodeBlock()
+                        .getVariable(masksBlock)
+                        .getVariable(positionVariable)
+                        .invokeStatic(CompilerOperations.class, "testMask", boolean.class, Block.class, int.class))
+                .ifTrue(loopBody);
 
         block.append(new ForLoop()
                 .initialize(new BytecodeBlock().putVariable(positionVariable, 0))
@@ -345,31 +300,10 @@ public class AccumulatorCompiler
         return block;
     }
 
-    private static BytecodeNode generateComputeSampleWeightAndCheckGreaterThanZero(BytecodeNode body, Variable sampleWeight, Variable masks, Variable sampleWeights, Variable position)
-    {
-        BytecodeBlock block = new BytecodeBlock()
-                .comment("sampleWeight = computeSampleWeight(masks, sampleWeights, position);")
-                .getVariable(masks)
-                .getVariable(sampleWeights)
-                .getVariable(position)
-                .invokeStatic(ApproximateUtils.class, "computeSampleWeight", long.class, Block.class, Block.class, int.class)
-                .putVariable(sampleWeight);
-
-        block.append(new IfStatement("if(sampleWeight > 0)")
-                .condition(new BytecodeBlock()
-                        .getVariable(sampleWeight)
-                        .invokeStatic(CompilerOperations.class, "longGreaterThanZero", boolean.class, long.class))
-                .ifTrue(body)
-                .ifFalse(NOP));
-
-        return block;
-    }
-
     private static BytecodeBlock generateInvokeInputFunction(
             Scope scope,
             FieldDefinition stateField,
             Variable position,
-            @Nullable Variable sampleWeight,
             List<Variable> parameterVariables,
             List<ParameterMetadata> parameterMetadatas,
             MethodHandle inputFunction,
@@ -394,10 +328,6 @@ public class AccumulatorCompiler
                     break;
                 case BLOCK_INDEX:
                     block.getVariable(position);
-                    break;
-                case SAMPLE_WEIGHT:
-                    requireNonNull(sampleWeight, "sampleWeight is null");
-                    block.getVariable(sampleWeight);
                     break;
                 case BLOCK_INPUT_CHANNEL:
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
@@ -613,10 +543,8 @@ public class AccumulatorCompiler
 
     private static void generateGroupedEvaluateFinal(
             ClassDefinition definition,
-            FieldDefinition confidenceField,
             FieldDefinition stateField,
             MethodHandle outputFunction,
-            boolean approximate,
             CallSiteBinder callSiteBinder)
     {
         Parameter groupId = arg("groupId", int.class);
@@ -632,10 +560,6 @@ public class AccumulatorCompiler
 
         body.comment("output(state, out)");
         body.append(state);
-        if (approximate) {
-            requireNonNull(confidenceField, "confidenceField is null");
-            body.append(thisVariable.getField(confidenceField));
-        }
         body.append(out);
         body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
 
@@ -644,10 +568,8 @@ public class AccumulatorCompiler
 
     private static void generateEvaluateFinal(
             ClassDefinition definition,
-            FieldDefinition confidenceField,
             FieldDefinition stateField,
             MethodHandle outputFunction,
-            boolean approximate,
             CallSiteBinder callSiteBinder)
     {
         Parameter out = arg("out", BlockBuilder.class);
@@ -664,10 +586,6 @@ public class AccumulatorCompiler
 
         body.comment("output(state, out)");
         body.append(state);
-        if (approximate) {
-            requireNonNull(confidenceField, "confidenceField is null");
-            body.append(thisVariable.getField(confidenceField));
-        }
         body.append(out);
         body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
 
@@ -680,8 +598,6 @@ public class AccumulatorCompiler
             FieldDefinition stateFactoryField,
             FieldDefinition inputChannelsField,
             FieldDefinition maskChannelField,
-            @Nullable FieldDefinition sampleWeightChannelField,
-            @Nullable FieldDefinition confidenceField,
             FieldDefinition stateField,
             boolean grouped)
     {
@@ -689,16 +605,12 @@ public class AccumulatorCompiler
         Parameter stateFactory = arg("stateFactory", AccumulatorStateFactory.class);
         Parameter inputChannels = arg("inputChannels", type(List.class, Integer.class));
         Parameter maskChannel = arg("maskChannel", type(Optional.class, Integer.class));
-        Parameter sampleWeightChannel = arg("sampleWeightChannel", type(Optional.class, Integer.class));
-        Parameter confidence = arg("confidence", double.class);
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
                 stateSerializer,
                 stateFactory,
                 inputChannels,
-                maskChannel,
-                sampleWeightChannel,
-                confidence);
+                maskChannel);
 
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -712,20 +624,12 @@ public class AccumulatorCompiler
         body.append(thisVariable.setField(inputChannelsField, generateRequireNotNull(inputChannels)));
         body.append(thisVariable.setField(maskChannelField, generateRequireNotNull(maskChannel)));
 
-        if (sampleWeightChannelField != null) {
-            body.append(thisVariable.setField(sampleWeightChannelField, generateRequireNotNull(sampleWeightChannel)));
-        }
-
         String createState;
         if (grouped) {
             createState = "createGroupedState";
         }
         else {
             createState = "createSingleState";
-        }
-
-        if (confidenceField != null) {
-            body.append(thisVariable.setField(confidenceField, confidence));
         }
 
         body.append(thisVariable.setField(stateField, stateFactory.invoke(createState, Object.class).cast(stateField.getType())));

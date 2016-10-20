@@ -44,7 +44,6 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
                 null,
                 createLongsBlock(new Long[] {}));
     }
@@ -57,7 +56,6 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
                 Arrays.asList(null, null, null),
                 createLongsBlock(new Long[] {null, null, null}));
     }
@@ -70,7 +68,6 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
                 Arrays.asList(null, 2L, null, 3L, null),
                 createLongsBlock(new Long[] {null, 2L, null, 3L, null}));
     }
@@ -83,7 +80,6 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(boolean)"), parseTypeSignature(StandardTypes.BOOLEAN)));
         assertAggregation(
                 booleanAgg,
-                1.0,
                 Arrays.asList(true, false),
                 createBooleansBlock(new Boolean[] {true, false}));
     }
@@ -96,7 +92,6 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(bigint)"), parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 bigIntAgg,
-                1.0,
                 Arrays.asList(2L, 1L, 2L),
                 createLongsBlock(new Long[] {2L, 1L, 2L}));
     }
@@ -109,7 +104,6 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(varchar)"), parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 varcharAgg,
-                1.0,
                 Arrays.asList("hello", "world"),
                 createStringsBlock(new String[] {"hello", "world"}));
     }
@@ -122,7 +116,6 @@ public class TestArrayAggregation
                 new Signature("array_agg", AGGREGATE, parseTypeSignature("array(date)"), parseTypeSignature(StandardTypes.DATE)));
         assertAggregation(
                 varcharAgg,
-                1.0,
                 Arrays.asList(new SqlDate(1), new SqlDate(2), new SqlDate(4)),
                 createTypedLongsBlock(DATE, ImmutableList.of(1L, 2L, 4L)));
     }
@@ -136,7 +129,6 @@ public class TestArrayAggregation
 
         assertAggregation(
                 varcharAgg,
-                1.0,
                 Arrays.asList(Arrays.asList(1L), Arrays.asList(1L, 2L), Arrays.asList(1L, 2L, 3L)),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(1L, 2L), ImmutableList.of(1L, 2L, 3L))));
     }

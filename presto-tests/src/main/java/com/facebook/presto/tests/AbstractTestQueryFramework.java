@@ -182,16 +182,6 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    public void assertApproximateQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
-    {
-        QueryAssertions.assertApproximateQuery(queryRunner,
-                session,
-                actual,
-                h2QueryRunner,
-                expected);
-    }
-
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
             throws Exception
     {
