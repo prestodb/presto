@@ -14,9 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.TraversingQueryContextVisitor;
 import com.facebook.presto.operator.OperatorContext;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
 
 import javax.inject.Inject;
@@ -29,18 +31,23 @@ import static java.util.Objects.requireNonNull;
 public class MemoryRevokingScheduler
 {
     private static final Ordering<SqlTask> ORDER_BY_CREATE_TIME = Ordering.natural().onResultOf(task -> task.getTaskInfo().getStats().getCreateTime());
-
-    private final LocalMemoryManager localMemoryManager;
+    private final MemoryPool systemMemoryPool;
 
     @Inject
     public MemoryRevokingScheduler(LocalMemoryManager localMemoryManager)
     {
-        this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager can not be null");
+        this(requireNonNull(localMemoryManager, "localMemoryManager can not be null").getPool(LocalMemoryManager.SYSTEM_POOL));
+    }
+
+    @VisibleForTesting
+    MemoryRevokingScheduler(MemoryPool systemMemoryPool)
+    {
+        this.systemMemoryPool = requireNonNull(systemMemoryPool, "systemMemoryPool can not be null");
     }
 
     public void requestSystemMemoryRevokingIfNeeded(Collection<SqlTask> sqlTasks)
     {
-        long freeBytes = localMemoryManager.getPool(LocalMemoryManager.SYSTEM_POOL).getFreeBytes();
+        long freeBytes = systemMemoryPool.getFreeBytes();
         if (freeBytes > 0) {
             return;
         }
@@ -99,6 +106,6 @@ public class MemoryRevokingScheduler
                         }
                         return null;
                     }
-                },  remainingBytesToRevokeAtomic));
+                }, remainingBytesToRevokeAtomic));
     }
 }
