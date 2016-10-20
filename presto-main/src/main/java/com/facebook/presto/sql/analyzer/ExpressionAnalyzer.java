@@ -731,6 +731,12 @@ public class ExpressionAnalyzer
                 }
             }
 
+            if (node.getFilterClause().isPresent()) {
+                Expression expression = node.getFilterClause().get().getFilterClause();
+                process(expression, context);
+                Type type = expressionTypes.get(expression);
+            }
+
             ImmutableList.Builder<TypeSignature> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
                 argumentTypes.add(process(expression, context).getTypeSignature());

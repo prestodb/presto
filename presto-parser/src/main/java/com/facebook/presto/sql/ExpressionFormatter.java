@@ -35,6 +35,7 @@ import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.FilterClause;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -339,6 +340,10 @@ public final class ExpressionFormatter
                 builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
             }
 
+            if (node.getFilterClause().isPresent()) {
+                builder.append(" FILTER ").append(visitFilterClause(node.getFilterClause().get(), unmangleNames));
+            }
+
             return builder.toString();
         }
 
@@ -538,6 +543,12 @@ public final class ExpressionFormatter
         protected String visitInListExpression(InListExpression node, Boolean unmangleNames)
         {
             return "(" + joinExpressions(node.getValues(), unmangleNames) + ")";
+        }
+
+        @Override
+        public String visitFilterClause(FilterClause node, Boolean unmangleNames)
+        {
+            return "( WHERE " + process(node.getFilterClause(), unmangleNames) + ')';
         }
 
         @Override

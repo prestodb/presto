@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.FilterClause;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -1164,6 +1165,7 @@ class AstBuilder
     public Node visitFunctionCall(SqlBaseParser.FunctionCallContext context)
     {
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
+        Optional<FilterClause> filterClause = visitIfPresent(context.filter(), FilterClause.class);
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
 
@@ -1213,6 +1215,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 window,
+                filterClause,
                 distinct,
                 visit(context.expression(), Expression.class));
     }
@@ -1227,6 +1230,14 @@ class AstBuilder
         Expression body = (Expression) visit(context.expression());
 
         return new LambdaExpression(arguments, body);
+    }
+
+    @Override
+    public Node visitFilter(SqlBaseParser.FilterContext context)
+    {
+        return new FilterClause(
+                getLocation(context),
+                visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override
