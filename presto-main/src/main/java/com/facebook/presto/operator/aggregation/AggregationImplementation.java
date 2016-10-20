@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.ParametricImplementation;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.TypeManager;
@@ -26,7 +27,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class AggregationImplementation
+public class AggregationImplementation implements ParametricImplementation
 {
     private final Signature signature;
 

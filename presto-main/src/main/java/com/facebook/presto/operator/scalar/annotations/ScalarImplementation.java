@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.ParametricImplementation;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.ConnectorSession;
@@ -74,7 +75,7 @@ import static java.lang.reflect.Modifier.isStatic;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public class ScalarImplementation
+public class ScalarImplementation implements ParametricImplementation
 {
     private final Signature signature;
     private final boolean nullable;

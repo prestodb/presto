@@ -17,9 +17,9 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.operator.ParametricImplementations;
 import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
 import com.facebook.presto.operator.scalar.annotations.ScalarImplementation.MethodHandleAndConstructor;
-import com.facebook.presto.operator.scalar.annotations.ScalarImplementations;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TypeManager;
 
@@ -37,12 +37,12 @@ public class ParametricScalar
         extends SqlScalarFunction
 {
     private final ScalarHeader details;
-    private final ScalarImplementations implementations;
+    private final ParametricImplementations<ScalarImplementation> implementations;
 
     public ParametricScalar(
             Signature signature,
             ScalarHeader details,
-            ScalarImplementations implementations)
+            ParametricImplementations<ScalarImplementation> implementations)
     {
         super(signature);
         this.details = requireNonNull(details);

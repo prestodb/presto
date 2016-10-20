@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.operator.ParametricImplementations;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
@@ -63,11 +64,11 @@ public class BindableAggregationFunction
     extends SqlAggregationFunction
 {
     AggregationHeader details;
-    AggregationImplementations implementations;
+    ParametricImplementations<AggregationImplementation> implementations;
 
     public BindableAggregationFunction(Signature signature,
             AggregationHeader details,
-            AggregationImplementations implementations)
+            ParametricImplementations implementations)
     {
         super(signature);
         this.details = details;

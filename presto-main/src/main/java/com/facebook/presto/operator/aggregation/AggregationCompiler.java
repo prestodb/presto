@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.LongVariableConstraint;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.operator.ParametricImplementations;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -111,8 +112,7 @@ public class AggregationCompiler
                                 new BindableAggregationFunction(
                                         onlyImplementation.getSignature(),
                                         header,
-                                        new AggregationImplementations(
-                                                ImmutableMap.of(),
+                                        new ParametricImplementations(ImmutableMap.of(),
                                                 ImmutableList.of(),
                                                 ImmutableList.of(onlyImplementation))));
                     }
@@ -162,7 +162,7 @@ public class AggregationCompiler
 
         return new BindableAggregationFunction(aggregateSignature,
                         header,
-                        new AggregationImplementations(
+                        new ParametricImplementations(
                                 exactImplementations.build(),
                                 specializedImplementations.build(),
                                 genericImplementations.build()));
