@@ -35,7 +35,6 @@ import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FieldReference;
-import com.facebook.presto.sql.tree.FilterClause;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -545,10 +544,9 @@ public final class ExpressionFormatter
             return "(" + joinExpressions(node.getValues(), unmangleNames) + ")";
         }
 
-        @Override
-        public String visitFilterClause(FilterClause node, Boolean unmangleNames)
+        private String visitFilterClause(Expression node, Boolean unmangleNames)
         {
-            return "( WHERE " + process(node.getFilterClause(), unmangleNames) + ')';
+            return "( WHERE " + process(node, unmangleNames) + ')';
         }
 
         @Override

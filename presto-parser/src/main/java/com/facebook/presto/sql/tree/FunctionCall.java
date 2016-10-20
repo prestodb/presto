@@ -24,46 +24,46 @@ public class FunctionCall
 {
     private final QualifiedName name;
     private final Optional<Window> window;
-    private final Optional<FilterClause> filterClause;
+    private final Optional<Expression> filterClause;
     private final boolean distinct;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.empty(), name, Optional.<Window>empty(),  Optional.<FilterClause>empty(), false, arguments);
+        this(Optional.empty(), name, Optional.<Window>empty(),  Optional.<Expression>empty(), false, arguments);
     }
 
     public FunctionCall(NodeLocation location, QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.of(location), name, Optional.<Window>empty(), Optional.<FilterClause>empty(), false, arguments);
+        this(Optional.of(location), name, Optional.<Window>empty(), Optional.<Expression>empty(), false, arguments);
     }
 
     public FunctionCall(QualifiedName name, boolean distinct, List<Expression> arguments)
     {
-        this(Optional.empty(), name, Optional.<Window>empty(), Optional.<FilterClause>empty(), distinct, arguments);
+        this(Optional.empty(), name, Optional.<Window>empty(), Optional.<Expression>empty(), distinct, arguments);
     }
 
     public FunctionCall(NodeLocation location, QualifiedName name, boolean distinct, List<Expression> arguments)
     {
-        this(Optional.of(location), name, Optional.<Window>empty(), Optional.<FilterClause>empty(), distinct, arguments);
+        this(Optional.of(location), name, Optional.<Window>empty(), Optional.<Expression>empty(), distinct, arguments);
     }
 
     public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
     {
-        this(Optional.empty(), name, window, Optional.<FilterClause>empty(), distinct, arguments);
+        this(Optional.empty(), name, window, Optional.<Expression>empty(), distinct, arguments);
     }
 
-    public FunctionCall(QualifiedName name, Optional<Window> window, Optional<FilterClause> filterClause, boolean distinct, List<Expression> arguments)
+    public FunctionCall(QualifiedName name, Optional<Window> window, Optional<Expression> filterClause, boolean distinct, List<Expression> arguments)
     {
         this(Optional.empty(), name, window, filterClause, distinct, arguments);
     }
 
-    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<FilterClause> filterClause, boolean distinct, List<Expression> arguments)
+    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filterClause, boolean distinct, List<Expression> arguments)
     {
         this(Optional.of(location), name, window, filterClause, distinct, arguments);
     }
 
-    private FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, Optional<FilterClause> filterClause, boolean distinct, List<Expression> arguments)
+    private FunctionCall(Optional<NodeLocation> location, QualifiedName name, Optional<Window> window, Optional<Expression> filterClause, boolean distinct, List<Expression> arguments)
     {
         super(location);
         requireNonNull(name, "name is null");
@@ -98,7 +98,7 @@ public class FunctionCall
         return arguments;
     }
 
-    public Optional<FilterClause> getFilterClause()
+    public Optional<Expression> getFilterClause()
     {
         return filterClause;
     }

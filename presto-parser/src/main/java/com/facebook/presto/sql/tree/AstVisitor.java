@@ -457,11 +457,6 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitFilterClause(FilterClause node, C context)
-    {
-        return visitNode(node, context);
-    }
-
     protected R visitWindow(Window node, C context)
     {
         return visitNode(node, context);

@@ -347,7 +347,7 @@ whenClause
 
 filter
     : FILTER '('
-        (WHERE where=booleanExpression)?
+        (WHERE where=booleanExpression)
       ')'
     ;
 

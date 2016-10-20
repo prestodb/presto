@@ -534,11 +534,11 @@ public final class ExpressionTreeRewriter<C>
                     rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), rewrittenFrame));
                 }
             }
-            Optional<FilterClause> filterClause = node.getFilterClause();
+            Optional<Expression> filterClause = node.getFilterClause();
             if (filterClause.isPresent()) {
-                Expression filterExpression = filterClause.get().getFilterClause();
+                Expression filterExpression = filterClause.get();
                 Expression newFilterExpression = rewrite(filterExpression, context.get());
-                filterClause = Optional.of(new FilterClause(Optional.of(newFilterExpression)));
+                filterClause = Optional.of(newFilterExpression);
             }
 
             ImmutableList.Builder<Expression> arguments = ImmutableList.builder();

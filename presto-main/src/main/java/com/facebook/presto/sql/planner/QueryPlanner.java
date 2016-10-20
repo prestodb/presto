@@ -45,7 +45,6 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
-import com.facebook.presto.sql.tree.FilterClause;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
@@ -382,7 +381,6 @@ class QueryPlanner
                 .map(FunctionCall::getFilterClause)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .map(FilterClause::getFilterClause)
                 .collect(Collectors.toList());
         arguments.addAll(filterExpressions);
         return ImmutableList.copyOf(arguments);
@@ -515,7 +513,7 @@ class QueryPlanner
                     SemanticExceptions.throwNotSupportedException(node, "distinct can't used with filter");
                 }
                 Symbol aggregateSymbol = translations.get(aggregate);
-                Symbol marker = subPlan.getTranslations().get(aggregate.getFilterClause().get().getFilterClause());
+                Symbol marker = subPlan.getTranslations().get(aggregate.getFilterClause().get());
                 masks.put(aggregateSymbol, marker);
             }
         }
