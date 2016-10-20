@@ -25,6 +25,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -65,6 +66,8 @@ public class JoinNode
         this.filter = filter;
         this.leftHashSymbol = leftHashSymbol;
         this.rightHashSymbol = rightHashSymbol;
+
+        checkState(leftHashSymbol.isPresent() == rightHashSymbol.isPresent(), "Either none or both hash symbols should be provided");
     }
 
     public enum Type

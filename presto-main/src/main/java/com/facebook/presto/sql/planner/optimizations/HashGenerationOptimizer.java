@@ -29,7 +29,6 @@ import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
-import com.facebook.presto.sql.planner.plan.IndexJoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -53,9 +52,10 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Multiset;
 
 import java.util.HashMap;
 import java.util.List;
@@ -141,7 +141,7 @@ public class HashGenerationOptimizer
         {
             Optional<HashComputation> groupByHash = Optional.empty();
             if (!canSkipHashGeneration(node.getGroupingKeys())) {
-                groupByHash = computeHash(node.getGroupingKeys());
+                groupByHash = computeHash(node.getGroupingKeys(), parentPreference);
             }
 
             // aggregation does not pass through preferred hash symbols
@@ -187,7 +187,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols());
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols(), parentPreference);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -208,7 +208,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols());
+            Optional<HashComputation> hashComputation = computeHash(node.getDistinctSymbols(), parentPreference);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -228,7 +228,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), parentPreference);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -254,7 +254,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), parentPreference);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -302,11 +302,15 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft));
+            Optional<HashComputation> leftHashComputation = computeHash(
+                    clauses.stream()
+                            .map(JoinNode.EquiJoinClause::getLeft)
+                            .collect(toImmutableList()),
+                    parentPreference);
             PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(leftHashComputation), true, new HashComputationSet(leftHashComputation));
             Symbol leftHashSymbol = left.getRequiredHashSymbol(leftHashComputation.get());
 
-            Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight));
+            Optional<HashComputation> rightHashComputation = computeHash(getEquiJoinClauseRightSymbols(node.getCriteria(), leftHashComputation.get().getFields()));
             // drop undesired hash symbols from build to save memory
             PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(rightHashComputation), true, new HashComputationSet(rightHashComputation));
             Symbol rightHashSymbol = right.getRequiredHashSymbol(rightHashComputation.get());
@@ -370,7 +374,11 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> probeHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe));
+            Optional<HashComputation> probeHashComputation = computeHash(
+                    clauses.stream()
+                            .map(IndexJoinNode.EquiJoinClause::getProbe)
+                            .collect(toImmutableList()),
+                    parentPreference);
             PlanWithProperties probe = planAndEnforce(
                     node.getProbeSource(),
                     new HashComputationSet(probeHashComputation),
@@ -378,7 +386,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(probeHashComputation));
             Symbol probeHashSymbol = probe.getRequiredHashSymbol(probeHashComputation.get());
 
-            Optional<HashComputation> indexHashComputation = computeHash(Lists.transform(clauses, EquiJoinClause::getIndex));
+            Optional<HashComputation> indexHashComputation = computeHash(getEquiJoinClauseIndexSymbols(node.getCriteria(), probeHashComputation.get().getFields()));
             HashComputationSet requiredHashes = new HashComputationSet(indexHashComputation);
             PlanWithProperties index = planAndEnforce(node.getIndexSource(), requiredHashes, true, requiredHashes);
             Symbol indexHashSymbol = index.getRequiredHashSymbol(indexHashComputation.get());
@@ -409,7 +417,7 @@ public class HashGenerationOptimizer
                 return planSimpleNodeWithProperties(node, parentPreference, true);
             }
 
-            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy());
+            Optional<HashComputation> hashComputation = computeHash(node.getPartitionBy(), parentPreference);
             PlanWithProperties child = planAndEnforce(
                     node.getSource(),
                     new HashComputationSet(hashComputation),
@@ -443,8 +451,9 @@ public class HashGenerationOptimizer
                     partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
                 // add precomputed hash for exchange
                 partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
-                        .map(ArgumentBinding::getColumn)
-                        .collect(toImmutableList()));
+                                .map(ArgumentBinding::getColumn)
+                                .collect(toImmutableList()),
+                        preference);
                 preference = preference.withHashComputation(partitionSymbols);
             }
 
@@ -601,6 +610,26 @@ public class HashGenerationOptimizer
                             node.getUnnestSymbols(),
                             node.getOrdinalitySymbol()),
                     hashSymbols);
+        }
+
+        private List<Symbol> getEquiJoinClauseRightSymbols(List<JoinNode.EquiJoinClause> clauses, List<Symbol> leftSymbols)
+        {
+            return leftSymbols.stream()
+                    .map(leftSymbol -> clauses.stream()
+                            .filter(clause -> clause.getLeft().equals(leftSymbol))
+                            .findFirst().get()
+                            .getRight())
+                    .collect(toImmutableList());
+        }
+
+        private List<Symbol> getEquiJoinClauseIndexSymbols(List<IndexJoinNode.EquiJoinClause> clauses, List<Symbol> probeSymbols)
+        {
+            return probeSymbols.stream()
+                    .map(probeSymbol -> clauses.stream()
+                            .filter(clause -> clause.getProbe().equals(probeSymbol))
+                            .findFirst().get()
+                            .getIndex())
+                    .collect(toImmutableList());
         }
 
         private PlanWithProperties planSimpleNodeWithProperties(PlanNode node, HashComputationSet preferredHashes)
@@ -764,11 +793,28 @@ public class HashGenerationOptimizer
 
     public static Optional<HashComputation> computeHash(Iterable<Symbol> fields)
     {
+        return computeHash(fields, new HashComputationSet());
+    }
+
+    public static Optional<HashComputation> computeHash(Iterable<Symbol> fields, HashComputationSet preferredHashes)
+    {
         requireNonNull(fields, "fields is null");
+        requireNonNull(preferredHashes, "preferredHashes is null");
         List<Symbol> symbols = ImmutableList.copyOf(fields);
         if (symbols.isEmpty()) {
             return Optional.empty();
         }
+
+        // try to use one of preferred hash computation if unique symbols match
+        Multiset<Symbol> unorderedFields = ImmutableMultiset.copyOf(fields);
+        Optional<HashComputation> preferredHash = preferredHashes.getHashes().stream()
+                .filter(hash -> ImmutableMultiset.copyOf(hash.getFields()).equals(unorderedFields))
+                .findAny();
+
+        if (preferredHash.isPresent()) {
+            return preferredHash;
+        }
+
         return Optional.of(new HashComputation(fields));
     }
 
