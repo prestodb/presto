@@ -90,17 +90,12 @@ public class TestHashAggregationOperator
             new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
 
     private ExecutorService executor;
-    private DriverContext driverContext;
     private SpillerFactory spillerFactory = new DummySpillerFactory();
 
     @BeforeMethod
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
-
-        driverContext = createTaskContext(executor, TEST_SESSION)
-                .addPipelineContext(true, true)
-                .addDriverContext();
     }
 
     @DataProvider(name = "hashEnabled")
@@ -166,6 +161,8 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory);
 
+        DriverContext driverContext = createDriverContext(memoryLimitBeforeSpill);
+
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
                 .row("1", 3L, 3L, 1.0, "301", 3L, 3L)
@@ -182,8 +179,8 @@ public class TestHashAggregationOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(hashChannels.size()));
     }
 
-    @Test(dataProvider = "hashEnabled")
-    public void testHashAggregationWithGlobals(boolean hashEnabled)
+    @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
+    public void testHashAggregationWithGlobals(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
             throws Exception
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -216,8 +213,13 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 groupIdChannel,
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(16, MEGABYTE),
+                memoryLimitBeforeSpill > 0,
+                succinctBytes(memoryLimitBeforeSpill),
+                succinctBytes(memoryLimitForMergeWithMemory),
+                spillerFactory);
 
+        DriverContext driverContext = createDriverContext(memoryLimitBeforeSpill);
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
                 .row(null, 42L, 0L, null, null, null, 0L, 0L)
                 .row(null, 49L, 0L, null, null, null, 0L, 0L)
@@ -279,9 +281,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 100)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, MEGABYTE))
-                .addPipelineContext(true, true)
-                .addDriverContext();
+        DriverContext driverContext = createDriverContext(memoryLimitBeforeSpill);
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
@@ -338,6 +338,7 @@ public class TestHashAggregationOperator
         toPages(operatorFactory, driverContext, input);
     }
 
+
     @Test(dataProvider = "hashEnabled")
     public void testMultiSliceAggregationOutput(boolean hashEnabled)
     {
@@ -366,11 +367,11 @@ public class TestHashAggregationOperator
                 100_000,
                 new DataSize(16, MEGABYTE));
 
-        assertEquals(toPages(operatorFactory, driverContext, input).size(), 2);
+        assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
     }
 
-    @Test(dataProvider = "hashEnabledAndMemoryLimitBeforeSpillValues")
-    public void testMultiplePartialFlushes(boolean hashEnabled, long memoryLimitBeforeSpill, long memoryLimitForMergeWithMemory)
+    @Test(dataProvider = "hashEnabled")
+    public void testMultiplePartialFlushes(boolean hashEnabled)
             throws Exception
     {
         List<Integer> hashChannels = Ints.asList(0);
@@ -393,15 +394,10 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE),
-                memoryLimitBeforeSpill > 0,
-                succinctBytes(memoryLimitBeforeSpill),
-                succinctBytes(memoryLimitForMergeWithMemory),
-                spillerFactory);
+                new DataSize(16, MEGABYTE));
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE))
-                .addPipelineContext(true, true)
-                .addDriverContext();
+        DriverContext driverContext = createDriverContext(1024, Integer.MAX_VALUE);
+
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
             List<Page> expectedPages = rowPagesBuilder(BIGINT, BIGINT)
                     .addSequencePage(2000, 0, 0)
@@ -482,9 +478,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory);
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE), new DataSize(0, Unit.KILOBYTE))
-                .addPipelineContext(true, true)
-                .addDriverContext();
+        DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
         MaterializedResult.Builder resultBuilder = resultBuilder(driverContext.getSession(), BIGINT);
         for (int i = 0; i < smallPagesSpillThresholdSize + 10; ++i) {
@@ -494,7 +488,7 @@ public class TestHashAggregationOperator
         assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, resultBuilder.build(), false, Optional.of(hashChannels.size()));
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".* Failed to spill", enabled = false)
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".* Failed to spill")
     public void testSpillerFailure()
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -502,14 +496,15 @@ public class TestHashAggregationOperator
                 new Signature("max", AGGREGATE, parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)));
 
         List<Integer> hashChannels = Ints.asList(1);
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, VARCHAR, BIGINT, VARCHAR, BIGINT);
+        ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, types);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(10, 100, 0, 100, 0)
                 .addSequencePage(10, 100, 0, 200, 0)
                 .addSequencePage(10, 100, 0, 300, 0)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(10, Unit.BYTE))
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, DataSize.valueOf("10B"), DataSize.valueOf("1MB"), DataSize.valueOf("1GB"), DataSize.valueOf("10B"))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
@@ -534,6 +529,23 @@ public class TestHashAggregationOperator
                 new FailingSpillerFactory());
 
         toPages(operatorFactory, driverContext, input);
+    }
+
+    private DriverContext createDriverContext()
+    {
+        return createDriverContext(Integer.MAX_VALUE);
+    }
+
+    private DriverContext createDriverContext(long systemMemoryLimit)
+    {
+        return createDriverContext(Integer.MAX_VALUE, systemMemoryLimit);
+    }
+
+    private DriverContext createDriverContext(long memoryLimit, long systemMemoryLimit)
+    {
+        return createTaskContext(executor, TEST_SESSION, new DataSize(256, MEGABYTE), new DataSize(1, MEGABYTE), succinctBytes(memoryLimit), succinctBytes(systemMemoryLimit))
+                .addPipelineContext(true, true)
+                .addDriverContext();
     }
 
     private static class DummySpillerFactory
