@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.validateSignaturesCompatibility;
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -123,8 +124,10 @@ public final class ScalarFromAnnotationsParser
                 genericImplementations.add(implementation);
             }
 
-            signature = signature.isPresent() ? signature : Optional.of(implementation.getSignature());
-            validateSignature(signature, implementation.getSignature());
+            if (!signature.isPresent()) {
+                signature = Optional.of(implementation.getSignature());
+            }
+            validateSignaturesCompatibility(signature, implementation.getSignature());
         }
 
         Signature scalarSignature = signature.orElseGet(() -> getOnlyElement(exactImplementations.build().keySet()));
@@ -136,14 +139,6 @@ public final class ScalarFromAnnotationsParser
                 new ParametricImplementations(exactImplementations.build(), specializedImplementations.build(), genericImplementations.build());
 
         return new ParametricScalar(scalarSignature, header.getHeader(), implementations);
-    }
-
-    private static void validateSignature(Optional<Signature> signatureOld, Signature signatureNew)
-    {
-        if (!signatureOld.isPresent()) {
-            return;
-        }
-        checkArgument(signatureOld.get().equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
     }
 
     private static Map<Set<TypeParameter>, Constructor<?>> findConstructors(Class<?> clazz)

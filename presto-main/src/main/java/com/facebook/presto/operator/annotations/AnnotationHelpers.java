@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -24,6 +25,7 @@ import com.google.common.collect.Iterables;
 import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
@@ -97,5 +99,10 @@ public class AnnotationHelpers
             }
         }
         return typeVariableConstraints.build();
+    }
+
+    public static void validateSignaturesCompatibility(Signature signatureOld, Signature signatureNew)
+    {
+        checkArgument(signatureOld.equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
     }
 }

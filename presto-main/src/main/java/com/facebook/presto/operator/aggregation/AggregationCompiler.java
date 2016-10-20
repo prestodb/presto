@@ -52,6 +52,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.validateSignaturesCompatibility;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -153,7 +154,7 @@ public class AggregationCompiler
                     if (!genericSignature.isPresent()) {
                         genericSignature = Optional.of(implementation.getSignature());
                     }
-                    // TODO validateSignature(signature, implementation.getSignature());
+                    validateSignaturesCompatibility(genericSignature, implementation.getSignature());
                 }
             }
         }
