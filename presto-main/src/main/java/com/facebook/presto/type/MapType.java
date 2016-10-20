@@ -89,7 +89,7 @@ public class MapType
     public long hash(Block block, int position)
     {
         Block mapBlock = getObject(block, position);
-        int result = 0;
+        long result = 0;
 
         for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
             result += hashPosition(keyType, mapBlock, i);

@@ -2790,6 +2790,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT CASE WHEN false THEN 1 IN (VALUES 2) END",
                 "SELECT NULL");
+        assertQuery(
+                "SELECT x FROM (VALUES 2) t(x) where MAP(ARRAY[8589934592], ARRAY[x]) IN (VALUES MAP(ARRAY[8589934592],ARRAY[2]))",
+                "SELECT 2");
     }
 
     @Test
