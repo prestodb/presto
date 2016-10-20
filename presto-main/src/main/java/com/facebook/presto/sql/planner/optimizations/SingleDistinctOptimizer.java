@@ -81,6 +81,12 @@ public class SingleDistinctOptimizer
             if (masks.size() != 1 || node.getMasks().size() != node.getAggregations().size()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
+            // If the aggregation is not distinct, don't optimize
+            FunctionCall aggregation = Iterables.getOnlyElement(node.getAggregations().values());
+            if (!aggregation.isDistinct()) {
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
             PlanNode source = context.rewrite(node.getSource(), Optional.of(Iterables.getOnlyElement(masks)));
 
             Map<Symbol, FunctionCall> aggregations = ImmutableMap.copyOf(Maps.transformValues(node.getAggregations(), call -> new FunctionCall(call.getName(), call.getWindow(), false, call.getArguments())));

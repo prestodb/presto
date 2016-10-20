@@ -1174,6 +1174,7 @@ class AstBuilder
     public Node visitFunctionCall(SqlBaseParser.FunctionCallContext context)
     {
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
+        Optional<Expression> filterClause = visitIfPresent(context.filter(), Expression.class);
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
 
@@ -1223,6 +1224,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 window,
+                filterClause,
                 distinct,
                 visit(context.expression(), Expression.class));
     }
@@ -1237,6 +1239,12 @@ class AstBuilder
         Expression body = (Expression) visit(context.expression());
 
         return new LambdaExpression(arguments, body);
+    }
+
+    @Override
+    public Node visitFilter(SqlBaseParser.FilterContext context)
+    {
+        return visit(context.booleanExpression());
     }
 
     @Override

@@ -339,6 +339,10 @@ public final class ExpressionFormatter
                 builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
             }
 
+            if (node.getFilterClause().isPresent()) {
+                builder.append(" FILTER ").append(visitFilterClause(node.getFilterClause().get(), unmangleNames));
+            }
+
             return builder.toString();
         }
 
@@ -538,6 +542,11 @@ public final class ExpressionFormatter
         protected String visitInListExpression(InListExpression node, Boolean unmangleNames)
         {
             return "(" + joinExpressions(node.getValues(), unmangleNames) + ")";
+        }
+
+        private String visitFilterClause(Expression node, Boolean unmangleNames)
+        {
+            return "( WHERE " + process(node, unmangleNames) + ')';
         }
 
         @Override

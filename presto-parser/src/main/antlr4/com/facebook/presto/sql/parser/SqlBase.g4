@@ -283,6 +283,8 @@ primaryExpression
     | POSITION '(' valueExpression IN valueExpression ')'                            #position
     | '(' expression (',' expression)+ ')'                                           #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
+    | qualifiedName '(' ASTERISK ')' filter?                                         #functionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter?   #functionCall
     | qualifiedName '(' ASTERISK ')' over?                                           #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?     #functionCall
     | identifier '->' expression                                                     #lambda
@@ -351,6 +353,12 @@ baseType
 
 whenClause
     : WHEN condition=expression THEN result=expression
+    ;
+
+filter
+    : FILTER '('
+        (WHERE where=booleanExpression)
+      ')'
     ;
 
 over
@@ -427,7 +435,7 @@ nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | ADD
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
-    | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
+    | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE | FILTER
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
@@ -528,6 +536,7 @@ FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
 ON: 'ON';
+FILTER: 'FILTER';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
 RANGE: 'RANGE';
