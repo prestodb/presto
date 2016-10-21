@@ -121,7 +121,7 @@ public class BindableAggregationFunction
         AggregationMetadata metadata;
         AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateClass, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
-        Method combineFunction = AggregationCompiler.getCombineFunction(definitionClass, stateClass);
+        Method combineFunction = AggregationFromAnnotationsParser.getCombineFunction(definitionClass, stateClass);
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         try {

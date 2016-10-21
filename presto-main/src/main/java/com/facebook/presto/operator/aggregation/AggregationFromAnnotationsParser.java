@@ -41,9 +41,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public class AggregationCompiler
+public class AggregationFromAnnotationsParser
 {
-    private AggregationCompiler()
+    private AggregationFromAnnotationsParser()
     {
     }
 

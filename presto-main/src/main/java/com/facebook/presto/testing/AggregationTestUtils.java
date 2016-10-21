@@ -14,7 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.operator.aggregation.AggregationCompiler;
+import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -44,6 +44,6 @@ public class AggregationTestUtils
     @VisibleForTesting
     public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeManager typeManager, BoundVariables boundVariables, int arity)
     {
-        return AggregationCompiler.generateAggregationBindableFunction(clazz, outputType, inputTypes).specialize(boundVariables, arity, typeManager);
+        return AggregationFromAnnotationsParser.generateAggregationBindableFunction(clazz, outputType, inputTypes).specialize(boundVariables, arity, typeManager);
     }
 }
