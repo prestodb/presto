@@ -242,7 +242,7 @@ public class BenchmarkNodeScheduler
         {
             List<String> parts = new ArrayList<>(ImmutableList.copyOf(Splitter.on(".").split(address.getHostText())));
             Collections.reverse(parts);
-            return new NetworkLocation(parts);
+            return NetworkLocation.create(parts);
         }
 
         @Override
