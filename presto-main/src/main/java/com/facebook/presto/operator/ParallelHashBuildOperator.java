@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +44,7 @@ public class ParallelHashBuildOperator
         private final PartitionedLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
         private final Optional<Integer> preComputedHashChannel;
-        private final Optional<InternalJoinFilterFunction> filterFunction;
+        private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
         private final int expectedPositions;
 
@@ -58,7 +59,7 @@ public class ParallelHashBuildOperator
                 List<Integer> hashChannels,
                 Optional<Integer> preComputedHashChannel,
                 boolean outer,
-                Optional<InternalJoinFilterFunction> filterFunction,
+                Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions,
                 int partitionCount)
         {
@@ -76,7 +77,7 @@ public class ParallelHashBuildOperator
             checkArgument(!hashChannels.isEmpty(), "hashChannels is empty");
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
             this.preComputedHashChannel = requireNonNull(preComputedHashChannel, "preComputedHashChannel is null");
-            this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");
+            this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
 
             this.expectedPositions = expectedPositions;
         }
@@ -103,7 +104,7 @@ public class ParallelHashBuildOperator
                     partitionIndex,
                     hashChannels,
                     preComputedHashChannel,
-                    filterFunction,
+                    filterFunctionFactory,
                     expectedPositions);
 
             partitionIndex++;
@@ -129,7 +130,7 @@ public class ParallelHashBuildOperator
 
     private final List<Integer> hashChannels;
     private final Optional<Integer> preComputedHashChannel;
-    private final Optional<InternalJoinFilterFunction> filterFunction;
+    private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     private final PagesIndex index;
 
@@ -141,12 +142,12 @@ public class ParallelHashBuildOperator
             int partitionIndex,
             List<Integer> hashChannels,
             Optional<Integer> preComputedHashChannel,
-            Optional<InternalJoinFilterFunction> filterFunction,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             int expectedPositions)
     {
         this.operatorContext = operatorContext;
         this.partitionIndex = partitionIndex;
-        this.filterFunction = filterFunction;
+        this.filterFunctionFactory = filterFunctionFactory;
 
         this.index = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
         this.lookupSourceSupplier = lookupSourceSupplier;
@@ -175,7 +176,7 @@ public class ParallelHashBuildOperator
         }
         finishing = true;
 
-        LookupSource lookupSource = index.createLookupSource(hashChannels, preComputedHashChannel, filterFunction);
+        LookupSource lookupSource = index.createLookupSource(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory);
         lookupSourceSupplier.setLookupSource(partitionIndex, lookupSource);
 
         operatorContext.setMemoryReservation(lookupSource.getInMemorySizeInBytes());

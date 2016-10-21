@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +45,7 @@ public class HashBuilderOperator
         private final SettableLookupSourceSupplier lookupSourceSupplier;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
-        private final Optional<InternalJoinFilterFunction> filterFunction;
+        private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
         private final int expectedPositions;
         private State state = State.NOT_CREATED;
@@ -57,7 +58,7 @@ public class HashBuilderOperator
                 List<Integer> hashChannels,
                 Optional<Integer> hashChannel,
                 boolean outer,
-                Optional<InternalJoinFilterFunction> filterFunction,
+                Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions)
         {
             this.operatorId = operatorId;
@@ -69,7 +70,7 @@ public class HashBuilderOperator
 
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
-            this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");
+            this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
 
             this.expectedPositions = expectedPositions;
         }
@@ -97,7 +98,7 @@ public class HashBuilderOperator
                     lookupSourceSupplier,
                     hashChannels,
                     hashChannel,
-                    filterFunction,
+                    filterFunctionFactory,
                     expectedPositions);
         }
 
@@ -118,7 +119,7 @@ public class HashBuilderOperator
     private final SettableLookupSourceSupplier lookupSourceSupplier;
     private final List<Integer> hashChannels;
     private final Optional<Integer> hashChannel;
-    private final Optional<InternalJoinFilterFunction> filterFunction;
+    private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     private final PagesIndex pagesIndex;
 
@@ -129,7 +130,7 @@ public class HashBuilderOperator
             SettableLookupSourceSupplier lookupSourceSupplier,
             List<Integer> hashChannels,
             Optional<Integer> hashChannel,
-            Optional<InternalJoinFilterFunction> filterFunction,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             int expectedPositions)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -138,7 +139,7 @@ public class HashBuilderOperator
 
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
-        this.filterFunction = requireNonNull(filterFunction, "filterFunction is null");
+        this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
 
         this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
     }
@@ -163,7 +164,7 @@ public class HashBuilderOperator
         }
 
         // After this point the LookupSource will take over our memory reservation, and ours will be zero
-        LookupSource lookupSource = pagesIndex.createLookupSource(hashChannels, hashChannel, filterFunction);
+        LookupSource lookupSource = pagesIndex.createLookupSource(operatorContext.getSession(), hashChannels, hashChannel, filterFunctionFactory);
         lookupSourceSupplier.setLookupSource(lookupSource, operatorContext);
         finished = true;
     }

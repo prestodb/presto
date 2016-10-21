@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -302,9 +304,9 @@ public class PagesIndex
         return orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders);
     }
 
-    public LookupSource createLookupSource(List<Integer> joinChannels)
+    public LookupSource createLookupSource(Session session, List<Integer> joinChannels)
     {
-        return createLookupSource(joinChannels, Optional.empty(), Optional.empty());
+        return createLookupSource(session, joinChannels, Optional.empty(), Optional.empty());
     }
 
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
@@ -321,13 +323,12 @@ public class PagesIndex
         return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
     }
 
-    private Optional<JoinFilterFunction> createJoinFilterFunction(Optional<InternalJoinFilterFunction> filterFunctionOptional, List<List<Block>> channels)
+    public LookupSource createLookupSource(Session session, List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
-        return filterFunctionOptional.map(filterFunction -> joinCompiler.compileJoinFilterFunctionFactory(filterFunction).create(filterFunction, channels));
-    }
+        Optional<JoinFilterFunction> joinFilterFunction = filterFunctionFactory.map(factory -> factory.create(
+                session.toConnectorSession(),
+                ImmutableList.copyOf(channels)));
 
-    public LookupSource createLookupSource(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<InternalJoinFilterFunction> filterFunction)
-    {
         if (!joinChannels.isEmpty()) {
             // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
             // This code path will trigger only for OUTER joins. To fix that we need to add support for
@@ -340,7 +341,7 @@ public class PagesIndex
                         valueAddresses,
                         ImmutableList.copyOf(channels),
                         hashChannel,
-                        createJoinFilterFunction(filterFunction, ImmutableList.copyOf(channels)));
+                        joinFilterFunction);
             }
             catch (Exception e) {
                 log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -355,7 +356,7 @@ public class PagesIndex
                 hashChannel
         );
 
-        return new InMemoryJoinHash(valueAddresses, hashStrategy, createJoinFilterFunction(filterFunction, ImmutableList.copyOf(channels)));
+        return new InMemoryJoinHash(valueAddresses, hashStrategy, joinFilterFunction);
     }
 
     @Override

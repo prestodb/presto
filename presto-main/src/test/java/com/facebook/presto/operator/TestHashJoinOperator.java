@@ -25,6 +25,7 @@ import com.facebook.presto.operator.exchange.LocalExchangeSourceOperator.LocalEx
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -674,6 +675,9 @@ public class TestHashJoinOperator
 
     private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<InternalJoinFilterFunction> filterFunction)
     {
+        Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
+                .map(function -> ((session, channels) -> new StandardJoinFilterFunction(function, channels)));
+
         if (parallelBuild) {
             LocalExchange localExchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, PARTITION_COUNT, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
             LocalExchangeSinkFactory sinkFactory = localExchange.createSinkFactory();
@@ -703,7 +707,7 @@ public class TestHashJoinOperator
                     hashChannels,
                     buildPages.getHashChannel(),
                     false,
-                    filterFunction,
+                    filterFunctionFactory,
                     100,
                     PARTITION_COUNT);
             PipelineContext buildPipeline = taskContext.addPipelineContext(true, true);
@@ -736,7 +740,7 @@ public class TestHashJoinOperator
                     hashChannels,
                     buildPages.getHashChannel(),
                     false,
-                    filterFunction,
+                    filterFunctionFactory,
                     100);
 
             Driver driver = new Driver(driverContext,

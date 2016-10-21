@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.FieldDefinition;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
@@ -24,6 +25,8 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.InternalJoinFilterFunction;
+import com.facebook.presto.operator.JoinFilterFunction;
+import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -38,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import com.google.inject.Inject;
 
+import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,31 +70,29 @@ public class JoinFilterFunctionCompiler
         this.metadata = metadata;
     }
 
-    private final LoadingCache<JoinFilterCacheKey, Class<? extends InternalJoinFilterFunction>> joinFilterFunctions = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<JoinFilterCacheKey, Class<? extends InternalJoinFilterFunction>>()
+    private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<JoinFilterCacheKey, JoinFilterFunctionFactory>()
             {
                 @Override
-                public Class<? extends InternalJoinFilterFunction> load(JoinFilterCacheKey key)
+                public JoinFilterFunctionFactory load(JoinFilterCacheKey key)
                         throws Exception
                 {
-                    return compileFilterFunctionInternal(key.getFilter(), key.getLeftBlocksSize());
+                    return internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize());
                 }
             });
 
-    public InternalJoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(RowExpression filter, int leftBlocksSize)
     {
-        Class<? extends InternalJoinFilterFunction> joinFilterFunction = joinFilterFunctions.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
-        return (session) -> {
-            try {
-                return joinFilterFunction.getConstructor(ConnectorSession.class).newInstance(session);
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
-        };
+        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(filter, leftBlocksSize));
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileFilterFunctionInternal(RowExpression filterExpression, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(RowExpression filterExpression, int leftBlocksSize)
+    {
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, leftBlocksSize);
+        return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
+    }
+
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(RowExpression filterExpression, int leftBlocksSize)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -251,9 +253,9 @@ public class JoinFilterFunctionCompiler
     }
 
     @FunctionalInterface
-    public interface InternalJoinFilterFunctionFactory
+    public interface JoinFilterFunctionFactory
     {
-        InternalJoinFilterFunction create(ConnectorSession session);
+        JoinFilterFunction create(ConnectorSession session, List<List<Block>> channels);
     }
 
     private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(
@@ -320,6 +322,42 @@ public class JoinFilterFunctionCompiler
                     .add("filter", filter)
                     .add("leftBlocksSize", leftBlocksSize)
                     .toString();
+        }
+    }
+
+    private static class IsolatedJoinFilterFunctionFactory
+            implements JoinFilterFunctionFactory
+    {
+        private final Constructor<? extends InternalJoinFilterFunction> internalJoinFilterFunctionConstructor;
+        private final Constructor<? extends JoinFilterFunction> isolatedJoinFilterFunctionConstructor;
+
+        public IsolatedJoinFilterFunctionFactory(Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction)
+        {
+            try {
+                internalJoinFilterFunctionConstructor = internalJoinFilterFunction
+                        .getConstructor(ConnectorSession.class);
+
+                Class<? extends JoinFilterFunction> isolatedJoinFilterFunction = IsolatedClass.isolateClass(
+                        new DynamicClassLoader(getClass().getClassLoader()),
+                        JoinFilterFunction.class,
+                        StandardJoinFilterFunction.class);
+                isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, List.class);
+            }
+            catch (NoSuchMethodException e) {
+                throw Throwables.propagate(e);
+            }
+        }
+
+        @Override
+        public JoinFilterFunction create(ConnectorSession session, List<List<Block>> channels)
+        {
+            try {
+                InternalJoinFilterFunction internalJoinFilterFunction = internalJoinFilterFunctionConstructor.newInstance(session);
+                return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, channels);
+            }
+            catch (ReflectiveOperationException e) {
+                throw Throwables.propagate(e);
+            }
         }
     }
 }

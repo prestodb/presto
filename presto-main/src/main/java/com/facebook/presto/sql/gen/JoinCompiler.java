@@ -27,11 +27,9 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.InMemoryJoinHash;
-import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesHashStrategy;
-import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -48,7 +46,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -96,21 +93,6 @@ public class JoinCompiler
                 }
             });
 
-    private final LoadingCache<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunction>> joinFilterFunctionClasses = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<Class<? extends InternalJoinFilterFunction>, Class<? extends JoinFilterFunction>>()
-            {
-                @Override
-                public Class<? extends JoinFilterFunction> load(Class<? extends InternalJoinFilterFunction> key)
-                        throws Exception
-                {
-                    return IsolatedClass.isolateClass(
-                            new DynamicClassLoader(getClass().getClassLoader()),
-                            JoinFilterFunction.class,
-                            StandardJoinFilterFunction.class
-                    );
-                }
-            });
-
     public LookupSourceFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels)
     {
         try {
@@ -119,21 +101,6 @@ public class JoinCompiler
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
         }
-    }
-
-    public JoinFilterFunctionFactory compileJoinFilterFunctionFactory(InternalJoinFilterFunction internalJoinFilterFunction)
-    {
-        return ((filterFunction, channels) -> {
-            try {
-                return joinFilterFunctionClasses
-                        .get(internalJoinFilterFunction.getClass())
-                        .getConstructor(InternalJoinFilterFunction.class, List.class)
-                        .newInstance(filterFunction, channels);
-            }
-            catch (ExecutionException | UncheckedExecutionException | ExecutionError | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                throw Throwables.propagate(e.getCause());
-            }
-        });
     }
 
     public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
@@ -749,11 +716,6 @@ public class JoinCompiler
                 throw Throwables.propagate(e);
             }
         }
-    }
-
-    public interface JoinFilterFunctionFactory
-    {
-        JoinFilterFunction create(InternalJoinFilterFunction filterFunction, List<List<Block>> channels);
     }
 
     private static final class CacheKey
