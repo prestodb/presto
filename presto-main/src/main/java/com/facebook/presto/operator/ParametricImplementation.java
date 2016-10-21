@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.metadata.Signature;
+
 public interface ParametricImplementation
 {
+    Signature getSignature();
+    boolean hasSpecializedTypeParameters();
 }
