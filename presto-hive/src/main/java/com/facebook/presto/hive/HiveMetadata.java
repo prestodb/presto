@@ -408,21 +408,11 @@ public class HiveMetadata
                 partitionStatisticsMap,
                 column,
                 columnStatistics -> {
-                    switch (columnStatistics.getType()) {
-                        case LONG:
-                            return OptionalDouble.of(columnStatistics.getLongColumnStatistics().getDistinctValuesCount());
-                        case DOUBLE:
-                            return OptionalDouble.of(columnStatistics.getDoubleColumnStatistics().getDistinctValuesCount());
-                        case DECIMAL:
-                            return OptionalDouble.of(columnStatistics.getDecimalColumnStatistics().getDistinctValuesCount());
-                        case BOOLEAN:
-                            return OptionalDouble.of((columnStatistics.getBooleanColumnStatistics().getTrueCount() > 0 ? 1 : 0) + (columnStatistics.getBooleanColumnStatistics().getFalseCount() > 0 ? 1 : 0));
-                        case DATE:
-                            return OptionalDouble.of(columnStatistics.getDateColumnStatistics().getDistinctValuesCount());
-                        case STRING:
-                            return OptionalDouble.of(columnStatistics.getStringColumnStatistics().getDistinctValuesCount());
-                        default:
-                            return OptionalDouble.empty();
+                    if (columnStatistics.getDistinctValuesCount().isPresent()) {
+                        return OptionalDouble.of(columnStatistics.getDistinctValuesCount().getAsLong());
+                    }
+                    else {
+                        return OptionalDouble.empty();
                     }
                 },
                 DoubleStream::max);
@@ -434,23 +424,11 @@ public class HiveMetadata
                 partitionStatisticsMap,
                 column,
                 columnStatistics -> {
-                    switch (columnStatistics.getType()) {
-                        case LONG:
-                            return OptionalDouble.of(columnStatistics.getLongColumnStatistics().getNullsCount());
-                        case DOUBLE:
-                            return OptionalDouble.of(columnStatistics.getDoubleColumnStatistics().getNullsCount());
-                        case DECIMAL:
-                            return OptionalDouble.of(columnStatistics.getDecimalColumnStatistics().getNullsCount());
-                        case BOOLEAN:
-                            return OptionalDouble.of(columnStatistics.getBooleanColumnStatistics().getNullsCount());
-                        case DATE:
-                            return OptionalDouble.of(columnStatistics.getDateColumnStatistics().getNullsCount());
-                        case STRING:
-                            return OptionalDouble.of(columnStatistics.getStringColumnStatistics().getNullsCount());
-                        case BINARY:
-                            return OptionalDouble.of(columnStatistics.getBinaryColumnStatistics().getNullsCount());
-                        default:
-                            return OptionalDouble.empty();
+                    if (columnStatistics.getNullsCount().isPresent()) {
+                        return OptionalDouble.of(columnStatistics.getDistinctValuesCount().getAsLong());
+                    }
+                    else {
+                        return OptionalDouble.empty();
                     }
                 },
                 doubleStream -> {
