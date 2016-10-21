@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-public class MinBy
+public class MinByAggregationFunction
         extends AbstractMinMaxBy
 {
-    public static final MinBy MIN_BY = new MinBy();
+    public static final MinByAggregationFunction MIN_BY = new MinByAggregationFunction();
 
     @Override
     public String getDescription()
@@ -24,7 +24,7 @@ public class MinBy
         return "Returns the value of the first argument, associated with the minimum value of the second argument";
     }
 
-    public MinBy()
+    public MinByAggregationFunction()
     {
         super(true);
     }

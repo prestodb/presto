@@ -202,10 +202,10 @@ import static com.facebook.presto.operator.aggregation.DecimalSumAggregation.DEC
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
-import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
+import static com.facebook.presto.operator.aggregation.MaxByAggregationFunction.MAX_BY;
 import static com.facebook.presto.operator.aggregation.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxNAggregationFunction.MAX_N_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
+import static com.facebook.presto.operator.aggregation.MinByAggregationFunction.MIN_BY;
 import static com.facebook.presto.operator.aggregation.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinNAggregationFunction.MIN_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MultimapAggregationFunction.MULTIMAP_AGG;
