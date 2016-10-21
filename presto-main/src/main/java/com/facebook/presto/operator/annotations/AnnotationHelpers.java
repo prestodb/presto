@@ -23,15 +23,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.lang.annotation.Annotation;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
-import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
 import static com.facebook.presto.spi.function.OperatorType.CAST;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
@@ -52,14 +53,14 @@ public class AnnotationHelpers
     private AnnotationHelpers()
     {}
 
+    public static boolean containsAnnotation(Annotation[] annotations, Predicate<Annotation> predicate)
+    {
+        return Arrays.stream(annotations).anyMatch(predicate);
+    }
+
     public static boolean containsImplementationDependencyAnnotation(Annotation[] annotations)
     {
-        for (Annotation annotation : annotations) {
-            if (isImplementationDependencyAnnotation(annotation)) {
-                return true;
-            }
-        }
-        return false;
+        return containsAnnotation(annotations, ImplementationDependency::isImplementationDependencyAnnotation);
     }
 
     public static List<TypeVariableConstraint> createTypeVariableConstraints(Iterable<TypeParameter> typeParameters, List<ImplementationDependency> dependencies)

@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.createTypeVariableConstraints;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.validateSignaturesCompatibility;
@@ -210,7 +211,7 @@ public class AggregationCompiler
                 continue;
             }
 
-            if (Arrays.stream(annotations).anyMatch(AggregationCompiler::isAggregationMetaAnnotation)) {
+            if (containsAnnotation(annotations, AggregationCompiler::isAggregationMetaAnnotation)) {
                 continue;
             }
 
