@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -36,6 +38,7 @@ public class TestReorderJoins
             ImmutableMap.of("O_ORDERKEY", "orderkey", "O_SHIPPRIORITY", "shippriority"));
     private static final PlanMatchPattern SUPPLIER_TABLESCAN = tableScan("supplier", ImmutableMap.of("S_SUPPKEY", "suppkey"));
     private static final PlanMatchPattern PART_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey"));
+    private static final PlanMatchPattern PART_WITH_NAME_TABLESCAN = tableScan("part", ImmutableMap.of("P_PARTKEY", "partkey", "P_NAME", "name"));
     private static final PlanMatchPattern LINEITEM_TABLESCAN = tableScan(
             "lineitem",
             ImmutableMap.of(
@@ -47,7 +50,12 @@ public class TestReorderJoins
                     "L_PARTKEY", "partkey",
                     "L_ORDERKEY", "orderkey",
                     "L_RETURNFLAG", "returnflag"));
-
+    private static final PlanMatchPattern LINEITEM_WITH_COMMENT_TABLESCAN = tableScan(
+            "lineitem",
+            ImmutableMap.of(
+                    "L_PARTKEY", "partkey",
+                    "L_ORDERKEY", "orderkey",
+                    "L_COMMENT", "comment"));
 
     public TestReorderJoins()
     {
@@ -83,13 +91,14 @@ public class TestReorderJoins
     @Test
     public void testEliminateCrossJoinWithNonEqualityCondition()
     {
-        assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey",
+        assertPlan("SELECT o.orderkey FROM part p, orders o, lineitem l " +
+                        "WHERE p.partkey = l.partkey AND l.orderkey = o.orderkey AND p.partkey <> o.orderkey AND p.name < l.comment",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("L_ORDERKEY", "O_ORDERKEY")),
                                 anyTree(
-                                        join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")),
-                                                anyTree(PART_TABLESCAN),
-                                                anyTree(filter("L_PARTKEY <> L_ORDERKEY", LINEITEM_TABLESCAN)))),
+                                        join(INNER, ImmutableList.of(equiJoinClause("P_PARTKEY", "L_PARTKEY")), Optional.of("P_NAME < cast(L_COMMENT AS varchar(55))"),
+                                                anyTree(PART_WITH_NAME_TABLESCAN),
+                                                anyTree(filter("L_PARTKEY <> L_ORDERKEY", LINEITEM_WITH_COMMENT_TABLESCAN)))),
                                 anyTree(ORDERS_TABLESCAN))));
     }
 
