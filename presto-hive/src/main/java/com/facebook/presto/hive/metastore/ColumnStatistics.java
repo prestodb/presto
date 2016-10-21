@@ -16,166 +16,88 @@ package com.facebook.presto.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 
-import static java.util.Arrays.stream;
-
-public class ColumnStatistics
+public class ColumnStatistics<T>
 {
-    public enum Type
-    {
-        LONG,
-        DOUBLE,
-        DECIMAL,
-        BOOLEAN,
-        DATE,
-        STRING,
-        BINARY
-    }
-
-    private final Type type;
-    private final Optional<LongColumnStatistics> longColumnStatistics;
-    private final Optional<DoubleColumnStatistics> doubleColumnStatistics;
-    private final Optional<DecimalColumnStatistics> decimalColumnStatistics;
-    private final Optional<BooleanColumnStatistics> booleanColumnStatistics;
-    private final Optional<DateColumnStatistics> dateColumnStatistics;
-    private final Optional<StringColumnStatistics> stringColumnStatistics;
-    private final Optional<BinaryColumnStatistics> binaryColumnStatistics;
+    private final Optional<T> lowValue;
+    private final Optional<T> highValue;
+    private final OptionalLong maxColumnLength;
+    private final OptionalDouble averageColumnLength;
+    private final OptionalLong trueCount;
+    private final OptionalLong falseCount;
+    private final OptionalLong nullsCount;
+    private final OptionalLong distinctValuesCount;
 
     @JsonCreator
     public ColumnStatistics(
-            @JsonProperty("longColumnStatistics") Optional<LongColumnStatistics> longColumnStatistics,
-            @JsonProperty("doubleColumnStatistics") Optional<DoubleColumnStatistics> doubleColumnStatistics,
-            @JsonProperty("decimalColumnStatistics") Optional<DecimalColumnStatistics> decimalColumnStatistics,
-            @JsonProperty("booleanColumnStatistics") Optional<BooleanColumnStatistics> booleanColumnStatistics,
-            @JsonProperty("dateColumnStatistics") Optional<DateColumnStatistics> dateColumnStatistics,
-            @JsonProperty("stringColumnStatistics") Optional<StringColumnStatistics> stringColumnStatistics,
-            @JsonProperty("binaryColumnStatistics") Optional<BinaryColumnStatistics> binaryColumnStatistics)
+            @JsonProperty("minValue") Optional<T> lowValue,
+            @JsonProperty("maxValue") Optional<T> highValue,
+            @JsonProperty("maxColumnLength") OptionalLong maxColumnLength,
+            @JsonProperty("averageColumnLength") OptionalDouble averageColumnLength,
+            @JsonProperty("trueCount") OptionalLong trueCount,
+            @JsonProperty("falseCount") OptionalLong falseCount,
+            @JsonProperty("nullsCount") OptionalLong nullsCount,
+            @JsonProperty("distinctValuesCount") OptionalLong distinctValuesCount)
     {
-        Preconditions.checkArgument(
-                countNonEmpty(longColumnStatistics, doubleColumnStatistics, decimalColumnStatistics, booleanColumnStatistics,
-                        dateColumnStatistics, stringColumnStatistics, binaryColumnStatistics) == 1,
-                "exactly one of long/double/decimal/boolean/date/string/binary statistics expected");
-        this.longColumnStatistics = longColumnStatistics;
-        this.doubleColumnStatistics = doubleColumnStatistics;
-        this.decimalColumnStatistics = decimalColumnStatistics;
-        this.booleanColumnStatistics = booleanColumnStatistics;
-        this.dateColumnStatistics = dateColumnStatistics;
-        this.stringColumnStatistics = stringColumnStatistics;
-        this.binaryColumnStatistics = binaryColumnStatistics;
-
-        if (longColumnStatistics.isPresent()) {
-            type = Type.LONG;
-        }
-        else if (doubleColumnStatistics.isPresent()) {
-            type = Type.DOUBLE;
-        }
-        else if (decimalColumnStatistics.isPresent()) {
-            type = Type.DECIMAL;
-        }
-        else if (booleanColumnStatistics.isPresent()) {
-            type = Type.BOOLEAN;
-        }
-        else if (dateColumnStatistics.isPresent()) {
-            type = Type.DATE;
-        }
-        else if (stringColumnStatistics.isPresent()) {
-            type = Type.STRING;
-        }
-        else if (binaryColumnStatistics.isPresent()) {
-            type = Type.BINARY;
-        }
-        else {
-            throw new IllegalArgumentException("cannot determine statistics type");
-        }
-    }
-
-    private long countNonEmpty(Optional<?>... optionals)
-    {
-        return stream(optionals).mapToLong(optional -> optional.isPresent() ? 1 : 0).sum();
-    }
-
-    public Type getType()
-    {
-        return type;
+        this.lowValue = lowValue;
+        this.highValue = highValue;
+        this.maxColumnLength = maxColumnLength;
+        this.averageColumnLength = averageColumnLength;
+        this.trueCount = trueCount;
+        this.falseCount = falseCount;
+        this.nullsCount = nullsCount;
+        this.distinctValuesCount = distinctValuesCount;
     }
 
     @JsonProperty
-    public LongColumnStatistics getLongColumnStatistics()
+    public Optional<T> getLowValue()
     {
-        return longColumnStatistics.get();
+        return lowValue;
     }
 
     @JsonProperty
-    public DoubleColumnStatistics getDoubleColumnStatistics()
+    public Optional<T> getHighValue()
     {
-        return doubleColumnStatistics.get();
+        return highValue;
     }
 
     @JsonProperty
-    public DecimalColumnStatistics getDecimalColumnStatistics()
+    public OptionalLong getMaxColumnLength()
     {
-        return decimalColumnStatistics.get();
+        return maxColumnLength;
     }
 
     @JsonProperty
-    public BooleanColumnStatistics getBooleanColumnStatistics()
+    public OptionalDouble getAverageColumnLength()
     {
-        return booleanColumnStatistics.get();
+        return averageColumnLength;
     }
 
     @JsonProperty
-    public DateColumnStatistics getDateColumnStatistics()
+    public OptionalLong getTrueCount()
     {
-        return dateColumnStatistics.get();
+        return trueCount;
     }
 
     @JsonProperty
-    public StringColumnStatistics getStringColumnStatistics()
+    public OptionalLong getFalseCount()
     {
-        return stringColumnStatistics.get();
+        return falseCount;
     }
 
     @JsonProperty
-    public BinaryColumnStatistics getBinaryColumnStatistics()
+    public OptionalLong getNullsCount()
     {
-        return binaryColumnStatistics.get();
+        return nullsCount;
     }
 
-    public static ColumnStatistics columnStatistics(LongColumnStatistics longColumnStatistics)
+    @JsonProperty
+    public OptionalLong getDistinctValuesCount()
     {
-        return new ColumnStatistics(Optional.of(longColumnStatistics), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    }
-
-    public static ColumnStatistics columnStatistics(DoubleColumnStatistics doubleColumnStatistics)
-    {
-        return new ColumnStatistics(Optional.empty(), Optional.of(doubleColumnStatistics), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    }
-
-    public static ColumnStatistics columnStatistics(DecimalColumnStatistics decimalColumnStatistics)
-    {
-        return new ColumnStatistics(Optional.empty(), Optional.empty(), Optional.of(decimalColumnStatistics), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-    }
-
-    public static ColumnStatistics columnStatistics(BooleanColumnStatistics booleanColumnStatistics)
-    {
-        return new ColumnStatistics(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(booleanColumnStatistics), Optional.empty(), Optional.empty(), Optional.empty());
-    }
-
-    public static ColumnStatistics columnStatistics(DateColumnStatistics dateColumnStatistics)
-    {
-        return new ColumnStatistics(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(dateColumnStatistics), Optional.empty(), Optional.empty());
-    }
-
-    public static ColumnStatistics columnStatistics(StringColumnStatistics stringColumnStatistics)
-    {
-        return new ColumnStatistics(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(stringColumnStatistics), Optional.empty());
-    }
-
-    public static ColumnStatistics columnStatistics(BinaryColumnStatistics binaryColumnStatistics)
-    {
-        return new ColumnStatistics(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(binaryColumnStatistics));
+        return distinctValuesCount;
     }
 }

@@ -40,6 +40,8 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
 
@@ -280,63 +282,87 @@ public class MetastoreUtil
     {
         if (columnStatistics.getStatsData().isSetLongStats()) {
             LongColumnStatsData longStatsData = columnStatistics.getStatsData().getLongStats();
-            return ColumnStatistics.columnStatistics(new LongColumnStatistics(
-                    longStatsData.getLowValue(),
-                    longStatsData.getHighValue(),
-                    longStatsData.getNumDVs(),
-                    longStatsData.getNumNulls()
-            ));
+            return new ColumnStatistics<>(
+                    Optional.of(longStatsData.getLowValue()),
+                    Optional.of(longStatsData.getHighValue()),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(longStatsData.getNumNulls()),
+                    OptionalLong.of(longStatsData.getNumDVs()));
         }
         else if (columnStatistics.getStatsData().isSetDoubleStats()) {
             DoubleColumnStatsData doubleStatsData = columnStatistics.getStatsData().getDoubleStats();
-            return ColumnStatistics.columnStatistics(new DoubleColumnStatistics(
-                    doubleStatsData.getLowValue(),
-                    doubleStatsData.getHighValue(),
-                    doubleStatsData.getNumDVs(),
-                    doubleStatsData.getNumNulls()
-            ));
+            return new ColumnStatistics<>(
+                    Optional.of(doubleStatsData.getLowValue()),
+                    Optional.of(doubleStatsData.getHighValue()),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(doubleStatsData.getNumNulls()),
+                    OptionalLong.of(doubleStatsData.getNumDVs()));
         }
         else if (columnStatistics.getStatsData().isSetDecimalStats()) {
             DecimalColumnStatsData decimalStatsData = columnStatistics.getStatsData().getDecimalStats();
-            return ColumnStatistics.columnStatistics(new DecimalColumnStatistics(
-                    fromMetastoreDecimal(decimalStatsData.getLowValue()),
-                    fromMetastoreDecimal(decimalStatsData.getHighValue()),
-                    decimalStatsData.getNumDVs(),
-                    decimalStatsData.getNumNulls()
-            ));
+            return new ColumnStatistics<>(
+                    Optional.of(fromMetastoreDecimal(decimalStatsData.getLowValue())),
+                    Optional.of(fromMetastoreDecimal(decimalStatsData.getHighValue())),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(decimalStatsData.getNumNulls()),
+                    OptionalLong.of(decimalStatsData.getNumDVs()));
         }
         else if (columnStatistics.getStatsData().isSetBooleanStats()) {
             BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
-            return ColumnStatistics.columnStatistics(new BooleanColumnStatistics(
-                    booleanStatsData.getNumTrues(),
-                    booleanStatsData.getNumFalses(),
-                    booleanStatsData.getNumNulls()
-            ));
+            return new ColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.of(booleanStatsData.getNumTrues()),
+                    OptionalLong.of(booleanStatsData.getNumFalses()),
+                    OptionalLong.of(booleanStatsData.getNumNulls()),
+                    OptionalLong.of((booleanStatsData.getNumFalses() > 0 ? 1 : 0) + (booleanStatsData.getNumTrues() > 0 ? 1 : 0)));
         }
         else if (columnStatistics.getStatsData().isSetDateStats()) {
             DateColumnStatsData dateStatsData = columnStatistics.getStatsData().getDateStats();
-            return ColumnStatistics.columnStatistics(new DateColumnStatistics(
-                    dateStatsData.getLowValue(),
-                    dateStatsData.getHighValue(),
-                    dateStatsData.getNumDVs(),
-                    dateStatsData.getNumNulls()
-            ));
+            return new ColumnStatistics<>(
+                    Optional.of(dateStatsData.getLowValue()),
+                    Optional.of(dateStatsData.getHighValue()),
+                    OptionalLong.empty(),
+                    OptionalDouble.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(dateStatsData.getNumNulls()),
+                    OptionalLong.of(dateStatsData.getNumDVs()));
         }
         else if (columnStatistics.getStatsData().isSetStringStats()) {
             StringColumnStatsData stringStatsData = columnStatistics.getStatsData().getStringStats();
-            return ColumnStatistics.columnStatistics(new StringColumnStatistics(
-                    stringStatsData.getMaxColLen(),
-                    stringStatsData.getAvgColLen(),
-                    stringStatsData.getNumDVs(),
-                    stringStatsData.getNumNulls()
-            ));
+            return new ColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.of(stringStatsData.getMaxColLen()),
+                    OptionalDouble.of(stringStatsData.getAvgColLen()),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(stringStatsData.getNumNulls()),
+                    OptionalLong.of(stringStatsData.getNumDVs()));
         }
         else if (columnStatistics.getStatsData().isSetBinaryStats()) {
             BinaryColumnStatsData binaryStatsData = columnStatistics.getStatsData().getBinaryStats();
-            return ColumnStatistics.columnStatistics(new BinaryColumnStatistics(
-                    binaryStatsData.getMaxColLen(),
-                    binaryStatsData.getAvgColLen(),
-                    binaryStatsData.getNumNulls()));
+            return new ColumnStatistics<>(
+                    Optional.empty(),
+                    Optional.empty(),
+                    OptionalLong.of(binaryStatsData.getMaxColLen()),
+                    OptionalDouble.of(binaryStatsData.getAvgColLen()),
+                    OptionalLong.empty(),
+                    OptionalLong.empty(),
+                    OptionalLong.of(binaryStatsData.getNumNulls()),
+                    OptionalLong.empty());
         }
         else {
             throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
