@@ -18,7 +18,6 @@ import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.SliceState;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -32,12 +31,12 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.operator.aggregation.MinMaxHelper.combineStateWithState;
+import static com.facebook.presto.operator.aggregation.MinMaxHelper.combineStateWithValue;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 
 @AggregationFunction("min")
@@ -45,8 +44,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 public class MinAggregationFunction
 {
     private MinAggregationFunction()
-    {
-    }
+    {}
 
     @InputFunction
     @TypeParameter("T")
@@ -55,21 +53,7 @@ public class MinAggregationFunction
             @AggregationState NullableDoubleState state,
             @SqlType("T") double value)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getDouble())) {
-                state.setDouble(value);
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithValue(methodHandle, state, value);
     }
 
     @InputFunction
@@ -79,21 +63,7 @@ public class MinAggregationFunction
             @AggregationState NullableLongState state,
             @SqlType("T") long value)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getLong())) {
-                state.setLong(value);
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithValue(methodHandle, state, value);
     }
 
     @InputFunction
@@ -103,20 +73,7 @@ public class MinAggregationFunction
             @AggregationState SliceState state,
             @SqlType("T") Slice value)
     {
-        if (state.getSlice() == null) {
-            state.setSlice(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getSlice())) {
-                state.setSlice(value);
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithValue(methodHandle, state, value);
     }
 
     @InputFunction
@@ -126,21 +83,7 @@ public class MinAggregationFunction
             @AggregationState NullableBooleanState state,
             @SqlType("T") boolean value)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getBoolean())) {
-                state.setBoolean(value);
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithValue(methodHandle, state, value);
     }
 
     @InputFunction
@@ -150,20 +93,7 @@ public class MinAggregationFunction
             @AggregationState BlockState state,
             @SqlType("T") Block value)
     {
-        if (state.getBlock() == null) {
-            state.setBlock(value);
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(value, state.getBlock())) {
-                state.setBlock(value);
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithValue(methodHandle, state, value);
     }
 
     @CombineFunction
@@ -172,21 +102,7 @@ public class MinAggregationFunction
             @AggregationState NullableLongState state,
             @AggregationState NullableLongState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getLong(), state.getLong())) {
-                state.setLong(otherState.getLong());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithState(methodHandle, state, otherState);
     }
 
     @CombineFunction
@@ -195,21 +111,7 @@ public class MinAggregationFunction
             @AggregationState NullableDoubleState state,
             @AggregationState NullableDoubleState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(otherState.getDouble());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getDouble(), state.getDouble())) {
-                state.setDouble(otherState.getDouble());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithState(methodHandle, state, otherState);
     }
 
     @CombineFunction
@@ -218,21 +120,7 @@ public class MinAggregationFunction
             @AggregationState NullableBooleanState state,
             @AggregationState NullableBooleanState otherState)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(otherState.getBoolean());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getBoolean(), state.getBoolean())) {
-                state.setBoolean(otherState.getBoolean());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithState(methodHandle, state, otherState);
     }
 
     @CombineFunction
@@ -241,20 +129,7 @@ public class MinAggregationFunction
             @AggregationState SliceState state,
             @AggregationState SliceState otherState)
     {
-        if (state.getSlice() == null) {
-            state.setSlice(otherState.getSlice());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getSlice(), state.getSlice())) {
-                state.setSlice(otherState.getSlice());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithState(methodHandle, state, otherState);
     }
 
     @CombineFunction
@@ -263,20 +138,7 @@ public class MinAggregationFunction
             @AggregationState BlockState state,
             @AggregationState BlockState otherState)
     {
-        if (state.getBlock() == null) {
-            state.setBlock(otherState.getBlock());
-            return;
-        }
-        try {
-            if ((boolean) methodHandle.invokeExact(otherState.getBlock(), state.getBlock())) {
-                state.setBlock(otherState.getBlock());
-            }
-        }
-        catch (Throwable t) {
-            Throwables.propagateIfInstanceOf(t, Error.class);
-            Throwables.propagateIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-        }
+        combineStateWithState(methodHandle, state, otherState);
     }
 
     @OutputFunction("T")
