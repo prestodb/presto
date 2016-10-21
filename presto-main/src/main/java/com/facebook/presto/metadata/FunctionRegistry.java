@@ -43,7 +43,9 @@ import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregatio
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthSumAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
+import com.facebook.presto.operator.aggregation.MaxAggregationFunction;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
+import com.facebook.presto.operator.aggregation.MinAggregationFunction;
 import com.facebook.presto.operator.aggregation.RealAverageAggregation;
 import com.facebook.presto.operator.aggregation.RealCorrelationAggregation;
 import com.facebook.presto.operator.aggregation.RealCovarianceAggregation;
@@ -200,11 +202,9 @@ import static com.facebook.presto.operator.aggregation.DecimalSumAggregation.DEC
 import static com.facebook.presto.operator.aggregation.Histogram.HISTOGRAM;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
-import static com.facebook.presto.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxBy.MAX_BY;
 import static com.facebook.presto.operator.aggregation.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxNAggregationFunction.MAX_N_AGGREGATION;
-import static com.facebook.presto.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinBy.MIN_BY;
 import static com.facebook.presto.operator.aggregation.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinNAggregationFunction.MIN_N_AGGREGATION;
@@ -443,6 +443,8 @@ public class FunctionRegistry
                 .aggregates(RealCorrelationAggregation.class)
                 .aggregates(BitwiseOrAggregation.class)
                 .aggregates(BitwiseAndAggregation.class)
+                .aggregate(MinAggregationFunction.class)
+                .aggregate(MaxAggregationFunction.class)
                 .scalar(RepeatFunction.class)
                 .scalars(SequenceFunction.class)
                 .scalars(StringFunctions.class)
@@ -563,7 +565,7 @@ public class FunctionRegistry
                 .function(ARBITRARY_AGGREGATION)
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
-                .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
+                .functions(MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
