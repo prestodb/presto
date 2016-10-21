@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -38,10 +37,15 @@ public final class NetworkLocation
         this(Arrays.asList(segments));
     }
 
-    public NetworkLocation(List<String> segments)
+    private NetworkLocation(List<String> segments)
+    {
+        this.segments = segments;
+    }
+
+    public static NetworkLocation create(List<String> segments)
     {
         requireNonNull(segments, "segments is null");
-        this.segments = ImmutableList.copyOf(segments);
+        return new NetworkLocation(ImmutableList.copyOf(segments));
     }
 
     public NetworkLocation subLocation(int start, int end)
@@ -64,13 +68,15 @@ public final class NetworkLocation
             return false;
         }
         NetworkLocation that = (NetworkLocation) obj;
-        return Objects.equals(segments, that.segments);
+        // NOTE: This is performance sensitive and does not use Objects.equals to avoid excess object allocation
+        return segments.equals(that.segments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(segments);
+        // NOTE: This is performance sensitive and does not use Objects.hash to avoid excess object allocation
+        return segments.hashCode();
     }
 
     @Override
