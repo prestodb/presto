@@ -222,10 +222,4 @@ public class ParallelHashBuildOperator
     {
         return null;
     }
-
-    @Override
-    public void close()
-    {
-        lookupSourceSupplier.close();
-    }
 }

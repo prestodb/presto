@@ -23,7 +23,6 @@ import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public final class PartitionedLookupSourceSupplier
-        implements LookupSourceSupplier, Closeable
+        implements LookupSourceSupplier
 {
     private final List<Type> types;
     private final Map<Symbol, Integer> layout;
@@ -109,10 +108,5 @@ public final class PartitionedLookupSourceSupplier
     public CompletableFuture<?> isDestroyed()
     {
         return MoreFutures.unmodifiableFuture(destroyed);
-    }
-
-    @Override
-    public void close()
-    {
     }
 }
