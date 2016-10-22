@@ -20,6 +20,7 @@ import com.facebook.presto.operator.window.WindowAnnotationsParser;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunction;
+import com.facebook.presto.spi.function.WindowFunctionOptions;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
@@ -60,7 +61,10 @@ public class FunctionListBuilder
                 parseTypeSignature(typeVariable),
                 Arrays.asList(argumentTypes).stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()),
                 false);
-        boolean canIgnoreNulls = name.equalsIgnoreCase("lag") || name.equalsIgnoreCase("lead");
+
+        WindowFunctionOptions[] options = clazz.getAnnotationsByType(WindowFunctionOptions.class);
+        boolean canIgnoreNulls = options.length > 0 && options[0].canIgnoreNulls();
+
         functions.add(new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, canIgnoreNulls, clazz)));
         return this;
     }
