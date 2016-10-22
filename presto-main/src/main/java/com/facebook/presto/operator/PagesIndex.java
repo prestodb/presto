@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
@@ -33,11 +34,11 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -49,7 +50,7 @@ import static java.util.Objects.requireNonNull;
  * This data structure is not general purpose and is designed for a few specific uses:
  * <ul>
  * <li>Sort via the {@link #sort} method</li>
- * <li>Hash build via the {@link #createLookupSource} method</li>
+ * <li>Hash build via the {@link #createLookupSourceSupplier} method</li>
  * <li>Positional output via the {@link #appendTo} method</li>
  * </ul>
  */
@@ -304,9 +305,9 @@ public class PagesIndex
         return orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders);
     }
 
-    public LookupSource createLookupSource(Session session, List<Integer> joinChannels)
+    public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSource(session, joinChannels, Optional.empty(), Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty());
     }
 
     public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
@@ -323,26 +324,26 @@ public class PagesIndex
         return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
     }
 
-    public LookupSource createLookupSource(Session session, List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<JoinFilterFunctionFactory> filterFunctionFactory)
+    public Supplier<LookupSource> createLookupSourceSupplier(
+            Session session,
+            List<Integer> joinChannels,
+            Optional<Integer> hashChannel,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
-        Optional<JoinFilterFunction> joinFilterFunction = filterFunctionFactory.map(factory -> factory.create(
-                session.toConnectorSession(),
-                valueAddresses,
-                ImmutableList.copyOf(channels)));
-
+        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
             // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
             // This code path will trigger only for OUTER joins. To fix that we need to add support for
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
-                LookupSourceFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
-
-                return lookupSourceFactory.createLookupSource(
+                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels);
+                return lookupSourceFactory.createLookupSourceSupplier(
+                        session.toConnectorSession(),
                         valueAddresses,
-                        ImmutableList.copyOf(channels),
+                        channels,
                         hashChannel,
-                        joinFilterFunction);
+                        filterFunctionFactory);
             }
             catch (Exception e) {
                 log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -352,12 +353,16 @@ public class PagesIndex
         // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
-                ImmutableList.copyOf(this.channels),
+                channels,
                 joinChannels,
-                hashChannel
-        );
+                hashChannel);
 
-        return new JoinHash(valueAddresses, hashStrategy, joinFilterFunction);
+        return new JoinHashSupplier(
+                session.toConnectorSession(),
+                hashStrategy,
+                valueAddresses,
+                channels,
+                filterFunctionFactory);
     }
 
     @Override

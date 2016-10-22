@@ -17,16 +17,20 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
+import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -37,19 +41,24 @@ public final class PartitionedLookupSourceFactory
     private final List<Type> types;
     private final Map<Symbol, Integer> layout;
     private final List<Type> hashChannelTypes;
-    private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
-    private final LookupSource[] partitions;
+    private final Supplier<LookupSource>[] partitions;
     private final boolean outer;
     private final CompletableFuture<?> destroyed = new CompletableFuture<>();
 
     @GuardedBy("this")
     private int partitionsSet;
 
+    @GuardedBy("this")
+    private Supplier<LookupSource> lookupSourceSupplier;
+
+    @GuardedBy("this")
+    private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
+
     public PartitionedLookupSourceFactory(List<Type> types, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.layout = ImmutableMap.copyOf(layout);
-        this.partitions = new LookupSource[partitionCount];
+        this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
 
         hashChannelTypes = hashChannels.stream()
@@ -70,32 +79,45 @@ public final class PartitionedLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<LookupSource> createLookupSource()
+    public synchronized ListenableFuture<LookupSource> createLookupSource()
     {
+        if (lookupSourceSupplier != null) {
+            return Futures.immediateFuture(lookupSourceSupplier.get());
+        }
+
+        SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+        lookupSourceFutures.add(lookupSourceFuture);
         return lookupSourceFuture;
     }
 
-    public void setLookupSource(int partitionIndex, LookupSource lookupSource)
+    public void setPartitionLookupSourceSupplier(int partitionIndex, Supplier<LookupSource> partitionLookupSource)
     {
-        PartitionedLookupSource partitionedLookupSource = null;
-        synchronized (this) {
-            requireNonNull(lookupSource, "lookupSource is null");
+        requireNonNull(partitionLookupSource, "partitionLookupSource is null");
 
+        Supplier<LookupSource> lookupSourceSupplier = null;
+        List<SettableFuture<LookupSource>> lookupSourceFutures = null;
+        synchronized (this) {
             if (destroyed.isDone()) {
                 return;
             }
 
             checkState(partitions[partitionIndex] == null, "Partition already set");
-            partitions[partitionIndex] = lookupSource;
+            partitions[partitionIndex] = partitionLookupSource;
             partitionsSet++;
 
             if (partitionsSet == partitions.length) {
-                partitionedLookupSource = new PartitionedLookupSource(ImmutableList.copyOf(partitions), hashChannelTypes, outer);
+                List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
+                lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);
+                this.lookupSourceSupplier = lookupSourceSupplier;
+
+                lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
             }
         }
 
-        if (partitionedLookupSource != null) {
-            lookupSourceFuture.set(partitionedLookupSource);
+        if (lookupSourceFutures != null) {
+            for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
+                lookupSourceFuture.set(lookupSourceSupplier.get());
+            }
         }
     }
 

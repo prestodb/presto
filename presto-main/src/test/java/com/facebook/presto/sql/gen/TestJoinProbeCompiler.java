@@ -24,7 +24,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceFactory;
+import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -81,7 +81,7 @@ public class TestJoinProbeCompiler
         taskContext.addPipelineContext(true, true).addDriverContext();
 
         ImmutableList<Type> types = ImmutableList.<Type>of(VARCHAR);
-        LookupSourceFactory lookupSourceFactoryFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
+        LookupSourceSupplierFactory lookupSourceSupplierFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> channel = ImmutableList.of(
@@ -108,7 +108,13 @@ public class TestJoinProbeCompiler
             hashChannel = Optional.of(1);
             channels = ImmutableList.of(channel, hashChannelBuilder.build());
         }
-        LookupSource lookupSource = lookupSourceFactoryFactory.createLookupSource(addresses, channels, hashChannel, Optional.empty());
+        LookupSource lookupSource = lookupSourceSupplierFactory.createLookupSourceSupplier(
+                taskContext.getSession().toConnectorSession(),
+                addresses,
+                channels,
+                hashChannel,
+                Optional.empty())
+                .get();
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
         JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0), hashChannel);

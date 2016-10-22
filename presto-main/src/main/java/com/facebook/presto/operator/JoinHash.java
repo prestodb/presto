@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import javax.annotation.Nullable;
 
@@ -34,11 +33,6 @@ public final class JoinHash
     // we do quick check for `filterFunction == null` in `getNextJoinPositionFrom` to avoid calls to applyFilterFunction
     @Nullable
     private final JoinFilterFunction filterFunction;
-
-    public JoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, Optional<JoinFilterFunction> filterFunction)
-    {
-        this(new PagesHash(addresses, pagesHashStrategy), filterFunction);
-    }
 
     public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction)
     {

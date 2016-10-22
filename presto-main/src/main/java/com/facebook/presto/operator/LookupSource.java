@@ -16,8 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 
+import javax.annotation.concurrent.NotThreadSafe;
+
 import java.io.Closeable;
 
+@NotThreadSafe
 public interface LookupSource
         extends Closeable
 {

@@ -84,7 +84,7 @@ public class IndexSnapshotBuilder
 
         this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
         this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions);
-        this.missingKeys = missingKeysIndex.createLookupSource(session, this.missingKeysChannels);
+        this.missingKeys = missingKeysIndex.createLookupSourceSupplier(session, this.missingKeysChannels).get();
     }
 
     public List<Type> getOutputTypes()
@@ -121,7 +121,7 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSource(session, keyOutputChannels, keyOutputHashChannel, Optional.empty());
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
@@ -149,7 +149,7 @@ public class IndexSnapshotBuilder
         // only update missing keys if we have new missing keys
         if (!missingKeysPageBuilder.isEmpty()) {
             missingKeysIndex.addPage(missingKeysPage);
-            missingKeys = missingKeysIndex.createLookupSource(session, missingKeysChannels);
+            missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
         }
 
         return new IndexSnapshot(lookupSource, missingKeys);

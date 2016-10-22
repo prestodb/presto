@@ -27,6 +27,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -176,10 +177,10 @@ public class ParallelHashBuildOperator
         }
         finishing = true;
 
-        LookupSource lookupSource = index.createLookupSource(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory);
-        lookupSourceFactory.setLookupSource(partitionIndex, lookupSource);
+        Supplier<LookupSource> partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory);
+        lookupSourceFactory.setPartitionLookupSourceSupplier(partitionIndex, partition);
 
-        operatorContext.setMemoryReservation(lookupSource.getInMemorySizeInBytes());
+        operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());
     }
 
     @Override

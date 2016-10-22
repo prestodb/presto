@@ -25,6 +25,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -164,8 +165,8 @@ public class HashBuilderOperator
         }
 
         // After this point the LookupSource will take over our memory reservation, and ours will be zero
-        LookupSource lookupSource = pagesIndex.createLookupSource(operatorContext.getSession(), hashChannels, hashChannel, filterFunctionFactory);
-        lookupSourceFactory.setLookupSource(lookupSource, operatorContext);
+        Supplier<LookupSource> supplier = pagesIndex.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, hashChannel, filterFunctionFactory);
+        lookupSourceFactory.setLookupSourceSupplier(supplier, operatorContext);
         finished = true;
     }
 

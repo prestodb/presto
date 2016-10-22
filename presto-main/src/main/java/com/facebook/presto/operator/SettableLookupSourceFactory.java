@@ -17,14 +17,18 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
+import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -38,11 +42,16 @@ public final class SettableLookupSourceFactory
 
     private final List<Type> types;
     private final boolean outer;
-    private final SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
     private final Map<Symbol, Integer> layout;
 
     @GuardedBy("this")
     private State state = State.NOT_SET;
+
+    @GuardedBy("this")
+    private Supplier<LookupSource> lookupSourceSupplier;
+
+    @GuardedBy("this")
+    private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
 
     @GuardedBy("this")
     private Runnable onDestroy;
@@ -67,21 +76,28 @@ public final class SettableLookupSourceFactory
     }
 
     @Override
-    public ListenableFuture<LookupSource> createLookupSource()
+    public synchronized ListenableFuture<LookupSource> createLookupSource()
     {
+        if (lookupSourceSupplier != null) {
+            return Futures.immediateFuture(lookupSourceSupplier.get());
+        }
+
+        SettableFuture<LookupSource> lookupSourceFuture = SettableFuture.create();
+        lookupSourceFutures.add(lookupSourceFuture);
         return lookupSourceFuture;
     }
 
-    public void setLookupSource(LookupSource lookupSource, OperatorContext operatorContext)
+    public void setLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier, OperatorContext operatorContext)
     {
+        requireNonNull(lookupSourceSupplier, "lookupSourceSupplier is null");
+        requireNonNull(operatorContext, "operatorContext is null");
+
         if (outer) {
-            lookupSource = new OuterLookupSource(lookupSource);
+            lookupSourceSupplier = createOuterLookupSourceSupplier(lookupSourceSupplier);
         }
 
+        List<SettableFuture<LookupSource>> lookupSourceFutures;
         synchronized (this) {
-            requireNonNull(lookupSource, "lookupSource is null");
-            requireNonNull(operatorContext, "operatorContext is null");
-
             if (state == State.DESTROYED) {
                 return;
             }
@@ -90,15 +106,20 @@ public final class SettableLookupSourceFactory
             state = State.SET;
 
             // transfer lookup source memory to task context
-            long lookupSourceSizeInBytes = lookupSource.getInMemorySizeInBytes();
+            long lookupSourceSizeInBytes = lookupSourceSupplier.get().getInMemorySizeInBytes();
             operatorContext.transferMemoryToTaskContext(lookupSourceSizeInBytes);
 
             // when all references are released, free the task memory
             TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
             onDestroy = () -> taskContext.freeMemory(lookupSourceSizeInBytes);
+
+            this.lookupSourceSupplier = lookupSourceSupplier;
+            lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
         }
 
-        lookupSourceFuture.set(lookupSource);
+        for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
+            lookupSourceFuture.set(lookupSourceSupplier.get());
+        }
     }
 
     @Override
