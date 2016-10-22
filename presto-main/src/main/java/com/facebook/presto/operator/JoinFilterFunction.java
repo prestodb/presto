@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.Page;
 
 public interface JoinFilterFunction
 {
-    boolean filter(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks);
+    boolean filter(int leftAddress, int rightPosition, Page rightPage);
 }

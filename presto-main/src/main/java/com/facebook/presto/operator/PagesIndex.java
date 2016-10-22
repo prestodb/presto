@@ -327,6 +327,7 @@ public class PagesIndex
     {
         Optional<JoinFilterFunction> joinFilterFunction = filterFunctionFactory.map(factory -> factory.create(
                 session.toConnectorSession(),
+                valueAddresses,
                 ImmutableList.copyOf(channels)));
 
         if (!joinChannels.isEmpty()) {

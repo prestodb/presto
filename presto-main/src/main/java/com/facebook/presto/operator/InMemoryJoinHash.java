@@ -174,7 +174,7 @@ public final class InMemoryJoinHash
     private long getNextJoinPositionFrom(int startJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         int currentJoinPosition = Ints.checkedCast(startJoinPosition);
-        while (filterFunction != null && currentJoinPosition != -1 && !applyFilterFilterFunction((currentJoinPosition), probePosition, allProbeChannelsPage)) {
+        while (filterFunction != null && currentJoinPosition != -1 && !filterFunction.filter((currentJoinPosition), probePosition, allProbeChannelsPage)) {
             currentJoinPosition = positionLinks[Ints.checkedCast(currentJoinPosition)];
         }
         return currentJoinPosition;
@@ -224,17 +224,6 @@ public final class InMemoryJoinHash
         int blockPosition = decodePosition(pageAddress);
 
         return pagesHashStrategy.positionEqualsRowIgnoreNulls(blockIndex, blockPosition, rightPosition, rightPage);
-    }
-
-    private boolean applyFilterFilterFunction(int leftPosition, int rightPosition, Page rightPage)
-    {
-        // todo verify if computing blockIndex/blockPosition is not an performance issue if filter function is not present
-
-        long pageAddress = addresses.getLong(leftPosition);
-        int blockIndex = decodeSliceIndex(pageAddress);
-        int blockPosition = decodePosition(pageAddress);
-
-        return filterFunction.filter(blockIndex, blockPosition, rightPosition, rightPage.getBlocks());
     }
 
     private boolean positionEqualsPositionIgnoreNulls(int leftPosition, int rightPosition)

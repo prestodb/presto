@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
 import com.google.inject.Inject;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -255,7 +256,7 @@ public class JoinFilterFunctionCompiler
     @FunctionalInterface
     public interface JoinFilterFunctionFactory
     {
-        JoinFilterFunction create(ConnectorSession session, List<List<Block>> channels);
+        JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<List<Block>> channels);
     }
 
     private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(
@@ -341,7 +342,7 @@ public class JoinFilterFunctionCompiler
                         new DynamicClassLoader(getClass().getClassLoader()),
                         JoinFilterFunction.class,
                         StandardJoinFilterFunction.class);
-                isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, List.class);
+                isolatedJoinFilterFunctionConstructor = isolatedJoinFilterFunction.getConstructor(InternalJoinFilterFunction.class, LongArrayList.class, List.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
@@ -349,11 +350,11 @@ public class JoinFilterFunctionCompiler
         }
 
         @Override
-        public JoinFilterFunction create(ConnectorSession session, List<List<Block>> channels)
+        public JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<List<Block>> channels)
         {
             try {
                 InternalJoinFilterFunction internalJoinFilterFunction = internalJoinFilterFunctionConstructor.newInstance(session);
-                return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, channels);
+                return isolatedJoinFilterFunctionConstructor.newInstance(internalJoinFilterFunction, addresses, channels);
             }
             catch (ReflectiveOperationException e) {
                 throw Throwables.propagate(e);

@@ -676,7 +676,7 @@ public class TestHashJoinOperator
     private static LookupSourceSupplier buildHash(boolean parallelBuild, TaskContext taskContext, List<Integer> hashChannels, RowPagesBuilder buildPages, Optional<InternalJoinFilterFunction> filterFunction)
     {
         Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
-                .map(function -> ((session, channels) -> new StandardJoinFilterFunction(function, channels)));
+                .map(function -> ((session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels)));
 
         if (parallelBuild) {
             LocalExchange localExchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, PARTITION_COUNT, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());

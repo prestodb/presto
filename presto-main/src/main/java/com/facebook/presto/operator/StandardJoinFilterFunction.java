@@ -14,11 +14,15 @@
 
 package com.facebook.presto.operator;
 
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 
+import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class StandardJoinFilterFunction
@@ -27,11 +31,13 @@ public class StandardJoinFilterFunction
     private static final Block[] EMPTY_BLOCK_ARRAY = new Block[0];
 
     private final InternalJoinFilterFunction filterFunction;
+    private final LongArrayList addresses;
     private final List<Block[]> pages;
 
-    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, List<List<Block>> channels)
+    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, LongArrayList addresses, List<List<Block>> channels)
     {
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null");
+        this.addresses = requireNonNull(addresses, "addresses is null");
 
         requireNonNull(channels, "channels can not be null");
         ImmutableList.Builder<Block[]> pagesBuilder = ImmutableList.builder();
@@ -49,9 +55,13 @@ public class StandardJoinFilterFunction
     }
 
     @Override
-    public boolean filter(int leftBlockIndex, int leftPosition, int rightPosition, Block[] allRightBlocks)
+    public boolean filter(int leftAddress, int rightPosition, Page rightPage)
     {
-        return filterFunction.filter(leftPosition, getLeftBlocks(leftBlockIndex), rightPosition, allRightBlocks);
+        long pageAddress = addresses.getLong(leftAddress);
+        int blockIndex = decodeSliceIndex(pageAddress);
+        int blockPosition = decodePosition(pageAddress);
+
+        return filterFunction.filter(blockPosition, getLeftBlocks(blockIndex), rightPosition, rightPage.getBlocks());
     }
 
     private Block[] getLeftBlocks(int leftBlockIndex)
