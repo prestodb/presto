@@ -89,6 +89,7 @@ public class FilterOptimizer
                         Expression filter = aggregate.getFilter().get();
                         if (symbol.toSymbolReference().equals(filter)) {
                             filterMasks.put(entry.getKey(), symbol);
+                            break;
                         }
                     }
                 }
