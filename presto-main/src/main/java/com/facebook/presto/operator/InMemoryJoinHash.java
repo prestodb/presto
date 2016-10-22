@@ -190,11 +190,6 @@ public final class InMemoryJoinHash
         pagesHashStrategy.appendTo(blockIndex, blockPosition, pageBuilder, outputChannelOffset);
     }
 
-    @Override
-    public void close()
-    {
-    }
-
     private boolean isPositionNull(int position)
     {
         long pageAddress = addresses.getLong(position);

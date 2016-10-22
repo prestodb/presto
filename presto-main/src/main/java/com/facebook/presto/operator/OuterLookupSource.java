@@ -87,12 +87,6 @@ public final class OuterLookupSource
         return new SharedLookupOuterPositionIterator(lookupSource, visitedPositions);
     }
 
-    @Override
-    public void close()
-    {
-        // this method only exists for index lookup which does not support build outer
-    }
-
     private static class SharedLookupOuterPositionIterator
             implements OuterPositionIterator
     {

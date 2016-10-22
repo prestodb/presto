@@ -42,7 +42,7 @@ public interface LookupSource
 
     // this is only here for index lookup source
     @Override
-    void close();
+    default void close() {}
 
     interface OuterPositionIterator
     {

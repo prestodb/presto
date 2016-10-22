@@ -130,12 +130,6 @@ public class PartitionedLookupSource
         return new PartitionedLookupOuterPositionIterator();
     }
 
-    @Override
-    public void close()
-    {
-        // this method only exists for index lookup which does not support partitioned hash build (since it doesn't build)
-    }
-
     private int decodePartition(long partitionedJoinPosition)
     {
         return (int) (partitionedJoinPosition & partitionMask);
