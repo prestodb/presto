@@ -55,6 +55,7 @@ import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterators.peekingIterator;
@@ -88,7 +89,8 @@ public class TableMetadataSystemTable
                         new ColumnMetadata("ordering_columns", arrayOfVarchar),
                         new ColumnMetadata("distribution_name", VARCHAR),
                         new ColumnMetadata("bucket_count", BIGINT),
-                        new ColumnMetadata("bucketing_columns", arrayOfVarchar)));
+                        new ColumnMetadata("bucketing_columns", arrayOfVarchar),
+                        new ColumnMetadata("organized", BOOLEAN)));
     }
 
     @Override
@@ -186,6 +188,9 @@ public class TableMetadataSystemTable
 
             // bucketing_columns
             writeArray(pageBuilder.nextBlockBuilder(), bucketColumnNames.values());
+
+            // organized
+            BOOLEAN.writeBoolean(pageBuilder.nextBlockBuilder(), tableRow.isOrganized());
         }
 
         return pageBuilder.build();
