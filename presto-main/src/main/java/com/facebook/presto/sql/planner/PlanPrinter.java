@@ -420,7 +420,14 @@ public class PlanPrinter
             }
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
-            print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            // Check if the node is actually a cross join node
+            if (node.getType() == JoinNode.Type.INNER && node.getCriteria().isEmpty()) {
+                print(indent, "- %s => [%s]", "CrossJoin", formatOutputs(node.getOutputSymbols()));
+            }
+            else {
+                print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            }
+
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
