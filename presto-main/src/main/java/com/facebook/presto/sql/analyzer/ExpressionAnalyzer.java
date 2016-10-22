@@ -731,8 +731,8 @@ public class ExpressionAnalyzer
                 }
             }
 
-            if (node.getFilterClause().isPresent()) {
-                Expression expression = node.getFilterClause().get();
+            if (node.getFilter().isPresent()) {
+                Expression expression = node.getFilter().get();
                 process(expression, context);
                 Type type = expressionTypes.get(expression);
             }

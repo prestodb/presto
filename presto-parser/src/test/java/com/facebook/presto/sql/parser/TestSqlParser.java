@@ -1588,6 +1588,35 @@ public class TestSqlParser
                                         new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
     }
 
+    @Test
+    public void testSelectFilter()
+    {
+        assertStatement("SELECT SUM(x) FILTER (WHERE x > 4)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new FunctionCall(
+                                                 QualifiedName.of("SUM"),
+                                                 Optional.empty(),
+                                                 Optional.of(
+                                                         new ComparisonExpression(
+                                                                 ComparisonExpression.Type.GREATER_THAN,
+                                                                 new QualifiedNameReference(QualifiedName.of("x")),
+                                                                 new LongLiteral("4"))),
+                                                 false,
+                                                 Lists.newArrayList(new QualifiedNameReference(QualifiedName.of("x"))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.<SortItem>of(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
     private static void assertCast(String type)
     {
         assertCast(type, type);

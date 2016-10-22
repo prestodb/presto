@@ -77,6 +77,12 @@ public class TestStatementBuilder
         printStatement("select count(*) x from src group by grouping sets ((k, v), (v))");
         printStatement("select count(*) x from src group by grouping sets (k, v, k)");
 
+        printStatement("select count(*) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(distinct x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(x) filter (where x > 4) over (partition by y) z from t");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +

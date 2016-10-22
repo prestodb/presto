@@ -1163,8 +1163,8 @@ class AstBuilder
     @Override
     public Node visitFunctionCall(SqlBaseParser.FunctionCallContext context)
     {
+        Optional<Expression> filter = visitIfPresent(context.filter(), Expression.class);
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
-        Optional<Expression> filterClause = visitIfPresent(context.filter(), Expression.class);
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
 
@@ -1214,7 +1214,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 window,
-                filterClause,
+                filter,
                 distinct,
                 visit(context.expression(), Expression.class));
     }

@@ -479,7 +479,18 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
+            Optional<Expression> filter = node.getFilter();
+            if (filter.isPresent()) {
+                Expression filterExpression = filter.get();
+                Expression newFilterExpression = rewrite(filterExpression, context.get());
+                filter = Optional.of(newFilterExpression);
+            }
+
             Optional<Window> rewrittenWindow = node.getWindow();
+            //filter with window function is not supported yet
+            if (filter.isPresent() && node.getWindow().isPresent()) {
+                throw new UnsupportedOperationException("not yet implemented: filters with window functions");
+            }
             if (node.getWindow().isPresent()) {
                 Window window = node.getWindow().get();
 
@@ -534,12 +545,6 @@ public final class ExpressionTreeRewriter<C>
                     rewrittenWindow = Optional.of(new Window(partitionBy.build(), orderBy.build(), rewrittenFrame));
                 }
             }
-            Optional<Expression> filterClause = node.getFilterClause();
-            if (filterClause.isPresent()) {
-                Expression filterExpression = filterClause.get();
-                Expression newFilterExpression = rewrite(filterExpression, context.get());
-                filterClause = Optional.of(newFilterExpression);
-            }
 
             ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
@@ -547,8 +552,8 @@ public final class ExpressionTreeRewriter<C>
             }
 
             if (!sameElements(node.getArguments(), arguments.build()) || !sameElements(rewrittenWindow, node.getWindow())
-                    || !sameElements(filterClause, node.getFilterClause())) {
-                return new FunctionCall(node.getName(), rewrittenWindow, filterClause, node.isDistinct(), arguments.build());
+                    || !sameElements(filter, node.getFilter())) {
+                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.isDistinct(), arguments.build());
             }
             return node;
         }

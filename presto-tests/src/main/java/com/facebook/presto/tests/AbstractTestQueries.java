@@ -871,32 +871,19 @@ public abstract class AbstractTestQueries
                 "GROUP BY orderdate " +
                 "HAVING COUNT(DISTINCT clerk) > 1");
     }
+
     @Test
     public void testSelectFilter()
             throws Exception
     {
-        MaterializedResult actual = computeActual(
-                "SELECT SUM(X) FILTER(WHERE Y>4) FROM  " +
-                " (VALUES (1,3),(2,4),(2,4),(4,5)) t(X,Y)");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT).row(4L).build();
-        assertEquals(actual, expected);
-        actual = computeActual(
-                "SELECT SUM(X) FILTER(WHERE X>1), SUM(Y) FILTER(WHERE Y>4) FROM  " +
-                " (VALUES (1,3),(2,4),(2,4),(4,5)) t(X,Y)");
-        expected = resultBuilder(getSession(), BIGINT, BIGINT).row(8L, 5L).build();
-        assertEquals(actual, expected);
-        actual = computeActual(
-                "SELECT SUM(X) FILTER(WHERE X>1), SUM(X) FROM  " +
-                " (VALUES (1,3),(2,4),(2,4),(4,5)) t(X,Y)");
-        expected = resultBuilder(getSession(), BIGINT, BIGINT).row(8L, 9L).build();
-        assertEquals(actual, expected);
-        actual = computeActual(
-                "SELECT COUNT(*) FILTER(WHERE X>1), SUM(X) FROM  " +
-                        " (VALUES (1,3),(2,4),(2,4),(4,5)) t(X,Y)");
-        expected = resultBuilder(getSession(), BIGINT, BIGINT).row(3L, 9L).build();
-        assertEquals(actual, expected);
-        assertQueryFails("SELECT SUM(DISTINCT X) FILTER(WHERE X>1) AS X FROM (VALUES (1),(2),(2),(4)) t(X)",
-                ".*distinct can't used with filter.*");
+        assertQuery("SELECT sum(x) FILTER (WHERE y > 4) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 4");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(y) FILTER (WHERE y > 4) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 8, 5");
+        assertQuery("SELECT sum(x) FILTER(WHERE x > 1), sum(x) FROM (VALUES (1),(2),(2),(4)) t (x)", "SELECT 8, 9");
+        assertQuery("SELECT count(*) FILTER(WHERE x > 1), SUM(x) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 3, 9");
+        assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE x > 1) AS x FROM (VALUES (1),(2),(2),(4)) t (x)", "SELECT 6");
+        assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE y > 3), sum(DISTINCT y) FILTER (WHERE x > 1) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 6, 9");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1) AS x, sum(DISTINCT x) FROM (VALUES (1),(2),(2),(4)) t (x)", "SELECT 8, 9");
+        assertQueryFails("SELECT sum(x) FILTER(WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1),(2),(2),(4)) t (x)", "not yet implemented: filters with window functions");
     }
 
     @Test

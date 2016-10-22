@@ -25,7 +25,6 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
-import com.facebook.presto.sql.analyzer.SemanticExceptions;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -378,7 +377,7 @@ class QueryPlanner
                 .collect(Collectors.toList());
         // filter expressions need to be projected first
         List<Expression> filterExpressions = analysis.getAggregates(node).stream()
-                .map(FunctionCall::getFilterClause)
+                .map(FunctionCall::getFilter)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(Collectors.toList());
@@ -503,19 +502,6 @@ class QueryPlanner
                             entry.getValue(),
                             builder.build(),
                             Optional.empty()));
-        }
-
-        // 2.e. Mask filter clause for each aggregate.  The marker has been populated in step 1
-        //      The masks map will be empty since we don't allow both distinct and filter
-        for (FunctionCall aggregate : analysis.getAggregates(node)) {
-            if (aggregate.getFilterClause().isPresent()) {
-                if (aggregate.isDistinct()) {
-                    SemanticExceptions.throwNotSupportedException(node, "distinct can't used with filter");
-                }
-                Symbol aggregateSymbol = translations.get(aggregate);
-                Symbol marker = subPlan.getTranslations().get(aggregate.getFilterClause().get());
-                masks.put(aggregateSymbol, marker);
-            }
         }
 
         double confidence = approximationConfidence.orElse(1.0);

@@ -335,12 +335,12 @@ public final class ExpressionFormatter
             builder.append(formatQualifiedName(node.getName()))
                     .append('(').append(arguments).append(')');
 
-            if (node.getWindow().isPresent()) {
-                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
+            if (node.getFilter().isPresent()) {
+                builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), unmangleNames));
             }
 
-            if (node.getFilterClause().isPresent()) {
-                builder.append(" FILTER ").append(visitFilterClause(node.getFilterClause().get(), unmangleNames));
+            if (node.getWindow().isPresent()) {
+                builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
             }
 
             return builder.toString();
@@ -544,9 +544,9 @@ public final class ExpressionFormatter
             return "(" + joinExpressions(node.getValues(), unmangleNames) + ")";
         }
 
-        private String visitFilterClause(Expression node, Boolean unmangleNames)
+        private String visitFilter(Expression node, Boolean unmangleNames)
         {
-            return "( WHERE " + process(node, unmangleNames) + ')';
+            return "(WHERE " + process(node, unmangleNames) + ')';
         }
 
         @Override

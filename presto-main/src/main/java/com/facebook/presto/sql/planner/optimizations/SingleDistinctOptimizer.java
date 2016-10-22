@@ -81,9 +81,9 @@ public class SingleDistinctOptimizer
             if (masks.size() != 1 || node.getMasks().size() != node.getAggregations().size()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
-            // If the aggregation is not distinct, don't optimize
+            // If the aggregation has a filter, don't optimize
             FunctionCall aggregation = Iterables.getOnlyElement(node.getAggregations().values());
-            if (!aggregation.isDistinct()) {
+            if (aggregation.getFilter().isPresent()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
 
