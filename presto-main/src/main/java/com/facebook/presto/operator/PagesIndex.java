@@ -357,7 +357,7 @@ public class PagesIndex
                 hashChannel
         );
 
-        return new InMemoryJoinHash(valueAddresses, hashStrategy, joinFilterFunction);
+        return new JoinHash(valueAddresses, hashStrategy, joinFilterFunction);
     }
 
     @Override

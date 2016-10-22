@@ -32,7 +32,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
-public final class InMemoryJoinHash
+public final class JoinHash
         implements LookupSource
 {
     private static final DataSize CACHE_SIZE = new DataSize(128, KILOBYTE);
@@ -55,7 +55,7 @@ public final class InMemoryJoinHash
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
-    public InMemoryJoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, Optional<JoinFilterFunction> filterFunction)
+    public JoinHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy, Optional<JoinFilterFunction> filterFunction)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
