@@ -31,8 +31,8 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public final class PartitionedLookupSourceSupplier
-        implements LookupSourceSupplier
+public final class PartitionedLookupSourceFactory
+        implements LookupSourceFactory
 {
     private final List<Type> types;
     private final Map<Symbol, Integer> layout;
@@ -45,7 +45,7 @@ public final class PartitionedLookupSourceSupplier
     @GuardedBy("this")
     private int partitionsSet;
 
-    public PartitionedLookupSourceSupplier(List<Type> types, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Integer> hashChannels, int partitionCount, Map<Symbol, Integer> layout, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.layout = ImmutableMap.copyOf(layout);
@@ -70,7 +70,7 @@ public final class PartitionedLookupSourceSupplier
     }
 
     @Override
-    public ListenableFuture<LookupSource> getLookupSource()
+    public ListenableFuture<LookupSource> createLookupSource()
     {
         return lookupSourceFuture;
     }

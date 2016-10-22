@@ -20,11 +20,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.Map;
 
-public interface LookupSourceSupplier
+public interface LookupSourceFactory
 {
     List<Type> getTypes();
 
-    ListenableFuture<LookupSource> getLookupSource();
+    ListenableFuture<LookupSource> createLookupSource();
 
     Map<Symbol, Integer> getLayout();
 

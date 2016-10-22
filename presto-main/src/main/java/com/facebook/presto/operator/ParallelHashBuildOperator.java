@@ -41,7 +41,7 @@ public class ParallelHashBuildOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final PartitionedLookupSourceSupplier lookupSourceSupplier;
+        private final PartitionedLookupSourceFactory lookupSourceFactory;
         private final List<Integer> hashChannels;
         private final Optional<Integer> preComputedHashChannel;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
@@ -67,7 +67,7 @@ public class ParallelHashBuildOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
             checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
-            lookupSourceSupplier = new PartitionedLookupSourceSupplier(
+            lookupSourceFactory = new PartitionedLookupSourceFactory(
                     types,
                     hashChannels,
                     partitionCount,
@@ -82,15 +82,15 @@ public class ParallelHashBuildOperator
             this.expectedPositions = expectedPositions;
         }
 
-        public LookupSourceSupplier getLookupSourceSupplier()
+        public LookupSourceFactory getLookupSourceFactory()
         {
-            return lookupSourceSupplier;
+            return lookupSourceFactory;
         }
 
         @Override
         public List<Type> getTypes()
         {
-            return lookupSourceSupplier.getTypes();
+            return lookupSourceFactory.getTypes();
         }
 
         @Override
@@ -100,7 +100,7 @@ public class ParallelHashBuildOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ParallelHashBuildOperator.class.getSimpleName());
             ParallelHashBuildOperator operator = new ParallelHashBuildOperator(
                     operatorContext,
-                    lookupSourceSupplier,
+                    lookupSourceFactory,
                     partitionIndex,
                     hashChannels,
                     preComputedHashChannel,
@@ -125,7 +125,7 @@ public class ParallelHashBuildOperator
     }
 
     private final OperatorContext operatorContext;
-    private final PartitionedLookupSourceSupplier lookupSourceSupplier;
+    private final PartitionedLookupSourceFactory lookupSourceFactory;
     private final int partitionIndex;
 
     private final List<Integer> hashChannels;
@@ -138,7 +138,7 @@ public class ParallelHashBuildOperator
 
     public ParallelHashBuildOperator(
             OperatorContext operatorContext,
-            PartitionedLookupSourceSupplier lookupSourceSupplier,
+            PartitionedLookupSourceFactory lookupSourceFactory,
             int partitionIndex,
             List<Integer> hashChannels,
             Optional<Integer> preComputedHashChannel,
@@ -149,8 +149,8 @@ public class ParallelHashBuildOperator
         this.partitionIndex = partitionIndex;
         this.filterFunctionFactory = filterFunctionFactory;
 
-        this.index = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
-        this.lookupSourceSupplier = lookupSourceSupplier;
+        this.index = new PagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
+        this.lookupSourceFactory = lookupSourceFactory;
 
         this.hashChannels = hashChannels;
         this.preComputedHashChannel = preComputedHashChannel;
@@ -165,7 +165,7 @@ public class ParallelHashBuildOperator
     @Override
     public List<Type> getTypes()
     {
-        return lookupSourceSupplier.getTypes();
+        return lookupSourceFactory.getTypes();
     }
 
     @Override
@@ -177,7 +177,7 @@ public class ParallelHashBuildOperator
         finishing = true;
 
         LookupSource lookupSource = index.createLookupSource(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory);
-        lookupSourceSupplier.setLookupSource(partitionIndex, lookupSource);
+        lookupSourceFactory.setLookupSource(partitionIndex, lookupSource);
 
         operatorContext.setMemoryReservation(lookupSource.getInMemorySizeInBytes());
     }
@@ -185,7 +185,7 @@ public class ParallelHashBuildOperator
     @Override
     public boolean isFinished()
     {
-        return finishing && lookupSourceSupplier.isDestroyed().isDone();
+        return finishing && lookupSourceFactory.isDestroyed().isDone();
     }
 
     @Override
@@ -200,7 +200,7 @@ public class ParallelHashBuildOperator
         if (!finishing) {
             return NOT_BLOCKED;
         }
-        return MoreFutures.toListenableFuture(lookupSourceSupplier.isDestroyed());
+        return MoreFutures.toListenableFuture(lookupSourceFactory.isDestroyed());
     }
 
     @Override

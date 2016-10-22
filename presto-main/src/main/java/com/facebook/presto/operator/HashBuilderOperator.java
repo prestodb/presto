@@ -42,7 +42,7 @@ public class HashBuilderOperator
 
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final SettableLookupSourceSupplier lookupSourceSupplier;
+        private final SettableLookupSourceFactory lookupSourceFactory;
         private final List<Integer> hashChannels;
         private final Optional<Integer> hashChannel;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
@@ -63,7 +63,7 @@ public class HashBuilderOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.lookupSourceSupplier = new SettableLookupSourceSupplier(
+            this.lookupSourceFactory = new SettableLookupSourceFactory(
                     requireNonNull(types, "types is null"),
                     requireNonNull(layout, "layout is null"),
                     outer);
@@ -75,15 +75,15 @@ public class HashBuilderOperator
             this.expectedPositions = expectedPositions;
         }
 
-        public LookupSourceSupplier getLookupSourceSupplier()
+        public LookupSourceFactory getLookupSourceFactory()
         {
-            return lookupSourceSupplier;
+            return lookupSourceFactory;
         }
 
         @Override
         public List<Type> getTypes()
         {
-            return lookupSourceSupplier.getTypes();
+            return lookupSourceFactory.getTypes();
         }
 
         @Override
@@ -95,7 +95,7 @@ public class HashBuilderOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashBuilderOperator.class.getSimpleName());
             return new HashBuilderOperator(
                     operatorContext,
-                    lookupSourceSupplier,
+                    lookupSourceFactory,
                     hashChannels,
                     hashChannel,
                     filterFunctionFactory,
@@ -116,7 +116,7 @@ public class HashBuilderOperator
     }
 
     private final OperatorContext operatorContext;
-    private final SettableLookupSourceSupplier lookupSourceSupplier;
+    private final SettableLookupSourceFactory lookupSourceFactory;
     private final List<Integer> hashChannels;
     private final Optional<Integer> hashChannel;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
@@ -127,7 +127,7 @@ public class HashBuilderOperator
 
     public HashBuilderOperator(
             OperatorContext operatorContext,
-            SettableLookupSourceSupplier lookupSourceSupplier,
+            SettableLookupSourceFactory lookupSourceFactory,
             List<Integer> hashChannels,
             Optional<Integer> hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
@@ -135,13 +135,13 @@ public class HashBuilderOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
-        this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "hashSupplier is null");
+        this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
 
         this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
         this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
 
-        this.pagesIndex = new PagesIndex(lookupSourceSupplier.getTypes(), expectedPositions);
+        this.pagesIndex = new PagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
     }
 
     @Override
@@ -153,7 +153,7 @@ public class HashBuilderOperator
     @Override
     public List<Type> getTypes()
     {
-        return lookupSourceSupplier.getTypes();
+        return lookupSourceFactory.getTypes();
     }
 
     @Override
@@ -165,7 +165,7 @@ public class HashBuilderOperator
 
         // After this point the LookupSource will take over our memory reservation, and ours will be zero
         LookupSource lookupSource = pagesIndex.createLookupSource(operatorContext.getSession(), hashChannels, hashChannel, filterFunctionFactory);
-        lookupSourceSupplier.setLookupSource(lookupSource, operatorContext);
+        lookupSourceFactory.setLookupSource(lookupSource, operatorContext);
         finished = true;
     }
 

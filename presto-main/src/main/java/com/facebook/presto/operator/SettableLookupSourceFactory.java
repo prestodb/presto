@@ -28,8 +28,8 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public final class SettableLookupSourceSupplier
-        implements LookupSourceSupplier
+public final class SettableLookupSourceFactory
+        implements LookupSourceFactory
 {
     private enum State
     {
@@ -47,7 +47,7 @@ public final class SettableLookupSourceSupplier
     @GuardedBy("this")
     private Runnable onDestroy;
 
-    public SettableLookupSourceSupplier(List<Type> types, Map<Symbol, Integer> layout, boolean outer)
+    public SettableLookupSourceFactory(List<Type> types, Map<Symbol, Integer> layout, boolean outer)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
@@ -67,7 +67,7 @@ public final class SettableLookupSourceSupplier
     }
 
     @Override
-    public ListenableFuture<LookupSource> getLookupSource()
+    public ListenableFuture<LookupSource> createLookupSource()
     {
         return lookupSourceFuture;
     }

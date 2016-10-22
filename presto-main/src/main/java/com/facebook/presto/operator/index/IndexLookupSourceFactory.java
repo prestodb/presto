@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
-import com.facebook.presto.operator.LookupSourceSupplier;
+import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Symbol;
@@ -33,15 +33,15 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class IndexLookupSourceSupplier
-        implements LookupSourceSupplier
+public class IndexLookupSourceFactory
+        implements LookupSourceFactory
 {
     private final List<Type> outputTypes;
     private final Map<Symbol, Integer> layout;
     private final Supplier<IndexLoader> indexLoaderSupplier;
     private TaskContext taskContext;
 
-    public IndexLookupSourceSupplier(
+    public IndexLookupSourceFactory(
             Set<Integer> lookupSourceInputChannels,
             List<Integer> keyOutputChannels,
             Optional<Integer> keyOutputHashChannel,
@@ -83,7 +83,7 @@ public class IndexLookupSourceSupplier
     }
 
     @Override
-    public ListenableFuture<LookupSource> getLookupSource()
+    public ListenableFuture<LookupSource> createLookupSource()
     {
         checkState(taskContext != null, "taskContext not set");
 
