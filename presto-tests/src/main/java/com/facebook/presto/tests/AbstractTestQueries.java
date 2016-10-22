@@ -378,6 +378,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMapInSubquery()
+            throws Exception
+    {
+        assertQuery("select x from (values 1, 2) t(x) where (map(array[1], array[x]) in (values null, map(array[1], array[2]))) is null", "SELECT 1");
+        assertQuery("select x from (values 1) t(x) where (map(array[1], array[x]) in (values map(array[1], array[cast(null as integer)]))) is null", "SELECT 1");
+        assertQuery("select x,y from (values (1,-1),(2,-2),(3,-3)) t(x,y) where (map(array[1], array[x]) in (values map(array[1], array[cast(null as integer)]), map(array[1],array[2]))) is not null",
+                "SELECT * FROM VALUES (2,-2)");
+        assertQuery("select x,y from (values (1,-1),(2,-2),(3,-3)) t(x,y) where map(array[1], array[x]) in (values map(array[1], array[cast(null as integer)]), map(array[1],array[2]))",
+                "SELECT * FROM VALUES (2,-2)");
+        assertQuery("select x,y from (values (1,-1),(2,-2),(3,-3)) t(x,y) where (map(array[1], array[x]) in (values map(array[1], array[cast(null as integer)]), map(array[1],array[2]))) is null",
+                "SELECT * FROM VALUES (1,-1),(3,-3)");
+        assertQuery("select x,y from (values (1,-1),(2,-2),(3,-3)) t(x,y) where (map(array[x], array[y]) in (values map(array[1], array[cast(null as integer)]), map(array[2],array[-2]))) is null",
+                "SELECT * FROM VALUES (1,-1)");
+        assertQuery("select x,y from (values (1,-1),(2,-2),(3,-3)) t(x,y) where map(array[x], array[y]) in (values map(array[1], array[cast(null as integer)]), map(array[2],array[-2]))",
+                "SELECT * FROM VALUES (2,-2)");
+        assertQuery("select x,y from (values (1,-1),(2,-2),(3,-3)) t(x,y) where (map(array[x], array[y]) in (values map(array[1], array[cast(null as integer)]), map(array[2],array[-2]))) = false",
+                "SELECT * FROM VALUES (3,-3)");
+    }
+
+    @Test
     public void testDereferenceInSubquery()
     {
         assertQuery("" +

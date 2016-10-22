@@ -92,7 +92,7 @@ public class TestGroupByHash
         block = createLongsBlock(0);
         hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
         page = new Page(block, hashBlock);
-        assertFalse(groupByHash.contains(0, page, CONTAINS_CHANNELS));
+        assertFalse(groupByHash.containsExact(0, page, CONTAINS_CHANNELS));
     }
 
     @Test
@@ -190,11 +190,11 @@ public class TestGroupByHash
 
         Block testBlock = BlockAssertions.createDoublesBlock((double) 3);
         Block testHashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE), testBlock);
-        assertTrue(groupByHash.contains(0, new Page(testBlock, testHashBlock), CONTAINS_CHANNELS));
+        assertTrue(groupByHash.containsExact(0, new Page(testBlock, testHashBlock), CONTAINS_CHANNELS));
 
         testBlock = BlockAssertions.createDoublesBlock(11.0);
         testHashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE), testBlock);
-        assertFalse(groupByHash.contains(0, new Page(testBlock, testHashBlock), CONTAINS_CHANNELS));
+        assertFalse(groupByHash.containsExact(0, new Page(testBlock, testHashBlock), CONTAINS_CHANNELS));
     }
 
     @Test
@@ -211,7 +211,7 @@ public class TestGroupByHash
         Block testValuesBlock = BlockAssertions.createDoublesBlock((double) 3);
         Block testStringValuesBlock = BlockAssertions.createStringsBlock("3");
         Block testHashBlock = TypeUtils.getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), testValuesBlock, testStringValuesBlock);
-        assertTrue(groupByHash.contains(0, new Page(testValuesBlock, testStringValuesBlock, testHashBlock), hashChannels));
+        assertTrue(groupByHash.containsExact(0, new Page(testValuesBlock, testStringValuesBlock, testHashBlock), hashChannels));
     }
 
     @Test
@@ -228,7 +228,7 @@ public class TestGroupByHash
 
         // Ensure that all groups are present in group by hash
         for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
-            assertTrue(groupByHash.contains(i, new Page(valuesBlock, hashBlock), CONTAINS_CHANNELS));
+            assertTrue(groupByHash.containsExact(i, new Page(valuesBlock, hashBlock), CONTAINS_CHANNELS));
         }
     }
 }

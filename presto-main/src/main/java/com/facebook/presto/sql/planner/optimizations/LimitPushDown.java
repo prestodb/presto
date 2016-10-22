@@ -223,7 +223,7 @@ public class LimitPushDown
         {
             PlanNode source = context.rewrite(node.getSource(), context.get());
             if (source != node.getSource()) {
-                return new SemiJoinNode(node.getId(), source, node.getFilteringSource(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol());
+                return new SemiJoinNode(node.getId(), source, node.getFilteringSource(), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceNullSymbol(), node.getFilteringSourceHashSymbol());
             }
             return node;
         }

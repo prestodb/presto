@@ -18,6 +18,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,14 +53,14 @@ public class ChannelSet
         return hash.getGroupCount();
     }
 
-    public boolean containsNull()
+    public boolean containsExact(int position, Page page)
     {
-        return containsNull;
+        return hash.containsExact(position, page, hashChannels);
     }
 
-    public boolean contains(int position, Page page)
+    public boolean containsIndeterminate(int position, Page page)
     {
-        return hash.contains(position, page, hashChannels);
+        return containsNull || hash.containsIndeterminate(position, page, hashChannels);
     }
 
     public static class ChannelSetBuilder
@@ -70,17 +71,23 @@ public class ChannelSet
         private final OperatorContext operatorContext;
         private final Page nullBlockPage;
 
-        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext)
+        public ChannelSetBuilder(
+                Type type,
+                Optional<Integer> hashChannel,
+                Optional<Integer> indeterminateChannel,
+                Optional<MethodHandle> equalFunction,
+                int expectedPositions,
+                OperatorContext operatorContext)
         {
             List<Type> types = ImmutableList.of(type);
-            this.hash = createGroupByHash(operatorContext.getSession(), types, HASH_CHANNELS, hashChannel, expectedPositions);
+            this.hash = createGroupByHash(operatorContext.getSession(), types, HASH_CHANNELS, hashChannel, indeterminateChannel, equalFunction, expectedPositions);
             this.operatorContext = operatorContext;
             this.nullBlockPage = new Page(type.createBlockBuilder(new BlockBuilderStatus(), 1, UNKNOWN.getFixedSize()).appendNull().build());
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
+            return new ChannelSet(hash, hash.containsExact(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
         }
 
         public long getEstimatedSize()

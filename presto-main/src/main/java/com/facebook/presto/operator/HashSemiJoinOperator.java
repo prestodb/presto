@@ -177,8 +177,8 @@ public class HashSemiJoinOperator
                 blockBuilder.appendNull();
             }
             else {
-                boolean contains = channelSet.contains(position, probeJoinPage);
-                if (!contains && channelSet.containsNull()) {
+                boolean contains = channelSet.containsExact(position, probeJoinPage);
+                if (!contains && channelSet.containsIndeterminate(position, probeJoinPage)) {
                     blockBuilder.appendNull();
                 }
                 else {

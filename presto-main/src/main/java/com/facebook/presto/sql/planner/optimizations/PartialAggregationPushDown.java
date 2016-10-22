@@ -184,6 +184,7 @@ public class PartialAggregationPushDown
                     partial.getOutputSymbols(),
                     exchange.getPartitioningScheme().getHashColumn(),
                     exchange.getPartitioningScheme().isReplicateNulls(),
+                    exchange.getPartitioningScheme().getNullColumn(),
                     exchange.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(

@@ -871,6 +871,7 @@ public class AddExchanges
                                         filteringSource.getNode().getOutputSymbols(),
                                         Optional.empty(),
                                         true,
+                                        node.getFilteringSourceNullSymbol(),
                                         Optional.empty())),
                                 filteringSource.getProperties());
                     }
@@ -888,8 +889,9 @@ public class AddExchanges
                         source = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, source.getNode(), sourceSymbols, Optional.empty()),
                                 source.getProperties());
+
                         filteringSource = withDerivedProperties(
-                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.empty(), true),
+                                partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), filteringSourceSymbols, Optional.<Symbol>empty(), true, node.getFilteringSourceNullSymbol()),
                                 filteringSource.getProperties());
                     }
                 }
@@ -905,6 +907,7 @@ public class AddExchanges
                                     filteringSource.getNode().getOutputSymbols(),
                                     Optional.empty(),
                                     true,
+                                    node.getFilteringSourceNullSymbol(),
                                     Optional.empty())),
                             filteringSource.getProperties());
                 }
@@ -1069,6 +1072,7 @@ public class AddExchanges
                                                 source.getNode().getOutputSymbols(),
                                                 Optional.empty(),
                                                 nullsReplicated,
+                                                Optional.empty(),
                                                 Optional.empty())),
                                 source.getProperties());
                     }

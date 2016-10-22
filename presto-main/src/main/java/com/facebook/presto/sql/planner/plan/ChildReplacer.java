@@ -141,7 +141,7 @@ public class ChildReplacer
     public PlanNode visitSemiJoin(SemiJoinNode node, List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SemiJoinNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol());
+        return new SemiJoinNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), node.getSemiJoinOutput(), node.getSourceHashSymbol(), node.getFilteringSourceNullSymbol(), node.getFilteringSourceHashSymbol());
     }
 
     @Override
