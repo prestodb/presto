@@ -202,13 +202,20 @@ public class ExpressionInterpreter
             }
         }, expression);
 
+        // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
+        analyzer.analyze(rewrite, Scope.builder().build());
+
+        // remove syntax sugar
+        rewrite = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(analyzer.getExpressionTypes()), rewrite);
+
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
         Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(rewrite);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
+        analyzer = createConstantAnalyzer(metadata, session, parameters);
         analyzer.analyze(canonicalized, Scope.builder().build());
 
         // evaluate the expression
