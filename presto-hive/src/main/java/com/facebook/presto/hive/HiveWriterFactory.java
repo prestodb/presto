@@ -344,6 +344,7 @@ public class HiveWriterFactory
                             .collect(toList()),
                     outputStorageFormat,
                     schema,
+                    partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
                     conf,
                     typeManager);
         }

@@ -39,6 +39,11 @@ public class HiveWriter
         this.targetPath = targetPath;
     }
 
+    public long getSystemMemoryUsage()
+    {
+        return fileWriter.getSystemMemoryUsage();
+    }
+
     public void append(Page dataPage)
     {
         fileWriter.appendRows(dataPage);

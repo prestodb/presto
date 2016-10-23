@@ -17,6 +17,8 @@ import com.facebook.presto.spi.Page;
 
 public interface HiveFileWriter
 {
+    long getSystemMemoryUsage();
+
     void appendRows(Page dataPage);
 
     void commit();

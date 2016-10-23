@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -117,6 +118,7 @@ public class TableWriterOperator
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext pageSinkMemoryContext;
     private final ConnectorPageSink pageSink;
     private final List<Integer> inputChannels;
 
@@ -132,6 +134,7 @@ public class TableWriterOperator
             List<Integer> inputChannels)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.pageSinkMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
     }
@@ -198,6 +201,7 @@ public class TableWriterOperator
         }
 
         CompletableFuture<?> future = pageSink.appendPage(new Page(blocks));
+        pageSinkMemoryContext.setBytes(pageSink.getSystemMemoryUsage());
         if (!future.isDone()) {
             this.blocked = toListenableFuture(future);
         }

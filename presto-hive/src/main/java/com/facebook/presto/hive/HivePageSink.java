@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -77,6 +78,8 @@ public class HivePageSink
     private final List<WriterPositions> writerPositions = new ArrayList<>();
 
     private final ConnectorSession session;
+
+    private long systemMemoryUsage;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -143,6 +146,12 @@ public class HivePageSink
         }
 
         this.session = requireNonNull(session, "session is null");
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return systemMemoryUsage;
     }
 
     @Override
@@ -237,7 +246,11 @@ public class HivePageSink
             }
 
             HiveWriter writer = writers.get(writerIndex);
+
+            long currentMemory = writer.getSystemMemoryUsage();
             writer.append(pageForWriter);
+            systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+
             currentWriterPositions.clear();
         }
     }
@@ -254,7 +267,9 @@ public class HivePageSink
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
             writers.add(null);
-            writerPositions.add(new WriterPositions());
+            WriterPositions newWriterPositions = new WriterPositions();
+            systemMemoryUsage += sizeOf(newWriterPositions.getPositionsArray());
+            writerPositions.add(newWriterPositions);
         }
 
         // create missing writers

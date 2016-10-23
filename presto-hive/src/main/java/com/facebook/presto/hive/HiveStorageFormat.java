@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
@@ -47,43 +49,61 @@ import static java.util.Objects.requireNonNull;
 
 public enum HiveStorageFormat
 {
-    ORC(OrcSerde.class.getName(),
+    ORC(
+            OrcSerde.class.getName(),
             OrcInputFormat.class.getName(),
-            OrcOutputFormat.class.getName()),
-    DWRF(com.facebook.hive.orc.OrcSerde.class.getName(),
+            OrcOutputFormat.class.getName(),
+            new DataSize(256, Unit.MEGABYTE)),
+    DWRF(
+            com.facebook.hive.orc.OrcSerde.class.getName(),
             com.facebook.hive.orc.OrcInputFormat.class.getName(),
-            com.facebook.hive.orc.OrcOutputFormat.class.getName()),
-    PARQUET(ParquetHiveSerDe.class.getName(),
+            com.facebook.hive.orc.OrcOutputFormat.class.getName(),
+            new DataSize(256, Unit.MEGABYTE)),
+    PARQUET(
+            ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),
-            MapredParquetOutputFormat.class.getName()),
-    AVRO(AvroSerDe.class.getName(),
+            MapredParquetOutputFormat.class.getName(),
+            new DataSize(128, Unit.MEGABYTE)),
+    AVRO(
+            AvroSerDe.class.getName(),
             AvroContainerInputFormat.class.getName(),
-            AvroContainerOutputFormat.class.getName()),
-    RCBINARY(LazyBinaryColumnarSerDe.class.getName(),
+            AvroContainerOutputFormat.class.getName(),
+            new DataSize(64, Unit.MEGABYTE)),
+    RCBINARY(
+            LazyBinaryColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
-            RCFileOutputFormat.class.getName()),
-    RCTEXT(ColumnarSerDe.class.getName(),
+            RCFileOutputFormat.class.getName(),
+            new DataSize(8, Unit.MEGABYTE)),
+    RCTEXT(
+            ColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
-            RCFileOutputFormat.class.getName()),
-    SEQUENCEFILE(LazySimpleSerDe.class.getName(),
+            RCFileOutputFormat.class.getName(),
+            new DataSize(8, Unit.MEGABYTE)),
+    SEQUENCEFILE(
+            LazySimpleSerDe.class.getName(),
             SequenceFileInputFormat.class.getName(),
-            HiveSequenceFileOutputFormat.class.getName()),
+            HiveSequenceFileOutputFormat.class.getName(),
+            new DataSize(8, Unit.MEGABYTE)),
     JSON(JsonSerDe.class.getName(),
             TextInputFormat.class.getName(),
-            HiveIgnoreKeyTextOutputFormat.class.getName()),
+            HiveIgnoreKeyTextOutputFormat.class.getName(),
+            new DataSize(8, Unit.MEGABYTE)),
     TEXTFILE(LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
-            HiveIgnoreKeyTextOutputFormat.class.getName());
+            HiveIgnoreKeyTextOutputFormat.class.getName(),
+            new DataSize(8, Unit.MEGABYTE));
 
     private final String serde;
     private final String inputFormat;
     private final String outputFormat;
+    private final DataSize estimatedWriterSystemMemoryUsage;
 
-    HiveStorageFormat(String serde, String inputFormat, String outputFormat)
+    HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterSystemMemoryUsage)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
         this.outputFormat = requireNonNull(outputFormat, "outputFormat is null");
+        this.estimatedWriterSystemMemoryUsage = requireNonNull(estimatedWriterSystemMemoryUsage, "estimatedWriterSystemMemoryUsage is null");
     }
 
     public String getSerDe()
@@ -99,6 +119,11 @@ public enum HiveStorageFormat
     public String getOutputFormat()
     {
         return outputFormat;
+    }
+
+    public DataSize getEstimatedWriterSystemMemoryUsage()
+    {
+        return estimatedWriterSystemMemoryUsage;
     }
 
     public void validateColumns(List<HiveColumnHandle> handles)

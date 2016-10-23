@@ -23,6 +23,7 @@ import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -64,12 +65,14 @@ public class RecordFileWriter
     private final List<StructField> structFields;
     private final Object row;
     private final FieldSetter[] setters;
+    private final long estimatedWriterSystemMemoryUsage;
 
     public RecordFileWriter(
             Path path,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
+            DataSize estimatedWriterSystemMemoryUsage,
             JobConf conf,
             TypeManager typeManager)
     {
@@ -104,6 +107,14 @@ public class RecordFileWriter
         for (int i = 0; i < setters.length; i++) {
             setters[i] = createFieldSetter(tableInspector, row, structFields.get(i), fileColumnTypes.get(structFields.get(i).getFieldID()));
         }
+
+        this.estimatedWriterSystemMemoryUsage = estimatedWriterSystemMemoryUsage.toBytes();
+    }
+
+    @Override
+    public long getSystemMemoryUsage()
+    {
+        return estimatedWriterSystemMemoryUsage;
     }
 
     @Override

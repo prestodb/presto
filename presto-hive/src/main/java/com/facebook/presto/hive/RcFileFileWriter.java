@@ -74,6 +74,12 @@ public class RcFileFileWriter
     }
 
     @Override
+    public long getSystemMemoryUsage()
+    {
+        return rcFileWriter.getRetainedSizeInBytes();
+    }
+
+    @Override
     public void appendRows(Page dataPage)
     {
         Block[] blocks = new Block[fileInputColumnIndexes.length];

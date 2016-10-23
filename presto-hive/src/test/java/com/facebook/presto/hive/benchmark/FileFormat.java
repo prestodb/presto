@@ -422,6 +422,7 @@ public enum FileFormat
                     columnNames,
                     fromHiveStorageFormat(format),
                     createSchema(format, columnNames, columnTypes),
+                    format.getEstimatedWriterSystemMemoryUsage(),
                     config,
                     TYPE_MANAGER);
         }
