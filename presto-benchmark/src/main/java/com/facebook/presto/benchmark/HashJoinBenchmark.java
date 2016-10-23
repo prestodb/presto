@@ -63,11 +63,12 @@ public class HashJoinBenchmark
                     Optional.empty(),
                     false,
                     Optional.empty(),
-                    1_500_000);
+                    1_500_000,
+                    1);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
             Driver driver = new DriverFactory(false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty()).createDriver(driverContext);
-            while (!driver.isFinished()) {
+            while (!hashBuilder.getLookupSourceFactory().createLookupSource().isDone()) {
                 driver.process();
             }
             lookupSourceFactory = hashBuilder.getLookupSourceFactory();

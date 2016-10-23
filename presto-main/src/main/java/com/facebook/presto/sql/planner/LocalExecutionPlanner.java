@@ -51,7 +51,6 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PageProcessor;
-import com.facebook.presto.operator.ParallelHashBuildOperator.ParallelHashBuildOperatorFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputFactory;
 import com.facebook.presto.operator.ProjectionFunction;
@@ -1502,48 +1501,28 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(filterExpression, probeLayout, buildSource.getLayout(), context.getTypes(), context.getSession()));
 
-            OperatorFactory operatorFactory;
-            LookupSourceFactory lookupSourceFactory;
-            if (buildContext.getDriverInstanceCount().orElse(1) == 1) {
-                HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
-                        buildContext.getNextOperatorId(),
-                        node.getId(),
-                        buildSource.getTypes(),
-                        buildSource.getLayout(),
-                        buildChannels,
-                        buildHashChannel,
-                        node.getType() == RIGHT || node.getType() == FULL,
-                        filterFunctionFactory,
-                        10_000);
-                operatorFactory = hashBuilderOperatorFactory;
-                lookupSourceFactory = hashBuilderOperatorFactory.getLookupSourceFactory();
-            }
-            else {
-                ParallelHashBuildOperatorFactory hashBuilderOperatorFactory = new ParallelHashBuildOperatorFactory(
-                        buildContext.getNextOperatorId(),
-                        node.getId(),
-                        buildSource.getTypes(),
-                        buildSource.getLayout(),
-                        buildChannels,
-                        buildHashChannel,
-                        node.getType() == RIGHT || node.getType() == FULL,
-                        filterFunctionFactory,
-                        10_000,
-                        buildContext.getDriverInstanceCount().getAsInt());
-                operatorFactory = hashBuilderOperatorFactory;
-                lookupSourceFactory = hashBuilderOperatorFactory.getLookupSourceFactory();
-            }
+            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
+                    buildContext.getNextOperatorId(),
+                    node.getId(),
+                    buildSource.getTypes(),
+                    buildSource.getLayout(),
+                    buildChannels,
+                    buildHashChannel,
+                    node.getType() == RIGHT || node.getType() == FULL,
+                    filterFunctionFactory,
+                    10_000,
+                    buildContext.getDriverInstanceCount().orElse(1));
 
             context.addDriverFactory(new DriverFactory(
                     buildContext.isInputDriver(),
                     false,
                     ImmutableList.<OperatorFactory>builder()
                             .addAll(buildSource.getOperatorFactories())
-                            .add(operatorFactory)
+                            .add(hashBuilderOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount()));
 
-            return lookupSourceFactory;
+            return hashBuilderOperatorFactory.getLookupSourceFactory();
         }
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(

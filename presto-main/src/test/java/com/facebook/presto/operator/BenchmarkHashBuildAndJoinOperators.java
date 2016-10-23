@@ -248,7 +248,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 buildContext.getHashChannel(),
                 false,
                 Optional.empty(),
-                10_000);
+                10_000,
+                1);
 
         Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
         for (Page page : buildContext.getBuildPages()) {

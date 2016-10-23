@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.operator.OuterLookupSource.createOuterLookupSourceSupplier;
 import static com.facebook.presto.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -106,15 +107,24 @@ public final class PartitionedLookupSourceFactory
             partitionsSet++;
 
             if (partitionsSet == partitions.length) {
-                List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
-                lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);
-                this.lookupSourceSupplier = lookupSourceSupplier;
+                if (partitionsSet != 1) {
+                    List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
+                    this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer);
+                }
+                else if (outer) {
+                    this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitionLookupSource);
+                }
+                else {
+                    this.lookupSourceSupplier = partitionLookupSource;
+                }
 
+                // store lookup source supplier and futures into local variables so they can be used outside of the lock
+                lookupSourceSupplier = this.lookupSourceSupplier;
                 lookupSourceFutures = ImmutableList.copyOf(this.lookupSourceFutures);
             }
         }
 
-        if (lookupSourceFutures != null) {
+        if (lookupSourceSupplier != null) {
             for (SettableFuture<LookupSource> lookupSourceFuture : lookupSourceFutures) {
                 lookupSourceFuture.set(lookupSourceSupplier.get());
             }

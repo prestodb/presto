@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.operator.ParallelHashBuildOperator.ParallelHashBuildOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
@@ -678,80 +677,56 @@ public class TestHashJoinOperator
         Optional<JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> ((session, addresses, channels) -> new StandardJoinFilterFunction(function, addresses, channels)));
 
-        if (parallelBuild) {
-            LocalExchange localExchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, PARTITION_COUNT, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
-            LocalExchangeSinkFactory sinkFactory = localExchange.createSinkFactory();
-            sinkFactory.noMoreSinkFactories();
+        int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
+        LocalExchange localExchange = new LocalExchange(FIXED_HASH_DISTRIBUTION, partitionCount, buildPages.getTypes(), hashChannels, buildPages.getHashChannel());
+        LocalExchangeSinkFactory sinkFactory = localExchange.createSinkFactory();
+        sinkFactory.noMoreSinkFactories();
 
-            // collect input data into the partitioned exchange
-            DriverContext collectDriverContext = taskContext.addPipelineContext(true, true).addDriverContext();
-            ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.getTypes(), buildPages.build());
-            LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperatorFactory(1, new PlanNodeId("sink"), sinkFactory, Function.identity());
-            Driver driver = new Driver(collectDriverContext,
-                    valuesOperatorFactory.createOperator(collectDriverContext),
-                    sinkOperatorFactory.createOperator(collectDriverContext));
-            valuesOperatorFactory.close();
-            sinkOperatorFactory.close();
+        // collect input data into the partitioned exchange
+        DriverContext collectDriverContext = taskContext.addPipelineContext(true, true).addDriverContext();
+        ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.getTypes(), buildPages.build());
+        LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperatorFactory(1, new PlanNodeId("sink"), sinkFactory, Function.identity());
+        Driver driver = new Driver(collectDriverContext,
+                valuesOperatorFactory.createOperator(collectDriverContext),
+                sinkOperatorFactory.createOperator(collectDriverContext));
+        valuesOperatorFactory.close();
+        sinkOperatorFactory.close();
 
-            while (!driver.isFinished()) {
-                driver.process();
-            }
-
-            // build hash tables
-            LocalExchangeSourceOperatorFactory sourceOperatorFactory = new LocalExchangeSourceOperatorFactory(0, new PlanNodeId("source"), localExchange);
-            ParallelHashBuildOperatorFactory buildOperatorFactory = new ParallelHashBuildOperatorFactory(
-                    1,
-                    new PlanNodeId("build"),
-                    buildPages.getTypes(),
-                    ImmutableMap.of(),
-                    hashChannels,
-                    buildPages.getHashChannel(),
-                    false,
-                    filterFunctionFactory,
-                    100,
-                    PARTITION_COUNT);
-            PipelineContext buildPipeline = taskContext.addPipelineContext(true, true);
-
-            Driver[] buildDrivers = new Driver[PARTITION_COUNT];
-            for (int i = 0; i < PARTITION_COUNT; i++) {
-                DriverContext buildDriverContext = buildPipeline.addDriverContext();
-                buildDrivers[i] = new Driver(buildDriverContext,
-                        sourceOperatorFactory.createOperator(buildDriverContext),
-                        buildOperatorFactory.createOperator(buildDriverContext));
-            }
-
-            while (!buildOperatorFactory.getLookupSourceFactory().createLookupSource().isDone()) {
-                for (Driver buildDriver : buildDrivers) {
-                    buildDriver.process();
-                }
-            }
-
-            return buildOperatorFactory.getLookupSourceFactory();
+        while (!driver.isFinished()) {
+            driver.process();
         }
-        else {
-            DriverContext driverContext = taskContext.addPipelineContext(true, true).addDriverContext();
 
-            ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("test"), buildPages.getTypes(), buildPages.build());
-            HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
-                    1,
-                    new PlanNodeId("test"),
-                    buildPages.getTypes(),
-                    ImmutableMap.of(),
-                    hashChannels,
-                    buildPages.getHashChannel(),
-                    false,
-                    filterFunctionFactory,
-                    100);
+        // build hash tables
+        LocalExchangeSourceOperatorFactory sourceOperatorFactory = new LocalExchangeSourceOperatorFactory(0, new PlanNodeId("source"), localExchange);
+        HashBuilderOperatorFactory buildOperatorFactory = new HashBuilderOperatorFactory(
+                1,
+                new PlanNodeId("build"),
+                buildPages.getTypes(),
+                ImmutableMap.of(),
+                hashChannels,
+                buildPages.getHashChannel(),
+                false,
+                filterFunctionFactory,
+                100,
+                partitionCount);
+        PipelineContext buildPipeline = taskContext.addPipelineContext(true, true);
 
-            Driver driver = new Driver(driverContext,
-                    valuesOperatorFactory.createOperator(driverContext),
-                    hashBuilderOperatorFactory.createOperator(driverContext));
-
-            while (!driver.isFinished()) {
-                driver.process();
-            }
-            return hashBuilderOperatorFactory.getLookupSourceFactory();
+        Driver[] buildDrivers = new Driver[partitionCount];
+        for (int i = 0; i < partitionCount; i++) {
+            DriverContext buildDriverContext = buildPipeline.addDriverContext();
+            buildDrivers[i] = new Driver(
+                    buildDriverContext,
+                    sourceOperatorFactory.createOperator(buildDriverContext),
+                    buildOperatorFactory.createOperator(buildDriverContext));
         }
+
+        while (!buildOperatorFactory.getLookupSourceFactory().createLookupSource().isDone()) {
+            for (Driver buildDriver : buildDrivers) {
+                buildDriver.process();
+            }
+        }
+
+        return buildOperatorFactory.getLookupSourceFactory();
     }
 
     private static class TestInternalJoinFilterFunction
