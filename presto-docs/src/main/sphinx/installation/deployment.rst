@@ -9,7 +9,7 @@ Download the Presto server tarball, :maven_download:`server`, and unpack it.
 The tarball will contain a single top-level directory,
 |presto_server_release|, which we will call the *installation* directory.
 
-Presto needs a *data* directory for storing logs, local metadata, etc.
+Presto needs a *data* directory for storing logs, etc.
 We recommend creating a data directory outside of the installation directory,
 which allows it to be easily preserved when upgrading Presto.
 
