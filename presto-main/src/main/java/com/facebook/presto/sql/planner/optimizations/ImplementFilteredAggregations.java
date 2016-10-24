@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
  * new boolean expression and a new AggregationNode with new masks will be created over the ProjectNode.</li>
  * </ol>
  */
-public class FilterOptimizer
+public class ImplementFilteredAggregations
         implements PlanOptimizer
 {
     @Override
@@ -121,12 +121,14 @@ public class FilterOptimizer
                 }
                 outputSymbols.putAll(combinedOutputSymbols);
 
-                projectNode = new ProjectNode(idAllocator.getNextId(),
+                projectNode = new ProjectNode(
+                        idAllocator.getNextId(),
                         node.getSource(),
                         outputSymbols.build());
             }
 
-            return new AggregationNode(idAllocator.getNextId(),
+            return new AggregationNode(
+                    idAllocator.getNextId(),
                     projectNode == null ? node.getSource() : projectNode,
                     functionCallMap,
                     node.getFunctions(),

@@ -1010,6 +1010,13 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT * FROM (VALUES (2, 2)) a(x,y) JOIN (VALUES (2, 2)) b(x,y) ON (a.x=b.x, a.y=b.y)");
     }
 
+    @Test
+    public void testInvalidAggregationFilter()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)");
+    }
+
     private void assertMissingInformationSchema(Session session, @Language("SQL") String query)
     {
         try {
