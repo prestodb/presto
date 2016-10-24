@@ -27,23 +27,25 @@ public final class Unnest
 {
     private final List<Expression> expressions;
     private final boolean withOrdinality;
+    private final boolean unnestTable;
 
-    public Unnest(List<Expression> expressions, boolean withOrdinality)
+    public Unnest(List<Expression> expressions, boolean withOrdinality, boolean unnestTable)
     {
-        this(Optional.empty(), expressions, withOrdinality);
+        this(Optional.empty(), expressions, withOrdinality, unnestTable);
     }
 
-    public Unnest(NodeLocation location, List<Expression> expressions, boolean withOrdinality)
+    public Unnest(NodeLocation location, List<Expression> expressions, boolean withOrdinality, boolean unnestTable)
     {
-        this(Optional.of(location), expressions, withOrdinality);
+        this(Optional.of(location), expressions, withOrdinality, unnestTable);
     }
 
-    private Unnest(Optional<NodeLocation> location, List<Expression> expressions, boolean withOrdinality)
+    private Unnest(Optional<NodeLocation> location, List<Expression> expressions, boolean withOrdinality, boolean unnestTable)
     {
         super(location);
         requireNonNull(expressions, "expressions is null");
         this.expressions = ImmutableList.copyOf(expressions);
         this.withOrdinality = withOrdinality;
+        this.unnestTable = unnestTable;
     }
 
     public List<Expression> getExpressions()
@@ -54,6 +56,11 @@ public final class Unnest
     public boolean isWithOrdinality()
     {
         return withOrdinality;
+    }
+
+    public boolean isUnnestTable()
+    {
+        return unnestTable;
     }
 
     @Override

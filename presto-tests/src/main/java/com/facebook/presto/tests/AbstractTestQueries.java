@@ -590,6 +590,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnnestTable()
+            throws Exception
+    {
+        assertQueryFails("SELECT 1 FROM TABLE(ARRAY[1])", ".*: TABLE expression is not supported");
+    }
+
+    @Test
     public void testArrays()
     {
         assertQuery("SELECT a[1] FROM (SELECT ARRAY[orderkey] AS a FROM orders ORDER BY orderkey) t", "SELECT orderkey FROM orders");

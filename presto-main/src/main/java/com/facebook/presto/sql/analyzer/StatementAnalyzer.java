@@ -626,6 +626,9 @@ class StatementAnalyzer
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
+                if (node.isUnnestTable()) {
+                    throw SemanticExceptions.notSupportedException(node, "TABLE expression");
+                }
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
