@@ -3,13 +3,13 @@
 # so we canonicalize them.
 function canonical_path() {
     # make the path start with '/' or './'. Otherwise the result for 'foo.txt' is an absolute path.
-    local PATH=`[[ $1 = /* ]] && echo "$1" || echo "./${1#./}"`
+    local PATH=$([[ $1 = /* ]] && echo "$1" || echo "./${1#./}")
     if [[ -d $PATH ]]; then
         (cd $PATH && pwd)
     elif [[ -f $PATH ]]; then
-        echo "`cd ${PATH%/*} && pwd`/${PATH##*/}"
+        echo "$(cd ${PATH%/*} && pwd)/${PATH##*/}"
     else
-        echo "Invalid path: [$PATH]. Working directory is [`pwd`]."
+        echo "Invalid path: [$PATH]. Working directory is [$(pwd)]."
         exit 1
     fi
 }
