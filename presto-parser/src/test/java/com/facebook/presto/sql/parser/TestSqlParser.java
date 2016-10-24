@@ -1589,7 +1589,7 @@ public class TestSqlParser
     }
 
     @Test
-    public void testSelectFilter()
+    public void testAggregationFilter()
     {
         assertStatement("SELECT SUM(x) FILTER (WHERE x > 4)",
                 new Query(
@@ -1599,13 +1599,12 @@ public class TestSqlParser
                                         new FunctionCall(
                                                  QualifiedName.of("SUM"),
                                                  Optional.empty(),
-                                                 Optional.of(
-                                                         new ComparisonExpression(
+                                                 Optional.of(new ComparisonExpression(
                                                                  ComparisonExpression.Type.GREATER_THAN,
                                                                  new QualifiedNameReference(QualifiedName.of("x")),
                                                                  new LongLiteral("4"))),
                                                  false,
-                                                 Lists.newArrayList(new QualifiedNameReference(QualifiedName.of("x"))))),
+                                                 ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x"))))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),

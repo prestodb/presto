@@ -27,6 +27,7 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -996,6 +997,11 @@ class StatementAnalyzer
         List<FunctionCall> windowFunctions = extractor.getWindowFunctions();
 
         for (FunctionCall windowFunction : windowFunctions) {
+            // filter with window function is not supported yet
+            if (windowFunction.getFilter().isPresent()) {
+                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "FILTER is not yet supported for window functions");
+            }
+
             Window window = windowFunction.getWindow().get();
 
             WindowFunctionExtractor nestedExtractor = new WindowFunctionExtractor();

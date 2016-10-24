@@ -873,17 +873,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testSelectFilter()
+    public void testAggregationFilter()
             throws Exception
     {
-        assertQuery("SELECT sum(x) FILTER (WHERE y > 4) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 4");
-        assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(y) FILTER (WHERE y > 4) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 8, 5");
-        assertQuery("SELECT sum(x) FILTER(WHERE x > 1), sum(x) FROM (VALUES (1),(2),(2),(4)) t (x)", "SELECT 8, 9");
-        assertQuery("SELECT count(*) FILTER(WHERE x > 1), SUM(x) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 3, 9");
-        assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE x > 1) AS x FROM (VALUES (1),(2),(2),(4)) t (x)", "SELECT 6");
-        assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE y > 3), sum(DISTINCT y) FILTER (WHERE x > 1) FROM (VALUES (1, 3),(2, 4),(2, 4),(4, 5)) t (x, y)", "SELECT 6, 9");
-        assertQuery("SELECT sum(x) FILTER (WHERE x > 1) AS x, sum(DISTINCT x) FROM (VALUES (1),(2),(2),(4)) t (x)", "SELECT 8, 9");
-        assertQueryFails("SELECT sum(x) FILTER(WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1),(2),(2),(4)) t (x)", "not yet implemented: filters with window functions");
+        assertQuery("SELECT sum(x) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 4");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(y) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 8, 5");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(x) FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 8, 9");
+        assertQuery("SELECT count(*) FILTER (WHERE x > 1), SUM(x) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 3, 9");
+        assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE x > 1) AS x FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 6");
+        assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE y > 3), sum(DISTINCT y) FILTER (WHERE x > 1) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 6, 9");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1) AS x, sum(DISTINCT x) FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 8, 9");
+        assertQueryFails("SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)", "FILTER is not yet supported for window functions");
     }
 
     @Test

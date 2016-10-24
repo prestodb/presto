@@ -49,11 +49,12 @@ import static java.util.Objects.requireNonNull;
  * into masks.
  * <p>
  * The final output has two cases:
- * 1) The input AggregationNode has no existing masks, the output is a new AggregationNode
- * with filter expressions as masks.
- * 2) The input AggregationNode has existing masks, A ProjectNode will be created to output the
- * new boolean expression and a new AggregationNode with new masks will be created over the
- * ProjectNode
+ * <ol>
+ * <li>The input AggregationNode has no existing masks, the output is a new AggregationNode
+ * with filter expressions as masks.</li>
+ * <li>The input AggregationNode has existing masks, A ProjectNode will be created to output the
+ * new boolean expression and a new AggregationNode with new masks will be created over the ProjectNode.</li>
+ * </ol>
  */
 public class FilterOptimizer
         implements PlanOptimizer
@@ -102,13 +103,12 @@ public class FilterOptimizer
             ProjectNode projectNode = null;
             Map<Symbol, Symbol> existingMasks = node.getMasks();
             Set<Symbol> intersectedSymbols = Sets.intersection(filterMasks.keySet(), existingMasks.keySet());
-            if (intersectedSymbols.size() > 0) {
+            if (!intersectedSymbols.isEmpty()) {
                 Map<Symbol, Expression> combinedOutputSymbols = new HashMap<>();
                 for (Symbol symbol : intersectedSymbols) {
                     Symbol filterSymbol = filterMasks.get(symbol);
                     Symbol otherSymbol = existingMasks.get(symbol);
-                    LogicalBinaryExpression expression = new LogicalBinaryExpression(AND,
-                            filterSymbol.toSymbolReference(), otherSymbol.toSymbolReference());
+                    LogicalBinaryExpression expression = new LogicalBinaryExpression(AND, filterSymbol.toSymbolReference(), otherSymbol.toSymbolReference());
                     Symbol combinedSymbol = symbolAllocator.newSymbol(expression, BOOLEAN);
                     combinedOutputSymbols.put(combinedSymbol, expression);
                     filterMasks.put(symbol, combinedSymbol);
@@ -116,7 +116,7 @@ public class FilterOptimizer
 
                 ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
                 for (Symbol symbol : node.getSource().getOutputSymbols()) {
-                    //Unused symbols will be pruned later
+                    // Unused symbols will be pruned later
                     outputSymbols.put(symbol, symbol.toSymbolReference());
                 }
                 outputSymbols.putAll(combinedOutputSymbols);

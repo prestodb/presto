@@ -487,10 +487,6 @@ public final class ExpressionTreeRewriter<C>
             }
 
             Optional<Window> rewrittenWindow = node.getWindow();
-            //filter with window function is not supported yet
-            if (filter.isPresent() && node.getWindow().isPresent()) {
-                throw new UnsupportedOperationException("not yet implemented: filters with window functions");
-            }
             if (node.getWindow().isPresent()) {
                 Window window = node.getWindow().get();
 

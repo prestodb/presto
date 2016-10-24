@@ -371,18 +371,18 @@ class QueryPlanner
 
     private List<Expression> constructProjectExpressions(QuerySpecification node)
     {
-        List<Expression> arguments = analysis.getAggregates(node).stream()
+        ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+        analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
-                .collect(Collectors.toList());
+                .forEach(arguments::add);
         // filter expressions need to be projected first
-        List<Expression> filterExpressions = analysis.getAggregates(node).stream()
+        analysis.getAggregates(node).stream()
                 .map(FunctionCall::getFilter)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(Collectors.toList());
-        arguments.addAll(filterExpressions);
-        return ImmutableList.copyOf(arguments);
+                .forEach(arguments::add);
+        return arguments.build();
     }
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
