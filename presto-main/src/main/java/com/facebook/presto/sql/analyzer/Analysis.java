@@ -99,6 +99,10 @@ public class Analysis
     // for describe input and describe output
     private final boolean isDescribe;
 
+   // A row count query (as opposed to a result set query) is one that doesn't return
+    // any data, e.g. DDL (CREATE, ALTER, DROP, ...) and some DML (INSERT, UPDATE, DELETE, ...)
+    private boolean rowCountQuery = false;
+
     public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
     {
         requireNonNull(parameters);
@@ -504,6 +508,16 @@ public class Analysis
     public boolean isDescribe()
     {
         return isDescribe;
+    }
+
+    public boolean isRowCountQuery()
+    {
+        return rowCountQuery;
+    }
+
+    public void setRowCountQuery(boolean rowCountQuery)
+    {
+        this.rowCountQuery = rowCountQuery;
     }
 
     @Immutable

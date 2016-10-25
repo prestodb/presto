@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -188,6 +189,14 @@ public final class SqlFormatter
                 builder.append(" USING ");
                 Joiner.on(", ").appendTo(builder, parameters);
             }
+            return null;
+        }
+
+        @Override
+        protected Void visitDescribeOutput(DescribeOutput node, Integer indent)
+        {
+            append(indent, "DESCRIBE OUTPUT ");
+            builder.append(node.getName());
             return null;
         }
 

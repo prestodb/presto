@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.QualifiedName;
 
@@ -22,17 +23,19 @@ import static java.util.Objects.requireNonNull;
 
 public class Field
 {
+    private final Optional<QualifiedObjectName> qualifiedOriginTable;
     private final Optional<QualifiedName> relationAlias;
     private final Optional<String> name;
     private final Type type;
     private final boolean hidden;
+    private final boolean aliased;
 
     public static Field newUnqualified(String name, Type type)
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
 
-        return new Field(Optional.empty(), Optional.of(name), type, false);
+        return new Field(Optional.empty(), Optional.of(name), type, false, Optional.empty(), false);
     }
 
     public static Field newUnqualified(Optional<String> name, Type type)
@@ -40,28 +43,49 @@ public class Field
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
 
-        return new Field(Optional.empty(), name, type, false);
+        return new Field(Optional.empty(), name, type, false, Optional.empty(), false);
     }
 
-    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden)
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> qualifiedOriginTable, boolean aliased)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(qualifiedOriginTable, "qualifiedOriginTable is null");
+        requireNonNull(aliased, "aliased is null");
+
+        return new Field(Optional.empty(), name, type, false, qualifiedOriginTable, aliased);
+    }
+
+    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> qualifiedOriginTable, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(qualifiedOriginTable, "qualifiedOriginTable is null");
+        requireNonNull(aliased, "aliased is null");
 
-        return new Field(Optional.of(relationAlias), name, type, hidden);
+        return new Field(Optional.of(relationAlias), name, type, hidden, qualifiedOriginTable, aliased);
     }
 
-    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden)
+    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> qualifiedOriginTable, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(qualifiedOriginTable, "originTable is null");
+        requireNonNull(aliased, "aliased is null");
 
         this.relationAlias = relationAlias;
         this.name = name;
         this.type = type;
         this.hidden = hidden;
+        this.qualifiedOriginTable = qualifiedOriginTable;
+        this.aliased = aliased;
+    }
+
+    public Optional<QualifiedObjectName> getQualifiedOriginTable()
+    {
+        return qualifiedOriginTable;
     }
 
     public Optional<QualifiedName> getRelationAlias()
@@ -82,6 +106,11 @@ public class Field
     public boolean isHidden()
     {
         return hidden;
+    }
+
+    public boolean isAliased()
+    {
+        return aliased;
     }
 
     public boolean matchesPrefix(Optional<QualifiedName> prefix)

@@ -84,6 +84,7 @@ statement
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
     | DESCRIBE INPUT identifier                                        #describeInput
+    | DESCRIBE OUTPUT identifier                                       #describeOutput
     ;
 
 query
@@ -440,7 +441,7 @@ nonReserved
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
-    | INPUT
+    | INPUT | OUTPUT
     ;
 
 normalForm
@@ -606,6 +607,7 @@ PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
 INPUT: 'INPUT';
+OUTPUT: 'OUTPUT';
 CASCADE: 'CASCADE';
 RESTRICT: 'RESTRICT';
 INCLUDING: 'INCLUDING';

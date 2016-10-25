@@ -37,11 +37,14 @@ import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
+import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.DataDefinitionStatement;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -71,8 +74,10 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
@@ -248,6 +253,7 @@ class StatementAnalyzer
                     "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
         }
 
+        analysis.setRowCountQuery(true);
         return createScope(insert, scope, Field.newUnqualified("rows", BIGINT));
     }
 
@@ -296,6 +302,7 @@ class StatementAnalyzer
 
         accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
+        analysis.setRowCountQuery(true);
         return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
     }
 
@@ -333,6 +340,7 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
+        analysis.setRowCountQuery(true);
         return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
     }
 
@@ -357,7 +365,39 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
+        analysis.setRowCountQuery(true);
         return createScope(node, scope, queryScope.getRelationType());
+    }
+
+    @Override
+    protected Scope visitDataDefinitionStatement(DataDefinitionStatement node, Scope scope)
+    {
+        analysis.setRowCountQuery(true);
+        return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
+    }
+
+    @Override
+    protected Scope visitSetSession(SetSession node, Scope scope)
+    {
+        return visitDataDefinitionStatement(node, scope);
+    }
+
+    @Override
+    protected Scope visitAddColumn(AddColumn node, Scope scope)
+    {
+        return visitDataDefinitionStatement(node, scope);
+    }
+
+    @Override
+    protected Scope visitCreateTable(CreateTable node, Scope scope)
+    {
+        return visitDataDefinitionStatement(node, scope);
+    }
+
+    @Override
+    protected Scope visitStartTransaction(StartTransaction node, Scope scope)
+    {
+        return visitDataDefinitionStatement(node, scope);
     }
 
     private static void validateColumns(Statement node, RelationType descriptor)
@@ -465,7 +505,9 @@ class StatementAnalyzer
                                 QualifiedName.of(name),
                                 Optional.of(columnName),
                                 inputField.getType(),
-                                false));
+                                false,
+                                inputField.getQualifiedOriginTable(),
+                                inputField.isAliased()));
 
                         field++;
                     }
@@ -478,7 +520,9 @@ class StatementAnalyzer
                                     QualifiedName.of(name),
                                     field.getName(),
                                     field.getType(),
-                                    field.isHidden()))
+                                    field.isHidden(),
+                                    field.getQualifiedOriginTable(),
+                                    field.isAliased()))
                             .collect(toImmutableList());
                 }
 
@@ -511,6 +555,8 @@ class StatementAnalyzer
                             QualifiedName.of(name.getObjectName()),
                             Optional.of(column.getName()),
                             column.getType(),
+                            false,
+                            Optional.of(name),
                             false))
                     .collect(toImmutableList());
 
@@ -536,7 +582,13 @@ class StatementAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType(), column.isHidden());
+            Field field = Field.newQualified(
+                    table.getName(),
+                    Optional.of(column.getName()),
+                    column.getType(),
+                    column.isHidden(),
+                    Optional.of(name),
+                    false);
             fields.add(field);
             ColumnHandle columnHandle = columnHandles.get(column.getName());
             checkArgument(columnHandle != null, "Unknown field %s", field);
@@ -680,7 +732,13 @@ class StatementAnalyzer
         RelationType firstDescriptor = relationScopes.get(0).getRelationType().withOnlyVisibleFields();
         for (int i = 0; i < outputFieldTypes.length; i++) {
             Field oldField = firstDescriptor.getFieldByIndex(i);
-            outputDescriptorFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), outputFieldTypes[i], oldField.isHidden());
+            outputDescriptorFields[i] = new Field(
+                    oldField.getRelationAlias(),
+                    oldField.getName(),
+                    outputFieldTypes[i],
+                    oldField.isHidden(),
+                    oldField.getQualifiedOriginTable(),
+                    oldField.isAliased());
         }
 
         for (int i = 0; i < node.getRelations().size(); i++) {
@@ -1235,28 +1293,39 @@ class StatementAnalyzer
                 Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                 for (Field field : scope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
-                    outputFields.add(Field.newUnqualified(field.getName(), field.getType()));
+                    outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getQualifiedOriginTable(), false));
                 }
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
-                Expression expression = column.getExpression();
 
-                Optional<String> alias = column.getAlias();
-                if (!alias.isPresent()) {
-                    QualifiedName name = null;
-                    if (expression instanceof QualifiedNameReference) {
-                        name = ((QualifiedNameReference) expression).getName();
-                    }
-                    else if (expression instanceof DereferenceExpression) {
-                        name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
-                    }
-                    if (name != null) {
-                        alias = Optional.of(getLast(name.getOriginalParts()));
+                Expression expression = column.getExpression();
+                Optional<String> fieldName = column.getAlias();
+
+                Optional<QualifiedObjectName> qualifiedOriginTable = Optional.empty();
+                QualifiedName name = null;
+
+                if (expression instanceof QualifiedNameReference) {
+                    name = ((QualifiedNameReference) expression).getName();
+                }
+                else if (expression instanceof DereferenceExpression) {
+                    name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+                }
+
+                if (name != null) {
+                    List<Field> matchingFields = scope.getRelationType().resolveFields(name);
+                    if (!matchingFields.isEmpty()) {
+                        qualifiedOriginTable = matchingFields.get(0).getQualifiedOriginTable();
                     }
                 }
 
-                outputFields.add(Field.newUnqualified(alias, analysis.getType(expression))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                if (!fieldName.isPresent()) {
+                    if (name != null) {
+                        fieldName = Optional.of(getLast(name.getOriginalParts()));
+                    }
+                }
+
+                outputFields.add(Field.newUnqualified(fieldName, analysis.getType(expression), qualifiedOriginTable, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());

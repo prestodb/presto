@@ -1,4 +1,3 @@
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,24 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.sql.tree;
 
 import java.util.Optional;
 
-public final class Rollback
-        extends DataDefinitionStatement
+public abstract class DataDefinitionStatement
+    extends Statement
 {
-    public Rollback()
-    {
-        this(Optional.empty());
-    }
-
-    public Rollback(NodeLocation location)
-    {
-        this(Optional.of(location));
-    }
-
-    private Rollback(Optional<NodeLocation> location)
+    protected DataDefinitionStatement(Optional<NodeLocation> location)
     {
         super(location);
     }
@@ -37,30 +27,6 @@ public final class Rollback
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitRollback(this, context);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return 0;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        return true;
-    }
-
-    @Override
-    public String toString()
-    {
-        return "ROLLBACK";
+        return visitor.visitDataDefinitionStatement(this, context);
     }
 }
