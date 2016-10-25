@@ -19,6 +19,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,7 +28,6 @@ import java.math.BigInteger;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
-import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.Preconditions.checkState;
@@ -129,7 +129,7 @@ public class DecimalEncoding
 
     private Slice parseSlice(Slice slice, int offset)
     {
-        // first vint is scale, which is ignored
+        // first vint is scale
         int scale = Ints.checkedCast(readVInt(slice, offset));
         offset += decodeVIntSize(slice, offset);
 
@@ -151,9 +151,12 @@ public class DecimalEncoding
 
         resultSlice.setBytes(16 - length, slice, offset, length);
 
+        // todo get rid of BigInteger
+        UnscaledDecimal128Arithmetic.pack(new BigInteger(resultBytes), resultSlice);
         if (scale != type.getScale()) {
-            return encodeUnscaledValue(rescale(new BigInteger(resultBytes), scale, type.getScale()));
+            UnscaledDecimal128Arithmetic.rescale(resultSlice, type.getScale() - scale, resultSlice);
         }
+
         return resultSlice;
     }
 }
