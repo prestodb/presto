@@ -183,10 +183,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle layoutHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getTableStatistics(transactionHandle, session, layoutHandle);
+            return delegate.getTableStatistics(session, tableHandle, layoutHandle);
         }
     }
 

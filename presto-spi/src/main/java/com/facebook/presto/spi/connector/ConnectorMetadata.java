@@ -146,7 +146,7 @@ public interface ConnectorMetadata
     /**
      * Get statistics for table using given layout.
      */
-    default TableStatistics getTableStatistics(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle layoutHandle)
     {
         return EMPTY_STATISTICS;
     }
