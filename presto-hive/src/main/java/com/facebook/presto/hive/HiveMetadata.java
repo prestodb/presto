@@ -379,12 +379,13 @@ public class HiveMetadata
         tableStatistics.setRowCount(calculateRowsCount(partitionStatisticsMap));
 
         for (Map.Entry<String, ColumnHandle> columnEntry : tableColumns.entrySet()) {
+            String columnName = columnEntry.getKey();
+            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnEntry.getValue();
             com.facebook.presto.spi.statistics.ColumnStatistics.Builder columnStatistics = com.facebook.presto.spi.statistics.ColumnStatistics.builder();
-            columnStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatisticsMap, columnEntry.getKey()));
-            columnStatistics.setNullsCount(calculateNullsCount(partitionStatisticsMap, columnEntry.getKey()));
-            tableStatistics.setColumnStatistics(columnEntry.getValue(), columnStatistics.build());
+            columnStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatisticsMap, columnName));
+            columnStatistics.setNullsCount(calculateNullsCount(partitionStatisticsMap, columnName));
+            tableStatistics.setColumnStatistics(hiveColumnHandle, columnStatistics.build());
         }
-
         return tableStatistics.build();
     }
 
