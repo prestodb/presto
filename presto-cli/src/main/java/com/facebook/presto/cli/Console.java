@@ -135,7 +135,7 @@ public class Console
                 Optional.ofNullable(clientOptions.truststorePath),
                 Optional.ofNullable(clientOptions.truststorePassword),
                 Optional.ofNullable(clientOptions.user),
-                clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
+                getPassword(),
                 Optional.ofNullable(clientOptions.krb5Principal),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
                 Optional.ofNullable(clientOptions.krb5ConfigPath),
@@ -152,7 +152,15 @@ public class Console
         }
     }
 
-    private String getPassword()
+    private Optional<String> getPassword()
+    {
+        if (clientOptions.showPasswordPrompt) {
+            return Optional.ofNullable(promptPassword());
+        }
+        return Optional.ofNullable(clientOptions.password);
+    }
+
+    private String promptPassword()
     {
         checkState(clientOptions.user != null, "Username must be specified along with password");
         String defaultPassword = System.getenv("PRESTO_PASSWORD");
