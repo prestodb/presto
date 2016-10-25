@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.SliceArrayBlock;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -22,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static org.testng.Assert.assertEquals;
@@ -84,7 +88,7 @@ public class TestDictionaryBlock
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 2);
         assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
 
-        assertBlock(copiedBlock.getDictionary(), new Slice[] { expectedValues[0], expectedValues[5] });
+        assertBlock(copiedBlock.getDictionary(), new Slice[] {expectedValues[0], expectedValues[5]});
         assertEquals(copiedBlock.getIds(), wrappedIntArray(0, 1, 0, 1, 0));
     }
 
@@ -101,7 +105,7 @@ public class TestDictionaryBlock
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 1);
         assertEquals(copiedBlock.getPositionCount(), positionsToCopy.size());
 
-        assertBlock(copiedBlock.getDictionary(), new Slice[] { expectedValues[2] });
+        assertBlock(copiedBlock.getDictionary(), new Slice[] {expectedValues[2]});
         assertEquals(copiedBlock.getIds(), wrappedIntArray(0, 0, 0));
     }
 
@@ -124,19 +128,51 @@ public class TestDictionaryBlock
             throws Exception
     {
         Slice[] expectedValues = createExpectedValues(5);
-        DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10, randomDictionaryId());
 
         assertEquals(dictionaryBlock.isCompact(), false);
         DictionaryBlock compactBlock = dictionaryBlock.compact();
         assertNotEquals(dictionaryBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
 
         assertEquals(compactBlock.getDictionary().getPositionCount(), (expectedValues.length / 2) + 1);
-        assertBlock(compactBlock.getDictionary(), new Slice[] { expectedValues[0], expectedValues[1], expectedValues[3] });
+        assertBlock(compactBlock.getDictionary(), new Slice[] {expectedValues[0], expectedValues[1], expectedValues[3]});
         assertEquals(compactBlock.getIds(), wrappedIntArray(0, 1, 1, 2, 2, 0, 1, 1, 2, 2));
         assertEquals(compactBlock.isCompact(), true);
 
         DictionaryBlock reCompactedBlock = compactBlock.compact();
         assertEquals(reCompactedBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
+    }
+
+    @Test
+    public void testCompactBlocks()
+            throws Exception
+    {
+        DictionaryId commonSourceId = randomDictionaryId();
+
+        Slice[] expectedValues = createExpectedValues(5);
+        // Both blocks do not reference value 2, only block2 references value 4
+        DictionaryBlock dictionaryBlock1 = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10, commonSourceId);
+        DictionaryBlock dictionaryBlock2 = createDictionaryBlock(expectedValues, new int[] {0, 1, 3, 4, 1, 4, 3, 0}, commonSourceId);
+
+        assertEquals(dictionaryBlock1.isCompact(), false);
+        assertEquals(dictionaryBlock2.isCompact(), false);
+        List<Block> compactBlocks = DictionaryBlock.compactBlocks(ImmutableList.of(dictionaryBlock1, dictionaryBlock2));
+
+        DictionaryBlock compactBlock;
+        // first block
+        compactBlock = (DictionaryBlock) compactBlocks.get(0);
+        DictionaryId compactSourceId = compactBlock.getDictionarySourceId();
+        assertEquals(compactBlock.isCompact(), true);
+        assertEquals(compactBlock.getIds(), wrappedIntArray(0, 1, 1, 2, 2, 0, 1, 1, 2, 2));
+        assertEquals(compactBlock.getDictionary().getPositionCount(), 4);
+        assertBlock(compactBlock.getDictionary(), new Slice[] {expectedValues[0], expectedValues[1], expectedValues[3], expectedValues[4]});
+        // second block
+        compactBlock = (DictionaryBlock) compactBlocks.get(1);
+        assertEquals(compactBlock.isCompact(), true);
+        assertEquals(compactBlock.getIds(), wrappedIntArray(0, 1, 2, 3, 1, 3, 2, 0));
+        assertEquals(compactBlock.getDictionarySourceId(), compactSourceId);
+        assertEquals(compactBlock.getDictionary().getPositionCount(), 4);
+        assertBlock(compactBlock.getDictionary(), new Slice[] {expectedValues[0], expectedValues[1], expectedValues[3], expectedValues[4]});
     }
 
     @Test
@@ -153,7 +189,12 @@ public class TestDictionaryBlock
         assertEquals(compactBlock.isCompact(), true);
     }
 
-    private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount)
+    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int[] ids, DictionaryId dictionaryId)
+    {
+        return new DictionaryBlock(ids.length, new SliceArrayBlock(expectedValues.length, expectedValues), wrappedIntArray(ids), dictionaryId);
+    }
+
+    private static DictionaryBlock createDictionaryBlockWithUnreferencedKeys(Slice[] expectedValues, int positionCount, DictionaryId dictionaryId)
     {
         // adds references to 0 and all odd indexes
         int dictionarySize = expectedValues.length;
@@ -166,10 +207,11 @@ public class TestDictionaryBlock
             }
             ids[i] = index;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), wrappedIntArray(ids));
+
+        return createDictionaryBlock(expectedValues, ids, dictionaryId);
     }
 
-    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
+    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount, DictionaryId dictionaryId)
     {
         int dictionarySize = expectedValues.length;
         int[] ids = new int[positionCount];
@@ -177,6 +219,12 @@ public class TestDictionaryBlock
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), wrappedIntArray(ids));
+
+        return createDictionaryBlock(expectedValues, ids, dictionaryId);
+    }
+
+    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
+    {
+        return createDictionaryBlock(expectedValues, positionCount, randomDictionaryId());
     }
 }
