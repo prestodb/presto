@@ -30,8 +30,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
-import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
+import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 
 @ScalarOperator(HASH_CODE)
 public final class ArrayHashCodeOperator
@@ -47,9 +46,8 @@ public final class ArrayHashCodeOperator
     {
         long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invoke(readNativeValue(type, block, i)));
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invoke(readNativeValue(type, block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -71,9 +69,8 @@ public final class ArrayHashCodeOperator
     {
         long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getLong(block, i)));
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getLong(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -95,9 +92,8 @@ public final class ArrayHashCodeOperator
     {
         long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getBoolean(block, i)));
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getBoolean(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -119,9 +115,8 @@ public final class ArrayHashCodeOperator
     {
         long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getSlice(block, i)));
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getSlice(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -143,9 +138,8 @@ public final class ArrayHashCodeOperator
     {
         long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
-            checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getDouble(block, i)));
+                hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getDouble(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
