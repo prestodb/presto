@@ -93,6 +93,7 @@ import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -116,6 +117,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.nameReference;
@@ -1640,6 +1642,19 @@ public class TestSqlParser
                                         ComparisonExpressionType.EQUAL,
                                         new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
                                         new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+    }
+
+    @Test
+    public void testShowColumnStats()
+    {
+        final String[] tableNames = {"t", "s.t", "c.s.t"};
+
+        for (String fullName : tableNames) {
+            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            assertStatement(format("SHOW STATS %s", qualifiedName), new ShowStats(qualifiedName));
+            assertStatement(format("SHOW STATS FROM %s", qualifiedName), new ShowStats(qualifiedName));
+            assertStatement(format("SHOW STATS IN %s", qualifiedName), new ShowStats(qualifiedName));
+        }
     }
 
     @Test
