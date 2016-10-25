@@ -215,7 +215,7 @@ public class TpchMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle layoutHandle)
     {
         TpchTableLayoutHandle layout = checkType(layoutHandle, TpchTableLayoutHandle.class, "layoutHandle");
         TpchTableHandle table = layout.getTable();
