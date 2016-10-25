@@ -19,8 +19,7 @@ import com.facebook.presto.spi.PageBuilder;
 public interface PagesHashStrategy
 {
     /**
-     * Gets the total of the columns held in in this PagesHashStrategy.  This includes both the hashed
-     * and non-hashed columns.
+     * Gets the number of columns appended by this PagesHashStrategy.
      */
     int getChannelCount();
 
