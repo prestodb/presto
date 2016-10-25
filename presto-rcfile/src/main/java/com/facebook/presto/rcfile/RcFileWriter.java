@@ -14,6 +14,7 @@
 package com.facebook.presto.rcfile;
 
 import com.facebook.presto.rcfile.RcFileCompressor.CompressedSliceOutput;
+import com.facebook.presto.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
@@ -22,6 +23,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 
+import javax.annotation.Nullable;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
@@ -29,10 +32,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeLengthPrefixedString;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.writeVInt;
+import static com.facebook.presto.rcfile.RcFileReader.validateFile;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -58,6 +64,9 @@ public class RcFileWriter
     }
 
     private final SliceOutput output;
+    private final List<Type> types;
+    private final RcFileEncoding encoding;
+    private final RcFileCodecFactory codecFactory;
 
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
     private final long syncSecond = ThreadLocalRandom.current().nextLong();
@@ -73,13 +82,17 @@ public class RcFileWriter
 
     private long totalRowCount;
 
+    @Nullable
+    private final RcFileWriteValidationBuilder validationBuilder;
+
     public RcFileWriter(
             SliceOutput output,
             List<Type> types,
             RcFileEncoding encoding,
             Optional<String> codecName,
             RcFileCodecFactory codecFactory,
-            Map<String, String> metadata)
+            Map<String, String> metadata,
+            boolean validate)
             throws IOException
     {
         this(
@@ -90,7 +103,8 @@ public class RcFileWriter
                 codecFactory,
                 metadata,
                 DEFAULT_TARGET_MIN_ROW_GROUP_SIZE,
-                DEFAULT_TARGET_MAX_ROW_GROUP_SIZE);
+                DEFAULT_TARGET_MAX_ROW_GROUP_SIZE,
+                validate);
     }
 
     public RcFileWriter(
@@ -101,7 +115,8 @@ public class RcFileWriter
             RcFileCodecFactory codecFactory,
             Map<String, String> metadata,
             DataSize targetMinRowGroupSize,
-            DataSize targetMaxRowGroupSize)
+            DataSize targetMaxRowGroupSize,
+            boolean validate)
             throws IOException
     {
         requireNonNull(output, "output is null");
@@ -117,30 +132,36 @@ public class RcFileWriter
         requireNonNull(targetMaxRowGroupSize, "targetMaxRowGroupSize is null");
         checkArgument(targetMinRowGroupSize.compareTo(targetMaxRowGroupSize) <= 0, "targetMinRowGroupSize must be less than or equal to targetMaxRowGroupSize");
 
+        this.validationBuilder = validate ? new RcFileWriteValidationBuilder(types) : null;
+
         this.output = output;
+        this.types = types;
+        this.encoding = encoding;
+        this.codecFactory = codecFactory;
 
         // write header
         output.writeBytes(RCFILE_MAGIC);
         output.writeByte(CURRENT_VERSION);
+        recordValidation(validation -> validation.setVersion((byte) CURRENT_VERSION));
 
         // write codec information
         output.writeBoolean(codecName.isPresent());
         codecName.ifPresent(name -> writeLengthPrefixedString(output, utf8Slice(name)));
+        recordValidation(validation -> validation.setCodecClassName(codecName));
 
         // write metadata
         output.writeInt(Integer.reverseBytes(metadata.size() + 2));
-        writeLengthPrefixedString(output, utf8Slice(COLUMN_COUNT_METADATA_KEY));
-        writeLengthPrefixedString(output, utf8Slice(Integer.toString(types.size())));
-        writeLengthPrefixedString(output, utf8Slice(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY));
-        writeLengthPrefixedString(output, utf8Slice(PRESTO_RCFILE_WRITER_VERSION));
+        writeMetadataProperty(COLUMN_COUNT_METADATA_KEY, Integer.toString(types.size()));
+        writeMetadataProperty(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION);
         for (Entry<String, String> entry : metadata.entrySet()) {
-            writeLengthPrefixedString(output, utf8Slice(entry.getKey()));
-            writeLengthPrefixedString(output, utf8Slice(entry.getValue()));
+            writeMetadataProperty(entry.getKey(), entry.getValue());
         }
 
         // write sync sequence
         output.writeLong(syncFirst);
+        recordValidation(validation -> validation.setSyncFirst(syncFirst));
         output.writeLong(syncSecond);
+        recordValidation(validation -> validation.setSyncSecond(syncSecond));
 
         // initialize columns
         RcFileCompressor compressor = codecName.map(codecFactory::createCompressor).orElse(new NoneCompressor());
@@ -156,6 +177,13 @@ public class RcFileWriter
         this.targetMaxRowGroupSize = toIntExact(targetMaxRowGroupSize.toBytes());
     }
 
+    private void writeMetadataProperty(String key, String value)
+    {
+        writeLengthPrefixedString(output, utf8Slice(key));
+        writeLengthPrefixedString(output, utf8Slice(value));
+        recordValidation(validation -> validation.addMetadataProperty(key, value));
+    }
+
     @Override
     public void close()
             throws IOException
@@ -166,6 +194,25 @@ public class RcFileWriter
         for (ColumnEncoder columnEncoder : columnEncoders) {
             columnEncoder.destroy();
         }
+    }
+
+    private void recordValidation(Consumer<RcFileWriteValidationBuilder> task)
+    {
+        if (validationBuilder != null) {
+            task.accept(validationBuilder);
+        }
+    }
+
+    public void validate(RcFileDataSource input)
+            throws RcFileCorruptionException
+    {
+        checkState(validationBuilder != null, "validation is not enabled");
+        validateFile(
+                validationBuilder.build(),
+                input,
+                encoding,
+                types,
+                codecFactory);
     }
 
     public long getRetainedSizeInBytes()
@@ -211,6 +258,7 @@ public class RcFileWriter
             columnEncoders[i].writeBlock(block);
             bufferedSize += columnEncoders[i].getBufferedSize();
         }
+        recordValidation(validation -> validation.addPage(page));
 
         if (bufferedSize >= targetMinRowGroupSize) {
             writeRowGroup();
@@ -239,6 +287,7 @@ public class RcFileWriter
         // build key section
         keySectionOutput = keySectionOutput.createRecycledCompressedSliceOutput();
         writeVInt(keySectionOutput, bufferedRows);
+        recordValidation(validation -> validation.addRowGroup(bufferedRows));
 
         int valueLength = 0;
         for (ColumnEncoder columnEncoder : columnEncoders) {

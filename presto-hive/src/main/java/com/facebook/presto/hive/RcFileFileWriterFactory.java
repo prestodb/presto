@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.hive.rcfile.HdfsRcFileDataSource;
+import com.facebook.presto.rcfile.RcFileDataSource;
 import com.facebook.presto.rcfile.RcFileEncoding;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.spi.ConnectorSession;
@@ -33,10 +35,12 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
@@ -112,6 +116,21 @@ public class RcFileFileWriterFactory
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
             OutputStream outputStream = fileSystem.create(path);
 
+            Optional<Supplier<RcFileDataSource>> validationInputFactory = Optional.empty();
+            if (HiveSessionProperties.isRcfileOptimizedWriterValidate(session)) {
+                validationInputFactory = Optional.of(() -> {
+                    try {
+                        return new HdfsRcFileDataSource(
+                                path.toString(),
+                                fileSystem.open(path),
+                                fileSystem.getFileStatus(path).getLen());
+                    }
+                    catch (IOException e) {
+                        throw Throwables.propagate(e);
+                    }
+                });
+            }
+
             return Optional.of(new RcFileFileWriter(
                     outputStream,
                     rcFileEncoding,
@@ -121,7 +140,8 @@ public class RcFileFileWriterFactory
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(HiveMetadata.PRESTO_QUERY_ID_NAME, session.getQueryId())
-                            .build()));
+                            .build(),
+                    validationInputFactory));
         }
         catch (Exception e) {
             throw Throwables.propagate(e);

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
+import com.facebook.presto.rcfile.RcFileDataSource;
 import com.facebook.presto.rcfile.RcFileEncoding;
 import com.facebook.presto.rcfile.RcFileWriter;
 import com.facebook.presto.spi.Page;
@@ -33,9 +34,11 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +48,7 @@ public class RcFileFileWriter
     private final RcFileWriter rcFileWriter;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
+    private final Optional<Supplier<RcFileDataSource>> validationInputFactory;
 
     public RcFileFileWriter(
             OutputStream outputStream,
@@ -52,7 +56,8 @@ public class RcFileFileWriter
             List<Type> fileColumnTypes,
             Optional<String> codecName,
             int[] fileInputColumnIndexes,
-            Map<String, String> metadata)
+            Map<String, String> metadata,
+            Optional<Supplier<RcFileDataSource>> validationInputFactory)
             throws IOException
     {
         rcFileWriter = new RcFileWriter(
@@ -61,7 +66,9 @@ public class RcFileFileWriter
                 rcFileEncoding,
                 codecName,
                 new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
-                metadata);
+                metadata,
+                validationInputFactory.isPresent());
+
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
 
         ImmutableList.Builder<Block> nullBlocks = ImmutableList.builder();
@@ -71,6 +78,7 @@ public class RcFileFileWriter
             nullBlocks.add(blockBuilder.build());
         }
         this.nullBlocks = nullBlocks.build();
+        this.validationInputFactory = validationInputFactory;
     }
 
     @Override
@@ -110,6 +118,17 @@ public class RcFileFileWriter
         catch (IOException e) {
             // todo delete file
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
+        }
+
+        if (validationInputFactory.isPresent()) {
+            try {
+                try (RcFileDataSource input = validationInputFactory.get().get()) {
+                    rcFileWriter.validate(input);
+                }
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
+            }
         }
     }
 

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.rcfile;
 
+import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksum;
+import com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
@@ -27,14 +30,19 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static com.facebook.presto.rcfile.RcFileWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.skipFully;
@@ -95,6 +103,9 @@ public class RcFileReader
 
     private boolean closed;
 
+    private final Optional<RcFileWriteValidation> writeValidation;
+    private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
+
     public RcFileReader(
             RcFileDataSource dataSource,
             RcFileEncoding encoding,
@@ -105,9 +116,26 @@ public class RcFileReader
             DataSize bufferSize)
             throws IOException
     {
+        this(dataSource, encoding, readColumns, codecFactory, offset, length, bufferSize, Optional.empty());
+    }
+
+    private RcFileReader(
+            RcFileDataSource dataSource,
+            RcFileEncoding encoding,
+            Map<Integer, Type> readColumns,
+            RcFileCodecFactory codecFactory,
+            long offset,
+            long length,
+            DataSize bufferSize,
+            Optional<RcFileWriteValidation> writeValidation)
+            throws IOException
+    {
         this.dataSource = requireNonNull(dataSource, "rcFileDataSource is null");
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
         this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), toIntExact(bufferSize.toBytes()));
+
+        this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+        this.writeChecksumBuilder = writeValidation.map(validation -> createWriteChecksumBuilder(readColumns));
 
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(offset < dataSource.getSize(), "offset is greater than data size");
@@ -124,10 +152,12 @@ public class RcFileReader
             if (version > CURRENT_VERSION) {
                 throw corrupt("RCFile version %s not supported: %s", version, dataSource);
             }
-
+            validateWrite(validation -> validation.getVersion() == version, "Unexpected file version");
             compressed = input.readBoolean();
         }
         else if (SEQUENCE_FILE_MAGIC.equals(magic)) {
+            validateWrite(validation -> false, "Expected file to start with RCFile magic");
+
             // first version of RCFile used magic SEQ with version 6
             byte sequenceFileVersion = input.readByte();
             if (sequenceFileVersion != SEQUENCE_FILE_VERSION) {
@@ -156,10 +186,12 @@ public class RcFileReader
 
         // setup the compression codec
         if (compressed) {
-            Slice codecClassName = readLengthPrefixedString(input);
-            this.decompressor = codecFactory.createDecompressor(codecClassName.toStringUtf8());
+            String codecClassName = readLengthPrefixedString(input).toStringUtf8();
+            validateWrite(validation -> validation.getCodecClassName().equals(Optional.of(codecClassName)), "Unexpected compression codec");
+            this.decompressor = codecFactory.createDecompressor(codecClassName);
         }
         else {
+            validateWrite(validation -> validation.getCodecClassName().equals(Optional.empty()), "Expected file to be compressed");
             this.decompressor = null;
         }
 
@@ -176,6 +208,7 @@ public class RcFileReader
             metadataBuilder.put(readLengthPrefixedString(input).toStringUtf8(), readLengthPrefixedString(input).toStringUtf8());
         }
         metadata = metadataBuilder.build();
+        validateWrite(validation -> validation.getMetadata().equals(metadata), "Unexpected metadata");
 
         // get column count from metadata
         String columnCountString = metadata.get(COLUMN_COUNT_METADATA_KEY);
@@ -200,7 +233,9 @@ public class RcFileReader
 
         // read sync bytes
         syncFirst = input.readLong();
+        validateWrite(validation -> validation.getSyncFirst() == syncFirst, "Unexpected sync sequence");
         syncSecond = input.readLong();
+        validateWrite(validation -> validation.getSyncSecond() == syncSecond, "Unexpected sync sequence");
 
         // seek to first sync point withing the specified region, unless the region starts at the beginning
         // of the file.  In that case, the reader owns all row groups up to the first sync point.
@@ -268,6 +303,18 @@ public class RcFileReader
         if (decompressor != null) {
             decompressor.destroy();
         }
+
+        if (writeChecksumBuilder.isPresent()) {
+            WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
+            validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
+            List<Long> columnHashes = actualChecksum.getColumnHashes();
+            for (int i = 0; i < columnHashes.size(); i++) {
+                int columnIndex = i;
+                validateWrite(validation -> validation.getChecksum().getColumnHashes().get(columnIndex).equals(columnHashes.get(columnIndex)),
+                        "Invalid checksum for column %s", columnIndex);
+            }
+            validateWrite(validation -> validation.getChecksum().getRowGroupHash() == actualChecksum.getRowGroupHash(), "Invalid row group checksum");
+        }
     }
 
     public int advance()
@@ -281,6 +328,7 @@ public class RcFileReader
 
         // do we still have rows in the current row group
         if (currentChunkRowCount > 0) {
+            validateWritePageChecksum();
             return currentChunkRowCount;
         }
 
@@ -294,10 +342,10 @@ public class RcFileReader
         if (input.remaining() < SIZE_OF_INT) {
             throw corrupt("RCFile truncated %s", dataSource);
         }
-        int uncompressedRowGroupSize = Integer.reverseBytes(input.readInt());
+        int unusedRowGroupSize = Integer.reverseBytes(input.readInt());
 
         // read sequence sync if present
-        if (uncompressedRowGroupSize == -1) {
+        if (unusedRowGroupSize == -1) {
             if (input.remaining() < SIZE_OF_LONG + SIZE_OF_LONG + SIZE_OF_INT) {
                 throw corrupt("RCFile truncated %s", dataSource);
             }
@@ -318,10 +366,13 @@ public class RcFileReader
             }
 
             // read the useless uncompressed length
-            uncompressedRowGroupSize = Integer.reverseBytes(input.readInt());
+            unusedRowGroupSize = Integer.reverseBytes(input.readInt());
         }
-        if (uncompressedRowGroupSize <= 0) {
-            throw corrupt("Invalid uncompressed row group length %s", uncompressedRowGroupSize);
+        else if (rowsRead > 0) {
+            validateWrite(writeValidation -> false, "Expected sync sequence for every row group except the first one");
+        }
+        if (unusedRowGroupSize <= 0) {
+            throw corrupt("Invalid uncompressed row group length %s", unusedRowGroupSize);
         }
 
         // read row group header
@@ -359,8 +410,10 @@ public class RcFileReader
         currentChunkRowCount = min(ColumnData.MAX_SIZE, rowGroupRowCount);
 
         // set column buffers
+        int totalCompressedDataSize = 0;
         for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
             int compressedDataSize = toIntExact(readVInt(headerInput));
+            totalCompressedDataSize += compressedDataSize;
             int uncompressedDataSize = toIntExact(readVInt(headerInput));
             if (decompressor == null && compressedDataSize != uncompressedDataSize) {
                 throw corrupt("Invalid RCFile %s", dataSource);
@@ -379,6 +432,13 @@ public class RcFileReader
             }
         }
 
+        // this value is not used but validate it is correct since it might signal corruption
+        if (unusedRowGroupSize != totalCompressedDataSize + uncompressedHeaderSize) {
+            throw corrupt("Invalid row group size");
+        }
+
+        validateWriteRowGroupChecksum();
+        validateWritePageChecksum();
         return currentChunkRowCount;
     }
 
@@ -432,6 +492,67 @@ public class RcFileReader
     {
         closeQuietly();
         return new RcFileCorruptionException(messageFormat, args);
+    }
+
+    private void validateWrite(Predicate<RcFileWriteValidation> test, String messageFormat, Object... args)
+            throws RcFileCorruptionException
+    {
+        if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
+            throw corrupt("Write validation failed: " + messageFormat, args);
+        }
+    }
+
+    private void validateWriteRowGroupChecksum()
+            throws IOException
+    {
+        if (writeChecksumBuilder.isPresent()) {
+            writeChecksumBuilder.get().addRowGroup(rowGroupRowCount);
+        }
+    }
+
+    private void validateWritePageChecksum()
+            throws IOException
+    {
+        if (writeChecksumBuilder.isPresent()) {
+            Block[] blocks = new Block[columns.length];
+            for (int columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+                blocks[columnIndex] = readBlock(columnIndex);
+            }
+            writeChecksumBuilder.get().addPage(new Page(currentChunkRowCount, blocks));
+        }
+    }
+
+    static void validateFile(
+            RcFileWriteValidation writeValidation,
+            RcFileDataSource input,
+            RcFileEncoding encoding,
+            List<Type> types,
+            RcFileCodecFactory codecFactory)
+            throws RcFileCorruptionException
+    {
+        ImmutableMap.Builder<Integer, Type> readTypes = ImmutableMap.builder();
+        for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
+            readTypes.put(columnIndex, types.get(columnIndex));
+        }
+        try (RcFileReader rcFileReader = new RcFileReader(
+                input,
+                encoding,
+                readTypes.build(),
+                codecFactory,
+                0,
+                input.getSize(),
+                new DataSize(1, Unit.MEGABYTE),
+                Optional.of(writeValidation))) {
+            while (rcFileReader.advance() >= 0) {
+                // ignored
+            }
+        }
+        catch (RcFileCorruptionException e) {
+            throw e;
+        }
+        catch (IOException e) {
+            throw new RcFileCorruptionException(e, "Validation failed");
+        }
     }
 
     private static class Column

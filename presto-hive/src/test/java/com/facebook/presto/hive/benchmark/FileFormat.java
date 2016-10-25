@@ -471,7 +471,8 @@ public enum FileFormat
                     encoding,
                     compressionCodec.getCodec().map(Class::getName),
                     new AircompressorCodecFactory(new HadoopCodecFactory(getClass().getClassLoader())),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    true);
         }
 
         @Override

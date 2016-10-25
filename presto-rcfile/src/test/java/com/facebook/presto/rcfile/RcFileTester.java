@@ -635,15 +635,17 @@ public class RcFileTester
             throws Exception
     {
         OutputStreamSliceOutput output = new OutputStreamSliceOutput(new FileOutputStream(outputFile));
+        AircompressorCodecFactory codecFactory = new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader()));
         RcFileWriter writer = new RcFileWriter(
                 output,
                 ImmutableList.of(type),
                 format.getVectorEncoding(),
                 compression.getCodecName(),
-                new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader())),
+                codecFactory,
                 metadata,
                 new DataSize(100, KILOBYTE),   // use a smaller size to create more row groups
-                new DataSize(200, KILOBYTE));
+                new DataSize(200, KILOBYTE),
+                true);
         BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), 1024);
         while (values.hasNext()) {
             Object value = values.next();
@@ -652,6 +654,9 @@ public class RcFileTester
 
         writer.write(new Page(blockBuilder.build()));
         writer.close();
+
+        writer.validate(new FileRcFileDataSource(outputFile));
+
         return new DataSize(output.size(), BYTE);
     }
 
