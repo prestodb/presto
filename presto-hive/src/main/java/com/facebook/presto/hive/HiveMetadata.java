@@ -390,16 +390,20 @@ public class HiveMetadata
 
     private Estimate calculateRowsCount(Map<String, PartitionStatistics> partitionStatisticsMap)
     {
-        List<Long> partitionRowNums = partitionStatisticsMap.values().stream()
+        List<Long> knownPartitionRowCounts = partitionStatisticsMap.values().stream()
                 .map(PartitionStatistics::getNumRows)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toList());
 
-        long numRowsSum = partitionRowNums.stream().mapToLong(a -> a).sum();
-        long partitionsWithStatsCount = partitionRowNums.size();
+        if (knownPartitionRowCounts.isEmpty()) {
+            return Estimate.unknownValue();
+        }
+
+        long knownPartitionRowCountsSum = knownPartitionRowCounts.stream().mapToLong(a -> a).sum();
+        long partitionsWithStatsCount = knownPartitionRowCounts.size();
         long allPartitionsCount = partitionStatisticsMap.size();
-        return new Estimate(1.0 * numRowsSum / partitionsWithStatsCount * allPartitionsCount);
+        return new Estimate(1.0 * knownPartitionRowCountsSum / partitionsWithStatsCount * allPartitionsCount);
     }
 
     private Estimate calculateDistinctValuesCount(Map<String, PartitionStatistics> partitionStatisticsMap, String column)
