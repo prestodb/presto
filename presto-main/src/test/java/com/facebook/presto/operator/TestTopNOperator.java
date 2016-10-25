@@ -97,6 +97,78 @@ public class TestTopNOperator
     }
 
     @Test
+    public void testDecreasingSingleFieldKey()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                .row(6, 0.6)
+                .row(5, 0.5)
+                .pageBreak()
+                .row(4, 0.4)
+                .row(4, 0.41)
+                .pageBreak()
+                .row(2, 0.2)
+                .row(1, 0.1)
+                .row(-1, -0.1)
+                .pageBreak()
+                .build();
+
+        TopNOperatorFactory factory = new TopNOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT, DOUBLE),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                false);
+
+        Operator operator = factory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+                .row(6, 0.6)
+                .row(5, 0.5)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
+    public void testIncreasingSingleFieldKey()
+            throws Exception
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                .row(-1, -0.1)
+                .row(1, 0.1)
+                .row(2, 0.2)
+                .pageBreak()
+                .row(4, 0.4)
+                .row(4, 0.41)
+                .pageBreak()
+                .row(5, 0.5)
+                .row(6, 0.6)
+                .pageBreak()
+                .build();
+
+        TopNOperatorFactory factory = new TopNOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT, DOUBLE),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                false);
+
+        Operator operator = factory.createOperator(driverContext);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+                .row(6, 0.6)
+                .row(5, 0.5)
+                .build();
+
+        assertOperatorEquals(operator, input, expected);
+    }
+
+    @Test
     public void testMultiFieldKey()
             throws Exception
     {
