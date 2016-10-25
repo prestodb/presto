@@ -382,8 +382,14 @@ public class HiveMetadata
             String columnName = columnEntry.getKey();
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnEntry.getValue();
             com.facebook.presto.spi.statistics.ColumnStatistics.Builder columnStatistics = com.facebook.presto.spi.statistics.ColumnStatistics.builder();
-            columnStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatisticsMap, columnName));
-            columnStatistics.setNullsCount(calculateNullsCount(partitionStatisticsMap, columnName));
+            if (hiveColumnHandle.isPartitionKey()) {
+                columnStatistics.setDistinctValuesCount(calculateDistinctValuesCountForPartitioningKey(hiveColumnHandle, hivePartitions));
+                columnStatistics.setNullsCount(calculateNullsCountForPartitioningKey(hiveColumnHandle, hivePartitions, partitionStatisticsMap));
+            }
+            else {
+                columnStatistics.setDistinctValuesCount(calculateDistinctValuesCount(partitionStatisticsMap, columnName));
+                columnStatistics.setNullsCount(calculateNullsCount(partitionStatisticsMap, columnName));
+            }
             tableStatistics.setColumnStatistics(hiveColumnHandle, columnStatistics.build());
         }
         return tableStatistics.build();
@@ -448,6 +454,36 @@ public class HiveMetadata
                         return OptionalDouble.of(allPartitionsCount / partitionsWithStatsCount * valuesSum);
                     }
                 });
+    }
+
+    private Estimate calculateDistinctValuesCountForPartitioningKey(HiveColumnHandle hiveColumnHandle, List<HivePartition> partitions)
+    {
+        return new Estimate(partitions.stream()
+                .map(partition -> partition.getKeys().get(hiveColumnHandle))
+                .collect(toSet())
+                .size());
+    }
+
+    private Estimate calculateNullsCountForPartitioningKey(HiveColumnHandle hiveColumnHandle, List<HivePartition> hivePartitions, Map<String, PartitionStatistics> partitionStatisticsMap)
+    {
+        List<Long> knownPartitionRowCounts = partitionStatisticsMap.values().stream()
+                .map(PartitionStatistics::getNumRows)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toList());
+
+        if (knownPartitionRowCounts.isEmpty()) {
+            return Estimate.unknownValue();
+        }
+
+        long knownPartitionRowCountsSum = knownPartitionRowCounts.stream().mapToLong(Long::longValue).sum();
+        long averagePartitionRowsCount = knownPartitionRowCountsSum / knownPartitionRowCounts.size();
+
+        return new Estimate(hivePartitions.stream()
+                .filter(partition -> partition.getKeys().get(hiveColumnHandle).isNull())
+                .map(HivePartition::getPartitionId)
+                .mapToLong(partitionId -> partitionStatisticsMap.get(partitionId).getNumRows().orElse(averagePartitionRowsCount))
+                .sum());
     }
 
     private Estimate getColumnStatisticsValue(
