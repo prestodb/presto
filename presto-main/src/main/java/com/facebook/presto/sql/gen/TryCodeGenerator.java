@@ -27,6 +27,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
@@ -45,6 +46,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -72,21 +74,15 @@ public class TryCodeGenerator
         CallExpression innerCallExpression = (CallExpression) getOnlyElement(arguments);
         checkState(tryMethodsMap.containsKey(innerCallExpression), "try methods map does not contain this try call");
 
-        BytecodeBlock bytecodeBlock = new BytecodeBlock()
-                .comment("load required variables")
-                .getVariable(context.getScope().getVariable("this"));
-
         MethodDefinition definition = tryMethodsMap.get(innerCallExpression);
 
-        definition.getParameters().stream()
+        ImmutableList<Variable> invokeArguments = definition.getParameters().stream()
                 .map(parameter -> context.getScope().getVariable(parameter.getName()))
-                .forEach(bytecodeBlock::getVariable);
+                .collect(toImmutableList());
 
-        bytecodeBlock.comment("call dynamic try method: " + definition.getName())
-                .invokeVirtual(definition)
+        return new BytecodeBlock()
+                .append(context.getScope().getThis().invoke(definition, invokeArguments))
                 .append(unboxPrimitiveIfNecessary(context.getScope(), Primitives.wrap(innerCallExpression.getType().getJavaType())));
-
-        return bytecodeBlock;
     }
 
     public static MethodDefinition defineTryMethod(
