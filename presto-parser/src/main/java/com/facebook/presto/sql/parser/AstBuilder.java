@@ -114,6 +114,7 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowColumnStats;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.ShowFunctions;
@@ -658,6 +659,12 @@ class AstBuilder
     public Node visitShowColumns(SqlBaseParser.ShowColumnsContext context)
     {
         return new ShowColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitShowColumnStats(SqlBaseParser.ShowColumnStatsContext context)
+    {
+        return new ShowColumnStats(getLocation(context), getQualifiedName(context.qualifiedName()));
     }
 
     @Override
