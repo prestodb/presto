@@ -88,6 +88,15 @@ public class PlanNodeSearcher
         return getOnlyElement(findAll());
     }
 
+    public <T extends PlanNode> T findOnlyElement(T defaultValue)
+    {
+        List<T> all = findAll();
+        if (all.size() == 0) {
+            return defaultValue;
+        }
+        return getOnlyElement(all);
+    }
+
     private <T extends PlanNode> void findAllRecursive(PlanNode node, ImmutableList.Builder<T> nodes)
     {
         if (where.test(node)) {

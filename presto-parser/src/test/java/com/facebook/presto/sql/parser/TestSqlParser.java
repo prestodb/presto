@@ -89,6 +89,8 @@ import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
@@ -96,6 +98,7 @@ import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -106,6 +109,7 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
@@ -120,6 +124,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.identifier;
@@ -136,6 +142,8 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
@@ -1806,6 +1814,60 @@ public class TestSqlParser
     }
 
     @Test
+    public void testShowStats()
+    {
+        final String[] tableNames = {"t", "s.t", "c.s.t"};
+
+        for (String fullName : tableNames) {
+            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            assertStatement(format("SHOW STATS %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
+            assertStatement(format("SHOW STATS FOR %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
+            assertStatement(format("SHOW STATS ON %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
+        }
+    }
+
+    @Test
+    public void testShowStatsForQuery()
+    {
+        final String[] tableNames = {"t", "s.t", "c.s.t"};
+
+        for (String fullName : tableNames) {
+            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
+                    createShowStats(qualifiedName, ImmutableList.of(new AllColumns()), Optional.empty()));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
+                    createShowStats(qualifiedName,
+                            ImmutableList.of(new AllColumns()),
+                            Optional.of(
+                                    new ComparisonExpression(GREATER_THAN,
+                                            new Identifier("field"),
+                                            new LongLiteral("0")))));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)", qualifiedName),
+                    createShowStats(qualifiedName,
+                            ImmutableList.of(new AllColumns()),
+                            Optional.of(
+                                    new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                                        new ComparisonExpression(GREATER_THAN,
+                                                new Identifier("field"),
+                                                new LongLiteral("0")),
+                                            new ComparisonExpression(LESS_THAN,
+                                                    new Identifier("field"),
+                                                    new LongLiteral("0"))
+                                            )
+                                    )));
+        }
+    }
+
+    private ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
+    {
+        return new ShowStats(
+                new TableSubquery(simpleQuery(new Select(false, selects),
+                            new Table(name),
+                            where,
+                            Optional.empty())));
+    }
+
+    @Test
     public void testDescribeOutput()
     {
         assertStatement("DESCRIBE OUTPUT myquery", new DescribeOutput("myquery"));
@@ -1849,7 +1911,7 @@ public class TestSqlParser
     {
         assertExpression("col1 < ANY (SELECT col2 FROM table1)",
                 new QuantifiedComparisonExpression(
-                        ComparisonExpressionType.LESS_THAN,
+                        LESS_THAN,
                         QuantifiedComparisonExpression.Quantifier.ANY,
                         identifier("col1"),
                         new SubqueryExpression(simpleQuery(selectList(new SingleColumn(identifier("col2"))), table(QualifiedName.of("table1"))))
