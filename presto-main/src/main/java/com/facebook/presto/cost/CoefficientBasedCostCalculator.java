@@ -16,9 +16,14 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.DomainTranslator;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -32,6 +37,8 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
@@ -69,7 +76,7 @@ public class CoefficientBasedCostCalculator
     @Override
     public Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode)
     {
-        Visitor visitor = new Visitor(session);
+        Visitor visitor = new Visitor(session, types);
         planNode.accept(visitor, null);
         return ImmutableMap.copyOf(visitor.getCosts());
     }
@@ -79,11 +86,13 @@ public class CoefficientBasedCostCalculator
     {
         private final Session session;
         private final Map<PlanNodeId, PlanNodeCost> costs;
+        private final Map<Symbol, Type> types;
 
-        public Visitor(Session session)
+        public Visitor(Session session, Map<Symbol, Type> types)
         {
             this.costs = new HashMap<>();
             this.session = session;
+            this.types = ImmutableMap.copyOf(types);
         }
 
         public Map<PlanNodeId, PlanNodeCost> getCosts()
@@ -108,10 +117,21 @@ public class CoefficientBasedCostCalculator
         @Override
         public PlanNodeCost visitFilter(FilterNode node, Void context)
         {
+            boolean fullyEnforced;
+            PlanNodeCost sourceCost;
+            if (node.getSource() instanceof TableScanNode) {
+                VisitTableScanWithPredicateResult tableScanResult = visitTableScanWithPredicate((TableScanNode) node.getSource(), node.getPredicate());
+                fullyEnforced = tableScanResult.isPredicateFullyEnforced();
+                sourceCost = tableScanResult.getTableScanCost();
+            }
+            else {
+                fullyEnforced = false;
+                sourceCost = visitSource(node);
+            }
 
-            PlanNodeCost sourceCost = visitSource(node);
+            final double filterCoefficient = fullyEnforced ? 1.0 : FILTER_COEFFICIENT;
             PlanNodeCost filterCost = sourceCost
-                    .mapOutputRowCount(value -> value * FILTER_COEFFICIENT);
+                    .mapOutputRowCount(value -> value * filterCoefficient);
             costs.put(node.getId(), filterCost);
             return filterCost;
         }
@@ -163,12 +183,65 @@ public class CoefficientBasedCostCalculator
         @Override
         public PlanNodeCost visitTableScan(TableScanNode node, Void context)
         {
-            TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), Constraint.alwaysTrue());
+            visitTableScanWithPredicate(node, BooleanLiteral.TRUE_LITERAL);
+            return null;
+        }
+
+        private class VisitTableScanWithPredicateResult
+        {
+            private final boolean predicateFullyEnforced;
+            private final PlanNodeCost tableScanCost;
+
+            public VisitTableScanWithPredicateResult(boolean predicateFullyEnforced, PlanNodeCost tableScanCost)
+            {
+                this.predicateFullyEnforced = predicateFullyEnforced;
+                this.tableScanCost = tableScanCost;
+            }
+
+            public boolean isPredicateFullyEnforced()
+            {
+                return predicateFullyEnforced;
+            }
+
+            public PlanNodeCost getTableScanCost()
+            {
+                return tableScanCost;
+            }
+        }
+
+        /**
+         * Return true if whole predicate has been enforced
+         */
+        private VisitTableScanWithPredicateResult visitTableScanWithPredicate(TableScanNode node, Expression predicate)
+        {
+            boolean fullyEnforced = false;
+            // todo add mechanism to properly set fullEnforced flag.
+            // this requires extending metadata.getTableStatistic with return information on which part of passed constraind
+            // is enforced by table scan.
+            Constraint<ColumnHandle> constraint = getConstraint(node, predicate);
+
+            TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
             PlanNodeCost tableScanCost = PlanNodeCost.builder()
                     .setOutputRowCount(tableStatistics.getRowCount())
                     .build();
+
             costs.put(node.getId(), tableScanCost);
-            return tableScanCost;
+            return new VisitTableScanWithPredicateResult(fullyEnforced, tableScanCost);
+        }
+
+        private Constraint<ColumnHandle> getConstraint(TableScanNode node, Expression predicate)
+        {
+            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
+                    metadata,
+                    session,
+                    predicate,
+                    types);
+
+            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
+                    .transform(node.getAssignments()::get)
+                    .intersect(node.getCurrentConstraint());
+
+            return new Constraint<>(simplifiedConstraint, bindings -> true);
         }
 
         @Override
