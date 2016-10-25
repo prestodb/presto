@@ -197,18 +197,16 @@ public class CursorProcessorCompiler
 
                 Parameter session = arg("session", ConnectorSession.class);
                 Parameter cursor = arg("cursor", RecordCursor.class);
-                Parameter wasNull = arg("wasNull", boolean.class);
 
                 List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
                         .add(session)
                         .add(cursor)
-                        .add(wasNull)
                         .build();
 
                 BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
                         callSiteBinder,
                         cachedInstanceBinder,
-                        fieldReferenceCompiler(cursor, wasNull),
+                        fieldReferenceCompiler(cursor),
                         metadata.getFunctionRegistry(),
                         new PreGeneratedExpressions(tryMethodMap.build()));
 
@@ -247,7 +245,7 @@ public class CursorProcessorCompiler
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(cursor, wasNullVariable),
+                fieldReferenceCompiler(cursor),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
@@ -280,25 +278,24 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        BytecodeBlock body = method.getBody()
-                .comment("boolean wasNull = false;")
-                .putVariable(wasNullVariable, false);
-
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(cursor, wasNullVariable),
+                fieldReferenceCompiler(cursor),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
-        body.getVariable(output)
+        method.getBody()
+                .comment("boolean wasNull = false;")
+                .putVariable(wasNullVariable, false)
+                .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
                 .append(projection.accept(visitor, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
     }
 
-    private RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(final Variable cursorVariable, final Variable wasNullVariable)
+    private RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(Variable cursorVariable)
     {
         return new RowExpressionVisitor<Scope, BytecodeNode>()
         {
@@ -307,6 +304,7 @@ public class CursorProcessorCompiler
             {
                 int field = node.getField();
                 Type type = node.getType();
+                Variable wasNullVariable = scope.getVariable("wasNull");
 
                 Class<?> javaType = type.getJavaType();
                 if (!javaType.isPrimitive() && javaType != Slice.class) {

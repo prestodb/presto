@@ -182,7 +182,7 @@ public class JoinFilterFunctionCompiler
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize, wasNullVariable),
+                fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
@@ -219,12 +219,11 @@ public class JoinFilterFunctionCompiler
                 Parameter leftBlocks = arg("leftBlocks", Block[].class);
                 Parameter rightPosition = arg("rightPosition", int.class);
                 Parameter rightBlocks = arg("rightBlocks", Block[].class);
-                Parameter wasNullVariable = arg("wasNull", boolean.class);
 
                 BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
                         callSiteBinder,
                         cachedInstanceBinder,
-                        fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize, wasNullVariable),
+                        fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                         metadata.getFunctionRegistry(),
                         new PreGeneratedExpressions(tryMethodMap.build()));
 
@@ -234,7 +233,6 @@ public class JoinFilterFunctionCompiler
                         .add(leftBlocks)
                         .add(rightPosition)
                         .add(rightBlocks)
-                        .add(wasNullVariable)
                         .build();
 
                 MethodDefinition tryMethod = defineTryMethod(
@@ -277,13 +275,11 @@ public class JoinFilterFunctionCompiler
             final Variable leftBlocks,
             final Variable rightPosition,
             final Variable rightBlocks,
-            final int leftBlocksSize,
-            final Variable wasNullVariable)
+            final int leftBlocksSize)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> field < leftBlocksSize ? leftBlocks.getElement(field) : rightBlocks.getElement(field - leftBlocksSize),
                 (scope, field) -> field < leftBlocksSize ? leftPosition : rightPosition,
-                wasNullVariable,
                 callSiteBinder);
     }
 

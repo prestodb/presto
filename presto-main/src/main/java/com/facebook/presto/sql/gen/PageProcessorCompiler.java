@@ -755,12 +755,11 @@ public class PageProcessorCompiler
                 Parameter session = arg("session", ConnectorSession.class);
                 List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
                 Parameter position = arg("position", int.class);
-                Parameter wasNullVariable = arg("wasNull", boolean.class);
 
                 BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
                         callSiteBinder,
                         cachedInstanceBinder,
-                        fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
+                        fieldReferenceCompiler(callSiteBinder),
                         metadata.getFunctionRegistry(),
                         new PreGeneratedExpressions(tryMethodMap.build()));
 
@@ -768,7 +767,6 @@ public class PageProcessorCompiler
                         .add(session)
                         .addAll(blocks)
                         .add(position)
-                        .add(wasNullVariable)
                         .build();
 
                 MethodDefinition tryMethod = defineTryMethod(
@@ -817,7 +815,7 @@ public class PageProcessorCompiler
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
+                fieldReferenceCompiler(callSiteBinder),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
@@ -861,7 +859,7 @@ public class PageProcessorCompiler
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
+                fieldReferenceCompiler(callSiteBinder),
                 metadata.getFunctionRegistry(),
                 preGeneratedExpressions);
 
@@ -912,12 +910,11 @@ public class PageProcessorCompiler
         return parameters.build();
     }
 
-    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(final CallSiteBinder callSiteBinder, final Variable positionVariable, final Variable wasNullVariable)
+    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(CallSiteBinder callSiteBinder)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> scope.getVariable("block_" + field),
-                (scope, field) -> positionVariable,
-                wasNullVariable,
+                (scope, field) -> scope.getVariable("position"),
                 callSiteBinder);
     }
 

@@ -20,6 +20,7 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
@@ -36,6 +37,7 @@ import java.util.Map;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -99,6 +101,7 @@ public class TryCodeGenerator
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
         Scope calleeMethodScope = method.getScope();
 
+        Variable wasNull = calleeMethodScope.declareVariable(boolean.class, "wasNull");
         BytecodeNode innerExpression = innerRowExpression.accept(innerExpressionVisitor, calleeMethodScope);
 
         MethodType exceptionHandlerType = methodType(returnType, PrestoException.class);
@@ -107,6 +110,7 @@ public class TryCodeGenerator
 
         method.comment("Try projection: %s", innerRowExpression.toString());
         method.getBody()
+                .append(wasNull.set(constantBoolean(false)))
                 .append(new TryCatch(
                         new BytecodeBlock()
                                 .append(innerExpression)
