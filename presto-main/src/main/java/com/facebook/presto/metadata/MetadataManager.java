@@ -377,8 +377,7 @@ public class MetadataManager
     {
         ConnectorEntry entry = lookupConnectorFor(tableHandle);
         ConnectorMetadata metadata = entry.getMetadata(session);
-        ConnectorTransactionHandle transaction = entry.getTransactionHandle(session);
-        return metadata.getTableStatistics(transaction, session.toConnectorSession(entry.getConnectorId()), tableLayoutHandle.getConnectorHandle());
+        return metadata.getTableStatistics(session.toConnectorSession(entry.getConnectorId()), tableHandle.getConnectorHandle(), tableLayoutHandle.getConnectorHandle());
     }
 
     @Override
