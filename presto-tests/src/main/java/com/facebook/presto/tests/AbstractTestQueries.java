@@ -5496,6 +5496,48 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testShowStatsWithoutFromFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT 1)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithMultipleFromFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT * FROM orders, lineitem)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithGroupByFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY clerk)", ".*GROUP BY is not supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithHavingFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT avg(orderkey) FROM orders HAVING avg(orderkey) < 5)", ".*HAVING is not supported in SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithSelectDistinctFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT DISTINCT * FROM orders)", ".*DISTINCT is not supported by SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithSelectFunctionCallFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only \\* and column references are supported by SHOW STATS SELECT clause");
+    }
+
+    @Test
+    public void testShowStatsWithWhereFunctionCallFails()
+    {
+        assertQueryFails("SHOW STATS FOR (SELECT orderkey FROM orders WHERE sin(orderkey) > 0)", ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause");
+    }
+
+    @Test
     public void testAtTimeZone()
     {
         assertQuery("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute", "SELECT TIMESTAMP '2012-10-30 18:00:00.000 America/Los_Angeles'");

@@ -75,6 +75,7 @@ import com.facebook.presto.sql.tree.ShowGrants;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.StartTransaction;
@@ -634,6 +635,15 @@ public final class SqlFormatter
             builder.append("SHOW COLUMNS FROM ")
                     .append(formatName(node.getTable()));
 
+            return null;
+        }
+
+        @Override
+        protected Void visitShowStats(ShowStats node, Integer context)
+        {
+            builder.append("SHOW STATS FOR ");
+            process(node.getRelation(), 0);
+            builder.append("");
             return null;
         }
 
