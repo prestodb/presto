@@ -130,6 +130,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.getFirst;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -368,8 +369,8 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle layout = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
 
-        List<HivePartition> hivePartitions = layout.getPartitions().orElse(ImmutableList.of());
-        Map<String, ColumnHandle> tableColumns = getTableColumnNames(layoutHandle, session);
+        List<HivePartition> hivePartitions = getOrComputePartitions(layout, session, tableHandle);
+        Map<String, ColumnHandle> tableColumns = getTableColumnNames(hivePartitions, session);
 
         Map<String, PartitionStatistics> partitionStatisticsMap = getPartitionsStatistics(hivePartitions, tableColumns.keySet());
 
@@ -468,13 +469,9 @@ public class HiveMetadata
         }
     }
 
-    private Map<String, ColumnHandle> getTableColumnNames(ConnectorTableLayoutHandle layoutHandle, ConnectorSession session)
+    private Map<String, ColumnHandle> getTableColumnNames(List<HivePartition> partitions, ConnectorSession session)
     {
-        HiveTableLayoutHandle layout = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
-        if (!layout.getPartitions().isPresent()) {
-            return ImmutableMap.of();
-        }
-        HivePartition hivePartition = Iterables.getFirst(layout.getPartitions().get(), null);
+        HivePartition hivePartition = getFirst(partitions, null);
         if (hivePartition == null) {
             return ImmutableMap.of();
         }
