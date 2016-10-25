@@ -98,23 +98,6 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
-    public void testTableSampleSystem()
-            throws Exception
-    {
-        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
-
-        boolean sampleSizeFound = false;
-        for (int i = 0; i < 100; i++) {
-            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
-            if (sampleSize > 0 && sampleSize < total) {
-                sampleSizeFound = true;
-                break;
-            }
-        }
-        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
-    }
-
-    @Test
     public void testShowSchemas()
             throws Exception
     {

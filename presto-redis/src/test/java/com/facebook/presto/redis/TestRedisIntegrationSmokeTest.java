@@ -44,14 +44,6 @@ public class TestRedisIntegrationSmokeTest
         this.embeddedRedis = embeddedRedis;
     }
 
-    @Override
-    public void testTableSampleSystem()
-            throws Exception
-    {
-        // tablesample system doesn't work reliably with this connector
-        // because it generates a single split
-    }
-
     @AfterClass(alwaysRun = true)
     public void destroy()
             throws IOException
