@@ -32,17 +32,17 @@ public class TryExpressionExtractor
     {
     }
 
-    public static List<CallExpression> extractTryExpressions(RowExpression expression)
+    public static List<RowExpression> extractTryExpressions(RowExpression expression)
     {
-        Visitor tryOrLambdaExtractor = new Visitor();
-        expression.accept(tryOrLambdaExtractor, new Context());
-        return tryOrLambdaExtractor.getTryExpressionsPostOrder();
+        Visitor visitor = new Visitor();
+        expression.accept(visitor, new Context());
+        return visitor.getTryExpressionsPostOrder();
     }
 
     private static class Visitor
             implements RowExpressionVisitor<Context, Void>
     {
-        private final ImmutableList.Builder<CallExpression> tryExpressions = ImmutableList.builder();
+        private final ImmutableList.Builder<RowExpression> tryExpressions = ImmutableList.builder();
 
         @Override
         public Void visitInputReference(InputReferenceExpression node, Context context)
@@ -65,7 +65,7 @@ public class TryExpressionExtractor
             }
 
             if (isTry) {
-                tryExpressions.add((CallExpression) getOnlyElement(call.getArguments()));
+                tryExpressions.add(getOnlyElement(call.getArguments()));
             }
 
             return null;
@@ -77,7 +77,7 @@ public class TryExpressionExtractor
             return null;
         }
 
-        public List<CallExpression> getTryExpressionsPostOrder()
+        public List<RowExpression> getTryExpressionsPostOrder()
         {
             return tryExpressions.build();
         }

@@ -44,6 +44,8 @@ import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.Signatures;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
@@ -82,6 +84,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
@@ -732,57 +735,64 @@ public class PageProcessorCompiler
         return ifFilterOnDictionaryBlock;
     }
 
-    private Map<CallExpression, MethodDefinition> generateTryMethods(
+    private PreGeneratedExpressions generateTryMethods(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression projection,
             String methodPrefix)
     {
-        List<CallExpression> tryExpressions = extractTryExpressions(projection);
+        List<RowExpression> tryExpressions = extractTryExpressions(projection);
 
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
 
-        int methodId = 0;
-        for (CallExpression tryExpression : tryExpressions) {
-            Parameter session = arg("session", ConnectorSession.class);
-            List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
-            Parameter position = arg("position", int.class);
-            Parameter wasNullVariable = arg("wasNull", boolean.class);
+        for (int i = 0; i < tryExpressions.size(); i++) {
+            RowExpression expression = tryExpressions.get(i);
 
-            BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
-                    metadata.getFunctionRegistry(),
-                    tryMethodMap.build());
+            if (expression instanceof CallExpression) {
+                CallExpression tryExpression = (CallExpression) expression;
+                verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
+                Parameter session = arg("session", ConnectorSession.class);
+                List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
+                Parameter position = arg("position", int.class);
+                Parameter wasNullVariable = arg("wasNull", boolean.class);
 
-            List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
-                    .add(session)
-                    .addAll(blocks)
-                    .add(position)
-                    .add(wasNullVariable)
-                    .build();
+                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
+                        metadata.getFunctionRegistry(),
+                        new PreGeneratedExpressions(tryMethodMap.build()));
 
-            MethodDefinition tryMethod = defineTryMethod(
-                    innerExpressionVisitor,
-                    containerClassDefinition,
-                    methodPrefix + "_try_" + methodId,
-                    inputParameters,
-                    Primitives.wrap(tryExpression.getType().getJavaType()),
-                    tryExpression,
-                    callSiteBinder);
+                List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
+                        .add(session)
+                        .addAll(blocks)
+                        .add(position)
+                        .add(wasNullVariable)
+                        .build();
 
-            tryMethodMap.put(tryExpression, tryMethod);
-            methodId++;
+                MethodDefinition tryMethod = defineTryMethod(
+                        innerExpressionVisitor,
+                        containerClassDefinition,
+                        methodPrefix + "_try_" + i,
+                        inputParameters,
+                        Primitives.wrap(tryExpression.getType().getJavaType()),
+                        tryExpression,
+                        callSiteBinder);
+
+                tryMethodMap.put(tryExpression, tryMethod);
+            }
+            else {
+                throw new VerifyException(format("unexpected expression: %s", expression.toString()));
+            }
         }
 
-        return tryMethodMap.build();
+        return new PreGeneratedExpressions(tryMethodMap.build());
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)
     {
-        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
+        PreGeneratedExpressions preGeneratedExpressions = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
 
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> blocks = toBlockParameters(getInputChannels(filter));
@@ -809,7 +819,7 @@ public class PageProcessorCompiler
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
                 metadata.getFunctionRegistry(),
-                tryMethodMap);
+                preGeneratedExpressions);
 
         BytecodeNode visitorBody = filter.accept(visitor, scope);
 
@@ -824,7 +834,7 @@ public class PageProcessorCompiler
 
     private MethodDefinition generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, String methodName, RowExpression projection)
     {
-        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
+        PreGeneratedExpressions preGeneratedExpressions = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
 
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> blocks = toBlockParameters(getInputChannels(projection));
@@ -853,8 +863,7 @@ public class PageProcessorCompiler
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
                 metadata.getFunctionRegistry(),
-                tryMethodMap
-        );
+                preGeneratedExpressions);
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
