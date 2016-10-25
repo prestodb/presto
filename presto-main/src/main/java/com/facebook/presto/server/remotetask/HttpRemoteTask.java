@@ -286,34 +286,32 @@ public final class HttpRemoteTask
     @Override
     public synchronized void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            requireNonNull(splitsBySource, "splitsBySource is null");
+        requireNonNull(splitsBySource, "splitsBySource is null");
 
-            // only add pending split if not done
-            if (getTaskStatus().getState().isDone()) {
-                return;
-            }
-
-            for (Entry<PlanNodeId, Collection<Split>> entry : splitsBySource.asMap().entrySet()) {
-                PlanNodeId sourceId = entry.getKey();
-                Collection<Split> splits = entry.getValue();
-
-                checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
-                int added = 0;
-                for (Split split : splits) {
-                    if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
-                        added++;
-                    }
-                }
-                if (planFragment.isPartitionedSources(sourceId)) {
-                    pendingSourceSplitCount += added;
-                    partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
-                }
-                needsUpdate.set(true);
-            }
-
-            scheduleUpdate();
+        // only add pending split if not done
+        if (getTaskStatus().getState().isDone()) {
+            return;
         }
+
+        for (Entry<PlanNodeId, Collection<Split>> entry : splitsBySource.asMap().entrySet()) {
+            PlanNodeId sourceId = entry.getKey();
+            Collection<Split> splits = entry.getValue();
+
+            checkState(!noMoreSplits.contains(sourceId), "noMoreSplits has already been set for %s", sourceId);
+            int added = 0;
+            for (Split split : splits) {
+                if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
+                    added++;
+                }
+            }
+            if (planFragment.isPartitionedSources(sourceId)) {
+                pendingSourceSplitCount += added;
+                partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            }
+            needsUpdate.set(true);
+        }
+
+        scheduleUpdate();
     }
 
     @Override
