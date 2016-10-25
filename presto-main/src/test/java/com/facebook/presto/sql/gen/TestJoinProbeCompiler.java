@@ -41,6 +41,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -71,7 +72,7 @@ public class TestJoinProbeCompiler
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
     {
-        return new Object[][] { { true }, { false } };
+        return new Object[][] {{true}, {false}};
     }
 
     @Test(dataProvider = "hashEnabledValues")
@@ -80,33 +81,41 @@ public class TestJoinProbeCompiler
     {
         taskContext.addPipelineContext(true, true).addDriverContext();
 
-        ImmutableList<Type> types = ImmutableList.of(VARCHAR);
+        ImmutableList<Type> types = ImmutableList.of(VARCHAR, DOUBLE);
+        ImmutableList<Type> outputTypes = ImmutableList.of(VARCHAR);
+        List<Integer> outputChannels = ImmutableList.of(0);
         LookupSourceSupplierFactory lookupSourceSupplierFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<Block> channel = ImmutableList.of(
+        List<Block> varcharChannel = ImmutableList.of(
                 BlockAssertions.createStringSequenceBlock(10, 20),
                 BlockAssertions.createStringSequenceBlock(20, 30),
                 BlockAssertions.createStringSequenceBlock(15, 25));
+        List<Block> extraUnusedDoubleChannel = ImmutableList.of(
+                BlockAssertions.createDoubleSequenceBlock(10, 20),
+                BlockAssertions.createDoubleSequenceBlock(20, 30),
+                BlockAssertions.createDoubleSequenceBlock(15, 25));
         LongArrayList addresses = new LongArrayList();
-        for (int blockIndex = 0; blockIndex < channel.size(); blockIndex++) {
-            Block block = channel.get(blockIndex);
+        for (int blockIndex = 0; blockIndex < varcharChannel.size(); blockIndex++) {
+            Block block = varcharChannel.get(blockIndex);
             for (int positionIndex = 0; positionIndex < block.getPositionCount(); positionIndex++) {
                 addresses.add(encodeSyntheticAddress(blockIndex, positionIndex));
             }
         }
 
         Optional<Integer> hashChannel = Optional.empty();
-        List<List<Block>> channels = ImmutableList.of(channel);
+        List<List<Block>> channels = ImmutableList.of(varcharChannel, extraUnusedDoubleChannel);
 
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
-            for (Block block : channel) {
+            for (Block block : varcharChannel) {
                 hashChannelBuilder.add(TypeUtils.getHashBlock(ImmutableList.<Type>of(VARCHAR), block));
             }
-            types = ImmutableList.of(VARCHAR, BigintType.BIGINT);
-            hashChannel = Optional.of(1);
-            channels = ImmutableList.of(channel, hashChannelBuilder.build());
+            types = ImmutableList.of(VARCHAR, DOUBLE, BigintType.BIGINT);
+            hashChannel = Optional.of(2);
+            channels = ImmutableList.of(varcharChannel, extraUnusedDoubleChannel, hashChannelBuilder.build());
+            outputChannels = ImmutableList.of(0, 2);
+            outputTypes = ImmutableList.of(VARCHAR, BigintType.BIGINT);
         }
         LookupSource lookupSource = lookupSourceSupplierFactory.createLookupSourceSupplier(
                 taskContext.getSession().toConnectorSession(),
@@ -117,18 +126,24 @@ public class TestJoinProbeCompiler
                 .get();
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
-        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0), hashChannel);
+        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(
+                types,
+                outputChannels,
+                Ints.asList(0),
+                hashChannel);
 
-        Page page = SequencePageBuilder.createSequencePage(types, 10, 10);
+        Page page = SequencePageBuilder.createSequencePage(types, 10, 10, 10);
+        Page outputPage = new Page(page.getBlock(0));
         if (hashEnabled) {
-            page = new Page(page.getBlock(0), TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), page.getBlock(0)));
+            page = new Page(page.getBlock(0), page.getBlock(1), TypeUtils.getHashBlock(ImmutableList.of(VARCHAR), page.getBlock(0)));
+            outputPage = new Page(page.getBlock(0), page.getBlock(2));
         }
         JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
 
         // verify channel count
-        assertEquals(joinProbe.getChannelCount(), types.size());
+        assertEquals(joinProbe.getOutputChannelCount(), outputChannels.size());
 
-        PageBuilder pageBuilder = new PageBuilder(types);
+        PageBuilder pageBuilder = new PageBuilder(outputTypes);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertTrue(joinProbe.advanceNextPosition());
 
@@ -138,6 +153,6 @@ public class TestJoinProbeCompiler
             assertEquals(joinProbe.getCurrentJoinPosition(), lookupSource.getJoinPosition(position, page, page));
         }
         assertFalse(joinProbe.advanceNextPosition());
-        assertPageEquals(types, pageBuilder.build(), page);
+        assertPageEquals(outputTypes, pageBuilder.build(), outputPage);
     }
 }

@@ -78,7 +78,7 @@ public class JoinProbeCompiler
                 public HashJoinOperatorFactoryFactory load(JoinOperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeChannels(), key.getProbeHashChannel());
+                    return internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeOutputChannels(), key.getProbeChannels(), key.getProbeHashChannel());
                 }
             });
 
@@ -88,10 +88,16 @@ public class JoinProbeCompiler
             List<? extends Type> probeTypes,
             List<Integer> probeJoinChannel,
             Optional<Integer> probeHashChannel,
+            List<Integer> probeOutputChannels,
             JoinType joinType)
     {
         try {
-            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, joinType));
+            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(
+                    probeTypes,
+                    probeOutputChannels,
+                    probeJoinChannel,
+                    probeHashChannel,
+                    joinType));
             return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, joinType);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
@@ -99,9 +105,10 @@ public class JoinProbeCompiler
         }
     }
 
-    public HashJoinOperatorFactoryFactory internalCompileJoinOperatorFactory(List<Type> types, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel)
+    @VisibleForTesting
+    public HashJoinOperatorFactoryFactory internalCompileJoinOperatorFactory(List<Type> types, List<Integer> probeOutputChannels, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel)
     {
-        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, probeHashChannel);
+        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeOutputChannels, probeJoinChannel, probeHashChannel);
 
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -128,7 +135,7 @@ public class JoinProbeCompiler
         JoinProbeFactory joinProbeFactory;
         if (probeJoinChannel.isEmpty()) {
             // see comment in PagesIndex#createLookupSource
-            joinProbeFactory = new SimpleJoinProbe.SimpleJoinProbeFactory(types, probeJoinChannel, probeHashChannel);
+            joinProbeFactory = new SimpleJoinProbe.SimpleJoinProbeFactory(types, probeOutputChannels, probeJoinChannel, probeHashChannel);
         }
         else {
             Class<? extends JoinProbeFactory> joinProbeFactoryClass = defineClass(classDefinition, JoinProbeFactory.class, classLoader);
@@ -150,12 +157,12 @@ public class JoinProbeCompiler
     }
 
     @VisibleForTesting
-    public JoinProbeFactory internalCompileJoinProbe(List<Type> types, List<Integer> probeChannels, Optional<Integer> probeHashChannel)
+    public JoinProbeFactory internalCompileJoinProbe(List<Type> types, List<Integer> probeOutputChannels, List<Integer> probeChannels, Optional<Integer> probeHashChannel)
     {
-        return new ReflectionJoinProbeFactory(compileJoinProbe(types, probeChannels, probeHashChannel));
+        return new ReflectionJoinProbeFactory(compileJoinProbe(types, probeOutputChannels, probeChannels, probeHashChannel));
     }
 
-    private Class<? extends JoinProbe> compileJoinProbe(List<Type> types, List<Integer> probeChannels, Optional<Integer> probeHashChannel)
+    private Class<? extends JoinProbe> compileJoinProbe(List<Type> types, List<Integer> probeOutputChannels, List<Integer> probeChannels, Optional<Integer> probeHashChannel)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -185,8 +192,8 @@ public class JoinProbeCompiler
         FieldDefinition probeHashBlockField = classDefinition.declareField(a(PRIVATE, FINAL), "probeHashBlock", Block.class);
 
         generateConstructor(classDefinition, probeChannels, probeHashChannel, lookupSourceField, blockFields, probeBlockFields, probeBlocksArrayField, probePageField, pageField, probeHashBlockField, positionField, positionCountField);
-        generateGetChannelCountMethod(classDefinition, blockFields.size());
-        generateAppendToMethod(classDefinition, callSiteBinder, types, blockFields, positionField);
+        generateGetChannelCountMethod(classDefinition, probeOutputChannels.size());
+        generateAppendToMethod(classDefinition, callSiteBinder, types, probeOutputChannels, blockFields, positionField);
         generateAdvanceNextPosition(classDefinition, positionField, positionCountField);
         generateGetCurrentJoinPosition(classDefinition, callSiteBinder, lookupSourceField, probePageField, pageField, probeHashChannel, probeHashBlockField, positionField);
         generateCurrentRowContainsNull(classDefinition, probeBlockFields, positionField);
@@ -281,7 +288,7 @@ public class JoinProbeCompiler
     {
         classDefinition.declareMethod(
                 a(PUBLIC),
-                "getChannelCount",
+                "getOutputChannelCount",
                 type(int.class))
                 .getBody()
                 .push(channelCount)
@@ -291,7 +298,9 @@ public class JoinProbeCompiler
     private static void generateAppendToMethod(
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
-            List<Type> types, List<FieldDefinition> blockFields,
+            List<Type> types,
+            List<Integer> probeOutputChannels,
+            List<FieldDefinition> blockFields,
             FieldDefinition positionField)
     {
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
@@ -302,14 +311,15 @@ public class JoinProbeCompiler
                 pageBuilder);
 
         Variable thisVariable = method.getThis();
-        for (int index = 0; index < blockFields.size(); index++) {
-            Type type = types.get(index);
+        int pageBuilderOutputChannel = 0;
+        for (int outputChannel : probeOutputChannels) {
+            Type type = types.get(outputChannel);
             method.getBody()
-                    .comment("%s.appendTo(block_%s, position, pageBuilder.getBlockBuilder(%s));", type.getClass(), index, index)
+                    .comment("%s.appendTo(block_%s, position, pageBuilder.getBlockBuilder(%s));", type.getClass(), outputChannel, pageBuilderOutputChannel)
                     .append(constantType(callSiteBinder, type).invoke("appendTo", void.class,
-                            thisVariable.getField(blockFields.get(index)),
+                            thisVariable.getField(blockFields.get(outputChannel)),
                             thisVariable.getField(positionField),
-                            pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(index))));
+                            pageBuilder.invoke("getBlockBuilder", BlockBuilder.class, constantInt(pageBuilderOutputChannel++))));
         }
         method.getBody()
                 .ret();
@@ -470,17 +480,20 @@ public class JoinProbeCompiler
     private static final class JoinOperatorCacheKey
     {
         private final List<Type> types;
+        private final List<Integer> probeOutputChannels;
         private final List<Integer> probeChannels;
         private final JoinType joinType;
         private final Optional<Integer> probeHashChannel;
 
         private JoinOperatorCacheKey(List<? extends Type> types,
+                List<Integer> probeOutputChannels,
                 List<Integer> probeChannels,
                 Optional<Integer> probeHashChannel,
                 JoinType joinType)
         {
             this.probeHashChannel = probeHashChannel;
             this.types = ImmutableList.copyOf(types);
+            this.probeOutputChannels = ImmutableList.copyOf(probeOutputChannels);
             this.probeChannels = ImmutableList.copyOf(probeChannels);
             this.joinType = joinType;
         }
@@ -488,6 +501,11 @@ public class JoinProbeCompiler
         private List<Type> getTypes()
         {
             return types;
+        }
+
+        private List<Integer> getProbeOutputChannels()
+        {
+            return probeOutputChannels;
         }
 
         private List<Integer> getProbeChannels()
@@ -503,7 +521,7 @@ public class JoinProbeCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hash(types, probeChannels, joinType);
+            return Objects.hash(types, probeOutputChannels, probeChannels, joinType);
         }
 
         @Override
@@ -517,6 +535,7 @@ public class JoinProbeCompiler
             }
             JoinOperatorCacheKey other = (JoinOperatorCacheKey) obj;
             return Objects.equals(this.types, other.types) &&
+                    Objects.equals(this.probeOutputChannels, other.probeOutputChannels) &&
                     Objects.equals(this.probeChannels, other.probeChannels) &&
                     Objects.equals(this.probeHashChannel, other.probeHashChannel) &&
                     Objects.equals(this.joinType, other.joinType);
