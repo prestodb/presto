@@ -109,8 +109,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false
+                probePages.getHashChannel()
         );
 
         // expected
@@ -160,8 +159,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false
+                probePages.getHashChannel()
         );
 
         // expected
@@ -204,8 +202,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false
+                probePages.getHashChannel()
         );
 
         // expected
@@ -249,8 +246,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false
+                probePages.getHashChannel()
         );
 
         // expected
@@ -287,8 +283,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false);
+                probePages.getHashChannel());
 
         // expected
         // expected
@@ -340,8 +335,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                true);
+                probePages.getHashChannel());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -395,8 +389,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false);
+                probePages.getHashChannel());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -443,8 +436,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                true);
+                probePages.getHashChannel());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -488,8 +480,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false);
+                probePages.getHashChannel());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -536,8 +527,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                true);
+                probePages.getHashChannel());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -580,8 +570,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                false);
+                probePages.getHashChannel());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
@@ -629,8 +618,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel(),
-                true);
+                probePages.getHashChannel());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))

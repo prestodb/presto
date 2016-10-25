@@ -78,7 +78,7 @@ public class JoinProbeCompiler
                 public HashJoinOperatorFactoryFactory load(JoinOperatorCacheKey key)
                         throws Exception
                 {
-                    return internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeChannels(), key.getProbeHashChannel(), key.isFilterFunctionPresent());
+                    return internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeChannels(), key.getProbeHashChannel());
                 }
             });
 
@@ -88,19 +88,18 @@ public class JoinProbeCompiler
             List<? extends Type> probeTypes,
             List<Integer> probeJoinChannel,
             Optional<Integer> probeHashChannel,
-            JoinType joinType,
-            boolean filterFunctionPresent)
+            JoinType joinType)
     {
         try {
-            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, joinType, filterFunctionPresent));
-            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, joinType);
+            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinProbeFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, joinType));
+            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, joinType);
         }
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
         }
     }
 
-    public HashJoinOperatorFactoryFactory internalCompileJoinOperatorFactory(List<Type> types, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public HashJoinOperatorFactoryFactory internalCompileJoinOperatorFactory(List<Type> types, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel)
     {
         Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, probeHashChannel);
 
@@ -474,19 +473,16 @@ public class JoinProbeCompiler
         private final List<Integer> probeChannels;
         private final JoinType joinType;
         private final Optional<Integer> probeHashChannel;
-        private final boolean filterFunctionPresent;
 
         private JoinOperatorCacheKey(List<? extends Type> types,
                 List<Integer> probeChannels,
                 Optional<Integer> probeHashChannel,
-                JoinType joinType,
-                boolean filterFunctionPresent)
+                JoinType joinType)
         {
             this.probeHashChannel = probeHashChannel;
             this.types = ImmutableList.copyOf(types);
             this.probeChannels = ImmutableList.copyOf(probeChannels);
             this.joinType = joinType;
-            this.filterFunctionPresent = filterFunctionPresent;
         }
 
         private List<Type> getTypes()
@@ -504,15 +500,10 @@ public class JoinProbeCompiler
             return probeHashChannel;
         }
 
-        private boolean isFilterFunctionPresent()
-        {
-            return filterFunctionPresent;
-        }
-
         @Override
         public int hashCode()
         {
-            return Objects.hash(types, probeChannels, joinType, filterFunctionPresent);
+            return Objects.hash(types, probeChannels, joinType);
         }
 
         @Override
@@ -528,8 +519,7 @@ public class JoinProbeCompiler
             return Objects.equals(this.types, other.types) &&
                     Objects.equals(this.probeChannels, other.probeChannels) &&
                     Objects.equals(this.probeHashChannel, other.probeHashChannel) &&
-                    Objects.equals(this.joinType, other.joinType) &&
-                    Objects.equals(this.filterFunctionPresent, other.filterFunctionPresent);
+                    Objects.equals(this.joinType, other.joinType);
         }
     }
 
@@ -555,7 +545,6 @@ public class JoinProbeCompiler
                 PlanNodeId planNodeId,
                 LookupSourceFactory lookupSourceFactory,
                 List<? extends Type> probeTypes,
-                List<Integer> probeJoinChannel,
                 JoinType joinType)
         {
             try {
