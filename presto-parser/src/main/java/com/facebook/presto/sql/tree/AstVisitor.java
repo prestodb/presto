@@ -656,4 +656,9 @@ public abstract class AstVisitor<R, C>
     {
         return visitExpression(node, context);
     }
+
+    protected R visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, C context)
+    {
+        return visitExpression(node, context);
+    }
 }

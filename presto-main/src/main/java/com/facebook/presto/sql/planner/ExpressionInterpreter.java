@@ -58,6 +58,8 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -79,6 +81,7 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.ArrayType;
+import com.facebook.presto.type.FunctionType;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.RowType.RowField;
@@ -91,6 +94,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Primitives;
 import io.airlift.joni.Regex;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -99,6 +103,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -111,6 +116,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstant
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.tryExpressionExceptionHandler;
+import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -956,6 +962,32 @@ public class ExpressionInterpreter
         }
 
         @Override
+        protected Object visitLambdaExpression(LambdaExpression node, Object context)
+        {
+            if (optimize) {
+                // TODO: enable optimization related to lambda expression
+                // A mechanism to convert function type back into lambda expression need to exist to enable optimization
+                return node;
+            }
+
+            Expression body = node.getBody();
+            List<String> argumentNames = node.getArguments().stream()
+                    .map(LambdaArgumentDeclaration::getName)
+                    .collect(toImmutableList());
+            FunctionType functionType = (FunctionType) expressionTypes.get(node);
+            checkArgument(argumentNames.size() == functionType.getArgumentTypes().size());
+
+            return generateVarArgsToMapAdapter(
+                    Primitives.wrap(functionType.getReturnType().getJavaType()),
+                    functionType.getArgumentTypes().stream()
+                            .map(Type::getJavaType)
+                            .map(Primitives::wrap)
+                            .collect(toImmutableList()),
+                    argumentNames,
+                    map -> process(body, new LambdaSymbolResolver(map)));
+        }
+
+        @Override
         protected Object visitLikePredicate(LikePredicate node, Object context)
         {
             Object value = process(node.getValue(), context);
@@ -1334,5 +1366,23 @@ public class ExpressionInterpreter
     private static boolean isArray(Type type)
     {
         return type.getTypeSignature().getBase().equals(StandardTypes.ARRAY);
+    }
+
+    private static class LambdaSymbolResolver
+            implements SymbolResolver
+    {
+        private final Map<String, Object> values;
+
+        public LambdaSymbolResolver(Map<String, Object> values)
+        {
+            this.values = requireNonNull(values, "values is null");
+        }
+
+        @Override
+        public Object getValue(Symbol symbol)
+        {
+            checkState(values.containsKey(symbol.getName()), "values does not contain %s", symbol);
+            return values.get(symbol.getName());
+        }
     }
 }

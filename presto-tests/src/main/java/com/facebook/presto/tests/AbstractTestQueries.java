@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -96,6 +97,7 @@ public abstract class AbstractTestQueries
             .window(CustomRank.class)
             .scalars(CustomAdd.class)
             .scalars(CreateHll.class)
+            .function(APPLY_FUNCTION)
             .getFunctions();
 
     public static final List<PropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
@@ -165,6 +167,24 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT orderkey from orders LIMIT " + Integer.MAX_VALUE);
         assertQuery("SELECT orderkey from orders ORDER BY orderkey LIMIT " + Integer.MAX_VALUE);
+    }
+
+    @Test
+    public void testNonDeterministic()
+    {
+        MaterializedResult materializedResult = computeActual("SELECT rand() FROM orders LIMIT 10");
+        long distinctCount = materializedResult.getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .distinct()
+                .count();
+        assertTrue(distinctCount >= 8, "rand() must produce different rows");
+
+        materializedResult = computeActual("SELECT apply(1, x -> x + rand()) FROM orders LIMIT 10");
+        distinctCount = materializedResult.getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .distinct()
+                .count();
+        assertTrue(distinctCount >= 8, "rand() must produce different rows");
     }
 
     @Test

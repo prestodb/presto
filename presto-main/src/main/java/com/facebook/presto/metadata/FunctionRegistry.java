@@ -295,7 +295,6 @@ import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -700,7 +699,10 @@ public class FunctionRegistry
         }
 
         Optional<List<Type>> optionalParameterTypes = toTypes(parameters, typeManager);
-        verify(optionalParameterTypes.isPresent());
+        if (!optionalParameterTypes.isPresent()) {
+            // give up and return all remaining matches
+            return mostSpecificFunctions;
+        }
 
         List<Type> parameterTypes = optionalParameterTypes.get();
         if (!someParameterIsUnknown(parameterTypes)) {

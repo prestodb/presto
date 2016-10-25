@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
@@ -54,6 +55,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -318,8 +320,8 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        QueryPlanner planner = new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session);
-        DeleteNode deleteNode = planner.plan(node);
+        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
+                .plan(node);
 
         List<Symbol> outputs = ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT));
         TableFinishNode commitNode = new TableFinishNode(idAllocator.getNextId(), deleteNode, deleteNode.getTarget(), outputs);
@@ -350,7 +352,7 @@ public class LogicalPlanner
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
                 .process(query, null);
     }
 
@@ -377,5 +379,17 @@ public class LogicalPlanner
             columns.add(new ColumnMetadata(field.getName().get(), field.getType()));
         }
         return columns.build();
+    }
+
+    private static IdentityHashMap<LambdaArgumentDeclaration, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
+    {
+        IdentityHashMap<LambdaArgumentDeclaration, Symbol> resultMap = new IdentityHashMap<>();
+        for (LambdaArgumentDeclaration lambdaArgumentDeclaration : analysis.getLambdaArgumentReferences().values()) {
+            if (resultMap.containsKey(lambdaArgumentDeclaration)) {
+                continue;
+            }
+            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration, analysis.getType(lambdaArgumentDeclaration)));
+        }
+        return resultMap;
     }
 }

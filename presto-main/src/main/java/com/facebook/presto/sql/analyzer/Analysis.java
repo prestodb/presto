@@ -24,7 +24,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -85,6 +87,7 @@ public class Analysis
     private final Set<Expression> typeOnlyCoercions = newIdentityHashSet();
     private final IdentityHashMap<Relation, Type[]> relationCoercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, Signature> functionSignature = new IdentityHashMap<>();
+    private final IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences = new IdentityHashMap<>();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
 
@@ -193,6 +196,21 @@ public class Analysis
     public Type getCoercion(Expression expression)
     {
         return coercions.get(expression);
+    }
+
+    public void addLambdaArgumentReferences(IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences)
+    {
+        this.lambdaArgumentReferences.putAll(lambdaArgumentReferences);
+    }
+
+    public LambdaArgumentDeclaration getLambdaArgumentReference(QualifiedNameReference qualifiedNameReference)
+    {
+        return lambdaArgumentReferences.get(qualifiedNameReference);
+    }
+
+    public Map<QualifiedNameReference, LambdaArgumentDeclaration> getLambdaArgumentReferences()
+    {
+        return lambdaArgumentReferences;
     }
 
     public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)

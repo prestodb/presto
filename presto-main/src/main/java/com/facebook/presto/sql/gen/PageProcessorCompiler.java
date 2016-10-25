@@ -42,6 +42,7 @@ import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.DeterminismEvaluator;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.Signatures;
@@ -78,8 +79,8 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newIns
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
 import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
+import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
-import static com.facebook.presto.sql.gen.TryExpressionExtractor.extractTryExpressions;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
@@ -735,23 +736,24 @@ public class PageProcessorCompiler
         return ifFilterOnDictionaryBlock;
     }
 
-    private PreGeneratedExpressions generateTryMethods(
+    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression projection,
             String methodPrefix)
     {
-        List<RowExpression> tryExpressions = extractTryExpressions(projection);
-
+        List<RowExpression> lambdaAndTryExpressions = extractLambdaAndTryExpressions(projection);
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
 
-        for (int i = 0; i < tryExpressions.size(); i++) {
-            RowExpression expression = tryExpressions.get(i);
+        for (int i = 0; i < lambdaAndTryExpressions.size(); i++) {
+            RowExpression expression = lambdaAndTryExpressions.get(i);
 
             if (expression instanceof CallExpression) {
                 CallExpression tryExpression = (CallExpression) expression;
                 verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
+
                 Parameter session = arg("session", ConnectorSession.class);
                 List<Parameter> blocks = toBlockParameters(getInputChannels(tryExpression.getArguments()));
                 Parameter position = arg("position", int.class);
@@ -761,7 +763,7 @@ public class PageProcessorCompiler
                         cachedInstanceBinder,
                         fieldReferenceCompiler(callSiteBinder),
                         metadata.getFunctionRegistry(),
-                        new PreGeneratedExpressions(tryMethodMap.build()));
+                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
 
                 List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
                         .add(session)
@@ -780,17 +782,30 @@ public class PageProcessorCompiler
 
                 tryMethodMap.put(tryExpression, tryMethod);
             }
+            else if (expression instanceof LambdaDefinitionExpression) {
+                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
+                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+                FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                        lambdaExpression,
+                        methodPrefix + "_lambda_" + i,
+                        containerClassDefinition,
+                        preGeneratedExpressions,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        metadata.getFunctionRegistry());
+                lambdaFieldMap.put(lambdaExpression, methodHandleField);
+            }
             else {
                 throw new VerifyException(format("unexpected expression: %s", expression.toString()));
             }
         }
 
-        return new PreGeneratedExpressions(tryMethodMap.build());
+        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
     }
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter)
     {
-        PreGeneratedExpressions preGeneratedExpressions = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
 
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> blocks = toBlockParameters(getInputChannels(filter));
@@ -832,7 +847,7 @@ public class PageProcessorCompiler
 
     private MethodDefinition generateProjectMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, String methodName, RowExpression projection)
     {
-        PreGeneratedExpressions preGeneratedExpressions = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, projection, methodName);
 
         Parameter session = arg("session", ConnectorSession.class);
         List<Parameter> blocks = toBlockParameters(getInputChannels(projection));

@@ -22,7 +22,9 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
@@ -86,5 +88,17 @@ class InputReferenceCompiler
     public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
     {
         throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
+    public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
+    {
+        throw new UnsupportedOperationException();
     }
 }

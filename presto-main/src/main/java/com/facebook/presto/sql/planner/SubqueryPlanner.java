@@ -40,6 +40,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
@@ -57,6 +58,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,15 +90,24 @@ class SubqueryPlanner
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
+    private final IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
     private final Metadata metadata;
     private final Session session;
     private final List<Expression> parameters;
 
-    SubqueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, List<Expression> parameters)
+    SubqueryPlanner(
+            Analysis analysis,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap,
+            Metadata metadata,
+            Session session,
+            List<Expression> parameters)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
+        requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
         requireNonNull(parameters, "parameters is null");
@@ -104,6 +115,7 @@ class SubqueryPlanner
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
+        this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.metadata = metadata;
         this.session = session;
         this.parameters = parameters;
@@ -526,13 +538,13 @@ class SubqueryPlanner
 
     private RelationPlan createRelationPlan(Query subquery)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
                 .process(subquery, null);
     }
 
     private RelationPlan createRelationPlan(Expression subquery)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
                 .process(subquery, null);
     }
 

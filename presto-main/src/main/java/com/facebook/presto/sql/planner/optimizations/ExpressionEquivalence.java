@@ -23,8 +23,10 @@ import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
@@ -202,6 +204,18 @@ public class ExpressionEquivalence
         public RowExpression visitInputReference(InputReferenceExpression node, Void context)
         {
             return node;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return reference;
         }
     }
 

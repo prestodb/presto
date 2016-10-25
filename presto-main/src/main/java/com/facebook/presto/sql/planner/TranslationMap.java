@@ -22,9 +22,13 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +45,7 @@ class TranslationMap
     // all expressions are rewritten in terms of fields declared by this relation plan
     private final RelationPlan rewriteBase;
     private final Analysis analysis;
+    private final IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
 
     // current mappings of underlying field -> symbol for translating direct field references
     private final Symbol[] fieldSymbols;
@@ -49,10 +54,11 @@ class TranslationMap
     private final Map<Expression, Symbol> expressionToSymbols = new HashMap<>();
     private final Map<Expression, Expression> expressionToExpressions = new HashMap<>();
 
-    public TranslationMap(RelationPlan rewriteBase, Analysis analysis)
+    public TranslationMap(RelationPlan rewriteBase, Analysis analysis, IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap)
     {
         this.rewriteBase = requireNonNull(rewriteBase, "rewriteBase is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
+        this.lambdaDeclarationToSymbolMap = requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
 
         fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
     }
@@ -65,6 +71,11 @@ class TranslationMap
     public Analysis getAnalysis()
     {
         return analysis;
+    }
+
+    public IdentityHashMap<LambdaArgumentDeclaration, Symbol> getLambdaDeclarationToSymbolMap()
+    {
+        return lambdaDeclarationToSymbolMap;
     }
 
     public void setFieldMappings(List<Symbol> symbols)
@@ -227,7 +238,14 @@ class TranslationMap
             @Override
             public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
-                return rewriteExpressionWithResolvedName(node);
+                LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
+                if (referencedLambdaArgumentDeclaration != null) {
+                    Symbol symbol = lambdaDeclarationToSymbolMap.get(referencedLambdaArgumentDeclaration);
+                    return coerceIfNecessary(node, symbol.toSymbolReference());
+                }
+                else {
+                    return rewriteExpressionWithResolvedName(node);
+                }
             }
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
@@ -253,6 +271,19 @@ class TranslationMap
                 return rewriteExpression(node, context, treeRewriter);
             }
 
+            @Override
+            public Expression rewriteLambdaExpression(LambdaExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                checkState(analysis.getCoercion(node) == null, "cannot coerce a lambda expression");
+
+                ImmutableList.Builder<LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
+                for (LambdaArgumentDeclaration argument : node.getArguments()) {
+                    newArguments.add(new LambdaArgumentDeclaration(lambdaDeclarationToSymbolMap.get(argument).getName()));
+                }
+                Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
+                return new LambdaExpression(newArguments.build(), rewrittenBody);
+            }
+
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
             {
                 Type coercion = analysis.getCoercion(original);
@@ -265,6 +296,6 @@ class TranslationMap
                 }
                 return rewritten;
             }
-        }, expression);
+        }, expression, null);
     }
 }

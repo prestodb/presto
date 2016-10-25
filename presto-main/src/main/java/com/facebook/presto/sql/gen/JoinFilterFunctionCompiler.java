@@ -30,6 +30,7 @@ import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.relational.CallExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.Signatures;
@@ -58,8 +59,8 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
-import static com.facebook.presto.sql.gen.TryExpressionExtractor.extractTryExpressions;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
@@ -153,7 +154,7 @@ public class JoinFilterFunctionCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter, int leftBlocksSize, FieldDefinition sessionField)
     {
-        PreGeneratedExpressions preGeneratedExpressions = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
 
         // int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks
         Parameter leftPosition = arg("leftPosition", int.class);
@@ -197,23 +198,24 @@ public class JoinFilterFunctionCompiler
                         .ifFalse(result.ret()));
     }
 
-    private PreGeneratedExpressions generateTryMethods(
+    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             int leftBlocksSize,
             RowExpression filter)
     {
-        List<RowExpression> tryExpressions = extractTryExpressions(filter);
-
+        List<RowExpression> lambdaAndTryExpressions = extractLambdaAndTryExpressions(filter);
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
 
-        for (int i = 0; i < tryExpressions.size(); i++) {
-            RowExpression expression = tryExpressions.get(i);
+        for (int i = 0; i < lambdaAndTryExpressions.size(); i++) {
+            RowExpression expression = lambdaAndTryExpressions.get(i);
 
             if (expression instanceof CallExpression) {
                 CallExpression tryExpression = (CallExpression) expression;
                 verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
+
                 Parameter session = arg("session", ConnectorSession.class);
                 Parameter leftPosition = arg("leftPosition", int.class);
                 Parameter leftBlocks = arg("leftBlocks", Block[].class);
@@ -225,7 +227,7 @@ public class JoinFilterFunctionCompiler
                         cachedInstanceBinder,
                         fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                         metadata.getFunctionRegistry(),
-                        new PreGeneratedExpressions(tryMethodMap.build()));
+                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
 
                 List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
                         .add(session)
@@ -246,12 +248,25 @@ public class JoinFilterFunctionCompiler
 
                 tryMethodMap.put(tryExpression, tryMethod);
             }
+            else if (expression instanceof LambdaDefinitionExpression) {
+                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
+                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+                FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                        lambdaExpression,
+                        "lambda_" + i,
+                        containerClassDefinition,
+                        preGeneratedExpressions,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        metadata.getFunctionRegistry());
+                lambdaFieldMap.put(lambdaExpression, methodHandleField);
+            }
             else {
                 throw new VerifyException(format("unexpected expression: %s", expression.toString()));
             }
         }
 
-        return new PreGeneratedExpressions(tryMethodMap.build());
+        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)

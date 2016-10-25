@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -35,7 +34,10 @@ import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -986,11 +988,97 @@ public class TestSignatureBinder
     }
 
     @Test
+    public void testFunction()
+            throws Exception
+    {
+        Signature simple = functionSignature()
+                .returnType(parseTypeSignature("boolean"))
+                .argumentTypes(parseTypeSignature("function(integer,integer)"))
+                .build();
+
+        assertThat(simple)
+                .boundTo("function(integer,integer)")
+                .succeeds();
+        // TODO: This should eventually be supported
+        assertThat(simple)
+                .boundTo("function(integer,smallint)")
+                .withCoercion()
+                .fails();
+        assertThat(simple)
+                .boundTo("function(integer,bigint)")
+                .withCoercion()
+                .fails();
+
+        Signature applyTwice = functionSignature()
+                .returnType(parseTypeSignature("V"))
+                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T,U)"), parseTypeSignature("function(U,V)"))
+                .typeVariableConstraints(typeVariable("T"), typeVariable("U"), typeVariable("V"))
+                .build();
+        assertThat(applyTwice)
+                .boundTo("integer", "function(integer,varchar)", "function(varchar,double)")
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .setTypeVariable("U", VARCHAR)
+                        .setTypeVariable("V", DOUBLE)
+                        .build());
+        assertThat(applyTwice)
+                .boundTo(
+                        "integer",
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .setTypeVariable("U", VARCHAR)
+                        .setTypeVariable("V", DOUBLE)
+                        .build());
+        assertThat(applyTwice)
+                .boundTo(
+                        // pass function argument to non-function position of a function
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                .fails();
+        assertThat(applyTwice)
+                .boundTo(
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        // pass non-function argument to function position of a function
+                        "integer",
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                .fails();
+
+        Signature flatMap = functionSignature()
+                .returnType(parseTypeSignature("array(T)"))
+                .argumentTypes(parseTypeSignature("array(T)"), parseTypeSignature("function(T, array(T))"))
+                .typeVariableConstraints(typeVariable("T"))
+                .build();
+        assertThat(flatMap)
+                .boundTo("array(integer)", "function(integer, array(integer))")
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .build());
+
+        Signature varargApply = functionSignature()
+                .returnType(parseTypeSignature("T"))
+                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T, T)"))
+                .typeVariableConstraints(typeVariable("T"))
+                .setVariableArity(true)
+                .build();
+        assertThat(varargApply)
+                .boundTo("integer", "function(integer, integer)", "function(integer, integer)", "function(integer, integer)")
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .build());
+        assertThat(varargApply)
+                .boundTo("integer", "function(integer, integer)", "function(integer, double)", "function(double, double)")
+                .fails();
+    }
+
+    @Test
     public void testBindParameters()
             throws Exception
     {
         BoundVariables boundVariables = BoundVariables.builder()
-                .setTypeVariable("T1", DoubleType.DOUBLE)
+                .setTypeVariable("T1", DOUBLE)
                 .setTypeVariable("T2", BigintType.BIGINT)
                 .setTypeVariable("T3", DecimalType.createDecimalType(5, 3))
                 .setLongVariable("p", 1L)

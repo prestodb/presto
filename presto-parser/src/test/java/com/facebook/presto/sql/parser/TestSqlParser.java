@@ -65,6 +65,7 @@ import com.facebook.presto.sql.tree.Isolation;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -1525,14 +1526,16 @@ public class TestSqlParser
     {
         assertExpression("x -> sin(x)",
                 new LambdaExpression(
-                        ImmutableList.of("x"),
-                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x"))))));
+                        ImmutableList.of(new LambdaArgumentDeclaration("x")),
+                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x"))))
+                ));
         assertExpression("(x, y) -> mod(x, y)",
                 new LambdaExpression(
-                        ImmutableList.of("x", "y"),
+                        ImmutableList.of(new LambdaArgumentDeclaration("x"), new LambdaArgumentDeclaration("y")),
                         new FunctionCall(
                                 QualifiedName.of("mod"),
-                                ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x")), new QualifiedNameReference(QualifiedName.of("y"))))));
+                                ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x")), new QualifiedNameReference(QualifiedName.of("y"))))
+                ));
     }
 
     @Test
