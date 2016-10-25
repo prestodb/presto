@@ -69,8 +69,7 @@ public class HashBuildBenchmark
                 hashBuilder.getLookupSourceFactory(),
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
-                Optional.empty(),
-                false);
+                Optional.empty());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
         DriverFactory joinDriverFactory = new DriverFactory(true, true, joinDriversBuilder.build(), OptionalInt.empty());

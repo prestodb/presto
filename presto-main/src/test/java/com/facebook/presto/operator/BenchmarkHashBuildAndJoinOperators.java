@@ -275,8 +275,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 lookupSourceFactory,
                 joinContext.getTypes(),
                 joinContext.getHashChannels(),
-                joinContext.getHashChannel(),
-                false);
+                joinContext.getHashChannel());
 
         DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(true, true).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
