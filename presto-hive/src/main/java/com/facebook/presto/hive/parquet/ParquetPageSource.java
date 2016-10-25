@@ -33,6 +33,7 @@ import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -52,6 +53,7 @@ public class ParquetPageSource
     private final ParquetReader parquetReader;
     private final ParquetDataSource dataSource;
     private final MessageType requestedSchema;
+    private final MessageType fileSchema;
     // for debugging heap dump
     private final List<String> columnNames;
     private final List<Type> types;
@@ -63,6 +65,7 @@ public class ParquetPageSource
     private int batchId;
     private boolean closed;
     private long readTimeNanos;
+    private final boolean useParquetColumnNames;
 
     public ParquetPageSource(
             ParquetReader parquetReader,
@@ -81,10 +84,12 @@ public class ParquetPageSource
         requireNonNull(columns, "columns is null");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
 
-        this.parquetReader = parquetReader;
-        this.dataSource = dataSource;
-        this.requestedSchema = requestedSchema;
+        this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
+        this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.fileSchema = requireNonNull(fileSchema, "fileSchema is null");
+        this.requestedSchema = requireNonNull(requestedSchema, "requestedSchema is null");
         this.totalBytes = totalBytes;
+        this.useParquetColumnNames = useParquetColumnNames;
 
         int size = columns.size();
         this.constantBlocks = new Block[size];
@@ -169,8 +174,28 @@ public class ParquetPageSource
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
-                    int fieldIndex = requestedSchema.getFieldIndex(columnNames.get(fieldId));
-                    ColumnDescriptor columnDescriptor = requestedSchema.getColumns().get(fieldIndex);
+                    int fieldIndex;
+                    if (useParquetColumnNames) {
+                        fieldIndex = fileSchema.getFieldIndex(columnNames.get(fieldId));
+                    }
+                    else {
+                        fieldIndex = hiveColumnIndexes[fieldId];
+                    }
+                    /**
+                     * Since we only support primitives in the new reader we just create the path
+                     * from the field name and lookup the column descriptor with that path.
+                     * With complex type support this lookup logic has to be rewritten.
+                     */
+                    parquet.schema.Type field = fileSchema.getFields().get(fieldIndex);
+                    String[] path = new String[] {field.getName()};
+                    ColumnDescriptor columnDescriptor = null;
+                    for (ColumnDescriptor column : fileSchema.getColumns()) {
+                        if (Arrays.equals(column.getPath(), path)) {
+                            columnDescriptor = column;
+                            break;
+                        }
+                    }
+                    checkState(columnDescriptor != null, "columnDescriptor is null");
                     blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, type));
                 }
             }
