@@ -36,7 +36,7 @@ public class TryExpressionExtractor
     {
         Visitor tryOrLambdaExtractor = new Visitor();
         expression.accept(tryOrLambdaExtractor, new Context());
-        return tryOrLambdaExtractor.getTryExpressionsPreOrder();
+        return tryOrLambdaExtractor.getTryExpressionsPostOrder();
     }
 
     private static class Visitor
@@ -54,15 +54,18 @@ public class TryExpressionExtractor
         @Override
         public Void visitCall(CallExpression call, Context context)
         {
-            if (call.getSignature().getName().equals(TRY)) {
+            boolean isTry = call.getSignature().getName().equals(TRY);
+            if (isTry) {
                 checkState(call.getArguments().size() == 1, "try call expressions must have a single argument");
                 checkState(getOnlyElement(call.getArguments()) instanceof CallExpression, "try call expression argument must be a call expression");
-
-                tryExpressions.add((CallExpression) getOnlyElement(call.getArguments()));
             }
 
             for (RowExpression rowExpression : call.getArguments()) {
                 rowExpression.accept(this, null);
+            }
+
+            if (isTry) {
+                tryExpressions.add((CallExpression) getOnlyElement(call.getArguments()));
             }
 
             return null;
@@ -74,9 +77,9 @@ public class TryExpressionExtractor
             return null;
         }
 
-        public List<CallExpression> getTryExpressionsPreOrder()
+        public List<CallExpression> getTryExpressionsPostOrder()
         {
-            return tryExpressions.build().reverse();
+            return tryExpressions.build();
         }
     }
 
