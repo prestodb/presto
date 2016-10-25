@@ -132,6 +132,13 @@ public final class UnscaledDecimal128Arithmetic
 
     public static Slice unscaledDecimal(BigInteger unscaledValue)
     {
+        Slice decimal = Slices.allocate(UNSCALED_DECIMAL_128_SLICE_LENGTH);
+        return pack(unscaledValue, decimal);
+    }
+
+    public static Slice pack(BigInteger unscaledValue, Slice result)
+    {
+        pack(0, 0, false, result);
         byte[] bytes = unscaledValue.abs().toByteArray();
 
         if (bytes.length > UNSCALED_DECIMAL_128_SLICE_LENGTH
@@ -142,15 +149,14 @@ public final class UnscaledDecimal128Arithmetic
         // convert to little-endian order
         reverse(bytes);
 
-        Slice decimal = Slices.allocate(UNSCALED_DECIMAL_128_SLICE_LENGTH);
-        decimal.setBytes(0, bytes);
+        result.setBytes(0, bytes);
         if (unscaledValue.signum() < 0) {
-            setNegative(decimal, true);
+            setNegative(result, true);
         }
 
-        throwIfOverflows(decimal);
+        throwIfOverflows(result);
 
-        return decimal;
+        return result;
     }
 
     public static Slice unscaledDecimal(long unscaledValue)
