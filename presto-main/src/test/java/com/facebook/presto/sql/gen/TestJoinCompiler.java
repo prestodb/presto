@@ -180,7 +180,7 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels);
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
         // todo add tests for filter function
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, channels, joinChannels, hashChannel);
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, ImmutableList.of(0, 1, 2, 3, 4, 5), channels, joinChannels, hashChannel);
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), types.size());
