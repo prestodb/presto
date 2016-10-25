@@ -182,11 +182,9 @@ public final class SqlStageExecution
         getAllTasks().forEach(RemoteTask::abort);
     }
 
-    public synchronized long getMemoryReservation()
+    public long getMemoryReservation()
     {
-        return getAllTasks().stream()
-                .mapToLong(task -> task.getTaskStatus().getMemoryReservation().toBytes())
-                .sum();
+        return stateMachine.getMemoryReservation();
     }
 
     public synchronized Duration getTotalCpuTime()
