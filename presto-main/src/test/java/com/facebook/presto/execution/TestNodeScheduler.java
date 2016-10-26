@@ -91,7 +91,7 @@ public class TestNodeScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
-                .setMaxPendingSplitsPerNodePerStage(10);
+                .setMaxPendingSplitsPerTask(10);
 
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
         // contents of taskMap indicate the node-task map for the current stage
@@ -143,7 +143,7 @@ public class TestNodeScheduler
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
                 .setNetworkTopology("test")
-                .setMaxPendingSplitsPerNodePerStage(15);
+                .setMaxPendingSplitsPerTask(15);
 
         TestNetworkTopology topology = new TestNetworkTopology();
         NetworkLocationCache locationCache = new NetworkLocationCache(topology)

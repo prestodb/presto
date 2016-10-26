@@ -49,7 +49,7 @@ public class SimpleNodeSelector
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
     private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerNodePerStageWhenFull;
+    private final int maxPendingSplitsPerTask;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -58,7 +58,7 @@ public class SimpleNodeSelector
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             int maxSplitsPerNode,
-            int maxPendingSplitsPerNodePerStageWhenFull)
+            int maxPendingSplitsPerTask)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -66,7 +66,7 @@ public class SimpleNodeSelector
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
-        this.maxPendingSplitsPerNodePerStageWhenFull = maxPendingSplitsPerNodePerStageWhenFull;
+        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
     }
 
     @Override
@@ -131,7 +131,7 @@ public class SimpleNodeSelector
                 // min is guaranteed to be MAX_VALUE at this line
                 for (Node node : candidateNodes) {
                     int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
-                    if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerNodePerStageWhenFull) {
+                    if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
                         chosenNode = node;
                         min = totalSplitCount;
                     }
@@ -148,6 +148,6 @@ public class SimpleNodeSelector
     @Override
     public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerNodePerStageWhenFull, splits, existingTasks, partitioning);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, partitioning);
     }
 }

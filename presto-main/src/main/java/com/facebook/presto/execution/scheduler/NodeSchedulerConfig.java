@@ -33,7 +33,7 @@ public class NodeSchedulerConfig
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
-    private int maxPendingSplitsPerNodePerStage = 10;
+    private int maxPendingSplitsPerTask = 10;
     private String networkTopology = NetworkTopologyType.LEGACY;
 
     @NotNull
@@ -74,17 +74,17 @@ public class NodeSchedulerConfig
         return this;
     }
 
-    @Config("node-scheduler.max-pending-splits-per-node-per-stage")
-    @LegacyConfig("node-scheduler.max-pending-splits-per-node-per-task")
-    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerStage(int maxPendingSplitsPerNodePerStage)
+    @Config("node-scheduler.max-pending-splits-per-task")
+    @LegacyConfig({"node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
+    public NodeSchedulerConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
     {
-        this.maxPendingSplitsPerNodePerStage = maxPendingSplitsPerNodePerStage;
+        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         return this;
     }
 
-    public int getMaxPendingSplitsPerNodePerStage()
+    public int getMaxPendingSplitsPerTask()
     {
-        return maxPendingSplitsPerNodePerStage;
+        return maxPendingSplitsPerTask;
     }
 
     public int getMaxSplitsPerNode()
