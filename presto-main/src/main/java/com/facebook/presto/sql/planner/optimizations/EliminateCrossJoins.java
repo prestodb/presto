@@ -181,6 +181,10 @@ public class EliminateCrossJoins
                         result,
                         rightNode,
                         criteria.build(),
+                        ImmutableList.<Symbol>builder()
+                                .addAll(result.getOutputSymbols())
+                                .addAll(rightNode.getOutputSymbols())
+                                .build(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());

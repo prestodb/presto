@@ -194,6 +194,7 @@ public class TestPhasedExecutionSchedule
                 tableScan,
                 new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of()),
                 ImmutableList.of(),
+                tableScan.getOutputSymbols(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -208,6 +209,7 @@ public class TestPhasedExecutionSchedule
                 joinType,
                 new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of()),
                 new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of()),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
