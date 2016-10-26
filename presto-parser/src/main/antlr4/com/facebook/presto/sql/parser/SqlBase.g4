@@ -441,6 +441,7 @@ nonReserved
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
     | INPUT
+    | INCLUDING | EXCLUDING | PROPERTIES
     ;
 
 normalForm

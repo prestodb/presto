@@ -1517,6 +1517,13 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(new QualifiedNameReference(QualifiedName.of("zone"))),
                         table(QualifiedName.of("t"))));
+        assertStatement("SELECT INCLUDING, EXCLUDING, PROPERTIES FROM t",
+                simpleQuery(
+                        selectList(
+                                new QualifiedNameReference(QualifiedName.of("INCLUDING")),
+                                new QualifiedNameReference(QualifiedName.of("EXCLUDING")),
+                                new QualifiedNameReference(QualifiedName.of("PROPERTIES"))),
+                        table(QualifiedName.of("t"))));
     }
 
     @Test
