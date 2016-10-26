@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.type.Type;
@@ -40,6 +41,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
+    private final CostCalculator costCalculator;
     private Session session;
     private final Rule rule;
 
@@ -50,9 +52,10 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
+        this.costCalculator = costCalculator;
         this.session = session;
         this.rule = rule;
         this.transactionManager = transactionManager;
@@ -91,7 +94,7 @@ public class RuleAssert
             fail(String.format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, symbolAllocator.getTypes(), metadata, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, symbolAllocator.getTypes(), metadata, costCalculator, session, 2))));
         }
     }
 
@@ -105,7 +108,7 @@ public class RuleAssert
             fail(String.format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2))));
         }
 
         PlanNode actual = result.get();
@@ -114,7 +117,7 @@ public class RuleAssert
             fail(String.format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, session, 2))));
+                    inTransaction(session -> PlanPrinter.textLogicalPlan(plan, types, metadata, costCalculator, session, 2))));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
@@ -128,7 +131,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, new Plan(actual, types), pattern);
+            assertPlan(session, metadata, costCalculator, new Plan(actual, types), pattern);
             return null;
         });
     }
