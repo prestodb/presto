@@ -203,7 +203,7 @@ public class LocalQueryRunner
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
-    private final CostCalculator cosCalculator;
+    private final CostCalculator costCalculator;
     private final TestingAccessControlManager accessControl;
     private final TestingEventListenerManager eventListener;
     private final SplitManager splitManager;
@@ -272,7 +272,7 @@ public class LocalQueryRunner
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        this.cosCalculator = new CoefficientBasedCostCalculator(metadata);
+        this.costCalculator = new CoefficientBasedCostCalculator(metadata);
         this.accessControl = new TestingAccessControlManager(transactionManager);
         this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
@@ -648,7 +648,7 @@ public class LocalQueryRunner
                 .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, cosCalculator, true);
+        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, costCalculator, true);
         return createPlan(session, sql, featuresConfig, planOptimizers.get(), stage);
     }
 
