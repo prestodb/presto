@@ -14,19 +14,16 @@
 
 package com.facebook.presto.spi;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.util.Objects;
 
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
+import static java.util.Objects.requireNonNull;
 
-public class CatalogSchemaTableName
+public final class CatalogSchemaTableName
 {
     private final String catalogName;
     private final SchemaTableName schemaTableName;
 
-    @JsonCreator
     public static CatalogSchemaTableName valueOf(String catalogSchemaTableName)
     {
         checkNotEmpty(catalogSchemaTableName, "catalogSchemaTableName");
@@ -39,12 +36,17 @@ public class CatalogSchemaTableName
 
     public CatalogSchemaTableName(String catalogName, SchemaTableName schemaTableName)
     {
+        checkNotEmpty(catalogName, "catalogName");
+        requireNonNull(schemaTableName, "schemaTableName is null");
         this.catalogName = catalogName;
         this.schemaTableName = schemaTableName;
     }
 
     public CatalogSchemaTableName(String catalogName, String schemaName, String tableName)
     {
+        checkNotEmpty(catalogName, "catalogName");
+        checkNotEmpty(schemaName, "schemaName");
+        checkNotEmpty(tableName, "tableName");
         this.catalogName = catalogName;
         this.schemaTableName = new SchemaTableName(schemaName, tableName);
     }
@@ -79,7 +81,6 @@ public class CatalogSchemaTableName
         return Objects.hash(catalogName, schemaTableName);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {
