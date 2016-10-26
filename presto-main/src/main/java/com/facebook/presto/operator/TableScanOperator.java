@@ -207,7 +207,6 @@ public class TableScanOperator
     public boolean isFinished()
     {
         if (!finished) {
-            createSourceIfNecessary();
             finished = (source != null) && source.isFinished();
             if (source != null) {
                 systemMemoryContext.setBytes(source.getSystemMemoryUsage());
