@@ -60,6 +60,10 @@ public class TransformUncorrelatedScalarToJoin
                         rewrittenNode.getInput(),
                         rewrittenNode.getSubquery(),
                         ImmutableList.of(),
+                        ImmutableList.<Symbol>builder()
+                                .addAll(rewrittenNode.getInput().getOutputSymbols())
+                                .addAll(rewrittenNode.getSubquery().getOutputSymbols())
+                                .build(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());
