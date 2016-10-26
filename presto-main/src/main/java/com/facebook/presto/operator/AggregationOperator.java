@@ -90,6 +90,7 @@ public class AggregationOperator
     }
 
     private final OperatorContext operatorContext;
+    private final Step step;
     private final List<Type> types;
     private final List<Aggregator> aggregates;
 
@@ -99,7 +100,7 @@ public class AggregationOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
-        requireNonNull(step, "step is null");
+        this.step = requireNonNull(step, "step is null");
         requireNonNull(accumulatorFactories, "accumulatorFactories is null");
 
         this.types = toTypes(step, accumulatorFactories);
@@ -155,7 +156,9 @@ public class AggregationOperator
             aggregate.processPage(page);
             memorySize += aggregate.getEstimatedSize();
         }
-        memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
+        if (step.isOutputPartial()) {
+            memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
+        }
         operatorContext.setMemoryReservation(Math.max(0, memorySize));
     }
 
