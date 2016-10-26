@@ -75,7 +75,7 @@ public class SourcePartitionedScheduler
         // This code may need to return a future when the workers are full, and
         // it is critical that this future is notified of any changes that occur
         // during this calculation (to avoid starvation).
-        CompletableFuture<?> taskStateChange = stage.getTaskStateChange();
+        CompletableFuture<?> taskHasSpace = stage.whenTaskSplitQueueHasSpace();
 
         // try to get the next batch if necessary
         if (pendingSplits.isEmpty()) {
@@ -114,7 +114,7 @@ public class SourcePartitionedScheduler
                     .addAll(finalizeTaskCreationIfNecessary())
                     .build();
 
-            return new ScheduleResult(false, newTasks, taskStateChange, SPLIT_QUEUES_FULL, splitAssignment.values().size());
+            return new ScheduleResult(false, newTasks, taskHasSpace, SPLIT_QUEUES_FULL, splitAssignment.values().size());
         }
 
         // all splits assigned - check if the source is finished
