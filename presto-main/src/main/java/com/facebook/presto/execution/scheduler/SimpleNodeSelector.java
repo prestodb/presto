@@ -46,7 +46,6 @@ public class SimpleNodeSelector
     private final InternalNodeManager nodeManager;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
-    private final boolean doubleScheduling;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
     private final int maxSplitsPerNode;
@@ -56,7 +55,6 @@ public class SimpleNodeSelector
             InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
-            boolean doubleScheduling,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             int maxSplitsPerNode,
@@ -65,7 +63,6 @@ public class SimpleNodeSelector
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
-        this.doubleScheduling = doubleScheduling;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
@@ -94,7 +91,7 @@ public class SimpleNodeSelector
     @Override
     public List<Node> selectRandomNodes(int limit)
     {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator), doubleScheduling);
+        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator));
     }
 
     @Override
@@ -113,7 +110,7 @@ public class SimpleNodeSelector
                 candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
             }
             else {
-                candidateNodes = selectNodes(minCandidates, randomCandidates, doubleScheduling);
+                candidateNodes = selectNodes(minCandidates, randomCandidates);
             }
             if (candidateNodes.isEmpty()) {
                 log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());

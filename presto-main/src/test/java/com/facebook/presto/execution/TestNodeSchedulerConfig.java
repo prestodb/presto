@@ -32,8 +32,7 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerNodePerStage(10)
-                .setIncludeCoordinator(true)
-                .setMultipleTasksPerNodeEnabled(false));
+                .setIncludeCoordinator(true));
     }
 
     @Test
@@ -45,13 +44,11 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-node-per-stage", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
-                .put("node-scheduler.multiple-tasks-per-node-enabled", "true")
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
                 .setNetworkTopology("flat")
                 .setIncludeCoordinator(false)
-                .setMultipleTasksPerNodeEnabled(true)
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerNodePerStage(11)
                 .setMinCandidates(11);

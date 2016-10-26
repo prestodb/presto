@@ -14,14 +14,13 @@
 package com.facebook.presto.execution.scheduler;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-@DefunctConfig("node-scheduler.location-aware-scheduling-enabled")
+@DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
 public class NodeSchedulerConfig
 {
     public static class NetworkTopologyType
@@ -33,7 +32,6 @@ public class NodeSchedulerConfig
 
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
-    private boolean multipleTasksPerNode;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerNodePerStage = 10;
     private String networkTopology = NetworkTopologyType.LEGACY;
@@ -48,19 +46,6 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setNetworkTopology(String networkTopology)
     {
         this.networkTopology = networkTopology;
-        return this;
-    }
-
-    public boolean isMultipleTasksPerNodeEnabled()
-    {
-        return multipleTasksPerNode;
-    }
-
-    @ConfigDescription("Allow nodes to be selected multiple times by the node scheduler, in a single stage")
-    @Config("node-scheduler.multiple-tasks-per-node-enabled")
-    public NodeSchedulerConfig setMultipleTasksPerNodeEnabled(boolean multipleTasksPerNode)
-    {
-        this.multipleTasksPerNode = multipleTasksPerNode;
         return this;
     }
 
