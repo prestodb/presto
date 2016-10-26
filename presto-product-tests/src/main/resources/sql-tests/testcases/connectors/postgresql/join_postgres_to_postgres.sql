@@ -1,6 +1,6 @@
--- database: presto; groups: postgresql_connector; tables: postgres.workers_jdbc
+-- database: presto; groups: postgresql_connector; tables: postgres.workers_psql
 --!
-select t1.last_name, t2.first_name from postgresql.public.workers_jdbc t1, postgresql.public.workers_jdbc t2 where t1.id_department = t2.id_employee
+select t1.last_name, t2.first_name from postgresql.public.workers_psql t1, postgresql.public.workers_psql t2 where t1.id_department = t2.id_employee
 --!
 -- delimiter: |; trimValues: true; ignoreOrder: true;
 null      | Mary|

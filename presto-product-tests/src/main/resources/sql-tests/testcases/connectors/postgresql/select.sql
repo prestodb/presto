@@ -1,6 +1,6 @@
--- database: presto; groups: postgresql_connector; tables: postgres.workers_jdbc
+-- database: presto; groups: postgresql_connector; tables: postgres.workers_psql
 --!
-select * from postgresql.public.workers_jdbc
+select * from postgresql.public.workers_psql
 --!
 -- delimiter: |; trimValues: true; ignoreOrder: true;
 null|null|null|null|null|1|Marketing|4000|
