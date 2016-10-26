@@ -103,7 +103,7 @@ public class TestMixedDistinctAggregationOptimizer
 
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizerProvider);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, expectedPlanPattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, expectedPlanPattern);
             return null;
         });
     }
