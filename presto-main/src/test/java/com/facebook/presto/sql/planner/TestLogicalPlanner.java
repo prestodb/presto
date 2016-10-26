@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -57,6 +59,7 @@ import static org.testng.Assert.fail;
 public class TestLogicalPlanner
 {
     private final LocalQueryRunner queryRunner;
+    private final CostCalculator costCalculator;
 
     public TestLogicalPlanner()
     {
@@ -68,6 +71,8 @@ public class TestLogicalPlanner
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
+
+        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
     }
 
     @Test
@@ -246,7 +251,7 @@ public class TestLogicalPlanner
     {
         Plan actualPlan = plan(sql, stage);
         queryRunner.inTransaction(transactionSession -> {
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
             return null;
         });
     }
