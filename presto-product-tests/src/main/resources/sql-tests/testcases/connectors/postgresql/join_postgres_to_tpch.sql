@@ -1,6 +1,6 @@
--- database: presto; groups: postgresql_connector; tables: postgres.workers_jdbc
+-- database: presto; groups: postgresql_connector; tables: postgres.workers_psql
 --!
-select t1.first_name, t2.name from postgresql.public.workers_jdbc t1, tpch.sf1.nation t2 where t1.id_department = t2.nationkey
+select t1.first_name, t2.name from postgresql.public.workers_psql t1, tpch.sf1.nation t2 where t1.id_department = t2.nationkey
 --!
 -- delimiter: |; trimValues: true; ignoreOrder: true;
 null        | ARGENTINA|

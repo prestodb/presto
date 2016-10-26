@@ -1,6 +1,6 @@
--- database: presto; groups: postgresql_connector; queryType: SELECT; tables: postgres.workers_jdbc
+-- database: presto; groups: postgresql_connector; queryType: SELECT; tables: postgres.workers_psql
 --!
-describe postgresql.public.workers_jdbc
+describe postgresql.public.workers_psql
 --!
 -- delimiter: |; trimValues: true; ignoreOrder: true;
 id_employee        | integer     | |
