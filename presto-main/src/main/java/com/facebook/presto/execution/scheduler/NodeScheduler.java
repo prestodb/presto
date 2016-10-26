@@ -60,7 +60,7 @@ public class NodeScheduler
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerNodePerStageWhenFull;
+    private final int maxPendingSplitsPerTask;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
 
@@ -82,9 +82,9 @@ public class NodeScheduler
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxPendingSplitsPerNodePerStageWhenFull = config.getMaxPendingSplitsPerNodePerStage();
+        this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        checkArgument(maxSplitsPerNode > maxPendingSplitsPerNodePerStageWhenFull, "maxSplitsPerNode must be > maxPendingSplitsPerNodePerStageWhenFull");
+        checkArgument(maxSplitsPerNode > maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
@@ -165,13 +165,13 @@ public class NodeScheduler
                     nodeMap,
                     minCandidates,
                     maxSplitsPerNode,
-                    maxPendingSplitsPerNodePerStageWhenFull,
+                    maxPendingSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerNodePerStageWhenFull);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask);
         }
     }
 
@@ -256,7 +256,7 @@ public class NodeScheduler
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
-            int maxPendingSplitsPerNodePerStageWhenFull,
+            int maxPendingSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             NodePartitionMap partitioning)
@@ -270,7 +270,7 @@ public class NodeScheduler
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
             if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
-                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerNodePerStageWhenFull) {
+                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask) {
                 assignments.put(node, split);
                 assignmentStats.addAssignedSplit(node);
             }
