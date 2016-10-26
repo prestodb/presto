@@ -88,6 +88,7 @@ import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.EmptyMapConstructor;
 import com.facebook.presto.operator.scalar.FailureFunction;
 import com.facebook.presto.operator.scalar.HmacFunctions;
+import com.facebook.presto.operator.scalar.FormatFunctions;
 import com.facebook.presto.operator.scalar.HyperLogLogFunctions;
 import com.facebook.presto.operator.scalar.JoniRegexpCasts;
 import com.facebook.presto.operator.scalar.JoniRegexpFunctions;
@@ -489,6 +490,7 @@ public class FunctionRegistry
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
+                .scalars(FormatFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
                 .scalar(ArrayFilterFunction.class)
