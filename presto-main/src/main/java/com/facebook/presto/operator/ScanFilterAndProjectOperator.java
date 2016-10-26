@@ -204,8 +204,20 @@ public class ScanFilterAndProjectOperator
     @Override
     public Page getOutput()
     {
+        if (split == null) {
+            return null;
+        }
+
         if (!finishing) {
-            createSourceIfNecessary();
+            if ((pageSource == null) && (cursor == null)) {
+                ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+                if (source instanceof RecordPageSource) {
+                    cursor = ((RecordPageSource) source).getCursor();
+                }
+                else {
+                    pageSource = source;
+                }
+            }
 
             if (cursor != null) {
                 int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
@@ -280,19 +292,6 @@ public class ScanFilterAndProjectOperator
 
         pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
         return page;
-    }
-
-    private void createSourceIfNecessary()
-    {
-        if ((split != null) && (pageSource == null) && (cursor == null)) {
-            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
-            if (source instanceof RecordPageSource) {
-                cursor = ((RecordPageSource) source).getCursor();
-            }
-            else {
-                pageSource = source;
-            }
-        }
     }
 
     public static class ScanFilterAndProjectOperatorFactory
