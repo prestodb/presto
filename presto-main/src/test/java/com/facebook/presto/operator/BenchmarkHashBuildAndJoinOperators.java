@@ -43,11 +43,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -244,6 +246,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 HASH_BUILD_OPERATOR_ID,
                 TEST_PLAN_NODE_ID,
                 buildContext.getTypes(),
+                rangeList(buildContext.getTypes().size()),
                 ImmutableMap.of(),
                 buildContext.getHashChannels(),
                 buildContext.getHashChannel(),
@@ -276,7 +279,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 lookupSourceFactory,
                 joinContext.getTypes(),
                 joinContext.getHashChannels(),
-                joinContext.getHashChannel());
+                joinContext.getHashChannel(),
+                Optional.of(rangeList(joinContext.getTypes().size())));
 
         DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(true, true).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);
@@ -304,6 +308,13 @@ public class BenchmarkHashBuildAndJoinOperators
         }
 
         return outputPages.build();
+    }
+
+    private List<Integer> rangeList(int endExclusive)
+    {
+        return IntStream.range(0, endExclusive)
+                .boxed()
+                .collect(toImmutableList());
     }
 
     public static void main(String[] args)
