@@ -263,7 +263,7 @@ public class TestTypeRegistry
     @Test
     public void testCastOperatorsExistForCoercions()
     {
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type sourceType : types) {

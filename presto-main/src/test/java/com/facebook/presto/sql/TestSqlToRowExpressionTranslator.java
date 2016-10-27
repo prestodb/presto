@@ -34,7 +34,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 public class TestSqlToRowExpressionTranslator
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()

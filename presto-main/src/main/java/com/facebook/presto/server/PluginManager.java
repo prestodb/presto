@@ -28,7 +28,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -192,11 +191,6 @@ public class PluginManager
         for (ParametricType parametricType : plugin.getParametricTypes()) {
             log.info("Registering parametric type %s", parametricType.getName());
             typeRegistry.addParametricType(parametricType);
-        }
-
-        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getLegacyConnectorFactories()) {
-            log.info("Registering legacy connector %s", connectorFactory.getName());
-            connectorManager.addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {

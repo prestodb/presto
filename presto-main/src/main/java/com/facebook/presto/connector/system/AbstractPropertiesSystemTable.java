@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -22,6 +23,10 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.transaction.TransactionId;
+import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.util.Types;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -38,9 +43,10 @@ abstract class AbstractPropertiesSystemTable
         implements SystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
-    private final Supplier<Map<String, Map<String, PropertyMetadata<?>>>> propertySupplier;
+    private final TransactionManager transactionManager;
+    private final Supplier<Map<ConnectorId, Map<String, PropertyMetadata<?>>>> propertySupplier;
 
-    protected AbstractPropertiesSystemTable(String tableName, Supplier<Map<String, Map<String, PropertyMetadata<?>>>> propertySupplier)
+    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Supplier<Map<ConnectorId, Map<String, PropertyMetadata<?>>>> propertySupplier)
     {
         this.tableMetadata = tableMetadataBuilder(new SchemaTableName("metadata", tableName))
                 .column("catalog_name", createUnboundedVarcharType())
@@ -49,6 +55,7 @@ abstract class AbstractPropertiesSystemTable
                 .column("type", createUnboundedVarcharType())
                 .column("description", createUnboundedVarcharType())
                 .build();
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.propertySupplier = requireNonNull(propertySupplier, "propertySupplier is null");
     }
 
@@ -67,11 +74,13 @@ abstract class AbstractPropertiesSystemTable
     @Override
     public final RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        TransactionId transactionId = Types.checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transactionHandle").getTransactionId();
+
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
-        Map<String, Map<String, PropertyMetadata<?>>> tableProperties = new TreeMap<>(propertySupplier.get());
-        for (Entry<String, Map<String, PropertyMetadata<?>>> entry : tableProperties.entrySet()) {
+        Map<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = propertySupplier.get();
+        for (Entry<String, ConnectorId> entry : new TreeMap<>(transactionManager.getCatalogNames(transactionId)).entrySet()) {
             String catalog = entry.getKey();
-            Map<String, PropertyMetadata<?>> properties = new TreeMap<>(entry.getValue());
+            Map<String, PropertyMetadata<?>> properties = new TreeMap<>(connectorProperties.getOrDefault(entry.getValue(), ImmutableMap.of()));
             for (PropertyMetadata<?> propertyMetadata : properties.values()) {
                 table.addRow(
                         catalog,

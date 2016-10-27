@@ -46,7 +46,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 Arrays.asList((Double) null),
                 createDoublesBlock(1.0, null),
                 createDoublesBlock(3.0, 5.0),
@@ -54,7 +53,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 null,
                 createDoublesBlock(null, null),
                 createDoublesBlock(null, null),
@@ -62,7 +60,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 Arrays.asList(1.0),
                 createDoublesBlock(null, 1.0, null, null),
                 createDoublesBlock(null, 0.0, null, null),
@@ -70,7 +67,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 Arrays.asList(1.0),
                 createDoublesBlock(1.0),
                 createDoublesBlock(0.0),
@@ -78,7 +74,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 null,
                 createDoublesBlock(),
                 createDoublesBlock(),
@@ -86,7 +81,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(2.5),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
@@ -94,7 +88,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(2.5, 3.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
@@ -114,7 +107,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 Arrays.asList((Double) null),
                 createDoublesBlock(1.0, null),
                 createDoublesBlock(5.0, 3.0),
@@ -122,7 +114,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 null,
                 createDoublesBlock(null, null),
                 createDoublesBlock(null, null),
@@ -130,7 +121,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(2.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
@@ -138,7 +128,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(2.0, 5.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
@@ -157,7 +146,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("z", "a"),
                 createStringsBlock("z", "a", "x", "b"),
                 createDoublesBlock(1.0, 2.0, 2.0, 3.0),
@@ -165,7 +153,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", "bb", "a"),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
@@ -173,7 +160,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
@@ -192,7 +178,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("a", "z"),
                 createStringsBlock("z", "a", null),
                 createDoublesBlock(1.0, 2.0, null),
@@ -200,7 +185,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("bb", "hi"),
                 createStringsBlock("zz", "hi", "bb", "a"),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
@@ -208,7 +192,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("hi", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
@@ -227,7 +210,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(2.0, 3.0),
                 createDoublesBlock(1.0, 2.0, 2.0, 3.0),
                 createStringsBlock("z", "a", "x", "b"),
@@ -235,7 +217,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(-1.0, 2.0),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
                 createStringsBlock("zz", "hi", "bb", "a"),
@@ -243,7 +224,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(-1.0, 1.0),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
                 createStringsBlock("zz", "hi", null, "a"),
@@ -262,7 +242,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(1.0, 2.0),
                 createDoublesBlock(1.0, 2.0, null),
                 createStringsBlock("z", "a", null),
@@ -270,7 +249,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(0.0, 1.0),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
                 createStringsBlock("zz", "hi", "bb", "a"),
@@ -278,7 +256,6 @@ public class TestMinMaxByNAggregation
 
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(0.0, 1.0),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
                 createStringsBlock("zz", "hi", null, "a"),
@@ -297,7 +274,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(ImmutableList.of(2L, 3L), ImmutableList.of(4L, 5L)),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(3L, 4L), ImmutableList.of(4L, 5L))),
                 createStringsBlock("z", "a", "x", "b"),
@@ -316,7 +292,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L, 4L)),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(3L, 4L), ImmutableList.of(4L, 5L))),
                 createStringsBlock("z", "a", "x", "b"),
@@ -335,7 +310,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("b", "x", "z"),
                 createStringsBlock("z", "a", "x", "b"),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(0L, 3L), ImmutableList.of(0L, 2L))),
@@ -354,7 +328,6 @@ public class TestMinMaxByNAggregation
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 function,
-                1.0,
                 ImmutableList.of("a", "z", "x"),
                 createStringsBlock("z", "a", "x", "b"),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(0L, 3L), ImmutableList.of(0L, 2L))),

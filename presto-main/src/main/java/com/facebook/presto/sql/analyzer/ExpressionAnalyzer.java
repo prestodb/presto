@@ -375,13 +375,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Void> context)
         {
-            OperatorType operatorType;
-            if (node.getType() == ComparisonExpression.Type.IS_DISTINCT_FROM) {
-                operatorType = OperatorType.EQUAL;
-            }
-            else {
-                operatorType = OperatorType.valueOf(node.getType().name());
-            }
+            OperatorType operatorType = OperatorType.valueOf(node.getType().name());
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
@@ -741,7 +735,7 @@ public class ExpressionAnalyzer
 
             Signature function;
             try {
-                function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build(), scope.isApproximate());
+                function = functionRegistry.resolveFunction(node.getName(), argumentTypes.build());
             }
             catch (PrestoException e) {
                 if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1207,7 +1201,7 @@ public class ExpressionAnalyzer
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
         Analysis analysis = new Analysis(null, parameters, isDescribe);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, false);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(tupleDescriptor).build());
         }
@@ -1229,10 +1223,9 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             Scope scope,
             Analysis analysis,
-            boolean approximateQueriesEnabled,
             Expression expression)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of(), approximateQueriesEnabled);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of());
         analyzer.analyze(expression, scope);
 
         IdentityHashMap<Expression, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1260,10 +1253,9 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
-            AccessControl accessControl,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl)
     {
-        return create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of(), experimentalSyntaxEnabled);
+        return create(analysis, session, metadata, sqlParser, accessControl, ImmutableMap.of());
     }
 
     public static ExpressionAnalyzer create(
@@ -1272,13 +1264,12 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
-            Map<Symbol, Type> types,
-            boolean experimentalSyntaxEnabled)
+            Map<Symbol, Type> types)
     {
         return new ExpressionAnalyzer(
                 metadata.getFunctionRegistry(),
                 metadata.getTypeManager(),
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session),
                 session,
                 types,
                 analysis.getParameters(),

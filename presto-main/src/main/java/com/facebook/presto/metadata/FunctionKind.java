@@ -17,6 +17,5 @@ public enum FunctionKind
 {
     SCALAR,
     AGGREGATE,
-    WINDOW,
-    APPROXIMATE_AGGREGATE
+    WINDOW
 }

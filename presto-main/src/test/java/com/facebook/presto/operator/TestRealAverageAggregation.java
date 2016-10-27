@@ -52,7 +52,6 @@ public class TestRealAverageAggregation
     public void averageOfNullIsNull()
     {
         assertAggregation(avgFunction,
-                1.0,
                 null,
                 createBlockOfReals(null, null));
     }
@@ -61,7 +60,6 @@ public class TestRealAverageAggregation
     public void averageOfSingleValueEqualsThatValue()
     {
         assertAggregation(avgFunction,
-                1.0,
                 1.23f,
                 createBlockOfReals(1.23f));
     }
@@ -70,7 +68,6 @@ public class TestRealAverageAggregation
     public void averageOfTwoMaxFloatsEqualsMaxFloat()
     {
         assertAggregation(avgFunction,
-                1.0,
                 Float.MAX_VALUE,
                 createBlockOfReals(Float.MAX_VALUE, Float.MAX_VALUE));
     }

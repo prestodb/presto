@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryQueueRule
@@ -36,7 +37,9 @@ public class TestQueryQueueRule
     @Test
     public void testBigQuery()
     {
-        Session session = TEST_SESSION.withSystemProperty("big_query", "true");
+        Session session = testSessionBuilder()
+                .setSystemProperty("big_query", "true")
+                .build();
         QueryQueueDefinition definition = new QueryQueueDefinition("big", 1, 1);
         QueryQueueRule rule = new QueryQueueRule(null, null, ImmutableMap.of("big_query", Pattern.compile("true", Pattern.CASE_INSENSITIVE)), ImmutableList.of(definition));
         assertEquals(rule.match(session.toSessionRepresentation()).get(), ImmutableList.of(definition));

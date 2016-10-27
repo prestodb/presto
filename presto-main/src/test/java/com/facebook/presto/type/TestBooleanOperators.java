@@ -127,4 +127,16 @@ public class TestBooleanOperators
         assertFunction("cast('true' as boolean)", BOOLEAN, true);
         assertFunction("cast('false' as boolean)", BOOLEAN, false);
     }
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS BOOLEAN) IS DISTINCT FROM CAST(NULL AS BOOLEAN)", BOOLEAN, false);
+        assertFunction("FALSE IS DISTINCT FROM FALSE", BOOLEAN, false);
+        assertFunction("TRUE IS DISTINCT FROM TRUE", BOOLEAN, false);
+        assertFunction("FALSE IS DISTINCT FROM TRUE", BOOLEAN, true);
+        assertFunction("TRUE IS DISTINCT FROM FALSE", BOOLEAN, true);
+        assertFunction("FALSE IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("TRUE IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
 }

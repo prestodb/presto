@@ -46,8 +46,6 @@ import io.airlift.slice.Slice;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -101,8 +99,6 @@ public class MongoSession
     private static final String IN_OP = "$in";
     private static final String NOTIN_OP = "$nin";
 
-    protected final String connectorId;
-
     private final TypeManager typeManager;
     private final MongoClient client;
 
@@ -112,14 +108,9 @@ public class MongoSession
     private final LoadingCache<SchemaTableName, MongoTable> tableCache;
     private final String implicitPrefix;
 
-    @Inject
-    public MongoSession(TypeManager typeManager,
-                        String connectorId,
-                        final MongoClient client,
-                        MongoClientConfig config)
+    public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.client = requireNonNull(client, "client is null");
         this.schemaCollection = config.getSchemaCollection();
         this.cursorBatchSize = config.getCursorBatchSize();
@@ -195,7 +186,7 @@ public class MongoSession
             columnHandles.add(columnHandle);
         }
 
-        MongoTableHandle tableHandle = new MongoTableHandle(connectorId, tableName);
+        MongoTableHandle tableHandle = new MongoTableHandle(tableName);
         return new MongoTable(tableHandle, columnHandles.build(), getIndexes(tableName));
     }
 
@@ -207,7 +198,7 @@ public class MongoSession
 
         Type type = typeManager.getType(TypeSignature.parseTypeSignature(typeString));
 
-        return new MongoColumnHandle(connectorId, name, type, hidden);
+        return new MongoColumnHandle(name, type, hidden);
     }
 
     private List<Document> getColumnMetadata(Document doc)
@@ -448,7 +439,7 @@ public class MongoSession
 
         ArrayList<Document> fields = new ArrayList<>();
         if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
-            fields.add(new MongoColumnHandle(connectorId, "_id", OBJECT_ID, true).getDocument());
+            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true).getDocument());
         }
 
         fields.addAll(columns.stream()

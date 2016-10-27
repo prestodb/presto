@@ -23,12 +23,12 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
-import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -192,8 +192,8 @@ public class HttpBackupStore
 
     private static long xxHash64(File file)
     {
-        try {
-            return XxHash64.hash(Slices.mapFileReadOnly(file));
+        try (InputStream in = new FileInputStream(file)) {
+            return XxHash64.hash(in);
         }
         catch (IOException e) {
             throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to read file: " + file, e);

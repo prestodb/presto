@@ -356,7 +356,7 @@ public abstract class AbstractTestHiveClientS3
 
             // write the records
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
-            sink.appendPage(data.toPage(), null);
+            sink.appendPage(data.toPage());
             Collection<Slice> fragments = sink.finish();
 
             // commit the table

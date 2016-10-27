@@ -31,8 +31,8 @@ public class LazyAccumulatorFactoryBinder
     }
 
     @Override
-    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel, Optional<Integer> sampleWeightChannel, double confidence)
+    public AccumulatorFactory bind(List<Integer> argumentChannels, Optional<Integer> maskChannel)
     {
-        return binder.get().bind(argumentChannels, maskChannel, sampleWeightChannel, confidence);
+        return binder.get().bind(argumentChannels, maskChannel);
     }
 }

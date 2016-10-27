@@ -19,26 +19,45 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.lang.Integer.numberOfTrailingZeros;
 
+@NotThreadSafe
 public class PartitionedLookupSource
         implements LookupSource
 {
+    public static Supplier<LookupSource> createPartitionedLookupSourceSupplier(List<Supplier<LookupSource>> partitions, List<Type> hashChannelTypes, boolean outer)
+    {
+        Optional<OuterPositionTracker> outerPositionTracker = Optional.ofNullable(outer ? new OuterPositionTracker(partitions) : null);
+
+        return () -> new PartitionedLookupSource(
+                partitions.stream()
+                        .map(Supplier::get)
+                        .collect(toImmutableList()),
+                hashChannelTypes,
+                outerPositionTracker);
+    }
+
     private final LookupSource[] lookupSources;
     private final LocalPartitionGenerator partitionGenerator;
     private final int partitionMask;
     private final int shiftSize;
+    @Nullable
+    private final OuterPositionTracker outerPositionTracker;
 
-    @GuardedBy("this")
-    private final boolean[][] visitedPositions;
-
-    public PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, boolean outer)
+    private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker)
     {
         this.lookupSources = lookupSources.toArray(new LookupSource[lookupSources.size()]);
 
@@ -53,15 +72,7 @@ public class PartitionedLookupSource
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
 
-        if (outer) {
-            visitedPositions = new boolean[lookupSources.size()][];
-            for (int source = 0; source < this.lookupSources.length; source++) {
-                visitedPositions[source] = new boolean[this.lookupSources[source].getJoinPositionCount()];
-            }
-        }
-        else {
-            visitedPositions = null;
-        }
+        this.outerPositionTracker = outerPositionTracker.orElse(null);
     }
 
     @Override
@@ -119,21 +130,16 @@ public class PartitionedLookupSource
         int partition = decodePartition(partitionedJoinPosition);
         int joinPosition = decodeJoinPosition(partitionedJoinPosition);
         lookupSources[partition].appendTo(joinPosition, pageBuilder, outputChannelOffset);
-        if (visitedPositions != null) {
-            visitedPositions[partition][joinPosition] = true;
+        if (outerPositionTracker != null) {
+            outerPositionTracker.positionVisited(partition, joinPosition);
         }
     }
 
     @Override
     public OuterPositionIterator getOuterPositionIterator()
     {
-        return new PartitionedLookupOuterPositionIterator();
-    }
-
-    @Override
-    public void close()
-    {
-        // this method only exists for index lookup which does not support partitioned hash build (since it doesn't build)
+        checkState(outerPositionTracker != null, "This is not an outer lookup source");
+        return outerPositionTracker.getOuterPositionIterator();
     }
 
     private int decodePartition(long partitionedJoinPosition)
@@ -151,38 +157,78 @@ public class PartitionedLookupSource
         return (joinPosition << shiftSize) | (partition);
     }
 
-    private class PartitionedLookupOuterPositionIterator
+    private static class PartitionedLookupOuterPositionIterator
             implements OuterPositionIterator
     {
+        private final LookupSource[] lookupSources;
+        private final boolean[][] visitedPositions;
+
         @GuardedBy("this")
         private int currentSource;
 
         @GuardedBy("this")
         private int currentPosition;
 
-        public PartitionedLookupOuterPositionIterator()
+        public PartitionedLookupOuterPositionIterator(LookupSource[] lookupSources, boolean[][] visitedPositions)
         {
-            checkState(visitedPositions != null, "This is not an outer lookup source");
+            this.lookupSources = lookupSources;
+            this.visitedPositions = visitedPositions;
         }
 
         @Override
-        public boolean appendToNext(PageBuilder pageBuilder, int outputChannelOffset)
+        public synchronized boolean appendToNext(PageBuilder pageBuilder, int outputChannelOffset)
         {
-            synchronized (PartitionedLookupSource.this) {
-                while (currentSource < lookupSources.length) {
-                    while (currentPosition < visitedPositions[currentSource].length) {
-                        if (!visitedPositions[currentSource][currentPosition]) {
-                            lookupSources[currentSource].appendTo(currentPosition, pageBuilder, outputChannelOffset);
-                            currentPosition++;
-                            return true;
-                        }
+            while (currentSource < lookupSources.length) {
+                while (currentPosition < visitedPositions[currentSource].length) {
+                    if (!visitedPositions[currentSource][currentPosition]) {
+                        lookupSources[currentSource].appendTo(currentPosition, pageBuilder, outputChannelOffset);
                         currentPosition++;
+                        return true;
                     }
-                    currentPosition = 0;
-                    currentSource++;
+                    currentPosition++;
                 }
-                return false;
+                currentPosition = 0;
+                currentSource++;
             }
+            return false;
+        }
+    }
+
+    @ThreadSafe
+    private static class OuterPositionTracker
+    {
+        private final List<Supplier<LookupSource>> lookupSourceSuppliers;
+
+        @GuardedBy("this")
+        private final boolean[][] visitedPositions;
+
+        @GuardedBy("this")
+        private boolean finished;
+
+        public OuterPositionTracker(List<Supplier<LookupSource>> lookupSourceSuppliers)
+        {
+            this.lookupSourceSuppliers = lookupSourceSuppliers;
+            visitedPositions = new boolean[lookupSourceSuppliers.size()][];
+            for (int source = 0; source < lookupSourceSuppliers.size(); source++) {
+                try (LookupSource lookupSource = lookupSourceSuppliers.get(source).get()) {
+                    visitedPositions[source] = new boolean[lookupSource.getJoinPositionCount()];
+                }
+            }
+        }
+
+        public synchronized void positionVisited(int partition, int position)
+        {
+            verify(!finished);
+            visitedPositions[partition][position] = true;
+        }
+
+        public synchronized OuterPositionIterator getOuterPositionIterator()
+        {
+            finished = true;
+            LookupSource[] lookupSources = lookupSourceSuppliers.stream()
+                    .map(Supplier::get)
+                    .toArray(LookupSource[]::new);
+            return new PartitionedLookupOuterPositionIterator(lookupSources, visitedPositions);
         }
     }
 }

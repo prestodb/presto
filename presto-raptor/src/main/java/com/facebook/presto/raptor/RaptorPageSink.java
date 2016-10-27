@@ -114,7 +114,7 @@ public class RaptorPageSink
     }
 
     @Override
-    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page)
     {
         if (page.getPositionCount() == 0) {
             return NOT_BLOCKED;

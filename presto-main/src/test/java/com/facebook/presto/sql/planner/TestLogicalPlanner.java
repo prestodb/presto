@@ -237,6 +237,39 @@ public class TestLogicalPlanner
                                                                 ))))))));
     }
 
+    @Test
+    public void testGeneratesOneLeftHashForTwoJoinsWithShuffledSymbols()
+    {
+        assertPlan(
+                "SELECT * " +
+                        " FROM " +
+                        "  (SELECT " +
+                        "    l.suppkey," +
+                        "    l.partkey" +
+                        "   FROM" +
+                        "    lineitem l" +
+                        "   JOIN" +
+                        "    partsupp ps" +
+                        "   ON" +
+                        "    ps.suppkey = l.suppkey" +
+                        "    AND ps.partkey = l.partkey) l" +
+                        "  JOIN" +
+                        "   partsupp ps" +
+                        "  ON" +
+                        "   ps.partkey = l.partkey" +
+                        "   AND ps.suppkey = l.suppkey",
+                anyTree(node(JoinNode.class,
+                        project(
+                                node(JoinNode.class,
+                                        project(
+                                                anyTree()).withSymbol("hash", "H"),
+                                        anyTree())
+                        ).withSymbol("suppkey", "S")
+                                .withSymbol("partkey", "P")
+                                .withSymbol("hash", "H"),
+                        anyTree())));
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
@@ -244,8 +277,8 @@ public class TestLogicalPlanner
 
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
-        Plan actualPlan = plan(sql, stage);
         queryRunner.inTransaction(transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });

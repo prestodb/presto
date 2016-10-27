@@ -39,7 +39,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPolymorphicScalarFunction
 {
     private static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
-    private static final FunctionRegistry REGISTRY = new FunctionRegistry(TYPE_REGISTRY, new BlockEncodingManager(TYPE_REGISTRY), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+    private static final FunctionRegistry REGISTRY = new FunctionRegistry(TYPE_REGISTRY, new BlockEncodingManager(TYPE_REGISTRY), new FeaturesConfig());
     private static final Signature SIGNATURE = Signature.builder()
             .name("foo")
             .kind(SCALAR)

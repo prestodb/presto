@@ -17,7 +17,7 @@ import com.facebook.presto.mongodb.MongoIndex.MongodbIndexKey;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -32,23 +32,22 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 
-import javax.inject.Inject;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.mongodb.MongoColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.mongodb.TypeUtils.checkType;
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -58,14 +57,12 @@ public class MongoMetadata
 {
     private static final Logger log = Logger.get(MongoMetadata.class);
 
-    private final String connectorId;
     private final MongoSession mongoSession;
 
-    @Inject
-    public MongoMetadata(MongoConnectorId connectorId,
-                         MongoSession mongoSession)
+    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+
+    public MongoMetadata(MongoSession mongoSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
     }
 
@@ -110,27 +107,14 @@ public class MongoMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return getColumnHandles(tableHandle, true).get(SAMPLE_WEIGHT_COLUMN_NAME);
-    }
-
-    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return getColumnHandles(tableHandle, false);
-    }
-
-    private Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle, boolean includeSampleWeight)
     {
         MongoTableHandle table = checkType(tableHandle, MongoTableHandle.class, "tableHandle");
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (MongoColumnHandle columnHandle : columns) {
-            if (includeSampleWeight || !columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                columnHandles.put(columnHandle.getName(), columnHandle);
-            }
+            columnHandles.put(columnHandle.getName(), columnHandle);
         }
         return columnHandles.build();
     }
@@ -204,12 +188,6 @@ public class MongoMetadata
     }
 
     @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        return true;
-    }
-
-    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata));
@@ -230,27 +208,23 @@ public class MongoMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
 
         mongoSession.createTable(tableMetadata.getTable(), columns);
 
-        return new MongoOutputTableHandle(connectorId,
-                                          tableMetadata.getTable(),
-                                          columns.stream().filter(c -> !c.isHidden()).collect(toList()));
+        setRollback(() -> mongoSession.dropTable(tableMetadata.getTable()));
+
+        return new MongoOutputTableHandle(
+                tableMetadata.getTable(),
+                columns.stream().filter(c -> !c.isHidden()).collect(toList()));
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-    }
-
-    @Override
-    public void rollbackCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
-    {
-        MongoOutputTableHandle table = checkType(tableHandle, MongoOutputTableHandle.class, "tableHandle");
-        mongoSession.dropTable(table.getSchemaTableName());
+        clearRollback();
     }
 
     @Override
@@ -259,14 +233,24 @@ public class MongoMetadata
         MongoTableHandle table = checkType(tableHandle, MongoTableHandle.class, "tableHandle");
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
-        return new MongoInsertTableHandle(connectorId,
-                                          table.getSchemaTableName(),
-                                          columns.stream().filter(c -> !c.isHidden()).collect(toList()));
+        return new MongoInsertTableHandle(
+                table.getSchemaTableName(),
+                columns.stream().filter(c -> !c.isHidden()).collect(toList()));
     }
 
-    @Override
-    public void commitInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    private void setRollback(Runnable action)
     {
+        checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
+    }
+
+    private void clearRollback()
+    {
+        rollbackAction.set(null);
+    }
+
+    public void rollback()
+    {
+        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
     }
 
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
@@ -303,18 +287,10 @@ public class MongoMetadata
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
-    private List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
+    private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         return tableMetadata.getColumns().stream()
-                .map(m -> new MongoColumnHandle(connectorId, m.getName(), m.getType(), m.isHidden()))
+                .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden()))
                 .collect(toList());
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .toString();
     }
 }

@@ -38,7 +38,6 @@ public class Scope
 {
     private final Optional<Scope> parent;
     private final RelationType relation;
-    private final boolean approximate;
     private final boolean queryBoundary;
     private final Map<String, WithQuery> namedQueries;
 
@@ -56,13 +55,11 @@ public class Scope
             Optional<Scope> parent,
             RelationType relation,
             Map<String, WithQuery> namedQueries,
-            boolean approximate,
             boolean queryBoundary)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
-        this.approximate = approximate;
         this.queryBoundary = queryBoundary;
     }
 
@@ -177,11 +174,6 @@ public class Scope
         return Optional.empty();
     }
 
-    public boolean isApproximate()
-    {
-        return approximate;
-    }
-
     public static final class Builder
     {
         private RelationType relationType = new RelationType();
@@ -208,12 +200,6 @@ public class Scope
             return this;
         }
 
-        public Builder withApproximate(boolean approximate)
-        {
-            this.approximate = Optional.of(approximate);
-            return this;
-        }
-
         public Builder withNamedQuery(String name, WithQuery withQuery)
         {
             checkArgument(!containsNamedQuery(name), "Query '%s' is already added", name);
@@ -228,8 +214,7 @@ public class Scope
 
         public Scope build()
         {
-            boolean approximate = this.approximate.orElse(parent.map(Scope::isApproximate).orElse(false));
-            return new Scope(parent, relationType, namedQueries, approximate, queryBoundary);
+            return new Scope(parent, relationType, namedQueries, queryBoundary);
         }
     }
 }

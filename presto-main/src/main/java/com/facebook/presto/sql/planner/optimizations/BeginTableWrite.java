@@ -97,7 +97,6 @@ public class BeginTableWrite
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getOutputSymbols(),
-                    node.getSampleWeightSymbol(),
                     node.getPartitioningScheme());
         }
 

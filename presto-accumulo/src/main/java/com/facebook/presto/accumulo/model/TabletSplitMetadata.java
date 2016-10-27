@@ -15,7 +15,7 @@ package com.facebook.presto.accumulo.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSetter;
+import com.google.common.collect.ImmutableList;
 import org.apache.accumulo.core.data.Range;
 
 import java.util.List;
@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class TabletSplitMetadata
 {
     private final Optional<String> hostPort;
-    private List<Range> ranges;
+    private final List<Range> ranges;
 
     @JsonCreator
     public TabletSplitMetadata(
@@ -36,7 +36,7 @@ public class TabletSplitMetadata
             @JsonProperty("ranges") List<Range> ranges)
     {
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
-        this.ranges = ranges;
+        this.ranges = ImmutableList.copyOf(requireNonNull(ranges, "ranges is null"));
     }
 
     @JsonProperty
@@ -49,12 +49,6 @@ public class TabletSplitMetadata
     public List<Range> getRanges()
     {
         return ranges;
-    }
-
-    @JsonSetter
-    public void setRanges(List<Range> ranges)
-    {
-        this.ranges = ranges;
     }
 
     @Override

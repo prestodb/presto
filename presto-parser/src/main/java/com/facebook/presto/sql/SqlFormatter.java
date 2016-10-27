@@ -235,12 +235,6 @@ public final class SqlFormatter
                         .append('\n');
             }
 
-            if (node.getApproximate().isPresent()) {
-                String confidence = node.getApproximate().get().getConfidence();
-                append(indent, "APPROXIMATE AT " + confidence + " CONFIDENCE")
-                        .append('\n');
-            }
-
             return null;
         }
 
@@ -412,13 +406,6 @@ public final class SqlFormatter
                     .append(" (")
                     .append(node.getSamplePercentage())
                     .append(')');
-
-            if (node.getColumnsToStratifyOn().isPresent()) {
-                builder.append(" STRATIFY ON ")
-                        .append(" (")
-                        .append(Joiner.on(",").join(node.getColumnsToStratifyOn().get()));
-                builder.append(')');
-            }
 
             return null;
         }

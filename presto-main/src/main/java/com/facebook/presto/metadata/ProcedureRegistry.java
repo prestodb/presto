@@ -13,17 +13,21 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
 import static com.facebook.presto.spi.procedure.Procedure.Argument;
@@ -34,31 +38,44 @@ import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class ProcedureRegistry
 {
-    private volatile Map<QualifiedObjectName, Procedure> procedures = ImmutableMap.of();
+    private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
-    public final synchronized void addProcedure(String catalog, Procedure procedure)
+    public void addProcedures(ConnectorId connectorId, Collection<Procedure> procedures)
     {
-        validateProcedure(procedure);
-        QualifiedObjectName name = new QualifiedObjectName(catalog, procedure.getSchema(), procedure.getName());
-        checkArgument(!procedures.containsKey(name), "Procedure already registered: %s", name);
-        procedures = ImmutableMap.<QualifiedObjectName, Procedure>builder()
-                .putAll(procedures)
-                .put(name, procedure)
-                .build();
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(procedures, "procedures is null");
+
+        procedures.forEach(ProcedureRegistry::validateProcedure);
+
+        Map<SchemaTableName, Procedure> proceduresByName = Maps.uniqueIndex(
+                procedures,
+                procedure -> new SchemaTableName(procedure.getSchema(), procedure.getName()));
+
+        checkState(connectorProcedures.putIfAbsent(connectorId, proceduresByName) == null, "Procedures already registered for connector: %s", connectorId);
     }
 
-    public Procedure resolve(QualifiedObjectName name)
+    public void removeProcedures(ConnectorId connectorId)
     {
-        Procedure procedure = procedures.get(name);
-        if (procedure == null) {
-            throw new PrestoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
+        connectorProcedures.remove(connectorId);
+    }
+
+    public Procedure resolve(ConnectorId connectorId, SchemaTableName name)
+    {
+        Map<SchemaTableName, Procedure> procedures = connectorProcedures.get(connectorId);
+        if (procedures != null) {
+            Procedure procedure = procedures.get(name);
+            if (procedure != null) {
+                return procedure;
+            }
         }
-        return procedure;
+        throw new PrestoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
     }
 
     private static void validateProcedure(Procedure procedure)

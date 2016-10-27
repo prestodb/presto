@@ -154,11 +154,10 @@ public class ArbitraryAggregationFunction
                 stateInterface,
                 stateSerializer,
                 compiler.generateStateFactory(stateInterface, classLoader),
-                type,
-                false);
+                type);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, type, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, type, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

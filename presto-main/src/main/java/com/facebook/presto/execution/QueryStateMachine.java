@@ -18,6 +18,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -41,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -140,9 +142,17 @@ public class QueryStateMachine
     /**
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
-    public static QueryStateMachine begin(QueryId queryId, String query, Session session, URI self, boolean transactionControl, TransactionManager transactionManager, Executor executor)
+    public static QueryStateMachine begin(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            boolean transactionControl,
+            TransactionManager transactionManager,
+            AccessControl accessControl,
+            Executor executor)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, executor, Ticker.systemTicker());
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker());
     }
 
     static QueryStateMachine beginWithTicker(
@@ -152,6 +162,7 @@ public class QueryStateMachine
             URI self,
             boolean transactionControl,
             TransactionManager transactionManager,
+            AccessControl accessControl,
             Executor executor,
             Ticker ticker)
     {
@@ -162,7 +173,7 @@ public class QueryStateMachine
         if (autoCommit) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
-            querySession = session.withTransactionId(transactionId);
+            querySession = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
         else {
             querySession = session;
@@ -548,7 +559,7 @@ public class QueryStateMachine
                             transitionToFinished();
                         }
                         else {
-                            transitionToFailed(throwable);
+                            transitionToFailed(unwrapCompletionException(throwable));
                         }
                     });
         }
@@ -737,5 +748,14 @@ public class QueryStateMachine
     private Duration nanosSince(long start)
     {
         return succinctNanos(tickerNanos() - start);
+    }
+
+    // TODO: move to Airlift MoreFutures
+    private static Throwable unwrapCompletionException(Throwable throwable)
+    {
+        if (throwable instanceof CompletionException) {
+            return throwable.getCause();
+        }
+        return throwable;
     }
 }

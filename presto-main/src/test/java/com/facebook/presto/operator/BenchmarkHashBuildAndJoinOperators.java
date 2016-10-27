@@ -87,7 +87,7 @@ public class BenchmarkHashBuildAndJoinOperators
         protected Optional<Integer> hashChannel;
         protected List<Type> types;
         protected List<Integer> hashChannels;
-        protected LookupSourceSupplier lookupSourceSupplier;
+        protected LookupSourceFactory lookupSourceFactory;
 
         @Setup
         public void setup()
@@ -109,7 +109,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
             initializeBuildPages();
 
-            lookupSourceSupplier = new BenchmarkHashBuildAndJoinOperators().benchmarkBuildHash(this);
+            lookupSourceFactory = new BenchmarkHashBuildAndJoinOperators().benchmarkBuildHash(this);
         }
 
         public TaskContext createTaskContext()
@@ -135,9 +135,9 @@ public class BenchmarkHashBuildAndJoinOperators
             return types;
         }
 
-        public LookupSourceSupplier getLookupSourceSupplier()
+        public LookupSourceFactory getLookupSourceFactory()
         {
-            return lookupSourceSupplier;
+            return lookupSourceFactory;
         }
 
         public List<Page> getBuildPages()
@@ -235,7 +235,7 @@ public class BenchmarkHashBuildAndJoinOperators
     }
 
     @Benchmark
-    public LookupSourceSupplier benchmarkBuildHash(BuildContext buildContext)
+    public LookupSourceFactory benchmarkBuildHash(BuildContext buildContext)
     {
         DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(true, true).addDriverContext();
 
@@ -248,7 +248,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 buildContext.getHashChannel(),
                 false,
                 Optional.empty(),
-                10_000);
+                10_000,
+                1);
 
         Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
         for (Page page : buildContext.getBuildPages()) {
@@ -260,18 +261,18 @@ public class BenchmarkHashBuildAndJoinOperators
             throw new AssertionError("Expected hash build operator to be finished");
         }
 
-        return hashBuilderOperatorFactory.getLookupSourceSupplier();
+        return hashBuilderOperatorFactory.getLookupSourceFactory();
     }
 
     @Benchmark
     public List<Page> benchmarkJoinHash(JoinContext joinContext)
     {
-        LookupSourceSupplier lookupSourceSupplier = joinContext.getLookupSourceSupplier();
+        LookupSourceFactory lookupSourceFactory = joinContext.getLookupSourceFactory();
 
         OperatorFactory joinOperatorFactory = LookupJoinOperators.innerJoin(
                 HASH_JOIN_OPERATOR_ID,
                 TEST_PLAN_NODE_ID,
-                lookupSourceSupplier,
+                lookupSourceFactory,
                 joinContext.getTypes(),
                 joinContext.getHashChannels(),
                 joinContext.getHashChannel(),

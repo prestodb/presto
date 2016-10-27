@@ -29,6 +29,7 @@ import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
 import java.util.List;
@@ -182,16 +183,6 @@ public abstract class AbstractTestQueryFramework
         }
     }
 
-    public void assertApproximateQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
-    {
-        QueryAssertions.assertApproximateQuery(queryRunner,
-                session,
-                actual,
-                h2QueryRunner,
-                expected);
-    }
-
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
             throws Exception
     {
@@ -270,7 +261,7 @@ public abstract class AbstractTestQueryFramework
     public String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return transaction(queryRunner.getTransactionManager())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getPlan(session, sqlParser.createStatement(query), planType, emptyList());
@@ -280,7 +271,7 @@ public abstract class AbstractTestQueryFramework
     public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
-        return transaction(queryRunner.getTransactionManager())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getGraphvizPlan(session, sqlParser.createStatement(query), planType, emptyList());
@@ -290,7 +281,7 @@ public abstract class AbstractTestQueryFramework
     private QueryExplainer getQueryExplainer()
     {
         Metadata metadata = queryRunner.getMetadata();
-        FeaturesConfig featuresConfig = new FeaturesConfig().setExperimentalSyntaxEnabled(true).setOptimizeHashGeneration(true);
+        FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         List<PlanOptimizer> optimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode).get();
         return new QueryExplainer(
@@ -298,7 +289,13 @@ public abstract class AbstractTestQueryFramework
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
-                ImmutableMap.of(),
-                featuresConfig.isExperimentalSyntaxEnabled());
+                ImmutableMap.of());
+    }
+
+    protected static void skipTestUnless(boolean requirement)
+    {
+        if (!requirement) {
+            throw new SkipException("requirement not met");
+        }
     }
 }

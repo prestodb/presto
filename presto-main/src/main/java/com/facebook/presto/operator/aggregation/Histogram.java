@@ -98,11 +98,10 @@ public class Histogram
                 HistogramState.class,
                 stateSerializer,
                 new HistogramStateFactory(),
-                outputType,
-                false);
+                outputType);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)

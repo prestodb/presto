@@ -420,7 +420,14 @@ public class PlanPrinter
             }
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
-            print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            // Check if the node is actually a cross join node
+            if (node.getType() == JoinNode.Type.INNER && node.getCriteria().isEmpty()) {
+                print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
+            }
+            else {
+                print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            }
+
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
@@ -497,12 +504,8 @@ public class PlanPrinter
             if (!node.getGroupingKeys().isEmpty()) {
                 key = node.getGroupingKeys().toString();
             }
-            String sampleWeight = "";
-            if (node.getSampleWeight().isPresent()) {
-                sampleWeight = format("[sampleWeight = %s]", node.getSampleWeight().get());
-            }
 
-            print(indent, "- Aggregate%s%s%s => [%s]", type, key, sampleWeight, formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Aggregate%s%s => [%s]", type, key, formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
@@ -520,7 +523,23 @@ public class PlanPrinter
         @Override
         public Void visitGroupId(GroupIdNode node, Integer indent)
         {
-            print(indent, "- GroupId%s => [%s]", node.getGroupingSets(), formatOutputs(node.getOutputSymbols()));
+            // grouping sets are easier to understand in terms of inputs
+            List<List<Symbol>> inputGroupingSetSymbols = node.getGroupingSets().stream()
+                    .map(set -> set.stream()
+                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .collect(Collectors.toList()))
+                    .collect(Collectors.toList());
+
+            print(indent, "- GroupId%s => [%s]", inputGroupingSetSymbols, formatOutputs(node.getOutputSymbols()));
+            printStats(indent + 2, node.getId());
+
+            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingSetMappings().entrySet()) {
+                print(indent + 2, "%s := %s", mapping.getKey(), mapping.getValue());
+            }
+            for (Map.Entry<Symbol, Symbol> argument : node.getArgumentMappings().entrySet()) {
+                print(indent + 2, "%s := %s", argument.getKey(), argument.getValue());
+            }
+
             return processChildren(node, indent + 1);
         }
 

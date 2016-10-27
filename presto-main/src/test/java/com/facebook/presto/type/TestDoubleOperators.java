@@ -224,4 +224,15 @@ public class TestDoubleOperators
         assertFunction("cast('37.7' as double precision)", DOUBLE, 37.7);
         assertFunction("cast('17.1' as double precision)", DOUBLE, 17.1);
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS DOUBLE) IS DISTINCT FROM CAST(NULL AS DOUBLE)", BOOLEAN, false);
+        assertFunction("37.7 IS DISTINCT FROM 37.7", BOOLEAN, false);
+        assertFunction("37 IS DISTINCT FROM 37.8", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM 37.7", BOOLEAN, true);
+        assertFunction("37.7 IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
 }

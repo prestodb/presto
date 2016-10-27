@@ -36,7 +36,10 @@ function stop_unnecessary_hadoop_services() {
 }
 
 function run_in_application_runner_container() {
-  environment_compose run --rm -T application-runner "$@"
+  local CONTAINER_NAME=$( environment_compose run -d application-runner "$@" )
+  echo "Showing logs from $CONTAINER_NAME:"
+  docker logs -f $CONTAINER_NAME
+  return $( docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME )
 }
 
 function check_presto() {
@@ -103,12 +106,16 @@ function stop_docker_compose_containers() {
 }
 
 function prefetch_images_silently() {
-  local IMAGES=`environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq`
+  local IMAGES=$( docker_images_used )
   for IMAGE in $IMAGES
   do
     echo "Pulling docker image [$IMAGE]"
     docker pull $IMAGE > /dev/null
   done
+}
+
+function docker_images_used() {
+  environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq
 }
 
 function environment_compose() {
@@ -175,6 +182,10 @@ stop_all_containers
 
 if [[ "$CONTINUOUS_INTEGRATION" == 'true' ]]; then
     prefetch_images_silently
+    # This has to be done after fetching the images
+    # or will present stale / no data for images that changed.
+    echo "Docker images versions:"
+    docker_images_used | xargs -n 1 docker inspect --format='ID: {{.ID}}, tags: {{.RepoTags}}'
 fi
 
 # catch terminate signals

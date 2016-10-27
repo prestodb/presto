@@ -91,11 +91,10 @@ public class ChecksumAggregationFunction
                 NullableLongState.class,
                 new StateCompiler().generateStateSerializer(NullableLongState.class, classLoader),
                 new StateCompiler().generateStateFactory(NullableLongState.class, classLoader),
-                VARBINARY,
-                false);
+                VARBINARY);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, BIGINT, VARBINARY, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

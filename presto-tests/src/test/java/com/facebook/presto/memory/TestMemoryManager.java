@@ -86,7 +86,11 @@ public class TestMemoryManager
             catch (RuntimeException e) {
                 // expected
             }
-            Session session = TINY_SESSION.withSystemProperty(RESOURCE_OVERCOMMIT, "true");
+            Session session = testSessionBuilder()
+                    .setCatalog("tpch")
+                    .setSchema("tiny")
+                    .setSystemProperty(RESOURCE_OVERCOMMIT, "true")
+                    .build();
             queryRunner.execute(session, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
         }
     }

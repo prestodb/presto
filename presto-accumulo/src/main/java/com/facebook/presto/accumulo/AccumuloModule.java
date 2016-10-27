@@ -129,21 +129,29 @@ public class AccumuloModule
             implements Provider<Connector>
     {
         private static final Logger LOG = Logger.get(ConnectorProvider.class);
-        private final AccumuloConfig config;
+
+        private final String instance;
+        private final String zooKeepers;
+        private final String username;
+        private final String password;
 
         @Inject
         public ConnectorProvider(AccumuloConfig config)
         {
-            this.config = requireNonNull(config, "config is null");
+            requireNonNull(config, "config is null");
+            this.instance = config.getInstance();
+            this.zooKeepers = config.getZooKeepers();
+            this.username = config.getUsername();
+            this.password = config.getPassword();
         }
 
         @Override
         public Connector get()
         {
             try {
-                Instance inst = new ZooKeeperInstance(config.getInstance(), config.getZooKeepers());
-                Connector connector = inst.getConnector(config.getUsername(), new PasswordToken(config.getPassword().getBytes(UTF_8)));
-                LOG.info("Connection to instance %s at %s established, user %s", config.getInstance(), config.getZooKeepers(), config.getUsername());
+                Instance inst = new ZooKeeperInstance(instance, zooKeepers);
+                Connector connector = inst.getConnector(username, new PasswordToken(password.getBytes(UTF_8)));
+                LOG.info("Connection to instance %s at %s established, user %s", instance, zooKeepers, username);
                 return connector;
             }
             catch (AccumuloException | AccumuloSecurityException e) {

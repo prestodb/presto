@@ -89,10 +89,10 @@ public class ArrayType
     public long hash(Block block, int position)
     {
         Block array = getObject(block, position);
-        int hash = 0;
+        long hash = 0;
         for (int i = 0; i < array.getPositionCount(); i++) {
             checkElementNotNull(array.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            hash = (int) CombineHashFunction.getHash(hash, elementType.hash(array, i));
+            hash = CombineHashFunction.getHash(hash, elementType.hash(array, i));
         }
         return hash;
     }

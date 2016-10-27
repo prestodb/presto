@@ -41,7 +41,7 @@ public class LookupJoinOperatorFactory
     private final List<Type> probeTypes;
     private final List<Type> buildTypes;
     private final JoinType joinType;
-    private final LookupSourceSupplier lookupSourceSupplier;
+    private final LookupSourceFactory lookupSourceFactory;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OperatorFactory> outerOperatorFactory;
     private final ReferenceCount referenceCount;
@@ -49,16 +49,16 @@ public class LookupJoinOperatorFactory
 
     public LookupJoinOperatorFactory(int operatorId,
             PlanNodeId planNodeId,
-            LookupSourceSupplier lookupSourceSupplier,
+            LookupSourceFactory lookupSourceFactory,
             List<Type> probeTypes,
             JoinType joinType,
             JoinProbeFactory joinProbeFactory)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-        this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "lookupSourceSupplier is null");
+        this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
-        this.buildTypes = ImmutableList.copyOf(lookupSourceSupplier.getTypes());
+        this.buildTypes = ImmutableList.copyOf(lookupSourceFactory.getTypes());
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
@@ -66,7 +66,7 @@ public class LookupJoinOperatorFactory
 
         if (joinType == INNER || joinType == PROBE_OUTER) {
             // when all join operators finish, destroy the lookup source (freeing the memory)
-            this.referenceCount.getFreeFuture().addListener(lookupSourceSupplier::destroy, directExecutor());
+            this.referenceCount.getFreeFuture().addListener(lookupSourceFactory::destroy, directExecutor());
             this.outerOperatorFactory = Optional.empty();
         }
         else {
@@ -75,14 +75,14 @@ public class LookupJoinOperatorFactory
             this.referenceCount.getFreeFuture().addListener(() -> {
                 // lookup source may not be finished yet, so add a listener
                 Futures.addCallback(
-                        lookupSourceSupplier.getLookupSource(),
+                        lookupSourceFactory.createLookupSource(),
                         new OnSuccessFutureCallback<>(lookupSource -> outerPositionsFuture.set(lookupSource.getOuterPositionIterator())));
             }, directExecutor());
 
             // when output operator finishes, destroy the lookup source
             Runnable onOperatorClose = () -> {
                 // lookup source may not be finished yet, so add a listener, to free the memory
-                lookupSourceSupplier.getLookupSource().addListener(lookupSourceSupplier::destroy, directExecutor());
+                lookupSourceFactory.createLookupSource().addListener(lookupSourceFactory::destroy, directExecutor());
             };
             this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(operatorId, planNodeId, outerPositionsFuture, probeTypes, buildTypes, onOperatorClose));
         }
@@ -96,7 +96,7 @@ public class LookupJoinOperatorFactory
         probeTypes = other.probeTypes;
         buildTypes = other.buildTypes;
         joinType = other.joinType;
-        lookupSourceSupplier = other.lookupSourceSupplier;
+        lookupSourceFactory = other.lookupSourceFactory;
         joinProbeFactory = other.joinProbeFactory;
         referenceCount = other.referenceCount;
         outerOperatorFactory = other.outerOperatorFactory;
@@ -124,14 +124,14 @@ public class LookupJoinOperatorFactory
         checkState(!closed, "Factory is already closed");
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupJoinOperator.class.getSimpleName());
 
-        lookupSourceSupplier.setTaskContext(driverContext.getPipelineContext().getTaskContext());
+        lookupSourceFactory.setTaskContext(driverContext.getPipelineContext().getTaskContext());
 
         referenceCount.retain();
         return new LookupJoinOperator(
                 operatorContext,
                 getTypes(),
                 joinType,
-                lookupSourceSupplier.getLookupSource(),
+                lookupSourceFactory.createLookupSource(),
                 joinProbeFactory,
                 referenceCount::release);
     }

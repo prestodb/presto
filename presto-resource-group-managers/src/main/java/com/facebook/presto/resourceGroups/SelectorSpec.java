@@ -16,9 +16,11 @@ package com.facebook.presto.resourceGroups;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class SelectorSpec
@@ -51,5 +53,44 @@ public class SelectorSpec
     public ResourceGroupIdTemplate getGroup()
     {
         return group;
+    }
+
+    @Override
+    public boolean equals(Object other)
+    {
+        if (other == this) {
+            return true;
+        }
+        if (!(other instanceof SelectorSpec)) {
+            return false;
+        }
+        SelectorSpec that = (SelectorSpec) other;
+        return (group.equals(that.group) &&
+                userRegex.map(Pattern::pattern).equals(that.userRegex.map(Pattern::pattern)) &&
+                userRegex.map(Pattern::flags).equals(that.userRegex.map(Pattern::flags)) &&
+                sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
+                sourceRegex.map(Pattern::flags).equals(that.sourceRegex.map(Pattern::flags));
+    }
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                group,
+                userRegex.map(Pattern::pattern),
+                userRegex.map(Pattern::flags),
+                sourceRegex.map(Pattern::pattern),
+                sourceRegex.map(Pattern::flags));
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("resourceGroup", group)
+                .add("userRegex", userRegex)
+                .add("userFlags", userRegex.map(Pattern::flags))
+                .add("sourceRegex", sourceRegex)
+                .add("sourceFlags", sourceRegex.map(Pattern::flags))
+                .toString();
     }
 }

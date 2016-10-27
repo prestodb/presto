@@ -81,7 +81,6 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
-import static com.facebook.presto.hive.HiveColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
@@ -106,6 +105,7 @@ import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.schemaTableName;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
+import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -118,7 +118,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
@@ -228,15 +227,9 @@ public class HiveMetadata
         }
 
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table.get(), typeManager);
-        boolean sampled = false;
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
-            if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                sampled = true;
-            }
-            else {
-                columns.add(metadataGetter.apply(columnHandle));
-            }
+            columns.add(metadataGetter.apply(columnHandle));
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -260,7 +253,7 @@ public class HiveMetadata
         }
         properties.putAll(tableParameterCodec.decode(table.get().getParameters()));
 
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), sampled);
+        return new ConnectorTableMetadata(tableName, columns.build(), properties.build());
     }
 
     @Override
@@ -297,28 +290,6 @@ public class HiveMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        SchemaTableName tableName = schemaTableName(tableHandle);
-        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-        if (!table.isPresent()) {
-            throw new TableNotFoundException(tableName);
-        }
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
-            if (columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                return columnHandle;
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        return true;
-    }
-
-    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = schemaTableName(tableHandle);
@@ -328,9 +299,7 @@ public class HiveMetadata
         }
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (HiveColumnHandle columnHandle : hiveColumnHandles(connectorId, table.get())) {
-            if (!columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                columnHandles.put(columnHandle.getName(), columnHandle);
-            }
+            columnHandles.put(columnHandle.getName(), columnHandle);
         }
         return columnHandles.build();
     }
@@ -427,6 +396,8 @@ public class HiveMetadata
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> additionalTableParameters = tableParameterCodec.encode(tableMetadata.getProperties());
 
+        hiveStorageFormat.validateColumns(columnHandles);
+
         LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
         Path targetPath = locationService.targetPathRoot(locationHandle);
 
@@ -456,16 +427,11 @@ public class HiveMetadata
 
         Set<String> partitionColumnNames = ImmutableSet.copyOf(partitionedBy);
 
-        boolean sampled = false;
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
         for (HiveColumnHandle columnHandle : columnHandles) {
             String name = columnHandle.getName();
             HiveType type = columnHandle.getHiveType();
-            if (name.equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                columns.add(new Column(name, type, Optional.of("Presto sample weight column")));
-                sampled = true;
-            }
-            else if (!partitionColumnNames.contains(name)) {
+            if (!partitionColumnNames.contains(name)) {
                 verify(!columnHandle.isPartitionKey(), "Column handles are not consistent with partitioned by property");
                 columns.add(new Column(name, type, Optional.empty()));
             }
@@ -474,10 +440,6 @@ public class HiveMetadata
             }
         }
 
-        String tableComment = "Created by Presto";
-        if (sampled) {
-            tableComment = "Sampled table created by Presto. Only query this table from Hive if you understand how Presto implements sampling.";
-        }
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
@@ -486,7 +448,7 @@ public class HiveMetadata
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
                 .setParameters(ImmutableMap.<String, String>builder()
-                        .put("comment", tableComment)
+                        .put("comment", "Created by Presto")
                         .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, queryId)
                         .putAll(additionalTableParameters)
@@ -565,6 +527,11 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(connectorId, tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
+        HiveStorageFormat partitionStorageFormat = respectTableFormat ? tableStorageFormat : defaultStorageFormat;
+
+        // unpartitioned tables ignore the partition storage format
+        HiveStorageFormat actualStorageFormat = partitionedBy.isEmpty() ? tableStorageFormat : partitionStorageFormat;
+        actualStorageFormat.validateColumns(columnHandles);
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
@@ -576,7 +543,7 @@ public class HiveMetadata
                 metastore.generatePageSinkMetadata(schemaTableName),
                 locationHandle,
                 tableStorageFormat,
-                respectTableFormat ? tableStorageFormat : defaultStorageFormat,
+                partitionStorageFormat,
                 partitionedBy,
                 bucketProperty,
                 session.getUser(),
@@ -691,23 +658,26 @@ public class HiveMetadata
         boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
 
         Properties schema;
-        String outputFormat;
+        StorageFormat format;
         if (partition.isPresent()) {
             schema = getHiveSchema(partition.get(), table);
-            outputFormat = partition.get().getStorage().getStorageFormat().getOutputFormat();
+            format = partition.get().getStorage().getStorageFormat();
         }
         else {
             schema = getHiveSchema(table);
-            outputFormat = table.getStorage().getStorageFormat().getOutputFormat();
+            format = table.getStorage().getStorageFormat();
         }
 
         for (String fileName : fileNames) {
-            writeEmptyFile(new Path(path, fileName), conf, compress, schema, outputFormat);
+            writeEmptyFile(new Path(path, fileName), conf, compress, schema, format.getSerDe(), format.getOutputFormat());
         }
     }
 
-    private static void writeEmptyFile(Path target, JobConf conf, boolean compress, Properties properties, String outputFormatName)
+    private static void writeEmptyFile(Path target, JobConf conf, boolean compress, Properties properties, String serDe, String outputFormatName)
     {
+        // Some serializers such as Avro set a property in the schema.
+        initializeSerializer(conf, properties, serDe);
+
         // The code below is not a try with resources because RecordWriter is not Closeable.
         FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, compress, properties, outputFormatName);
         try {
@@ -1232,15 +1202,6 @@ public class HiveMetadata
                     ordinal,
                     columnType));
             ordinal++;
-        }
-        if (tableMetadata.isSampled()) {
-            columnHandles.add(new HiveColumnHandle(
-                    connectorId,
-                    SAMPLE_WEIGHT_COLUMN_NAME,
-                    toHiveType(typeTranslator, BIGINT),
-                    BIGINT.getTypeSignature(),
-                    ordinal,
-                    REGULAR));
         }
 
         return columnHandles.build();

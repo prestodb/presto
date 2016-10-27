@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class PageSourceManager
@@ -33,9 +34,16 @@ public class PageSourceManager
 {
     private final ConcurrentMap<ConnectorId, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSourceProvider(ConnectorId connectorId, ConnectorPageSourceProvider connectorPageSourceProvider)
+    public void addConnectorPageSourceProvider(ConnectorId connectorId, ConnectorPageSourceProvider pageSourceProvider)
     {
-        pageSourceProviders.put(connectorId, connectorPageSourceProvider);
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        checkState(pageSourceProviders.put(connectorId, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", connectorId);
+    }
+
+    public void removeConnectorPageSourceProvider(ConnectorId connectorId)
+    {
+        pageSourceProviders.remove(connectorId);
     }
 
     @Override

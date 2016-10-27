@@ -204,7 +204,6 @@ public final class QueryUtil
                 Optional.empty(),
                 body,
                 ImmutableList.of(),
-                Optional.empty(),
                 Optional.empty());
     }
 }

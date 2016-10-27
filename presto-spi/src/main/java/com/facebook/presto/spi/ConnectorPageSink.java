@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -28,7 +27,7 @@ public interface ConnectorPageSink
      * more pages.  If the page sink can accept more pages immediately,
      * this method should return {@code NOT_BLOCKED}.
      */
-    CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock);
+    CompletableFuture<?> appendPage(Page page);
 
     Collection<Slice> finish();
 

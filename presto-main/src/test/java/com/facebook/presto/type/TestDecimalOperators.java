@@ -667,4 +667,15 @@ public class TestDecimalOperators
         assertDecimalFunction("DECIMAL '0.018' / BIGINT '9'", decimal(".002"));
         assertDecimalFunction("DECIMAL '.999' / BIGINT '9'", decimal(".111"));
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS DECIMAL) IS DISTINCT FROM CAST(NULL AS DECIMAL)", BOOLEAN, false);
+        assertFunction("DECIMAL '37' IS DISTINCT FROM DECIMAL '37'", BOOLEAN, false);
+        assertFunction("37 IS DISTINCT FROM 38", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM 37", BOOLEAN, true);
+        assertFunction("37 IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
 }

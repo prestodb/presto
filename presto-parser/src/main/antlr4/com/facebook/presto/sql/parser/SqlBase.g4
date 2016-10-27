@@ -119,7 +119,6 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (LIMIT limit=(INTEGER_VALUE | ALL))?
-      (APPROXIMATE AT confidence=number CONFIDENCE)?
     ;
 
 queryTerm
@@ -207,8 +206,6 @@ joinCriteria
 sampledRelation
     : aliasedRelation (
         TABLESAMPLE sampleType '(' percentage=expression ')'
-        RESCALED?
-        (STRATIFY ON '(' stratify+=expression (',' stratify+=expression)* ')')?
       )?
     ;
 
@@ -431,7 +428,6 @@ nonReserved
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
-    | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
@@ -445,6 +441,7 @@ nonReserved
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
     | INPUT
+    | INCLUDING | EXCLUDING | PROPERTIES
     ;
 
 normalForm
@@ -469,9 +466,7 @@ ROLLUP: 'ROLLUP';
 ORDER: 'ORDER';
 HAVING: 'HAVING';
 LIMIT: 'LIMIT';
-APPROXIMATE: 'APPROXIMATE';
 AT: 'AT';
-CONFIDENCE: 'CONFIDENCE';
 OR: 'OR';
 AND: 'AND';
 IN: 'IN';
@@ -583,8 +578,6 @@ SYSTEM: 'SYSTEM';
 BERNOULLI: 'BERNOULLI';
 POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
-RESCALED: 'RESCALED';
-STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';

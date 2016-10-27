@@ -107,7 +107,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -164,7 +163,6 @@ class StatementAnalyzer
     private final Analysis analysis;
     private final Metadata metadata;
     private final Session session;
-    private final boolean experimentalSyntaxEnabled;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
 
@@ -172,15 +170,13 @@ class StatementAnalyzer
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
-            AccessControl accessControl, Session session,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl, Session session)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
-        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     @Override
@@ -291,9 +287,7 @@ class StatementAnalyzer
                 metadata,
                 sqlParser,
                 new AllowAllAccessControl(),
-                session,
-                experimentalSyntaxEnabled
-        );
+                session);
 
         Scope tableScope = analyzer.process(table, scope);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, tableScope, where));
@@ -355,9 +349,7 @@ class StatementAnalyzer
                 metadata,
                 sqlParser,
                 new ViewAccessControl(accessControl),
-                session,
-                experimentalSyntaxEnabled
-        );
+                session);
 
         Scope queryScope = analyzer.process(node.getQuery(), scope);
 
@@ -404,10 +396,8 @@ class StatementAnalyzer
     protected Scope visitQuery(Query node, Scope scope)
     {
         Scope withScope = analyzeWith(node, scope);
-        boolean approximate = isApproximate(node);
         Scope queryScope = Scope.builder()
                 .withParent(withScope)
-                .withApproximate(approximate)
                 .build();
         Scope queryBodyScope = process(node.getQueryBody(), queryScope);
         analyzeOrderBy(node, queryBodyScope);
@@ -418,22 +408,9 @@ class StatementAnalyzer
         queryScope = Scope.builder()
                 .withParent(withScope)
                 .withRelationType(queryBodyScope.getRelationType())
-                .withApproximate(approximate)
                 .build();
         analysis.setScope(node, queryScope);
         return queryScope;
-    }
-
-    private boolean isApproximate(Query node)
-    {
-        boolean approximate = false;
-        if (node.getApproximate().isPresent()) {
-            if (!experimentalSyntaxEnabled) {
-                throw new SemanticException(NOT_SUPPORTED, node, "approximate queries are not enabled");
-            }
-            approximate = true;
-        }
-        return approximate;
     }
 
     @Override
@@ -544,7 +521,7 @@ class StatementAnalyzer
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
         if (!tableHandle.isPresent()) {
-            if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
+            if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                 throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
             }
             if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
@@ -592,10 +569,6 @@ class StatementAnalyzer
     @Override
     protected Scope visitSampledRelation(SampledRelation relation, Scope scope)
     {
-        if (relation.getColumnsToStratifyOn().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
-        }
-
         if (!DependencyExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
             throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
         }
@@ -623,12 +596,8 @@ class StatementAnalyzer
         if (samplePercentageValue < 0.0) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
         }
-        if ((samplePercentageValue > 100.0) && ((relation.getType() != SampledRelation.Type.POISSONIZED) || relation.isRescaled())) {
+        if ((samplePercentageValue > 100.0)) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
-        }
-
-        if (relation.isRescaled() && !experimentalSyntaxEnabled) {
-            throw new SemanticException(NOT_SUPPORTED, relation, "Rescaling is not enabled");
         }
 
         analysis.setSampleRatio(relation, samplePercentageValue / 100);
@@ -639,7 +608,7 @@ class StatementAnalyzer
     @Override
     protected Scope visitTableSubquery(TableSubquery node, Scope scope)
     {
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         Scope queryScope = analyzer.process(node.getQuery(), scope);
         return createScope(node, scope, queryScope.getRelationType());
     }
@@ -794,7 +763,7 @@ class StatementAnalyzer
 
             // ensure all names can be resolved, types match, etc (we don't need to record resolved names, subexpression types, etc. because
             // we do it further down when after we determine which subexpressions apply to left vs right tuple)
-            ExpressionAnalyzer analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
+            ExpressionAnalyzer analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl);
 
             Type clauseType = analyzer.analyze(expression, output);
             if (!clauseType.equals(BOOLEAN)) {
@@ -830,7 +799,7 @@ class StatementAnalyzer
             }
             // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
             // to re-analyze coercions that might be necessary
-            analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
+            analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl);
             analyzer.analyze((Expression) optimizedExpression, output);
             analysis.addCoercions(analyzer.getExpressionCoercions(), analyzer.getTypeOnlyCoercions());
 
@@ -1032,8 +1001,8 @@ class StatementAnalyzer
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-            FunctionKind kind = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false).getKind();
-            if (kind != AGGREGATE && kind != APPROXIMATE_AGGREGATE && kind != WINDOW) {
+            FunctionKind kind = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes).getKind();
+            if (kind != AGGREGATE && kind != WINDOW) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
         }
@@ -1387,12 +1356,6 @@ class StatementAnalyzer
     {
         List<FunctionCall> aggregates = extractAggregates(node);
 
-        if (scope.isApproximate()) {
-            if (aggregates.stream().anyMatch(FunctionCall::isDistinct)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
-            }
-        }
-
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {
             // ensure SELECT, ORDER BY and HAVING are constant with respect to group
@@ -1477,7 +1440,7 @@ class StatementAnalyzer
                     .setStartTime(session.getStartTime())
                     .build();
 
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, experimentalSyntaxEnabled);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);
             Scope queryScope = analyzer.process(query, Scope.create());
             return queryScope.getRelationType().withAlias(name.getObjectName(), null);
         }
@@ -1525,7 +1488,6 @@ class StatementAnalyzer
                 sqlParser,
                 scope,
                 analysis,
-                experimentalSyntaxEnabled,
                 expression);
     }
 
@@ -1605,7 +1567,6 @@ class StatementAnalyzer
                     accessControl, sqlParser,
                     scope,
                     analysis,
-                    experimentalSyntaxEnabled,
                     expression);
             analysis.recordSubqueries(node, expressionAnalysis);
 

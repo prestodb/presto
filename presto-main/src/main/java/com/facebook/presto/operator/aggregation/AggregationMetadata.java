@@ -30,7 +30,6 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.SAMPLE_WEIGHT;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -47,7 +46,6 @@ public class AggregationMetadata
     private final AccumulatorStateSerializer<?> stateSerializer;
     private final AccumulatorStateFactory<?> stateFactory;
     private final Type outputType;
-    private final boolean approximate;
 
     public AggregationMetadata(
             String name,
@@ -58,8 +56,7 @@ public class AggregationMetadata
             Class<?> stateInterface,
             AccumulatorStateSerializer<?> stateSerializer,
             AccumulatorStateFactory<?> stateFactory,
-            Type outputType,
-            boolean approximate)
+            Type outputType)
     {
         this.outputType = requireNonNull(outputType);
         this.inputMetadata = ImmutableList.copyOf(requireNonNull(inputMetadata, "inputMetadata is null"));
@@ -69,16 +66,10 @@ public class AggregationMetadata
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
-        this.approximate = approximate;
 
         verifyInputFunctionSignature(inputFunction, inputMetadata, stateInterface);
         verifyCombineFunction(combineFunction, stateInterface);
-        if (approximate) {
-            verifyApproximateOutputFunction(outputFunction, stateInterface);
-        }
-        else {
-            verifyExactOutputFunction(outputFunction, stateInterface);
-        }
+        verifyExactOutputFunction(outputFunction, stateInterface);
     }
 
     public Type getOutputType()
@@ -121,11 +112,6 @@ public class AggregationMetadata
         return stateFactory;
     }
 
-    public boolean isApproximate()
-    {
-        return approximate;
-    }
-
     private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> parameterMetadatas, Class<?> stateInterface)
     {
         Class<?>[] parameters = method.type().parameterArray();
@@ -151,9 +137,6 @@ public class AggregationMetadata
                 case BLOCK_INDEX:
                     checkArgument(parameters[i] == int.class, "Block index parameter must be an int");
                     break;
-                case SAMPLE_WEIGHT:
-                    checkArgument(parameters[i] == long.class, "Sample weight parameter must be a long");
-                    break;
                 default:
                     throw new IllegalArgumentException("Unsupported parameter: " + metadata.getParameterType());
             }
@@ -164,13 +147,6 @@ public class AggregationMetadata
     {
         Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(parameterTypes.length == 2 && parameterTypes[0] == stateInterface && parameterTypes[1] == stateInterface, "Combine function must have the signature (%s, %s)", stateInterface.getSimpleName(), stateInterface.getSimpleName());
-    }
-
-    private static void verifyApproximateOutputFunction(MethodHandle method, Class<?> stateInterface)
-    {
-        requireNonNull(method, "Approximate aggregations must specify an output function");
-        Class<?>[] parameterTypes = method.type().parameterArray();
-        checkArgument(parameterTypes.length == 3 && parameterTypes[0] == stateInterface && parameterTypes[1] == double.class && parameterTypes[2] == BlockBuilder.class, "Output function must have the signature (%s, double, BlockBuilder)", stateInterface.getSimpleName());
     }
 
     private static void verifyExactOutputFunction(MethodHandle method, Class<?> stateInterface)
@@ -208,7 +184,7 @@ public class AggregationMetadata
 
         public ParameterMetadata(ParameterType parameterType, Type sqlType)
         {
-            checkArgument((sqlType == null) == (parameterType == BLOCK_INDEX || parameterType == SAMPLE_WEIGHT || parameterType == STATE),
+            checkArgument((sqlType == null) == (parameterType == BLOCK_INDEX || parameterType == STATE),
                     "sqlType must be provided only for input channels");
             this.parameterType = parameterType;
             this.sqlType = sqlType;
@@ -239,11 +215,6 @@ public class AggregationMetadata
             return new ParameterMetadata(BLOCK_INDEX);
         }
 
-        public static ParameterMetadata forSampleWeightParameter()
-        {
-            return new ParameterMetadata(SAMPLE_WEIGHT);
-        }
-
         public static ParameterMetadata forStateParameter()
         {
             return new ParameterMetadata(STATE);
@@ -265,7 +236,6 @@ public class AggregationMetadata
             BLOCK_INPUT_CHANNEL,
             NULLABLE_BLOCK_INPUT_CHANNEL,
             BLOCK_INDEX,
-            SAMPLE_WEIGHT,
             STATE
         }
     }

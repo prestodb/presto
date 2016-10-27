@@ -81,7 +81,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -149,8 +148,6 @@ public class UnaliasSymbolReferences
                     masks.build(),
                     groupingSets,
                     node.getStep(),
-                    canonicalize(node.getSampleWeight()),
-                    node.getConfidence(),
                     canonicalize(node.getHashSymbol()),
                     canonicalize(node.getGroupIdSymbol()));
         }
@@ -159,16 +156,31 @@ public class UnaliasSymbolReferences
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            List<List<Symbol>> groupingSetsSymbols = node.getGroupingSets().stream()
-                    .map(this::canonicalize)
-                    .collect(Collectors.toList());
 
-            ImmutableMap.Builder<Symbol, Symbol> newPassthroughMap = ImmutableMap.builder();
-            for (Symbol inputSymbol : node.getIdentityMappings().keySet()) {
-                newPassthroughMap.put(canonicalize(inputSymbol), canonicalize(node.getIdentityMappings().get(inputSymbol)));
+            Map<Symbol, Symbol> newGroupingMappings = new HashMap<>();
+            ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
+
+            for (List<Symbol> groupingSet : node.getGroupingSets()) {
+                ImmutableList.Builder<Symbol> newGroupingSet = ImmutableList.builder();
+                for (Symbol output : groupingSet) {
+                    newGroupingMappings.putIfAbsent(canonicalize(output), canonicalize(node.getGroupingSetMappings().get(output)));
+                    newGroupingSet.add(canonicalize(output));
+                }
+                newGroupingSets.add(newGroupingSet.build());
             }
 
-            return new GroupIdNode(node.getId(), source, groupingSetsSymbols, newPassthroughMap.build(), canonicalize(node.getGroupIdSymbol()));
+            Map<Symbol, Symbol> newArgumentMappings = new HashMap<>();
+            for (Symbol output : node.getArgumentMappings().keySet()) {
+                Symbol canonicalOutput = canonicalize(output);
+                if (newArgumentMappings.containsKey(canonicalOutput)) {
+                    map(output, canonicalOutput);
+                }
+                else {
+                    newArgumentMappings.put(canonicalOutput, canonicalize(node.getArgumentMappings().get(output)));
+                }
+            }
+
+            return new GroupIdNode(node.getId(), source, newGroupingSets.build(), newGroupingMappings, newArgumentMappings, canonicalize(node.getGroupIdSymbol()));
         }
 
         @Override
@@ -308,7 +320,7 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
         {
-            return new SampleNode(node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType(), node.isRescaled(), canonicalize(node.getSampleWeightSymbol()));
+            return new SampleNode(node.getId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType());
         }
 
         @Override
@@ -543,7 +555,6 @@ public class UnaliasSymbolReferences
                     columns,
                     node.getColumnNames(),
                     node.getOutputSymbols(),
-                    canonicalize(node.getSampleWeightSymbol()),
                     node.getPartitioningScheme().map(partitioningScheme -> canonicalizePartitionFunctionBinding(partitioningScheme, source)));
         }
 

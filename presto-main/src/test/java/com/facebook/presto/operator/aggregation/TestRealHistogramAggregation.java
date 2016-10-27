@@ -50,7 +50,7 @@ public class TestRealHistogramAggregation
     public TestRealHistogramAggregation()
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
         InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
@@ -58,7 +58,7 @@ public class TestRealHistogramAggregation
                         parseTypeSignature(StandardTypes.BIGINT),
                         parseTypeSignature(StandardTypes.REAL),
                         parseTypeSignature(StandardTypes.DOUBLE)));
-        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0);
+        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);
     }

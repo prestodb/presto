@@ -61,7 +61,7 @@ public class MockQueryExecution
         this.memoryUsage = memoryUsage;
         this.cpuUsage = cpuUsage;
         this.session = testSessionBuilder()
-                .setSystemProperties(ImmutableMap.of(QUERY_PRIORITY, String.valueOf(priority)))
+                .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
                 .build();
     }
 

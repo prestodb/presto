@@ -33,7 +33,6 @@ public class MongoClientModule
     public void configure(Binder binder)
     {
         binder.bind(MongoConnector.class).in(Scopes.SINGLETON);
-        binder.bind(MongoMetadata.class).in(Scopes.SINGLETON);
         binder.bind(MongoSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
@@ -43,10 +42,7 @@ public class MongoClientModule
 
     @Singleton
     @Provides
-    public static MongoSession createMongoSession(
-            TypeManager typeManager,
-            MongoConnectorId connectorId,
-            MongoClientConfig config)
+    public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config)
     {
         requireNonNull(config, "config is null");
 
@@ -69,7 +65,6 @@ public class MongoClientModule
 
         return new MongoSession(
                 typeManager,
-                connectorId.toString(),
                 client,
                 config);
     }

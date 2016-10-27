@@ -83,7 +83,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
-import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -135,8 +134,7 @@ final class ShowQueriesRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl)
     {
         return (Statement) new Visitor(metadata, parser, session, parameters).process(node, null);
     }
@@ -215,7 +213,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = metadata.getCatalogNames().keySet().stream()
+            List<Expression> rows = metadata.getCatalogNames(session).keySet().stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toList());
 
@@ -398,7 +396,7 @@ final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(objectName.getCatalogName());
+                Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
                 Map<String, Expression> sqlProperties = new HashMap<>();
 
                 for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
@@ -434,9 +432,6 @@ final class ShowQueriesRewrite
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (SqlFunction function : metadata.listFunctions()) {
-                if (function.getSignature().getKind() == APPROXIMATE_AGGREGATE) {
-                    continue;
-                }
                 rows.add(row(
                         new StringLiteral(function.getSignature().getName()),
                         new StringLiteral(function.getSignature().getReturnType().toString()),
@@ -472,7 +467,6 @@ final class ShowQueriesRewrite
             FunctionKind kind = function.getSignature().getKind();
             switch (kind) {
                 case AGGREGATE:
-                case APPROXIMATE_AGGREGATE:
                     return "aggregate";
                 case WINDOW:
                     return "window";
@@ -486,7 +480,7 @@ final class ShowQueriesRewrite
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session);
+            List<SessionPropertyValue> sessionProperties = metadata.getSessionPropertyManager().getAllSessionProperties(session, metadata.getCatalogNames(session));
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {
                     continue;

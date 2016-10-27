@@ -85,11 +85,10 @@ public class MapUnionAggregation
                 KeyValuePairsState.class,
                 stateSerializer,
                 new KeyValuePairsStateFactory(keyType, valueType),
-                outputType,
-                false);
+                outputType);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type inputType)

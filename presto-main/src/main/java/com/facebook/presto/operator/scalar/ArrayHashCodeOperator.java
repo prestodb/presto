@@ -45,11 +45,11 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        int hash = 0;
+        long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
             checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = (int) CombineHashFunction.getHash(hash, (long) hashFunction.invoke(readNativeValue(type, block, i)));
+                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invoke(readNativeValue(type, block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -69,11 +69,11 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        int hash = 0;
+        long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
             checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = (int) CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getLong(block, i)));
+                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getLong(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -93,11 +93,11 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        int hash = 0;
+        long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
             checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = (int) CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getBoolean(block, i)));
+                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getBoolean(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -117,11 +117,11 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        int hash = 0;
+        long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
             checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = (int) CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getSlice(block, i)));
+                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getSlice(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);
@@ -141,11 +141,11 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        int hash = 0;
+        long hash = 0;
         for (int i = 0; i < block.getPositionCount(); i++) {
             checkElementNotNull(block.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             try {
-                hash = (int) CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getDouble(block, i)));
+                hash = CombineHashFunction.getHash(hash, (long) hashFunction.invokeExact(type.getDouble(block, i)));
             }
             catch (Throwable t) {
                 Throwables.propagateIfInstanceOf(t, Error.class);

@@ -14,23 +14,22 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestLocalQueries
-        extends AbstractTestApproximateQueries
+        extends AbstractTestQueries
 {
-    private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
-
     public TestLocalQueries()
     {
-        super(createLocalQueryRunner(), createDefaultSampledSession());
+        super(createLocalQueryRunner());
     }
 
     private static LocalQueryRunner createLocalQueryRunner()
@@ -48,22 +47,13 @@ public class TestLocalQueries
                 defaultSession.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
-        localQueryRunner.createCatalog(TPCH_SAMPLED_SCHEMA, new SampledTpchConnectorFactory(1, 2), ImmutableMap.<String, String>of());
 
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
 
         SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
-        sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties("connector", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
 
         return localQueryRunner;
-    }
-
-    private static Session createDefaultSampledSession()
-    {
-        return testSessionBuilder()
-                .setCatalog(TPCH_SAMPLED_SCHEMA)
-                .setSchema(TINY_SCHEMA_NAME)
-                .build();
     }
 }

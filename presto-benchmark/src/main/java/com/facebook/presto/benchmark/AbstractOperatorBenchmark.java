@@ -22,11 +22,13 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.CpuTimer;
 import io.airlift.units.DataSize;
@@ -51,6 +53,7 @@ public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {
     protected final LocalQueryRunner localQueryRunner;
+    protected final Session session;
 
     protected AbstractOperatorBenchmark(
             LocalQueryRunner localQueryRunner,
@@ -58,22 +61,36 @@ public abstract class AbstractOperatorBenchmark
             int warmupIterations,
             int measuredIterations)
     {
+        this(localQueryRunner.getDefaultSession(), localQueryRunner, benchmarkName, warmupIterations, measuredIterations);
+    }
+
+    protected AbstractOperatorBenchmark(
+            Session session,
+            LocalQueryRunner localQueryRunner,
+            String benchmarkName,
+            int warmupIterations,
+            int measuredIterations)
+    {
         super(benchmarkName, warmupIterations, measuredIterations);
         this.localQueryRunner = requireNonNull(localQueryRunner, "localQueryRunner is null");
+
+        TransactionId transactionId = localQueryRunner.getTransactionManager().beginTransaction(false);
+        this.session = session.beginTransactionId(
+                transactionId,
+                localQueryRunner.getTransactionManager(),
+                new AllowAllAccessControl());
+    }
+
+    @Override
+    protected void tearDown()
+    {
+        localQueryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
+        super.tearDown();
     }
 
     protected OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
     {
-        return localQueryRunner.createTableScanOperator(operatorId, planNodeId, tableName, columnNames);
-    }
-
-    public OperatorFactory createTableScanOperator(Session session, int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
-    {
-        return localQueryRunner.createTableScanOperator(session,
-                operatorId,
-                planNodeId,
-                tableName,
-                columnNames);
+        return localQueryRunner.createTableScanOperator(session, operatorId, planNodeId, tableName, columnNames);
     }
 
     protected OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)
@@ -104,7 +121,7 @@ public abstract class AbstractOperatorBenchmark
     protected Map<String, Long> runOnce()
     {
         Session session = testSessionBuilder()
-                .setSystemProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "true"))
+                .setSystemProperty("optimizer.optimize-hash-generation", "true")
                 .build();
         ExecutorService executor = localQueryRunner.getExecutor();
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));

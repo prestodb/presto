@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class RecordPageSink
@@ -47,17 +46,13 @@ public class RecordPageSink
     }
 
     @Override
-    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page)
     {
         Block[] blocks = page.getBlocks();
         List<Type> columnTypes = recordSink.getColumnTypes();
 
         for (int position = 0; position < page.getPositionCount(); position++) {
-            long sampleWeight = 1;
-            if (sampleWeightBlock != null) {
-                sampleWeight = BIGINT.getLong(sampleWeightBlock, position);
-            }
-            recordSink.beginRecord(sampleWeight);
+            recordSink.beginRecord();
             for (int i = 0; i < blocks.length; i++) {
                 writeField(position, blocks[i], columnTypes.get(i));
             }

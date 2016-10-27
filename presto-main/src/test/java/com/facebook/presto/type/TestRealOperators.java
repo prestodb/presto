@@ -244,4 +244,15 @@ public class TestRealOperators
         assertFunction("CAST(REAL'0.0' AS BOOLEAN)", BOOLEAN, false);
         assertFunction("CAST(REAL'-0.0' AS BOOLEAN)", BOOLEAN, false);
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS REAL) IS DISTINCT FROM CAST(NULL AS REAL)", BOOLEAN, false);
+        assertFunction("REAL'37.7' IS DISTINCT FROM REAL'37.7'", BOOLEAN, false);
+        assertFunction("REAL'37.7' IS DISTINCT FROM REAL'37.8'", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM REAL'37.7'", BOOLEAN, true);
+        assertFunction("REAL'37.7' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
 }

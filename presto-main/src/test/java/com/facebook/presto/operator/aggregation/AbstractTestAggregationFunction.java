@@ -35,13 +35,13 @@ import static com.facebook.presto.operator.aggregation.AggregationTestUtils.asse
 public abstract class AbstractTestAggregationFunction
 {
     protected final TypeRegistry typeRegistry = new TypeRegistry();
-    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
     public abstract Block[] getSequenceBlocks(int start, int length);
 
     protected final InternalAggregationFunction getFunction()
     {
-        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate());
+        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
         return functionRegistry.getAggregateFunctionImplementation(signature);
     }
 
@@ -49,17 +49,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected abstract List<String> getFunctionParameterTypes();
 
-    protected boolean isApproximate()
-    {
-        return false;
-    }
-
     public abstract Object getExpectedValue(int start, int length);
-
-    public double getConfidence()
-    {
-        return 1.0;
-    }
 
     public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
@@ -149,6 +139,6 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
-        assertAggregation(getFunction(), getConfidence(), expectedValue, blocks);
+        assertAggregation(getFunction(), expectedValue, blocks);
     }
 }

@@ -169,6 +169,11 @@ public class StageStateMachine
         return peakMemory.get();
     }
 
+    public long getMemoryReservation()
+    {
+        return currentMemory.get();
+    }
+
     public void updateMemoryUsage(long deltaMemoryInBytes)
     {
         long currentMemoryValue = currentMemory.addAndGet(deltaMemoryInBytes);

@@ -19,7 +19,6 @@ import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
-import static com.facebook.presto.cassandra.CassandraQueryRunner.createSampledSession;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static org.testng.Assert.assertEquals;
@@ -33,7 +32,13 @@ public class TestCassandraDistributed
     public TestCassandraDistributed()
             throws Exception
     {
-        super(createCassandraQueryRunner(TpchTable.getTables()), createSampledSession());
+        super(createCassandraQueryRunner(TpchTable.getTables()));
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
     }
 
     @Override
@@ -72,41 +77,6 @@ public class TestCassandraDistributed
     }
 
     @Override
-    public void testView()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView2()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
-    public void testViewMetadata()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Test
-    public void testViewCaseSensitivity()
-            throws Exception
-    {
-        // Cassandra connector currently does not support views
-    }
-
-    @Override
     public void testInsert()
             throws Exception
     {
@@ -134,6 +104,7 @@ public class TestCassandraDistributed
         // Cassandra connector currently does not support delete
     }
 
+    @Override
     public void testShowColumns()
             throws Exception
     {

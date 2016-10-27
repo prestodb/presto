@@ -104,11 +104,10 @@ public class ArrayAggregationFunction
                 stateInterface,
                 stateSerializer,
                 stateFactory,
-                outputType,
-                false);
+                outputType);
 
         GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, boolean legacyArrayAgg)

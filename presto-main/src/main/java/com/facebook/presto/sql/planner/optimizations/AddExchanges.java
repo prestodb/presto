@@ -312,15 +312,13 @@ public class AddExchanges
 
         private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
         {
-            Map<Symbol, Symbol> invertedMappings = ImmutableBiMap.copyOf(node.getIdentityMappings()).inverse();
-            List<Symbol> commonGroupingColumns = node.getCommonGroupingColumns();
             return symbol -> {
-                if (invertedMappings.containsKey(symbol)) {
-                    return Optional.of(invertedMappings.get(symbol));
+                if (node.getArgumentMappings().containsKey(symbol)) {
+                    return Optional.of(node.getArgumentMappings().get(symbol));
                 }
 
-                if (commonGroupingColumns.contains(symbol)) {
-                    return Optional.of(symbol);
+                if (node.getCommonGroupingColumns().contains(symbol)) {
+                    return Optional.of(node.getGroupingSetMappings().get(symbol));
                 }
 
                 return Optional.empty();

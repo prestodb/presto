@@ -232,7 +232,7 @@ public final class GraphvizPrinter
         @Override
         public Void visitSample(SampleNode node, Void context)
         {
-            printNode(node, format("Sample[type=%s, ratio=%f, rescaled=%s]", node.getSampleType(), node.getSampleRatio(), node.isRescaled()), NODE_COLORS.get(NodeType.SAMPLE));
+            printNode(node, format("Sample[type=%s, ratio=%f]", node.getSampleType(), node.getSampleRatio()), NODE_COLORS.get(NodeType.SAMPLE));
             return node.getSource().accept(this, context);
         }
 
@@ -332,11 +332,14 @@ public final class GraphvizPrinter
         @Override
         public Void visitGroupId(GroupIdNode node, Void context)
         {
-            List<String> groupingSets = node.getGroupingSets().stream()
-                    .map(groupingSet -> "(" + Joiner.on(", ").join(groupingSet) + ")")
+            // grouping sets are easier to understand in terms of inputs
+            List<String> inputGroupingSetSymbols = node.getGroupingSets().stream()
+                    .map(set -> "(" + Joiner.on(", ").join(set.stream()
+                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .collect(Collectors.toList())) + ")")
                     .collect(Collectors.toList());
 
-            printNode(node, "GroupId", Joiner.on(", ").join(groupingSets), NODE_COLORS.get(NodeType.AGGREGATE));
+            printNode(node, "GroupId", Joiner.on(", ").join(inputGroupingSetSymbols), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);
         }
 

@@ -14,7 +14,6 @@
 package com.facebook.presto.accumulo.io;
 
 import com.facebook.presto.accumulo.Types;
-import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.index.Indexer;
 import com.facebook.presto.accumulo.metadata.AccumuloTable;
 import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
@@ -24,7 +23,6 @@ import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeUtils;
 import com.facebook.presto.spi.type.VarcharType;
@@ -84,10 +82,9 @@ public class AccumuloPageSink
 
     public AccumuloPageSink(
             Connector connector,
-            AccumuloConfig config,
-            AccumuloTable table)
+            AccumuloTable table,
+            String username)
     {
-        requireNonNull(config, "config is null");
         requireNonNull(table, "table is null");
 
         this.columns = table.getColumns();
@@ -115,7 +112,7 @@ public class AccumuloPageSink
                 indexer = Optional.of(
                         new Indexer(
                                 connector,
-                                connector.securityOperations().getUserAuthorizations(config.getUsername()),
+                                connector.securityOperations().getUserAuthorizations(username),
                                 table,
                                 conf));
             }
@@ -228,7 +225,7 @@ public class AccumuloPageSink
     }
 
     @Override
-    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page)
     {
         // For each position within the page, i.e. row
         for (int position = 0; position < page.getPositionCount(); ++position) {

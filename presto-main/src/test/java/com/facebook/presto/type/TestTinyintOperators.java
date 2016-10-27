@@ -265,4 +265,15 @@ public class TestTinyintOperators
         assertFunction("cast('37' as tinyint)", TINYINT, (byte) 37);
         assertFunction("cast('17' as tinyint)", TINYINT, (byte) 17);
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS TINYINT) IS DISTINCT FROM CAST(NULL AS TINYINT)", BOOLEAN, false);
+        assertFunction("TINYINT'37' IS DISTINCT FROM TINYINT'37'", BOOLEAN, false);
+        assertFunction("TINYINT'37' IS DISTINCT FROM TINYINT'38'", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM TINYINT'37'", BOOLEAN, true);
+        assertFunction("TINYINT'37' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
 }

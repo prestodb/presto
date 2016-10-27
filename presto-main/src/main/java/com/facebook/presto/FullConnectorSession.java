@@ -13,10 +13,10 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Locale;
 import java.util.Map;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FullConnectorSession
@@ -36,6 +38,7 @@ public class FullConnectorSession
     private final Locale locale;
     private final long startTime;
     private final Map<String, String> properties;
+    private final ConnectorId connectorId;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
 
@@ -53,6 +56,7 @@ public class FullConnectorSession
         this.startTime = startTime;
 
         this.properties = null;
+        this.connectorId = null;
         this.catalog = null;
         this.sessionPropertyManager = null;
     }
@@ -64,6 +68,7 @@ public class FullConnectorSession
             Locale locale,
             long startTime,
             Map<String, String> properties,
+            ConnectorId connectorId,
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
@@ -74,6 +79,7 @@ public class FullConnectorSession
         this.startTime = startTime;
 
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
@@ -109,13 +115,13 @@ public class FullConnectorSession
     }
 
     @Override
-    public <T> T getProperty(String name, Class<T> type)
+    public <T> T getProperty(String propertyName, Class<T> type)
     {
         if (properties == null) {
-            throw new PrestoException(StandardErrorCode.INVALID_SESSION_PROPERTY, "Unknown session property " + name);
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalog, propertyName));
         }
 
-        return sessionPropertyManager.decodeProperty(catalog + "." + name, properties.get(name), type);
+        return sessionPropertyManager.decodeCatalogPropertyValue(connectorId, catalog, propertyName, properties.get(propertyName), type);
     }
 
     @Override

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,18 +30,15 @@ class PlanBuilder
     private final TranslationMap translations;
     private final List<Expression> parameters;
     private final PlanNode root;
-    private final Optional<Symbol> sampleWeight;
 
-    public PlanBuilder(TranslationMap translations, PlanNode root, Optional<Symbol> sampleWeight, List<Expression> parameters)
+    public PlanBuilder(TranslationMap translations, PlanNode root, List<Expression> parameters)
     {
         requireNonNull(translations, "translations is null");
         requireNonNull(root, "root is null");
-        requireNonNull(sampleWeight, "sampleWeight is null");
         requireNonNull(parameters, "parameterRewriter is null");
 
         this.translations = translations;
         this.root = root;
-        this.sampleWeight = sampleWeight;
         this.parameters = parameters;
     }
 
@@ -60,12 +56,7 @@ class PlanBuilder
 
     public PlanBuilder withNewRoot(PlanNode root)
     {
-        return new PlanBuilder(translations, root, sampleWeight, parameters);
-    }
-
-    public Optional<Symbol> getSampleWeight()
-    {
-        return sampleWeight;
+        return new PlanBuilder(translations, root, parameters);
     }
 
     public RelationPlan getRelationPlan()
@@ -123,6 +114,6 @@ class PlanBuilder
             translations.put(entry.getValue(), entry.getKey());
         }
 
-        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), getSampleWeight(), parameters);
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), parameters);
     }
 }

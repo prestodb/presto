@@ -68,7 +68,7 @@ public class SchemaJdbcTable
         Optional<String> catalogFilter = FilterUtil.stringFilter(constraint, 1);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(metadata.getCatalogNames().keySet(), catalogFilter)) {
+        for (String catalog : filter(metadata.getCatalogNames(session).keySet(), catalogFilter)) {
             for (String schema : metadata.listSchemaNames(session, catalog)) {
                 table.addRow(schema, catalog);
             }

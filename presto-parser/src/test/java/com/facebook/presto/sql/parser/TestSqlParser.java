@@ -15,7 +15,6 @@ package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AllColumns;
-import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AtTimeZone;
@@ -386,7 +385,6 @@ public class TestSqlParser
                                 createSelect123()
                         ), false),
                         ImmutableList.of(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -401,7 +399,6 @@ public class TestSqlParser
                                 createSelect123()
                         ), false),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -834,7 +831,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement(format("SELECT substring('%s' FROM 2 FOR 3)", givenString),
@@ -849,7 +845,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -869,7 +864,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement(format("SELECT substring('%s', 2, 3)", givenString),
@@ -884,7 +878,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -908,7 +901,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT col1.f1[0], col2, col3[2].f2.f3, col4[4] FROM table1",
@@ -928,7 +920,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT CAST(ROW(11, 12) AS ROW(COL0 INTEGER, COL1 INTEGER)).col0",
@@ -945,7 +936,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -965,7 +955,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY a, b",
@@ -982,7 +971,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY ()",
@@ -997,7 +985,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY GROUPING SETS (a)",
@@ -1012,7 +999,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY ALL GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
@@ -1033,7 +1019,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY DISTINCT GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
@@ -1054,7 +1039,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -1323,16 +1307,14 @@ public class TestSqlParser
                         new WithQuery("b", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), Optional.empty())))),
                         new Table(QualifiedName.of("z")),
                         ImmutableList.of(),
-                        Optional.<String>empty(),
-                        Optional.<Approximate>empty()));
+                        Optional.<String>empty()));
 
         assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
                 new Query(Optional.of(new With(true, ImmutableList.of(
                         new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.empty())))),
                         new Table(QualifiedName.of("y")),
                         ImmutableList.of(),
-                        Optional.<String>empty(),
-                        Optional.<Approximate>empty()));
+                        Optional.<String>empty()));
     }
 
     @Test
@@ -1508,7 +1490,6 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty()),
                         ImmutableList.<SortItem>of(),
-                        Optional.empty(),
                         Optional.empty()));
     }
 
@@ -1535,6 +1516,13 @@ public class TestSqlParser
         assertStatement("SELECT zone FROM t",
                 simpleQuery(
                         selectList(new QualifiedNameReference(QualifiedName.of("zone"))),
+                        table(QualifiedName.of("t"))));
+        assertStatement("SELECT INCLUDING, EXCLUDING, PROPERTIES FROM t",
+                simpleQuery(
+                        selectList(
+                                new QualifiedNameReference(QualifiedName.of("INCLUDING")),
+                                new QualifiedNameReference(QualifiedName.of("EXCLUDING")),
+                                new QualifiedNameReference(QualifiedName.of("PROPERTIES"))),
                         table(QualifiedName.of("t"))));
     }
 

@@ -69,7 +69,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
@@ -81,7 +80,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
@@ -93,7 +91,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.DOUBLE)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
@@ -105,7 +102,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.BOOLEAN)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(true, 1L, false, 1L),
                 createBooleansBlock(true, false));
     }
@@ -122,7 +118,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of("a", 2L, "b", 1L),
                 createStringsBlock("a", "b", "a"));
 
@@ -136,7 +131,6 @@ public class TestHistogram
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(new SqlTimestampWithTimeZone(timestampWithTimeZone1), 2L, new SqlTimestampWithTimeZone(timestampWithTimeZone2), 1L),
                 createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2));
     }
@@ -153,7 +147,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(1L, 1L, 2L, 1L),
                 createLongsBlock(2L, null, 1L));
 
@@ -165,7 +158,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.BIGINT)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 null,
                 createLongsBlock((Long) null));
     }
@@ -184,7 +176,6 @@ public class TestHistogram
 
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(ImmutableList.of("a", "b", "c"), 1L, ImmutableList.of("d", "e", "f"), 1L, ImmutableList.of("c", "b", "a"), 1L),
                 createStringArraysBlock(ImmutableList.of(ImmutableList.of("a", "b", "c"), ImmutableList.of("d", "e", "f"), ImmutableList.of("c", "b", "a"))));
     }
@@ -208,7 +199,6 @@ public class TestHistogram
 
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(ImmutableMap.of("a", "b"), 1L, ImmutableMap.of("c", "d"), 1L, ImmutableMap.of("e", "f"), 1L),
                 builder.build());
     }
@@ -232,7 +222,6 @@ public class TestHistogram
 
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of(ImmutableList.of(1L, 1.0), 1L, ImmutableList.of(2L, 2.0), 1L, ImmutableList.of(3L, 3.0), 1L),
                 builder.build());
     }
@@ -249,7 +238,6 @@ public class TestHistogram
                         parseTypeSignature(StandardTypes.VARCHAR)));
         assertAggregation(
                 aggregationFunction,
-                1.0,
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
                 createStringsBlock("a", "b", "c", "d", "e", "e", "c", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c"));
     }

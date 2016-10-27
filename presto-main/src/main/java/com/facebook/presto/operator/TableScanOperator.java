@@ -207,7 +207,6 @@ public class TableScanOperator
     public boolean isFinished()
     {
         if (!finished) {
-            createSourceIfNecessary();
             finished = (source != null) && source.isFinished();
             if (source != null) {
                 systemMemoryContext.setBytes(source.getSystemMemoryUsage());
@@ -238,9 +237,11 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
-        createSourceIfNecessary();
-        if (source == null) {
+        if (split == null) {
             return null;
+        }
+        if (source == null) {
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
         }
 
         Page page = source.getNextPage();
@@ -260,12 +261,5 @@ public class TableScanOperator
         systemMemoryContext.setBytes(source.getSystemMemoryUsage());
 
         return page;
-    }
-
-    private void createSourceIfNecessary()
-    {
-        if ((split != null) && (source == null)) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
-        }
     }
 }

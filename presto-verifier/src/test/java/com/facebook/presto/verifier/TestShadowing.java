@@ -84,7 +84,7 @@ public class TestShadowing
         SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("column2")), new LongLiteral("1"))))));
         Select select = new Select(false, ImmutableList.of(column1, column2));
         QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty());
-        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new com.facebook.presto.sql.tree.Query(Optional.empty(), querySpecification, ImmutableList.of(), Optional.empty(), Optional.empty()));
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new com.facebook.presto.sql.tree.Query(Optional.empty(), querySpecification, ImmutableList.of(), Optional.empty()));
 
         assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTableAs.getName(), true));
     }

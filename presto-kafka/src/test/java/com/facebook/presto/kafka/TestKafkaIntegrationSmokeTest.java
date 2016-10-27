@@ -44,12 +44,6 @@ public class TestKafkaIntegrationSmokeTest
         this.embeddedKafka = embeddedKafka;
     }
 
-    @Override
-    public void testViewAccessControl()
-    {
-        // kafka does not support views
-    }
-
     @AfterClass(alwaysRun = true)
     public void destroy()
             throws IOException

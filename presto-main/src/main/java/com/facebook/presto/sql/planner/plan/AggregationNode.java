@@ -44,8 +44,6 @@ public class AggregationNode
     private final List<List<Symbol>> groupingSets;
     private final Map<Symbol, Signature> functions;
     private final Step step;
-    private final Optional<Symbol> sampleWeight;
-    private final double confidence;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
 
@@ -84,8 +82,6 @@ public class AggregationNode
             @JsonProperty("masks") Map<Symbol, Symbol> masks,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
             @JsonProperty("step") Step step,
-            @JsonProperty("sampleWeight") Optional<Symbol> sampleWeight,
-            @JsonProperty("confidence") double confidence,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
     {
@@ -102,9 +98,6 @@ public class AggregationNode
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = ImmutableList.copyOf(groupingSets);
         this.step = step;
-        this.sampleWeight = requireNonNull(sampleWeight, "sampleWeight is null");
-        checkArgument(confidence >= 0 && confidence <= 1, "confidence must be in [0, 1]");
-        this.confidence = confidence;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
     }
@@ -125,12 +118,6 @@ public class AggregationNode
         symbols.addAll(aggregations.keySet());
 
         return symbols.build();
-    }
-
-    @JsonProperty("confidence")
-    public double getConfidence()
-    {
-        return confidence;
     }
 
     @JsonProperty("aggregations")
@@ -178,12 +165,6 @@ public class AggregationNode
     public Step getStep()
     {
         return step;
-    }
-
-    @JsonProperty("sampleWeight")
-    public Optional<Symbol> getSampleWeight()
-    {
-        return sampleWeight;
     }
 
     @JsonProperty("hashSymbol")

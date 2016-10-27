@@ -39,6 +39,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -71,8 +73,8 @@ public final class StandaloneQueryRunner
         server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
 
         SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
-        sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties("catalog", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("catalog"), TEST_CATALOG_PROPERTIES);
     }
 
     @Override

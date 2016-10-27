@@ -18,15 +18,13 @@ import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.ProcedureRegistry;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.procedure.Procedure;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
@@ -52,6 +50,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
@@ -127,6 +129,8 @@ public class DistributedQueryRunner
             }
         }
 
+        // copy session using property manager in coordinator
+        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager());
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
 
         long start = System.nanoTime();
@@ -143,16 +147,13 @@ public class DistributedQueryRunner
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
         for (TestingPrestoServer server : servers) {
-            SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
-            sessionPropertyManager.addSystemSessionProperties(AbstractTestQueries.TEST_SYSTEM_PROPERTIES);
-            sessionPropertyManager.addConnectorSessionProperties("connector", AbstractTestQueries.TEST_CATALOG_PROPERTIES);
-        }
+            // add bogus catalog for testing procedures and session properties
+            Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
+            server.getCatalogManager().registerCatalog(bogusTestingCatalog);
 
-        TypeManager typeManager = coordinator.getMetadata().getTypeManager();
-        ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
-        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester(), typeManager);
-        for (Procedure procedure : procedures.getProcedures(defaultSession.getSchema().get())) {
-            procedureRegistry.addProcedure(defaultSession.getCatalog().get(), procedure);
+            SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+            sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+            sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         }
     }
 
@@ -262,7 +263,7 @@ public class DistributedQueryRunner
             connectorIds.add(server.createCatalog(catalogName, connectorName, properties));
         }
         ConnectorId connectorId = getOnlyElement(connectorIds);
-        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, succinctNanos(start));
 
         // wait for all nodes to announce the new catalog
         start = System.nanoTime();

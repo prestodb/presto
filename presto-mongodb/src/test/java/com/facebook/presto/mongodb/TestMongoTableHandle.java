@@ -26,12 +26,11 @@ public class TestMongoTableHandle
     @Test
     public void testRoundTrip()
     {
-        MongoTableHandle expected = new MongoTableHandle("client", new SchemaTableName("schema", "table"));
+        MongoTableHandle expected = new MongoTableHandle(new SchemaTableName("schema", "table"));
 
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
     }
 }

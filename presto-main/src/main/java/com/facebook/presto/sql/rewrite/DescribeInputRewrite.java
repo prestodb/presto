@@ -60,10 +60,9 @@ final class DescribeInputRewrite
             Optional<QueryExplainer> queryExplainer,
             Statement node,
             List<Expression> parameters,
-            AccessControl accessControl,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl, experimentalSyntaxEnabled).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, accessControl).process(node, null);
     }
 
     private static final class Visitor
@@ -75,7 +74,6 @@ final class DescribeInputRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
         private final AccessControl accessControl;
-        private final boolean experimentalSyntaxEnabled;
 
         public Visitor(
                 Session session,
@@ -83,8 +81,7 @@ final class DescribeInputRewrite
                 Metadata metadata,
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
-                AccessControl accessControl,
-                boolean experimentalSyntaxEnabled)
+                AccessControl accessControl)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -92,7 +89,6 @@ final class DescribeInputRewrite
             this.queryExplainer = queryExplainer;
             this.accessControl = accessControl;
             this.parameters = parameters;
-            this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         }
 
         @Override
@@ -103,7 +99,7 @@ final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString);
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, experimentalSyntaxEnabled, parameters);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters);
             Analysis analysis = analyzer.analyze(statement, true);
 
             // get all parameters in query

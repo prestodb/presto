@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.Min;
@@ -28,7 +27,11 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
-@DefunctConfig("resource-group-manager")
+@DefunctConfig({
+        "resource-group-manager",
+        "experimental-syntax-enabled",
+        "analyzer.experimental-syntax-enabled"
+})
 public class FeaturesConfig
 {
     public static class ProcessingOptimization
@@ -40,7 +43,6 @@ public class FeaturesConfig
         public static final List<String> AVAILABLE_OPTIONS = ImmutableList.of(DISABLED, COLUMNAR, COLUMNAR_DICTIONARY);
     }
 
-    private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
@@ -72,19 +74,6 @@ public class FeaturesConfig
     public FeaturesConfig setResourceGroupsEnabled(boolean enabled)
     {
         resourceGroups = enabled;
-        return this;
-    }
-
-    public boolean isExperimentalSyntaxEnabled()
-    {
-        return experimentalSyntaxEnabled;
-    }
-
-    @LegacyConfig("analyzer.experimental-syntax-enabled")
-    @Config("experimental-syntax-enabled")
-    public FeaturesConfig setExperimentalSyntaxEnabled(boolean enabled)
-    {
-        experimentalSyntaxEnabled = enabled;
         return this;
     }
 

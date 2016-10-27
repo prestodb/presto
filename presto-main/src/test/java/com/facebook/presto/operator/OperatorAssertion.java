@@ -30,9 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -43,22 +41,6 @@ public final class OperatorAssertion
 {
     private OperatorAssertion()
     {
-    }
-
-    public static List<Page> appendSampleWeight(List<Page> input, int sampleWeight)
-    {
-        return input.stream()
-                .map(page -> {
-                    BlockBuilder builder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), page.getPositionCount());
-                    for (int i = 0; i < page.getPositionCount(); i++) {
-                        BIGINT.writeLong(builder, sampleWeight);
-                    }
-                    Block[] blocks = new Block[page.getChannelCount() + 1];
-                    System.arraycopy(page.getBlocks(), 0, blocks, 0, page.getChannelCount());
-                    blocks[blocks.length - 1] = builder.build();
-                    return new Page(blocks);
-                })
-                .collect(toImmutableList());
     }
 
     public static List<Page> toPages(Operator operator, Iterator<Page> input)

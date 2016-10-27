@@ -52,7 +52,7 @@ public class TestEvaluateClassifierPredictions
                 new Signature("evaluate_classifier_predictions",
                         AGGREGATE,
                         parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
-        Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator();
+        Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);
         accumulator.evaluateFinal(finalOut);

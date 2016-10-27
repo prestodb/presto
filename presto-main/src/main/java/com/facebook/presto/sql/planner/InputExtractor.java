@@ -80,13 +80,10 @@ public class InputExtractor
         public Void visitTableScan(TableScanNode node, Void context)
         {
             TableHandle tableHandle = node.getTable();
-            Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(session, tableHandle);
 
             Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
-                if (!columnHandle.equals(sampleWeightColumn.orElse(null))) {
-                    columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
-                }
+                columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
             inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));
@@ -98,13 +95,10 @@ public class InputExtractor
         public Void visitIndexSource(IndexSourceNode node, Void context)
         {
             TableHandle tableHandle = node.getTableHandle();
-            Optional<ColumnHandle> sampleWeightColumn = metadata.getSampleWeightColumnHandle(session, tableHandle);
 
             Set<Column> columns = new HashSet<>();
             for (ColumnHandle columnHandle : node.getAssignments().values()) {
-                if (!columnHandle.equals(sampleWeightColumn.orElse(null))) {
-                    columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
-                }
+                columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
             }
 
             inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), node.getLayout(), columns));

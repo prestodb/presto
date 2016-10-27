@@ -92,8 +92,6 @@ public class SingleDistinctOptimizer
                                         Collections.emptyMap(),
                                         node.getGroupingSets(),
                                         node.getStep(),
-                                        node.getSampleWeight(),
-                                        node.getConfidence(),
                                         node.getHashSymbol(),
                                         node.getGroupIdSymbol());
         }
@@ -111,8 +109,6 @@ public class SingleDistinctOptimizer
                                                                         Collections.emptyMap(),
                                                                         ImmutableList.of(node.getDistinctSymbols()),
                                                                         SINGLE,
-                                                                        Optional.empty(),
-                                                                        1.0,
                                                                         node.getHashSymbol(),
                                                                         Optional.empty());
 

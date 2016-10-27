@@ -29,11 +29,6 @@ import static java.util.Collections.emptySet;
 
 public interface Plugin
 {
-    default Iterable<com.facebook.presto.spi.ConnectorFactory> getLegacyConnectorFactories()
-    {
-        return emptyList();
-    }
-
     default Iterable<ConnectorFactory> getConnectorFactories()
     {
         return emptyList();

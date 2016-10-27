@@ -50,6 +50,12 @@ public class TestRedisDistributed
         closeAllRuntimeException(queryRunner, embeddedRedis);
     }
 
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
     //
     // Redis connector does not support table creation.
     //
@@ -67,41 +73,6 @@ public class TestRedisDistributed
     @Override
     public void testSymbolAliasing()
     {
-    }
-
-    //
-    // Redis connector does not support views.
-    //
-
-    @Override
-    public void testView()
-    {
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView()
-            throws Exception
-    {
-        // Redis connector currently does not support views
-    }
-
-    @Override
-    public void testCompatibleTypeChangeForView2()
-            throws Exception
-    {
-        // Redis connector currently does not support views
-    }
-
-    @Override
-    public void testViewMetadata()
-    {
-    }
-
-    @Test
-    public void testViewCaseSensitivity()
-            throws Exception
-    {
-        // Redis connector currently does not support views
     }
 
     //

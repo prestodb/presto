@@ -134,8 +134,6 @@ public class SetFlatteningOptimizer
                     node.getMasks(),
                     node.getGroupingSets(),
                     node.getStep(),
-                    node.getSampleWeight(),
-                    node.getConfidence(),
                     node.getHashSymbol(),
                     node.getGroupIdSymbol());
         }

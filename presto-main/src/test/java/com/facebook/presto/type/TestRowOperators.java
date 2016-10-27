@@ -16,6 +16,9 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -24,8 +27,11 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -33,6 +39,8 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -130,6 +138,23 @@ public class TestRowOperators
     }
 
     @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS ROW(UNKNOWN)) IS DISTINCT FROM CAST(NULL AS ROW(UNKNOWN))", BOOLEAN, false);
+        assertFunction("row(NULL) IS DISTINCT FROM row(NULL)", BOOLEAN, false);
+        assertFunction("row(1, 'cat') IS DISTINCT FROM row(1, 'cat')", BOOLEAN, false);
+        assertFunction("row(1, ARRAY [1]) IS DISTINCT FROM row(1, ARRAY [1])", BOOLEAN, false);
+        assertFunction("row(1, ARRAY [1, 2]) IS DISTINCT FROM row(1, ARRAY [1, NULL])", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, 'cat', from_unixtime(1)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', from_unixtime(1))", BOOLEAN, false);
+        assertFunction("row(1, 2.0, TRUE, 'cat', from_unixtime(1)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', from_unixtime(2))", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', 2)", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER)) IS DISTINCT FROM row(1, 2.0, TRUE, 'cat', CAST(NULL AS INTEGER))", BOOLEAN, false);
+        assertFunction("row(1, 2.0, TRUE, 'cat') IS DISTINCT FROM row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, true);
+        assertFunction("row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3))) IS DISTINCT FROM row(1, 2.0, TRUE, CAST(NULL AS VARCHAR(3)))", BOOLEAN, false);
+    }
+
+    @Test
     public void testRowEquality()
             throws Exception
     {
@@ -185,5 +210,26 @@ public class TestRowOperators
 
         assertFunction("ROW(1, 2) = ROW(1, 2)", BOOLEAN, true);
         assertFunction("ROW(2, 1) != ROW(1, 2)", BOOLEAN, true);
+    }
+
+    @Test
+    public void testRowHashOperator()
+    {
+        assertRowHashOperator("ROW(1, 2)", ImmutableList.of(INTEGER, INTEGER), ImmutableList.of(1, 2));
+        assertRowHashOperator("ROW(true, 2)", ImmutableList.of(BOOLEAN, INTEGER), ImmutableList.of(true, 2));
+    }
+
+    private void assertRowHashOperator(String inputString, List<Type> types, List<Object> elements)
+    {
+        checkArgument(types.size() == elements.size(), "types and elements must have the same size");
+        RowType rowType = new RowType(types, Optional.empty());
+        BlockBuilder rowArrayBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder rowBuilder = new InterleavedBlockBuilder(types, new BlockBuilderStatus(), types.size());
+        for (int i = 0; i < types.size(); i++) {
+            appendToBlockBuilder(types.get(i), elements.get(i), rowBuilder);
+        }
+        rowType.writeObject(rowArrayBuilder, rowBuilder.build());
+
+        assertOperator(HASH_CODE, inputString, BIGINT, rowType.hash(rowArrayBuilder.build(), 0));
     }
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -29,20 +30,19 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.MapType;
-import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -50,17 +50,15 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class SessionPropertyManager
 {
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
-    private final ConcurrentMap<String, SessionProperty<?>> allSessionProperties = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, List<PropertyMetadata<?>>> catalogSessionProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
 
     public SessionPropertyManager()
     {
@@ -87,95 +85,132 @@ public final class SessionPropertyManager
     public void addSystemSessionProperty(PropertyMetadata<?> sessionProperty)
     {
         requireNonNull(sessionProperty, "sessionProperty is null");
-        addSessionPropertyInternal(Optional.empty(), sessionProperty);
+        checkState(systemSessionProperties.put(sessionProperty.getName(), sessionProperty) == null,
+                "System session property '%s' are already registered", sessionProperty.getName());
     }
 
-    public void addConnectorSessionProperties(String catalog, List<PropertyMetadata<?>> sessionProperties)
+    public void addConnectorSessionProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(catalog, "catalog is null");
-        checkArgument(!catalog.isEmpty() && catalog.trim().toLowerCase(ENGLISH).equals(catalog), "Invalid catalog name '%s'", catalog);
-        requireNonNull(sessionProperties, "sessionProperties is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(properties, "properties is null");
 
-        checkState(catalogSessionProperties.putIfAbsent(catalog, sessionProperties) == null, "SessionProperties for catalog '%s' are already registered", catalog);
-        for (PropertyMetadata<?> sessionProperty : sessionProperties) {
-            addSessionPropertyInternal(Optional.of(catalog), sessionProperty);
-        }
+        Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
+        checkState(connectorSessionProperties.putIfAbsent(connectorId, propertiesByName) == null, "Session properties for connectorId '%s' are already registered", connectorId);
     }
 
-    private <T> void addSessionPropertyInternal(Optional<String> catalogName, PropertyMetadata<T> sessionProperty)
+    public void removeConnectorSessionProperties(ConnectorId connectorId)
     {
-        SessionProperty<T> value = new SessionProperty<>(catalogName, sessionProperty);
-        allSessionProperties.put(value.getFullyQualifiedName(), value);
+        connectorSessionProperties.remove(connectorId);
     }
 
-    public PropertyMetadata<?> getSessionPropertyMetadata(String name)
+    public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");
 
-        SessionProperty<?> sessionProperty = allSessionProperties.get(name);
-        if (sessionProperty == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
-        }
-        return sessionProperty.getMetadata();
+        return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
-    public List<SessionPropertyValue> getAllSessionProperties(Session session)
+    public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(ConnectorId connectorId, String propertyName)
+    {
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(propertyName, "propertyName is null");
+        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(connectorId);
+        if (properties == null || properties.isEmpty()) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown connector " + connectorId);
+        }
+
+        return Optional.ofNullable(properties.get(propertyName));
+    }
+
+    public List<SessionPropertyValue> getAllSessionProperties(Session session, Map<String, ConnectorId> catalogs)
     {
         requireNonNull(session, "session is null");
 
-        List<SessionPropertyValue> properties = new ArrayList<>();
-        for (SessionProperty<?> sessionProperty : allSessionProperties.values()) {
-            PropertyMetadata<?> propertyMetadata = sessionProperty.getMetadata();
-            String defaultValue = firstNonNull(propertyMetadata.getDefaultValue(), "").toString();
-
-            Map<String, String> values;
-            if (sessionProperty.getCatalogName().isPresent()) {
-                values = session.getCatalogProperties(sessionProperty.getCatalogName().get());
-            }
-            else {
-                values = session.getSystemProperties();
-            }
-            String value = values.getOrDefault(sessionProperty.getPropertyName(), defaultValue);
-
-            properties.add(new SessionPropertyValue(
+        ImmutableList.Builder<SessionPropertyValue> sessionPropertyValues = ImmutableList.builder();
+        Map<String, String> systemProperties = session.getSystemProperties();
+        for (PropertyMetadata<?> property : systemSessionProperties.values()) {
+            String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+            String value = systemProperties.getOrDefault(property.getName(), defaultValue);
+            sessionPropertyValues.add(new SessionPropertyValue(
                     value,
                     defaultValue,
-                    sessionProperty.getFullyQualifiedName(),
-                    sessionProperty.getCatalogName(),
-                    sessionProperty.getPropertyName(),
-                    propertyMetadata.getDescription(),
-                    propertyMetadata.getSqlType().getDisplayName(),
-                    propertyMetadata.isHidden()));
+                    property.getName(),
+                    Optional.empty(),
+                    property.getName(),
+                    property.getDescription(),
+                    property.getSqlType().getDisplayName(),
+                    property.isHidden()));
         }
 
-        // sort properties by catalog then property
-        Collections.sort(properties, (left, right) -> ComparisonChain.start()
-                .compare(left.getCatalogName().orElse(null), right.getCatalogName().orElse(null), Ordering.natural().nullsFirst())
-                .compare(left.getPropertyName(), right.getPropertyName())
-                .result());
+        for (Entry<String, ConnectorId> entry : new TreeMap<>(catalogs).entrySet()) {
+            String catalog = entry.getKey();
+            ConnectorId connectorId = entry.getValue();
+            Map<String, String> connectorProperties = session.getConnectorProperties(connectorId);
 
-        return ImmutableList.copyOf(properties);
+            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(connectorId)).values()) {
+                String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+                String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
+
+                sessionPropertyValues.add(new SessionPropertyValue(
+                        value,
+                        defaultValue,
+                        catalog + "." + property.getName(),
+                        Optional.of(catalog),
+                        property.getName(),
+                        property.getDescription(),
+                        property.getSqlType().getDisplayName(),
+                        property.isHidden()));
+            }
+        }
+
+        return sessionPropertyValues.build();
     }
 
-    public <T> T decodeProperty(String name, @Nullable String value, Class<T> type)
+    public <T> T decodeSystemPropertyValue(String name, @Nullable String value, Class<T> type)
     {
-        requireNonNull(name, "name is null");
-        requireNonNull(type, "type is null");
+        PropertyMetadata<?> property = getSystemSessionPropertyMetadata(name)
+                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name));
 
-        SessionProperty<?> sessionProperty = allSessionProperties.get(name);
-        if (sessionProperty == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
-        }
-        PropertyMetadata<?> metadata = sessionProperty.getMetadata();
+        return decodePropertyValue(name, value, type, property);
+    }
+
+    public <T> T decodeCatalogPropertyValue(ConnectorId connectorId, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
+    {
+        String fullPropertyName = catalogName + "." + propertyName;
+        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(connectorId,  propertyName)
+                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
+
+        return decodePropertyValue(fullPropertyName, propertyValue, type, property);
+    }
+
+    public void validateSystemSessionProperty(String propertyName, String propertyValue)
+    {
+        PropertyMetadata<?> propertyMetadata = getSystemSessionPropertyMetadata(propertyName)
+                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + propertyName));
+
+        decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
+    }
+
+    public void validateCatalogSessionProperty(ConnectorId connectorId, String catalogName, String propertyName, String propertyValue)
+    {
+        String fullPropertyName = catalogName + "." + propertyName;
+        PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(connectorId, propertyName)
+                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
+
+        decodePropertyValue(fullPropertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
+    }
+
+    private static <T> T decodePropertyValue(String fullPropertyName, @Nullable String propertyValue, Class<T> type, PropertyMetadata<?> metadata)
+    {
         if (metadata.getJavaType() != type) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("Property %s is type %s, but requested type was %s", name,
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("Property %s is type %s, but requested type was %s", fullPropertyName,
                     metadata.getJavaType().getName(),
                     type.getName()));
         }
-        if (value == null) {
+        if (propertyValue == null) {
             return type.cast(metadata.getDefaultValue());
         }
-        Object objectValue = deserializeSessionProperty(metadata.getSqlType(), value);
+        Object objectValue = deserializeSessionProperty(metadata.getSqlType(), propertyValue);
         try {
             return type.cast(metadata.decode(objectValue));
         }
@@ -184,7 +219,7 @@ public final class SessionPropertyManager
         }
         catch (Exception e) {
             // the system property decoder can throw any exception
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s is invalid: %s", name, value), e);
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s is invalid: %s", fullPropertyName, propertyValue), e);
         }
     }
 
@@ -361,54 +396,6 @@ public final class SessionPropertyManager
         public boolean isHidden()
         {
             return hidden;
-        }
-    }
-
-    private final class SessionProperty<T>
-    {
-        private final Optional<String> catalogName;
-        private final PropertyMetadata<T> propertyMetadata;
-        private final String propertyName;
-
-        private SessionProperty(Optional<String> catalogName, PropertyMetadata<T> propertyMetadata)
-        {
-            this.catalogName = catalogName;
-            this.propertyName = propertyMetadata.getName();
-
-            String fullName = propertyMetadata.getName();
-            if (catalogName.isPresent()) {
-                fullName = catalogName.get() + "." + fullName;
-            }
-
-            this.propertyMetadata = new PropertyMetadata<>(
-                    fullName,
-                    propertyMetadata.getDescription(),
-                    propertyMetadata.getSqlType(),
-                    propertyMetadata.getJavaType(),
-                    propertyMetadata.getDefaultValue(),
-                    propertyMetadata.isHidden(),
-                    propertyMetadata::decode,
-                    propertyMetadata::encode);
-        }
-
-        public String getFullyQualifiedName()
-        {
-            return propertyMetadata.getName();
-        }
-
-        public Optional<String> getCatalogName()
-        {
-            return catalogName;
-        }
-
-        public String getPropertyName()
-        {
-            return propertyName;
-        }
-
-        public PropertyMetadata<T> getMetadata()
-        {
-            return propertyMetadata;
         }
     }
 }

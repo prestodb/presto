@@ -99,14 +99,13 @@ public class AggregationCompiler
                                 new BindableAggregationFunction(
                                         new Signature(
                                                 name,
-                                                aggregationAnnotation.approximate() ? FunctionKind.APPROXIMATE_AGGREGATE : FunctionKind.AGGREGATE,
+                                                FunctionKind.AGGREGATE,
                                                 ImmutableList.of(), // TODO parse constrains from annotations
                                                 ImmutableList.of(), // TODO parse constrains from annotations
                                                 outputType,
                                                 inputTypes,
                                                 false),
                                         getDescription(aggregationDefinition, outputFunction),
-                                        aggregationAnnotation.approximate(),
                                         aggregationAnnotation.decomposable(),
                                         aggregationDefinition,
                                         stateClass,

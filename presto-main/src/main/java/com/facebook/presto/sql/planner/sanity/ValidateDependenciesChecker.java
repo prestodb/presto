@@ -121,10 +121,6 @@ public final class ValidateDependenciesChecker
             Set<Symbol> inputs = createInputs(source, boundSymbols);
             checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputSymbols());
 
-            if (node.getSampleWeight().isPresent()) {
-                checkArgument(inputs.contains(node.getSampleWeight().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeight().get(), node.getSource().getOutputSymbols());
-            }
-
             for (FunctionCall call : node.getAggregations().values()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(call);
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
@@ -488,10 +484,6 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundSymbols); // visit child
 
             verifyUniqueId(node);
-
-            if (node.getSampleWeightSymbol().isPresent()) {
-                checkArgument(source.getOutputSymbols().contains(node.getSampleWeightSymbol().get()), "Invalid node. Sample weight symbol (%s) is not in source plan output (%s)", node.getSampleWeightSymbol().get(), node.getSource().getOutputSymbols());
-            }
 
             return null;
         }

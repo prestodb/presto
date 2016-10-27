@@ -13,7 +13,6 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarOperator;
@@ -22,13 +21,9 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 
 import java.lang.invoke.MethodHandle;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
@@ -51,99 +46,23 @@ public final class MapEqualOperator
             @SqlType("map(K,V)") Block leftMapBlock,
             @SqlType("map(K,V)") Block rightMapBlock)
     {
-        Map<KeyWrapper, Integer> wrappedLeftMap = new LinkedHashMap<>();
-        for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
-            wrappedLeftMap.put(new KeyWrapper(readNativeValue(keyType, leftMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
-        }
-
-        Map<KeyWrapper, Integer> wrappedRightMap = new LinkedHashMap<>();
-        for (int position = 0; position < rightMapBlock.getPositionCount(); position += 2) {
-            wrappedRightMap.put(new KeyWrapper(readNativeValue(keyType, rightMapBlock, position), keyEqualsFunction, keyHashcodeFunction), position + 1);
-        }
-
-        if (wrappedLeftMap.size() != wrappedRightMap.size()) {
-            return false;
-        }
-
-        for (Map.Entry<KeyWrapper, Integer> entry : wrappedRightMap.entrySet()) {
-            KeyWrapper key = entry.getKey();
-            Integer leftValuePosition = wrappedLeftMap.get(key);
-            if (leftValuePosition == null) {
-                return false;
-            }
-
-            Object leftValue = readNativeValue(valueType, leftMapBlock, leftValuePosition);
-            if (leftValue == null) {
-                return null;
-            }
-
-            Object rightValue = readNativeValue(valueType, rightMapBlock, entry.getValue());
-            if (rightValue == null) {
-                return null;
-            }
-
-            try {
-                Boolean result = (Boolean) valueEqualsFunction.invoke(leftValue, rightValue);
-                if (result == null) {
-                    return null;
+        return MapGenericEquality.genericEqual(
+                keyEqualsFunction,
+                keyHashcodeFunction,
+                keyType,
+                leftMapBlock,
+                rightMapBlock,
+                (leftMapIndex, rightMapIndex) -> {
+                    Object leftValue = readNativeValue(valueType, leftMapBlock, leftMapIndex);
+                    if (leftValue == null) {
+                        return null;
+                    }
+                    Object rightValue = readNativeValue(valueType, rightMapBlock, rightMapIndex);
+                    if (rightValue == null) {
+                        return null;
+                    }
+                    return (Boolean) valueEqualsFunction.invoke(leftValue, rightValue);
                 }
-                else if (!result) {
-                    return false;
-                }
-            }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
-        }
-        return true;
-    }
-
-    private static final class KeyWrapper
-    {
-        private final Object key;
-        private final MethodHandle hashCode;
-        private final MethodHandle equals;
-
-        public KeyWrapper(Object key, MethodHandle equals, MethodHandle hashCode)
-        {
-            this.key = key;
-            this.equals = equals;
-            this.hashCode = hashCode;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            try {
-                return Long.hashCode((long) hashCode.invoke(key));
-            }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (obj == null || !getClass().equals(obj.getClass())) {
-                return false;
-            }
-            KeyWrapper other = (KeyWrapper) obj;
-            try {
-                return (Boolean) equals.invoke(key, other.key);
-            }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
-            }
-        }
+        );
     }
 }

@@ -35,8 +35,6 @@ import static java.util.Objects.requireNonNull;
 public class HiveColumnHandle
         implements ColumnHandle
 {
-    public static final String SAMPLE_WEIGHT_COLUMN_NAME = "__presto__sample_weight__";
-
     public static final int PATH_COLUMN_INDEX = -11;
     public static final String PATH_COLUMN_NAME = "$path";
     public static final HiveType PATH_HIVE_TYPE = HIVE_STRING;
