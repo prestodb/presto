@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
@@ -32,11 +32,12 @@ import static java.util.Objects.requireNonNull;
 public class TypedSet
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
+    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private static final long FOUR_MEGABYTES = new DataSize(4, MEGABYTE).toBytes();
 
     private final Type elementType;
-    private final IntBigArray blockPositionByHash = new IntBigArray();
+    private final IntArrayList blockPositionByHash;
     private final BlockBuilder elementBlock;
 
     private int maxFill;
@@ -55,7 +56,8 @@ public class TypedSet
         this.maxFill = calculateMaxFill(hashSize);
         this.hashMask = hashSize - 1;
 
-        blockPositionByHash.ensureCapacity(hashSize);
+        blockPositionByHash = new IntArrayList(hashSize);
+        blockPositionByHash.size(hashSize);
         for (int i = 0; i < hashSize; i++) {
             blockPositionByHash.set(i, EMPTY_SLOT);
         }
@@ -65,7 +67,7 @@ public class TypedSet
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.sizeOf();
+        return INSTANCE_SIZE + INT_ARRAY_LIST_INSTANCE_SIZE + elementBlock.getRetainedSizeInBytes() + blockPositionByHash.size() * Integer.BYTES;
     }
 
     public boolean contains(Block block, int position)
@@ -147,7 +149,7 @@ public class TypedSet
         int newHashSize = arraySize(size + 1, FILL_RATIO);
         hashMask = newHashSize - 1;
         maxFill = calculateMaxFill(newHashSize);
-        blockPositionByHash.ensureCapacity(newHashSize);
+        blockPositionByHash.size(newHashSize);
         for (int i = 0; i < newHashSize; i++) {
             blockPositionByHash.set(i, EMPTY_SLOT);
         }
