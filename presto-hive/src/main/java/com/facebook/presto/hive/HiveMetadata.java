@@ -370,7 +370,7 @@ public class HiveMetadata
         HiveTableLayoutHandle layout = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
 
         List<HivePartition> hivePartitions = getOrComputePartitions(layout, session, tableHandle);
-        Map<String, ColumnHandle> tableColumns = getTableColumnNames(hivePartitions, session);
+        Map<String, ColumnHandle> tableColumns = getTableColumnNamesToHandlesMap(hivePartitions, session);
 
         Map<String, PartitionStatistics> partitionStatisticsMap = getPartitionsStatistics(hivePartitions, tableColumns.keySet());
 
@@ -510,7 +510,7 @@ public class HiveMetadata
         }
     }
 
-    private Map<String, ColumnHandle> getTableColumnNames(List<HivePartition> partitions, ConnectorSession session)
+    private Map<String, ColumnHandle> getTableColumnNamesToHandlesMap(List<HivePartition> partitions, ConnectorSession session)
     {
         HivePartition hivePartition = getFirst(partitions, null);
         if (hivePartition == null) {
