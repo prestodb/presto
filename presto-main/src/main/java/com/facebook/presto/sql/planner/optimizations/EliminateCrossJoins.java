@@ -63,11 +63,24 @@ public class EliminateCrossJoins
         for (int i = joinGraphs.size() - 1; i >= 0; i--) {
             JoinGraph graph = joinGraphs.get(i);
             List<Integer> joinOrder = getJoinOrder(graph);
+            if (isOriginalOrder(joinOrder)) {
+                continue;
+            }
 
             plan = rewriteWith(new Rewriter(idAllocator, graph, joinOrder), plan);
         }
 
         return plan;
+    }
+
+    public static boolean isOriginalOrder(List<Integer> joinOrder)
+    {
+        for (int i = 0; i < joinOrder.size(); i++) {
+            if (joinOrder.get(i) != i) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

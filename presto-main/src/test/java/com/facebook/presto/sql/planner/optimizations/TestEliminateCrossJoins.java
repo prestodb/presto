@@ -30,16 +30,26 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins.isOriginalOrder;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.testng.Assert.assertEquals;
+import static org.testng.AssertJUnit.assertFalse;
+import static org.testng.AssertJUnit.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestEliminateCrossJoins
 {
     PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
+    @Test
+    public void testIsOriginalOrder()
+    {
+        assertTrue(isOriginalOrder(ImmutableList.of(0, 1, 2, 3, 4)));
+        assertFalse(isOriginalOrder(ImmutableList.of(0, 2, 1, 3, 4)));
+    }
 
     @Test
     public void testJoinOrder()
