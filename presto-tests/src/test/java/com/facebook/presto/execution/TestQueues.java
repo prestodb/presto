@@ -108,7 +108,6 @@ public class TestQueues
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
 
             assertEquals(queryManager.getStats().getRunningQueries(), 3);
-            assertEquals(queryManager.getStats().getCompletedQueries().getTotalCount(), 1);
         }
     }
 
