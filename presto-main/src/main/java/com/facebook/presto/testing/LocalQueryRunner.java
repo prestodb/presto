@@ -190,6 +190,7 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -649,8 +650,11 @@ public class LocalQueryRunner
         long sequenceId = 0;
         for (TableScanNode tableScan : findTableScanNodes(subplan.getFragment().getRoot())) {
             TableLayoutHandle layout = tableScan.getLayout().get();
+            List<ColumnHandle> columns = tableScan.getOutputSymbols().stream()
+                    .map(symbol -> tableScan.getAssignments().get(symbol))
+                    .collect(toImmutableList());
 
-            SplitSource splitSource = splitManager.getSplits(session, layout);
+            SplitSource splitSource = splitManager.getSplits(session, layout, columns);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -790,7 +794,7 @@ public class LocalQueryRunner
 
         // get the split for this table
         List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        Split split = getLocalQuerySplit(session, layouts.get(0).getLayout().getHandle());
+        Split split = getLocalQuerySplit(session, layouts.get(0).getLayout().getHandle(), columnHandles);
 
         return new OperatorFactory()
         {
@@ -856,9 +860,9 @@ public class LocalQueryRunner
                 ImmutableList.copyOf(Iterables.concat(columnTypes, ImmutableList.of(BIGINT))));
     }
 
-    private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
+    private Split getLocalQuerySplit(Session session, TableLayoutHandle handle, List<ColumnHandle> columns)
     {
-        SplitSource splitSource = splitManager.getSplits(session, handle);
+        SplitSource splitSource = splitManager.getSplits(session, handle, columns);
         List<Split> splits = new ArrayList<>();
         splits.addAll(getFutureValue(splitSource.getNextBatch(1000)));
         while (!splitSource.isFinished()) {
