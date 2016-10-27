@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -60,6 +61,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
@@ -141,8 +143,12 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
+            List<ColumnHandle> columns = node.getOutputSymbols().stream()
+                    .map(symbol -> node.getAssignments().get(symbol))
+                    .collect(toImmutableList());
+
             // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(session, node.getLayout().get());
+            SplitSource splitSource = splitManager.getSplits(session, node.getLayout().get(), columns);
 
             splitSources.add(splitSource);
 
