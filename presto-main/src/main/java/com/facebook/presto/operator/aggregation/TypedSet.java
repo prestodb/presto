@@ -90,7 +90,7 @@ public class TypedSet
             containsNullElement = true;
         }
         else {
-            long hashPosition = getHashPositionOfElement(block, position);
+            int hashPosition = getHashPositionOfElement(block, position);
             if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
                 addNewElement(hashPosition, block, position);
             }
@@ -110,9 +110,9 @@ public class TypedSet
     /**
      * Get slot position of element at {@code position} of {@code block}
      */
-    private long getHashPositionOfElement(Block block, int position)
+    private int getHashPositionOfElement(Block block, int position)
     {
-        long hashPosition = getMaskedHash(hashPosition(elementType, block, position));
+        int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
         while (true) {
             int blockPosition = blockPositionByHash.get(hashPosition);
             // Doesn't have this element
@@ -128,7 +128,7 @@ public class TypedSet
         }
     }
 
-    private void addNewElement(long hashPosition, Block block, int position)
+    private void addNewElement(int hashPosition, Block block, int position)
     {
         elementType.appendTo(block, position, elementBlock);
         if (elementBlock.getSizeInBytes() > FOUR_MEGABYTES) {
@@ -171,8 +171,8 @@ public class TypedSet
         return maxFill;
     }
 
-    private long getMaskedHash(long rawHash)
+    private int getMaskedHash(long rawHash)
     {
-        return rawHash & hashMask;
+        return (int) (rawHash & hashMask);
     }
 }
