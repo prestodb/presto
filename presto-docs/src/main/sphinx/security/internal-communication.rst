@@ -14,6 +14,10 @@ Every node in the cluster must be configured. Nodes that have not been
 configured, or are configured incorrectly, will not be able to communicate with
 other nodes in the cluster.
 
+.. warning::
+
+    Internal SSL/TLS communication is not compatible with :doc:`Kerberos</security/cli>`
+
 To enable SSL/TLS for Presto internal communication, do the following:
 
 1. Disable HTTP endpoint.
@@ -113,6 +117,13 @@ To enable SSL/TLS for Presto internal communication, do the following:
         internal-communication.https.keystore.path=<keystore path>
         internal-communication.https.keystore.key=<keystore password>
 
+9. If the :doc:`LDAP</security/ldap>` authentication is enabled, specify valid LDAP
+   credentials for the internal communication.
+
+    .. code-block:: none
+
+        internal-communication.authentication.ldap.user=<internal communication user>
+        internal-communication.authentication.ldap.password=<internal communication password>
 
 Performance with SSL/TLS enabled
 --------------------------------
