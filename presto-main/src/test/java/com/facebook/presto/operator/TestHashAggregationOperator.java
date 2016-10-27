@@ -366,9 +366,9 @@ public class TestHashAggregationOperator
                 rowPagesBuilder.getHashChannel(),
                 Optional.empty(),
                 100_000,
-                new DataSize(16, MEGABYTE));
+                new DataSize(1, Unit.KILOBYTE));
 
-        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, Unit.KILOBYTE))
+        DriverContext driverContext = createTaskContext(executor, TEST_SESSION, new DataSize(4, Unit.KILOBYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
         try (Operator operator = operatorFactory.createOperator(driverContext)) {

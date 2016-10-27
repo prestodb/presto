@@ -69,7 +69,7 @@ public class TestMemoryPools
         // discard all output
         OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> { }));
         TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(0, BYTE));
-        List<Driver> drivers = localQueryRunner.createDrivers("SELECT COUNT(*), clerk FROM orders GROUP BY clerk", outputFactory, taskContext);
+        List<Driver> drivers = localQueryRunner.createDrivers("SELECT COUNT(*) FROM orders JOIN lineitem USING (orderkey)", outputFactory, taskContext);
 
         // run driver, until it blocks
         while (!isWaitingForMemory(drivers)) {
