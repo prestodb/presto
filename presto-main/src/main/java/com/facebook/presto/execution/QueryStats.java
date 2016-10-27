@@ -14,14 +14,17 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -73,6 +76,8 @@ public class QueryStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final List<OperatorStats> operatorSummaries;
+
     @VisibleForTesting
     public QueryStats()
     {
@@ -108,6 +113,7 @@ public class QueryStats
         this.processedInputPositions = 0;
         this.outputDataSize = null;
         this.outputPositions = 0;
+        this.operatorSummaries = null;
     }
 
     @JsonCreator
@@ -151,7 +157,9 @@ public class QueryStats
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
-            @JsonProperty("outputPositions") long outputPositions)
+            @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = executionStartTime;
@@ -202,6 +210,7 @@ public class QueryStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+        this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
 
     @JsonProperty
@@ -404,5 +413,11 @@ public class QueryStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public List<OperatorStats> getOperatorSummaries()
+    {
+        return operatorSummaries;
     }
 }

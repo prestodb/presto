@@ -18,6 +18,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
@@ -303,6 +304,7 @@ public class QueryStateMachine
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
@@ -337,6 +339,7 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
+            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
         if (rootStage.isPresent()) {
@@ -382,7 +385,8 @@ public class QueryStateMachine
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(outputDataSize),
-                outputPositions);
+                outputPositions,
+                operatorStatsSummary.build());
 
         return new QueryInfo(queryId,
                 session.toSessionRepresentation(),
