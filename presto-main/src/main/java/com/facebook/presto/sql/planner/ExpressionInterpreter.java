@@ -495,7 +495,24 @@ public class ExpressionInterpreter
         @Override
         protected Object visitIfExpression(IfExpression node, Object context)
         {
-            return node;
+            Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
+            Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
+            Object condition = processWithExceptionHandling(node.getCondition(), context);
+
+            if (condition instanceof Expression) {
+                Expression falseValueExpression = (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get()));
+                return new IfExpression(
+                        toExpression(condition, type(node.getCondition())),
+                        toExpression(trueValue, type(node.getTrueValue())),
+                        falseValueExpression
+                );
+            }
+            else if (Boolean.TRUE.equals(condition)) {
+                return trueValue;
+            }
+            else {
+                return falseValue;
+            }
         }
 
         private Object processWithExceptionHandling(Expression expression, Object context)
