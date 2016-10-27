@@ -781,6 +781,19 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testJoinPartitioningByExpression()
+            throws Exception
+    {
+        assertQuery("WITH t AS (" +
+                "    SELECT name, nationkey" +
+                "    FROM tpch.tiny.nation" +
+                "    GROUP BY 1, 2" +
+                " )" +
+                " SELECT count(*)" +
+                " FROM t a JOIN t b ON a.name = 'ALGERIA' AND a.nationkey = b.nationkey - 1", "SELECT 1");
+    }
+
+    @Test
     public void testNonQueryAccessControl()
             throws Exception
     {
