@@ -97,11 +97,8 @@ public class InMemoryHashAggregationBuilder
         for (Aggregator aggregator : aggregators) {
             memorySize += aggregator.getEstimatedSize();
         }
-        memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-        if (memorySize < 0) {
-            memorySize = 0;
-        }
         if (partial) {
+            memorySize = Math.max(0, memorySize - operatorContext.getOperatorPreAllocatedMemory().toBytes());
             full = !operatorContext.trySetMemoryReservation(memorySize);
         }
         else {
