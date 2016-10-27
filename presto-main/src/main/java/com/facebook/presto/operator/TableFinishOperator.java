@@ -89,12 +89,15 @@ public class TableFinishOperator
     private State state = State.RUNNING;
     private long rowCount;
     private boolean closed;
+    private Optional<ConnectorOutputMetadata> outputMetadata = Optional.empty();
     private final ImmutableList.Builder<Slice> fragmentBuilder = ImmutableList.builder();
 
     public TableFinishOperator(OperatorContext operatorContext, TableFinisher tableFinisher)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.tableFinisher = requireNonNull(tableFinisher, "tableCommitter is null");
+
+        operatorContext.setInfoSupplier(() -> new TableFinishInfo(outputMetadata));
     }
 
     @Override
@@ -155,7 +158,7 @@ public class TableFinishOperator
         }
         state = State.FINISHED;
 
-        tableFinisher.finishTable(fragmentBuilder.build());
+        outputMetadata = tableFinisher.finishTable(fragmentBuilder.build());
 
         PageBuilder page = new PageBuilder(getTypes());
         page.declarePosition();
