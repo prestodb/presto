@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.lang.management.ManagementFactory;
@@ -211,11 +210,6 @@ public class OperatorContext
     public ListenableFuture<?> isWaitingForMemory()
     {
         return memoryFuture.get();
-    }
-
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return driverContext.getOperatorPreAllocatedMemory();
     }
 
     public void reserveMemory(long bytes)

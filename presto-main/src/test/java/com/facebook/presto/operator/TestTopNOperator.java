@@ -208,7 +208,7 @@ public class TestTopNOperator
                 .row(2L)
                 .build();
 
-        DriverContext smallDiverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, BYTE), new DataSize(0, BYTE))
+        DriverContext smallDiverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 

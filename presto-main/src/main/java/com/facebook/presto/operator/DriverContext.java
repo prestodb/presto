@@ -184,11 +184,6 @@ public class DriverContext
         return finished.get() || pipelineContext.isDone();
     }
 
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return pipelineContext.getOperatorPreAllocatedMemory();
-    }
-
     public void transferMemoryToTaskContext(long bytes)
     {
         pipelineContext.transferMemoryToTaskContext(bytes);
