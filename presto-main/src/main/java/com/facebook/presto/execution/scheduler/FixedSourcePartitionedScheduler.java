@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class FixedSourcePartitionedScheduler
@@ -81,16 +82,31 @@ public class FixedSourcePartitionedScheduler
         }
 
         CompletableFuture<?> blocked = CompletableFuture.completedFuture(null);
+        ScheduleResult.BlockedReason blockedReason = null;
+        int splitsScheduled = 0;
         while (!sourcePartitionedSchedulers.isEmpty()) {
             ScheduleResult schedule = sourcePartitionedSchedulers.peek().schedule();
+            splitsScheduled += schedule.getSplitsScheduled();
             blocked = schedule.getBlocked();
+            if (schedule.getBlockedReason().isPresent()) {
+                blockedReason = schedule.getBlockedReason().get();
+            }
+            else {
+                blockedReason = null;
+            }
             // if the source is not done scheduling, stop scheduling for now
             if (!blocked.isDone() || !schedule.isFinished()) {
                 break;
             }
             sourcePartitionedSchedulers.remove();
         }
-        return new ScheduleResult(sourcePartitionedSchedulers.isEmpty(), newTasks, blocked);
+        if (blockedReason != null) {
+            return new ScheduleResult(sourcePartitionedSchedulers.isEmpty(), newTasks, blocked, blockedReason, splitsScheduled);
+        }
+        else {
+            checkState(blocked.isDone(), "blockedReason not provided when scheduler is blocked");
+            return new ScheduleResult(sourcePartitionedSchedulers.isEmpty(), newTasks, splitsScheduled);
+        }
     }
 
     @Override
