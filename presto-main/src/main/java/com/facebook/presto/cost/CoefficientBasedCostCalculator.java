@@ -239,6 +239,7 @@ public class CoefficientBasedCostCalculator
             else {
                 limitCost.setOutputRowCount(new Estimate(node.getCount()));
             }
+            context.put(node, limitCost.build());
             return null;
         }
 
