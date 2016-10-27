@@ -87,6 +87,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillerFactory;
@@ -1941,16 +1942,17 @@ public class LocalExecutionPlanner
         return new TableFinisher()
         {
             @Override
-            public void finishTable(Collection<Slice> fragments)
+            public Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments)
             {
                 if (target instanceof CreateHandle) {
-                    metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
+                    return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
                 }
                 else if (target instanceof InsertHandle) {
-                    metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments);
+                    return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments);
                 }
                 else if (target instanceof DeleteHandle) {
                     metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
+                    return Optional.empty();
                 }
                 else {
                     throw new AssertionError("Unhandled target type: " + target.getClass().getName());

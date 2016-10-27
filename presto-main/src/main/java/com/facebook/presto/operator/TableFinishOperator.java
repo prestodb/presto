@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -172,6 +174,6 @@ public class TableFinishOperator
 
     public interface TableFinisher
     {
-        void finishTable(Collection<Slice> fragments);
+        Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments);
     }
 }
