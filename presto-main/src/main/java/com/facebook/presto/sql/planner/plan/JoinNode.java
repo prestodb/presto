@@ -165,10 +165,7 @@ public class JoinNode
     @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(left.getOutputSymbols())
-                .addAll(right.getOutputSymbols())
-                .build();
+        return outputSymbols;
     }
 
     @Override

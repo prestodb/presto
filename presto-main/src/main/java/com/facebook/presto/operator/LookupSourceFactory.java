@@ -24,6 +24,8 @@ public interface LookupSourceFactory
 {
     List<Type> getTypes();
 
+    List<Type> getOutputTypes();
+
     ListenableFuture<LookupSource> createLookupSource();
 
     Map<Symbol, Integer> getLayout();

@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -49,6 +50,7 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -109,7 +111,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel()
+                probePages.getHashChannel(),
+                Optional.empty()
         );
 
         // expected
@@ -159,7 +162,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel()
+                probePages.getHashChannel(),
+                Optional.empty()
         );
 
         // expected
@@ -202,7 +206,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel()
+                probePages.getHashChannel(),
+                Optional.empty()
         );
 
         // expected
@@ -246,7 +251,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel()
+                probePages.getHashChannel(),
+                Optional.empty()
         );
 
         // expected
@@ -283,7 +289,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         // expected
@@ -335,7 +342,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -389,7 +397,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -436,7 +445,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -480,7 +490,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -527,7 +538,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildTypes))
@@ -570,7 +582,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
@@ -618,7 +631,8 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
-                probePages.getHashChannel());
+                probePages.getHashChannel(),
+                Optional.empty());
 
         // expected
         MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
@@ -690,6 +704,7 @@ public class TestHashJoinOperator
                 1,
                 new PlanNodeId("build"),
                 buildPages.getTypes(),
+                rangeList(buildPages.getTypes().size()),
                 ImmutableMap.of(),
                 hashChannels,
                 buildPages.getHashChannel(),
@@ -715,6 +730,13 @@ public class TestHashJoinOperator
         }
 
         return buildOperatorFactory.getLookupSourceFactory();
+    }
+
+    private static List<Integer> rangeList(int endExclusive)
+    {
+        return IntStream.range(0, endExclusive)
+                .boxed()
+                .collect(toImmutableList());
     }
 
     private static class TestInternalJoinFilterFunction

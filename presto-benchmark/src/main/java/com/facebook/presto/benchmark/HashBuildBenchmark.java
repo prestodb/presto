@@ -51,6 +51,7 @@ public class HashBuildBenchmark
                 1,
                 new PlanNodeId("test"),
                 ordersTableScan.getTypes(),
+                ImmutableList.of(0, 1),
                 ImmutableMap.of(),
                 Ints.asList(0),
                 Optional.empty(),
@@ -69,6 +70,7 @@ public class HashBuildBenchmark
                 hashBuilder.getLookupSourceFactory(),
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
+                Optional.empty(),
                 Optional.empty());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test"), joinOperator.getTypes()));
