@@ -15,10 +15,13 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+
+import javax.inject.Inject;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -30,6 +33,13 @@ import static java.util.Objects.requireNonNull;
 public class SplitManager
 {
     private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
+    private final int minScheduleSplitBatchSize;
+
+    @Inject
+    public SplitManager(QueryManagerConfig config)
+    {
+        this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
+    }
 
     public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
     {
@@ -52,7 +62,11 @@ public class SplitManager
 
         ConnectorSplitSource source = splitManager.getSplits(layout.getTransactionHandle(), connectorSession, layout.getConnectorHandle());
 
-        return new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        if (minScheduleSplitBatchSize > 1) {
+            splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
+        }
+        return splitSource;
     }
 
     private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)
