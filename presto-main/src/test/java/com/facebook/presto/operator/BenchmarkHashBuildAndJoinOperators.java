@@ -257,8 +257,8 @@ public class BenchmarkHashBuildAndJoinOperators
         }
         operator.finish();
 
-        if (!operator.isFinished()) {
-            throw new AssertionError("Expected hash build operator to be finished");
+        if (!hashBuilderOperatorFactory.getLookupSourceFactory().createLookupSource().isDone()) {
+            throw new AssertionError("Expected lookup source to be done");
         }
 
         return hashBuilderOperatorFactory.getLookupSourceFactory();
