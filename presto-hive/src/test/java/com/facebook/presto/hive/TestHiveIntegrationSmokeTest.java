@@ -1739,6 +1739,9 @@ public class TestHiveIntegrationSmokeTest
         formats.add(new TestingHiveStorageFormat(
                 Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "rcfile_optimized_reader_enabled", "true").build(),
                 HiveStorageFormat.RCTEXT));
+        formats.add(new TestingHiveStorageFormat(
+                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "parquet_optimized_reader_enabled", "true").build(),
+                HiveStorageFormat.PARQUET));
         return formats.build();
     }
 
