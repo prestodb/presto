@@ -149,6 +149,14 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(Math.round(unixTime * 1000), (int) (hoursOffset * 60 + minutesOffset));
     }
 
+    @ScalarFunction("from_unixtime")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
+    public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
+    {
+        return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+    }
+
     @ScalarFunction("to_unixtime")
     @SqlType(StandardTypes.DOUBLE)
     public static double toUnixTime(@SqlType(StandardTypes.TIMESTAMP) long timestamp)
