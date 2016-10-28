@@ -30,6 +30,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.HashMap;
@@ -284,14 +285,19 @@ public class TransactionManager
         private final IsolationLevel isolationLevel;
         private final boolean readOnly;
         private final boolean autoCommitContext;
+        @GuardedBy("this")
         private final Map<ConnectorId, ConnectorTransactionMetadata> connectorIdToMetadata = new ConcurrentHashMap<>();
+        @GuardedBy("this")
         private final AtomicReference<ConnectorId> writtenConnectorId = new AtomicReference<>();
         private final Executor finishingExecutor;
         private final AtomicReference<Boolean> completedSuccessfully = new AtomicReference<>();
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
 
+        @GuardedBy("this")
         private final Map<String, Optional<Catalog>> catalogByName = new ConcurrentHashMap<>();
+        @GuardedBy("this")
         private final Map<ConnectorId, Catalog> catalogsByConnectorId = new ConcurrentHashMap<>();
+        @GuardedBy("this")
         private final Map<ConnectorId, CatalogMetadata> catalogMetadata = new ConcurrentHashMap<>();
 
         public TransactionMetadata(
@@ -340,7 +346,7 @@ public class TransactionManager
             }
         }
 
-        private Map<String, ConnectorId> getCatalogNames()
+        private synchronized Map<String, ConnectorId> getCatalogNames()
         {
             // todo if repeatable read, this must be recorded
             Map<String, ConnectorId> catalogNames = new HashMap<>();
@@ -355,7 +361,7 @@ public class TransactionManager
             return ImmutableMap.copyOf(catalogNames);
         }
 
-        private Optional<ConnectorId> getConnectorId(String catalogName)
+        private synchronized Optional<ConnectorId> getConnectorId(String catalogName)
         {
             Optional<Catalog> catalog = catalogByName.get(catalogName);
             if (catalog == null) {
@@ -368,14 +374,14 @@ public class TransactionManager
             return catalog.map(Catalog::getConnectorId);
         }
 
-        private void registerCatalog(Catalog catalog)
+        private synchronized void registerCatalog(Catalog catalog)
         {
             catalogsByConnectorId.put(catalog.getConnectorId(), catalog);
             catalogsByConnectorId.put(catalog.getInformationSchemaId(), catalog);
             catalogsByConnectorId.put(catalog.getSystemTablesId(), catalog);
         }
 
-        private CatalogMetadata getTransactionCatalogMetadata(ConnectorId connectorId)
+        private synchronized CatalogMetadata getTransactionCatalogMetadata(ConnectorId connectorId)
         {
             checkOpenTransaction();
 
@@ -494,8 +500,9 @@ public class TransactionManager
             return abortInternal();
         }
 
-        private CompletableFuture<?> abortInternal()
+        private synchronized CompletableFuture<?> abortInternal()
         {
+            // the callbacks in statement performed on another thread so are safe
             CompletableFuture<List<Void>> futures = allAsList(connectorIdToMetadata.values().stream()
                     .map(connection -> runAsync(() -> safeAbort(connection), finishingExecutor))
                     .collect(toList()));
@@ -517,8 +524,13 @@ public class TransactionManager
             Duration idleTime = Optional.ofNullable(idleStartTime.get())
                     .map(Duration::nanosSince)
                     .orElse(new Duration(0, MILLISECONDS));
-            Optional<ConnectorId> writtenConnectorId = Optional.ofNullable(this.writtenConnectorId.get());
-            List<ConnectorId> connectorIds = ImmutableList.copyOf(connectorIdToMetadata.keySet());
+
+            // dereferencing this field is safe because the field is atomic
+            @SuppressWarnings("FieldAccessNotGuarded") Optional<ConnectorId> writtenConnectorId = Optional.ofNullable(this.writtenConnectorId.get());
+
+            // copying the key set is safe here because the map is concurrent
+            @SuppressWarnings("FieldAccessNotGuarded") List<ConnectorId> connectorIds = ImmutableList.copyOf(connectorIdToMetadata.keySet());
+
             return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTime, idleTime, connectorIds, writtenConnectorId);
         }
 
