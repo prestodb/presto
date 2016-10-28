@@ -28,34 +28,6 @@ public interface ResourceGroupsDao
             ")")
     void createResourceGroupsGlobalPropertiesTable();
 
-    @SqlUpdate("DROP TRIGGER IF EXISTS tr_resource_groups_global_properties_before_insert")
-    void dropResourceGroupsGlobalPropertiesInsertTrigger();
-
-    @SqlUpdate("CREATE TRIGGER tr_resource_groups_global_properties_before_insert BEFORE INSERT ON resource_groups_global_properties\n" +
-            "FOR EACH ROW\n" +
-            "BEGIN\n" +
-            "IF new.name != 'cpu_quota_period' THEN\n" +
-            "SIGNAL SQLSTATE '45000'\n" +
-            "SET MESSAGE_TEXT = 'Invalid property name. Valid values are (''cpu_quota_period'')';\n" +
-            "END IF;\n" +
-            "END"
-    )
-    void createResourceGroupsGlobalPropertiesInsertTrigger();
-
-    @SqlUpdate("DROP TRIGGER IF EXISTS tr_resource_groups_global_properties_before_update")
-    void dropResourceGroupsGlobalPropertiesUpdateTrigger();
-
-    @SqlUpdate("CREATE TRIGGER tr_resource_groups_global_properties_before_update BEFORE UPDATE ON resource_groups_global_properties\n" +
-            "FOR EACH ROW\n" +
-            "BEGIN\n" +
-            "IF new.name != 'cpu_quota_period' THEN\n" +
-            "SIGNAL SQLSTATE '45000'\n" +
-            "SET MESSAGE_TEXT = 'Invalid property name. Valid values are (''cpu_quota_period'')';\n" +
-            "END IF;\n" +
-            "END"
-    )
-    void createResourceGroupsGlobalPropertiesUpdateTrigger();
-
     @SqlQuery("SELECT value FROM resource_groups_global_properties WHERE name = 'cpu_quota_period'")
     @Mapper(ResourceGroupGlobalProperties.Mapper.class)
     List<ResourceGroupGlobalProperties> getResourceGroupGlobalProperties();

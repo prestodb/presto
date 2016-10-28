@@ -20,22 +20,6 @@ import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 public interface H2ResourceGroupsDao
         extends ResourceGroupsDao
 {
-    @Override
-    @SqlUpdate("/* noop */")
-    void dropResourceGroupsGlobalPropertiesInsertTrigger();
-
-    @Override
-    @SqlUpdate("/* noop */")
-    void createResourceGroupsGlobalPropertiesInsertTrigger();
-
-    @Override
-    @SqlUpdate("/* noop */")
-    void dropResourceGroupsGlobalPropertiesUpdateTrigger();
-
-    @Override
-    @SqlUpdate("/* noop */")
-    void createResourceGroupsGlobalPropertiesUpdateTrigger();
-
     @SqlUpdate("INSERT INTO resource_groups_global_properties\n" +
             "(name, value) VALUES (:name, :value)")
     void insertResourceGroupsGlobalProperties(
