@@ -82,6 +82,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlQueryScheduler
 {
@@ -386,7 +387,7 @@ public class SqlQueryScheduler
                 // wait for a state change and then schedule again
                 if (!blockedStages.isEmpty()) {
                     try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
-                        tryGetFutureValue(firstCompletedFuture(blockedStages), 100, MILLISECONDS);
+                        tryGetFutureValue(firstCompletedFuture(blockedStages), 1, SECONDS);
                     }
                     for (CompletableFuture<?> blockedStage : blockedStages) {
                         blockedStage.cancel(true);
