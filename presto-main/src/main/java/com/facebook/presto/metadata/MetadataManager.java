@@ -41,6 +41,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -329,6 +330,14 @@ public class MetadataManager
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
 
         return new TableMetadata(connectorId, tableMetadata);
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle)
+    {
+        ConnectorEntry entry = lookupConnectorFor(tableHandle);
+        ConnectorMetadata metadata = entry.getMetadata(session);
+        return metadata.getTableStatistics(session.toConnectorSession(entry.getConnectorId()), tableHandle.getConnectorHandle(), tableLayoutHandle.getConnectorHandle());
     }
 
     @Override

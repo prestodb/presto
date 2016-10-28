@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
@@ -20,6 +21,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import org.weakref.jmx.Managed;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -73,6 +75,10 @@ public interface HiveMetastore
     List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames);
 
     Optional<Table> getTable(String databaseName, String tableName);
+
+    Optional<Set<ColumnStatisticsObj>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames);
+
+    Optional<Map<String, Set<ColumnStatisticsObj>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames);
 
     Set<String> getRoles(String user);
 
