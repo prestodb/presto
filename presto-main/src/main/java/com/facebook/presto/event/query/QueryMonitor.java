@@ -175,7 +175,8 @@ public class QueryMonitor
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
                                     queryStats.getCompletedDrivers(),
-                                    queryInfo.isCompleteInfo()),
+                                    queryInfo.isCompleteInfo(),
+                                    objectMapper.writeValueAsString(queryInfo.getQueryStats().getOperatorSummaries())),
                             new QueryContext(
                                     queryInfo.getSession().getUser(),
                                     queryInfo.getSession().getPrincipal(),

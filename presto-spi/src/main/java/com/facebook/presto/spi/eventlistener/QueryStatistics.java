@@ -34,6 +34,8 @@ public class QueryStatistics
     private final int completedSplits;
     private final boolean complete;
 
+    private final String operatorSummaries;
+
     public QueryStatistics(
             Duration cpuTime,
             Duration wallTime,
@@ -44,7 +46,8 @@ public class QueryStatistics
             long totalBytes,
             long totalRows,
             int completedSplits,
-            boolean complete)
+            boolean complete,
+            String operatorSummaries)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -56,6 +59,7 @@ public class QueryStatistics
         this.totalRows = requireNonNull(totalRows, "totalRows is null");
         this.completedSplits = requireNonNull(completedSplits, "completedSplits is null");
         this.complete = complete;
+        this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
     }
 
     public Duration getCpuTime()
@@ -106,5 +110,10 @@ public class QueryStatistics
     public boolean isComplete()
     {
         return complete;
+    }
+
+    public String getOperatorSummaries()
+    {
+        return operatorSummaries;
     }
 }
