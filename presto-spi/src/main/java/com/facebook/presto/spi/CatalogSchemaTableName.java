@@ -24,30 +24,15 @@ public final class CatalogSchemaTableName
     private final String catalogName;
     private final SchemaTableName schemaTableName;
 
-    public static CatalogSchemaTableName valueOf(String catalogSchemaTableName)
-    {
-        checkNotEmpty(catalogSchemaTableName, "catalogSchemaTableName");
-        String[] parts = catalogSchemaTableName.split("\\.");
-        if (parts.length != 3) {
-            throw new IllegalArgumentException("Invalid catalogSchemaTableName " + catalogSchemaTableName);
-        }
-        return new CatalogSchemaTableName(parts[0], parts[1], parts[2]);
-    }
-
     public CatalogSchemaTableName(String catalogName, SchemaTableName schemaTableName)
     {
-        checkNotEmpty(catalogName, "catalogName");
-        requireNonNull(schemaTableName, "schemaTableName is null");
-        this.catalogName = catalogName;
-        this.schemaTableName = schemaTableName;
+        this.catalogName = checkNotEmpty(catalogName, "catalogName");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
     }
 
     public CatalogSchemaTableName(String catalogName, String schemaName, String tableName)
     {
-        checkNotEmpty(catalogName, "catalogName");
-        checkNotEmpty(schemaName, "schemaName");
-        checkNotEmpty(tableName, "tableName");
-        this.catalogName = catalogName;
+        this.catalogName = checkNotEmpty(catalogName, "catalogName");
         this.schemaTableName = new SchemaTableName(schemaName, tableName);
     }
 
