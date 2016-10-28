@@ -54,6 +54,7 @@ import static com.facebook.presto.server.security.util.jndi.JndiUtils.getInitial
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static com.google.common.io.ByteStreams.skipFully;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.airlift.http.client.HttpStatus.BAD_REQUEST;
 import static io.airlift.http.client.HttpStatus.INTERNAL_SERVER_ERROR;
@@ -166,7 +167,7 @@ public class LdapFilter
         }
         catch (AuthenticationException e) {
             log.debug(e, "LDAP authentication failed");
-            processAuthenticationException(e, response);
+            processAuthenticationException(e, request, response);
         }
     }
 
@@ -183,13 +184,24 @@ public class LdapFilter
         }
     }
 
-    private static void processAuthenticationException(AuthenticationException e, HttpServletResponse response)
+    private static void processAuthenticationException(AuthenticationException e, HttpServletRequest request, HttpServletResponse response)
             throws IOException
     {
         if (e.getStatus() == UNAUTHORIZED) {
+            // Due to the Jetty bug explained here: https://github.com/eclipse/jetty.project/issues/938
+            skipRequestContent(request);
             response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Basic realm=\"presto\"");
         }
         response.sendError(e.getStatus().code(), e.getMessage());
+    }
+
+    private static void skipRequestContent(HttpServletRequest request)
+            throws IOException
+    {
+        long contentLength = request.getContentLengthLong();
+        if (contentLength > 0) {
+            skipFully(request.getInputStream(), contentLength);
+        }
     }
 
     private static Credentials getCredentials(String header)
