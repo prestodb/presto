@@ -131,7 +131,7 @@ public class AccumuloRecordCursor
             }
         }
 
-        iterator = this.scanner.iterator();
+        iterator = new SortedEntryIterator(this.scanner.iterator());
     }
 
     @Override
