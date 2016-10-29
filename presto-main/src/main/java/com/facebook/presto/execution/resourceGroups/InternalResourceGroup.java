@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -29,6 +30,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -99,9 +101,15 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private final Set<QueryExecution> runningQueries = new HashSet<>();
     @GuardedBy("root")
+    private LinkedHashSet<QueryExecution> activeQueries = new LinkedHashSet<>();
+    @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
     private boolean jmxExport;
+    @GuardedBy("root")
+    private Duration queuedTimeout = new Duration(Long.MAX_VALUE, MILLISECONDS);
+    @GuardedBy("root")
+    private Duration runningTimeout = new Duration(Long.MAX_VALUE, MILLISECONDS);;
 
     protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
@@ -377,6 +385,38 @@ public class InternalResourceGroup
         jmxExportListener.accept(this, export);
     }
 
+    @Override
+    public Duration getQueuedTimeout()
+    {
+        synchronized (root) {
+            return queuedTimeout;
+        }
+    }
+
+    @Override
+    public void setQueuedTimeout(Duration queuedTimeout)
+    {
+        synchronized (root) {
+            this.queuedTimeout = queuedTimeout;
+        }
+    }
+
+    @Override
+    public Duration getRunningTimeout()
+    {
+        synchronized (root) {
+            return runningTimeout;
+        }
+    }
+
+    @Override
+    public void setRunningTimeout(Duration runningTimeout)
+    {
+        synchronized (root) {
+            this.runningTimeout = runningTimeout;
+        }
+    }
+
     public InternalResourceGroup getOrCreateSubGroup(String name)
     {
         requireNonNull(name, "name is null");
@@ -415,6 +455,7 @@ public class InternalResourceGroup
                 query.fail(new PrestoException(QUERY_QUEUE_FULL, format("Too many queued queries for \"%s\"!", id)));
                 return;
             }
+            activeQueries.add(query);
             if (canRun) {
                 startInBackground(query);
             }
@@ -499,6 +540,7 @@ public class InternalResourceGroup
                     group = group.parent.orElse(null);
                 }
             }
+            activeQueries.remove(query);
             if (runningQueries.contains(query)) {
                 runningQueries.remove(query);
                 InternalResourceGroup group = this;
@@ -593,6 +635,39 @@ public class InternalResourceGroup
                 eligibleSubGroups.addOrUpdate(subGroup, getSubGroupSchedulingPriority(schedulingPolicy, subGroup));
             }
             return true;
+        }
+    }
+
+    protected void enforceTimeouts()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to find next query");
+        synchronized (root) {
+            for (InternalResourceGroup group : subGroups.values()) {
+                group.enforceTimeouts();
+            }
+            long runningTimeoutMillis = runningTimeout.toMillis();
+            long queuedTimeoutMillis = queuedTimeout.toMillis();
+            //log.info("Group %s: %d, %d", id, queuedTimeoutMillis, runningTimeoutMillis);
+            for (QueryExecution query : ImmutableList.copyOf(activeQueries)) {
+                Duration elapsedTime = query.getQueryInfo().getQueryStats().getElapsedTime();
+                if (elapsedTime == null) {
+                    continue;
+                }
+                long elapsedTimeMillis = elapsedTime.toMillis();
+                if (runningQueries.contains(query)) {
+                    Duration queuedTime = query.getQueryInfo().getQueryStats().getQueuedTime();
+                    if (queuedTime == null) {
+                        continue;
+                    }
+                    long queuedTimeMillis = queuedTime.toMillis();
+                    if (elapsedTimeMillis - queuedTimeMillis > runningTimeoutMillis) {
+                        query.cancelQuery();
+                    }
+                }
+                else if (elapsedTimeMillis > queuedTimeoutMillis) {
+                    query.cancelQuery();
+                }
+            }
         }
     }
 
@@ -707,6 +782,7 @@ public class InternalResourceGroup
         public synchronized void processQueuedQueries()
         {
             internalRefreshStats();
+            enforceTimeouts();
             while (internalStartNext()) {
                 // start all the queries we can
             }

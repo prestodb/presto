@@ -139,6 +139,8 @@ public abstract class AbstractResourceConfigurationManager
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
+        match.getQueuedTimeout().ifPresent(timeout -> group.setQueuedTimeout(timeout));
+        match.getRunningTimeout().ifPresent(timeout -> group.setRunningTimeout(timeout));
         if (match.getSchedulingPolicy().isPresent()) {
             group.setSchedulingPolicy(match.getSchedulingPolicy().get());
         }
