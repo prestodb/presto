@@ -177,6 +177,12 @@ public abstract class AbstractResourceConfigurationManager
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
         group.setMaxRunningQueries(match.getMaxRunning());
+        if (match.getQueuedTimeLimit().isPresent()) {
+            group.setQueuedTimeLimit(match.getQueuedTimeLimit().get());
+        }
+        if (match.getRunningTimeLimit().isPresent()) {
+            group.setRunningTimeLimit(match.getRunningTimeLimit().get());
+        }
         if (match.getSchedulingPolicy().isPresent()) {
             group.setSchedulingPolicy(match.getSchedulingPolicy().get());
         }

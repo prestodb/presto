@@ -94,8 +94,8 @@ public class TestQueues
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
             waitForRunningQueryCount(queryRunner, 1);
             // Update db to allow for 1 more running query in dashboard resource group
-            dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, null, null, null, null, null, 1L);
-            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, null, null, null, null, null, 3L);
+            dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, null, null, null, null, null, null, null, 1L);
+            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, null, null, null, null, null, null, null, 3L);
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
             QueryId thirdDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
@@ -152,14 +152,14 @@ public class TestQueues
             waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
 
             // Allow one more query to run and resubmit third query
-            dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, null, null, null, null, null, 1L);
-            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, null, null, null, null, null, 3L);
+            dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, null, null, null, null, null, null, null, 1L);
+            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, null, null, null, null, null, null, null, 3L);
             waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
             thirdDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
 
             // Lower running queries in dashboard resource groups and wait until groups are reconfigured
-            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, 3L);
+            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, null, 3L);
             ResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
             while (manager.getResourceGroupInfo(
                     new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user")).getMaxRunningQueries() != 1) {
@@ -201,6 +201,35 @@ public class TestQueues
             // Verify the query cannot be submitted
             queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
+        }
+    }
+
+    @Test(timeOut = 60_000)
+    public void testRunningTimeLimit()
+            throws Exception
+    {
+        String dbConfigUrl = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
+        try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
+            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, "3s", 3L);
+            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
+        }
+    }
+
+    @Test(timeOut = 60_000)
+    public void testQueuedTimeLimit()
+            throws Exception
+    {
+        String dbConfigUrl = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
+        try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
+            dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, "5s", null, 3L);
+            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+            QueryId secondDashboardQuery = createQuery(queryRunner, newDashboardSession(), LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
+            waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
         }
     }
 
@@ -338,11 +367,11 @@ public class TestQueues
             throws InterruptedException
     {
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, null, null, null, null, null, null);
-        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, null, null, null, null, null, 1L);
-        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, null, null, null, null, null, 1L);
-        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, null, null, null, null, null, 3L);
-        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, 3L);
+        dao.insertResourceGroup(1, "global", "1MB", 100, 1000, null, null, null, null, null, null, null, null);
+        dao.insertResourceGroup(2, "bi-${USER}", "1MB", 3, 2, null, null, null, null, null, null, null, 1L);
+        dao.insertResourceGroup(3, "user-${USER}", "1MB", 3, 3, null, null, null, null, null, null, null, 1L);
+        dao.insertResourceGroup(4, "adhoc-${USER}", "1MB", 3, 3, null, null, null, null, null, null, null, 3L);
+        dao.insertResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, null, null, null, null, null, null, null, 3L);
         dao.insertSelector(2, "user.*", "test");
         dao.insertSelector(4, "user.*", "(?i).*adhoc.*");
         dao.insertSelector(5, "user.*", "(?i).*dashboard.*");
