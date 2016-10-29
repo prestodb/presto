@@ -34,6 +34,7 @@ public class AccumuloConfig
     public static final String ZOOKEEPER_METADATA_ROOT = "accumulo.zookeeper.metadata.root";
     public static final String CARDINALITY_CACHE_SIZE = "accumulo.cardinality.cache.size";
     public static final String CARDINALITY_CACHE_EXPIRE_DURATION = "accumulo.cardinality.cache.expire.duration";
+    public static final String RECORD_CURSOR_BUFFER_SIZE = "accumulo.record.cursor.buffer.size";
 
     private String instance;
     private String zooKeepers;
@@ -42,6 +43,7 @@ public class AccumuloConfig
     private String zkMetadataRoot = "/presto-accumulo";
     private int cardinalityCacheSize = 100_000;
     private Duration cardinalityCacheExpiration = new Duration(5, TimeUnit.MINUTES);
+    private int recordCursorBufferSize = 1_000_000;
 
     @NotNull
     public String getInstance()
@@ -137,5 +139,18 @@ public class AccumuloConfig
     public void setCardinalityCacheExpiration(Duration cardinalityCacheExpiration)
     {
         this.cardinalityCacheExpiration = cardinalityCacheExpiration;
+    }
+
+    @NotNull
+    public int getRecordCursorBufferSize()
+    {
+        return recordCursorBufferSize;
+    }
+
+    @Config(RECORD_CURSOR_BUFFER_SIZE)
+    @ConfigDescription("Sets the number of entries buffered in the record cursor to re-order entries as they are read from Accumulo")
+    public void setRecordCursorBufferSize(int recordCursorBufferSize)
+    {
+        this.recordCursorBufferSize = recordCursorBufferSize;
     }
 }
