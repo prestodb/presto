@@ -9,13 +9,17 @@
       "hardCpuLimit": "1d",
       "schedulingPolicy": "weighted",
       "jmxExport": true,
+      "queuedTimeLimit": "1h",
+      "runningTimeLimit": "1h",
       "subGroups": [
         {
           "name": "sub",
           "softMemoryLimit": "2MB",
           "maxRunning": 3,
           "maxQueued": 4,
-          "schedulingWeight": 5
+          "schedulingWeight": 5,
+          "queuedTimeLimit": "1h",
+          "runningTimeLimit": "1h"
         }
       ]
     }
