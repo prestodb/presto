@@ -19,6 +19,8 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
+import com.facebook.presto.resourceGroups.db.H2DaoProvider;
+import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -264,7 +266,11 @@ public class TestQueues
         DbResourceGroupConfig dbResourceGroupConfig = new DbResourceGroupConfig()
                 .setConfigDbUrl(url);
         H2DaoProvider daoProvider = new H2DaoProvider(dbResourceGroupConfig);
-        return daoProvider.get();
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        return dao;
     }
 
     private static DistributedQueryRunner createQueryRunner(String dbConfigUrl, H2ResourceGroupsDao dao)
