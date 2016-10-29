@@ -86,4 +86,12 @@ public interface ResourceGroup
      * Whether to export statistics about this group and allow configuration via JMX.
      */
     void setJmxExport(boolean export);
+
+    Duration getQueuedTimeout();
+
+    void setQueuedTimeout(Duration queuedTimeout);
+
+    Duration getRunningTimeout();
+
+    void setRunningTimeout(Duration runningTimeout);
 }

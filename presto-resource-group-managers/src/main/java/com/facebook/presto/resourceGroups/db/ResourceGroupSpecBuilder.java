@@ -38,6 +38,8 @@ public class ResourceGroupSpecBuilder
     private final Optional<Boolean> jmxExport;
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
+    private final Optional<Duration> queuedTimeout;
+    private final Optional<Duration> runningTimeout;
     private final Optional<Long> parentId;
     private final ImmutableList.Builder<ResourceGroupSpec> subGroups = ImmutableList.builder();
 
@@ -52,6 +54,8 @@ public class ResourceGroupSpecBuilder
             Optional<Boolean> jmxExport,
             Optional<String> softCpuLimit,
             Optional<String> hardCpuLimit,
+            Optional<String> queuedTimeout,
+            Optional<String> runningTimeout,
             Optional<Long> parentId
     )
     {
@@ -65,6 +69,8 @@ public class ResourceGroupSpecBuilder
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null").map(Duration::valueOf);
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null").map(Duration::valueOf);
+        this.queuedTimeout = requireNonNull(queuedTimeout, "queuedTimeout is null").map(Duration::valueOf);
+        this.runningTimeout = requireNonNull(runningTimeout, "runningTimeout is null").map(Duration::valueOf);
         this.parentId = parentId;
     }
 
@@ -110,9 +116,9 @@ public class ResourceGroupSpecBuilder
                 Optional.of(subGroups.build()),
                 jmxExport,
                 softCpuLimit,
-                hardCpuLimit
-
-        );
+                hardCpuLimit,
+                queuedTimeout,
+                runningTimeout);
     }
 
     public static class Mapper
@@ -142,6 +148,8 @@ public class ResourceGroupSpecBuilder
             if (resultSet.wasNull()) {
                 parentId = Optional.empty();
             }
+            Optional<String> queuedTimeout = Optional.ofNullable(resultSet.getString("queued_timeout"));
+            Optional<String> runningTimeout = Optional.ofNullable(resultSet.getString("running_timeout"));
             return new ResourceGroupSpecBuilder(
                     id,
                     nameTemplate,
@@ -153,6 +161,8 @@ public class ResourceGroupSpecBuilder
                     jmxExport,
                     softCpuLimit,
                     hardCpuLimit,
+                    queuedTimeout,
+                    runningTimeout,
                     parentId
             );
         }
