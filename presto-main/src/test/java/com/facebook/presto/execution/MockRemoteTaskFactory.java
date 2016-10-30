@@ -351,7 +351,7 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public int getQueuedPartitionedSplitCount()
+        public synchronized int getQueuedPartitionedSplitCount()
         {
             if (taskStateMachine.getState().isDone()) {
                 return 0;
