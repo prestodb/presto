@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
@@ -46,6 +48,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestMergeWindows
 {
     private final LocalQueryRunner queryRunner;
+    private final CostCalculator costCalculator;
     private final WindowFrame commonFrame;
     private final Window windowA;
     private final Window windowB;
@@ -60,6 +63,8 @@ public class TestMergeWindows
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
+
+        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
 
         commonFrame = new WindowFrame(
                 WindowFrame.Type.ROWS,
@@ -125,7 +130,7 @@ public class TestMergeWindows
 
         Plan actualPlan = queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
         queryRunner.inTransaction(transactionSession -> {
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
             return null;
         });
     }
@@ -412,7 +417,7 @@ public class TestMergeWindows
     {
         Plan actualPlan = unitPlan(sql);
         queryRunner.inTransaction(transactionSession -> {
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
             return null;
         });
     }

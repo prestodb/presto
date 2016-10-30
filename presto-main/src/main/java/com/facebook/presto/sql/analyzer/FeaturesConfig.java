@@ -52,6 +52,7 @@ public class FeaturesConfig
     private boolean optimizeSingleDistinct = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean legacyArrayAgg;
+    private boolean joinReorderingEnabled = false;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -297,5 +298,17 @@ public class FeaturesConfig
     {
         this.spillerThreads = spillerThreads;
         return this;
+    }
+
+    @Config("join-reordering-enabled")
+    public FeaturesConfig setJoinReorderingEnabled(boolean joinReorderingEnabled)
+    {
+        this.joinReorderingEnabled = joinReorderingEnabled;
+        return this;
+    }
+
+    public boolean isJoinReorderingEnabled()
+    {
+        return joinReorderingEnabled;
     }
 }
