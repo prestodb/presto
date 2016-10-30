@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 
 public class TableFinishInfo
+        implements OperatorInfo
 {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

@@ -154,7 +154,7 @@ public class TableScanOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> splitInfo);
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
         }
 
         blocked.set(null);
