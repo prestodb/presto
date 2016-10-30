@@ -26,6 +26,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
@@ -145,16 +147,24 @@ public class QueryMonitor
                         input.getConnectorInfo()));
             }
 
+            QueryStats queryStats = queryInfo.getQueryStats();
+
             Optional<QueryOutputMetadata> output = Optional.empty();
             if (queryInfo.getOutput().isPresent()) {
+                Optional<String> outputMetadata = queryStats.getOperatorSummaries().stream()
+                        .map(OperatorStats::getInfo)
+                        .filter(TableFinishInfo.class::isInstance)
+                        .map(TableFinishInfo.class::cast)
+                        .findFirst()
+                        .map(TableFinishInfo::getConnectorOutputMetadata);
+
                 output = Optional.of(
                         new QueryOutputMetadata(
                                 queryInfo.getOutput().get().getConnectorId().getCatalogName(),
                                 queryInfo.getOutput().get().getSchema(),
-                                queryInfo.getOutput().get().getTable()));
+                                queryInfo.getOutput().get().getTable(),
+                                outputMetadata));
             }
-
-            QueryStats queryStats = queryInfo.getQueryStats();
 
             eventListenerManager.queryCompleted(
                     new QueryCompletedEvent(
