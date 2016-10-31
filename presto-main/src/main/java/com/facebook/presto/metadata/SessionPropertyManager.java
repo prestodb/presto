@@ -128,7 +128,7 @@ public final class SessionPropertyManager
 
         ImmutableList.Builder<SessionPropertyValue> sessionPropertyValues = ImmutableList.builder();
         Map<String, String> systemProperties = session.getSystemProperties();
-        for (PropertyMetadata<?> property : systemSessionProperties.values()) {
+        for (PropertyMetadata<?> property : new TreeMap<>(systemSessionProperties).values()) {
             String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
             String value = systemProperties.getOrDefault(property.getName(), defaultValue);
             sessionPropertyValues.add(new SessionPropertyValue(
