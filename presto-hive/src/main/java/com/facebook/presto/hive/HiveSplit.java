@@ -187,7 +187,6 @@ public class HiveSplit
                 .put("table", table)
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
-                .put("effectivePredicate", effectivePredicate)
                 .build();
     }
 
