@@ -63,6 +63,7 @@ public class TestLogicalPlanner
         this.queryRunner = new LocalQueryRunner(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
+                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
