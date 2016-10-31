@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -33,6 +35,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -75,9 +78,10 @@ public class DataDefinitionExecution<T extends Statement>
     {
         checkState(statement instanceof CatalogRelatedStatement, "Cannot notify beginQuery for statements not catalog-related");
 
-        Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, ((CatalogRelatedStatement) statement).getQualifiedName());
-        metadata.beginQuery(session, tableName.getCatalogName());
+        QualifiedObjectName tableName = createQualifiedObjectName(getSession(), statement, ((CatalogRelatedStatement) statement).getQualifiedName());
+        Optional<ConnectorId> connectorId = metadata.getCatalogHandle(getSession(), tableName.getCatalogName());
+        checkState(connectorId.isPresent(), "connectorId must be present here");
+        metadata.beginQuery(getSession(), ImmutableSet.of(connectorId.get()));
     }
 
     private void notifyEndQuery()

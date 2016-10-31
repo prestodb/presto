@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
@@ -24,6 +25,7 @@ import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -52,7 +54,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
 
@@ -60,15 +62,16 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -103,7 +106,7 @@ public final class SqlQueryExecution
     private final List<Expression> parameters;
     private final SplitSchedulerStats schedulerStats;
 
-    private Collection<TableHandle> tableHandles;
+    private Set<ConnectorId> connectors;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -253,9 +256,8 @@ public final class SqlQueryExecution
                 SqlQueryScheduler scheduler = queryScheduler.get();
 
                 if (!stateMachine.isDone()) {
-                    checkState(tableHandles != null, "Analysis must happen before query starts");
-                    metadata.beginQuery(getSession(), tableHandles);
-
+                    checkState(connectors != null, "Analysis must happen before query starts");
+                    metadata.beginQuery(getSession(), connectors);
                     scheduler.start();
                 }
             }
@@ -299,7 +301,7 @@ public final class SqlQueryExecution
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
         Analysis analysis = analyzer.analyze(statement);
 
-        tableHandles = extractTableHandles(analysis);
+        connectors = extractConnectors(analysis);
 
         stateMachine.setUpdateType(analysis.getUpdateType());
 
@@ -326,16 +328,28 @@ public final class SqlQueryExecution
         return new PlanRoot(subplan, !explainAnalyze);
     }
 
-    private static List<TableHandle> extractTableHandles(Analysis analysis)
+    private Set<ConnectorId> extractConnectors(Analysis analysis)
     {
-        ImmutableList.Builder<TableHandle> builder = ImmutableList.builder();
-        builder.addAll(analysis.getTableHandles());
+        ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
 
-        if (analysis.getInsert().isPresent()) {
-            builder.add(analysis.getInsert().get().getTarget());
+        Optional<QualifiedObjectName> createTableDestination = analysis.getCreateTableDestination();
+        if (createTableDestination.isPresent()) {
+            String catalogName = createTableDestination.get().getCatalogName();
+            ConnectorId connectorId = metadata.getCatalogHandle(getSession(), catalogName)
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+            connectors.add(connectorId);
         }
 
-        return builder.build();
+        for (TableHandle tableHandle : analysis.getTableHandles()) {
+            connectors.add(tableHandle.getConnectorId());
+        }
+
+        if (analysis.getInsert().isPresent()) {
+            TableHandle target = analysis.getInsert().get().getTarget();
+            connectors.add(target.getConnectorId());
+        }
+
+        return connectors.build();
     }
 
     private void planDistribution(PlanRoot plan)
