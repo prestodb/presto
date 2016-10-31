@@ -112,7 +112,6 @@ public class BindableAggregationFunction
         Class<?> stateClass = concreteImplementation.getStateClass();
         Method inputFunction = concreteImplementation.getInputFunction();
         Method outputFunction = concreteImplementation.getOutputFunction();
-        Optional<Method> stateSerializerFactory = concreteImplementation.getStateSerializerFactory();
 
         checkCondition(
                 definitionClass.getAnnotation(AggregationFunction.class) != null,
@@ -125,26 +124,14 @@ public class BindableAggregationFunction
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         AggregationMetadata metadata;
-        AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(variables, typeManager, functionRegistry, concreteImplementation, stateClass, stateSerializerFactory, classLoader);
+        AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(concreteImplementation, variables, typeManager, functionRegistry, stateClass, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
         Method combineFunction = concreteImplementation.getCombineFunction();
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
-        MethodHandle inputHandle = methodHandle(inputFunction);
-        for (ImplementationDependency dependency : concreteImplementation.getInputDependencies()) {
-            inputHandle = inputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-        }
-
-        MethodHandle combineHandle = methodHandle(combineFunction);
-        for (ImplementationDependency dependency : concreteImplementation.getCombineDependencies()) {
-            combineHandle = combineHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-        }
-
-        // FIXME
-        MethodHandle outputHandle = outputFunction == null ? null : methodHandle(outputFunction);
-        for (ImplementationDependency dependency : concreteImplementation.getOutputDependencies()) {
-            outputHandle = outputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-        }
+        MethodHandle inputHandle = bindDependencies(inputFunction, concreteImplementation.getInputDependencies(), variables, typeManager, functionRegistry);
+        MethodHandle combineHandle = bindDependencies(combineFunction, concreteImplementation.getCombineDependencies(), variables, typeManager, functionRegistry);
+        MethodHandle outputHandle = bindDependencies(outputFunction, concreteImplementation.getOutputDependencies(), variables, typeManager, functionRegistry);
 
         metadata = new AggregationMetadata(
                 generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
@@ -167,16 +154,25 @@ public class BindableAggregationFunction
                 factory);
     }
 
-    private AccumulatorStateSerializer<?> getAccumulatorStateSerializer(BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry, AggregationImplementation implementation, Class<?> stateClass, Optional<Method> stateSerializerFactory, DynamicClassLoader classLoader)
+    // TODO Extract for scalar use case
+    private static MethodHandle bindDependencies(Method function, List<ImplementationDependency> dependencies, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
+            throws IllegalAccessException
+    {
+        MethodHandle handle = methodHandle(function);
+        for (ImplementationDependency dependency : dependencies) {
+            handle = handle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
+        }
+        return handle;
+    }
+
+    private AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry, Class<?> stateClass, DynamicClassLoader classLoader)
     {
         AccumulatorStateSerializer<?> stateSerializer;
+        Optional<Method> stateSerializerFactory = implementation.getStateSerializerFactory();
         if (stateSerializerFactory.isPresent()) {
             try {
-                MethodHandle stateSerializerFactoryHandle = methodHandle(stateSerializerFactory.get());
-                for (ImplementationDependency dependency : implementation.getStateSerializerFactoryDependencies()) {
-                    stateSerializerFactoryHandle = stateSerializerFactoryHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-                }
-                stateSerializer = (AccumulatorStateSerializer<?>) stateSerializerFactoryHandle.invoke();
+                MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.get(), implementation.getStateSerializerFactoryDependencies(), variables, typeManager, functionRegistry);
+                stateSerializer = (AccumulatorStateSerializer<?>) factoryHandle.invoke();
             }
             catch (Throwable e) {
                 throw Throwables.propagate(e);
