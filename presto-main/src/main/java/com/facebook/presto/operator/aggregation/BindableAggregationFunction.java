@@ -51,13 +51,14 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.fromSqlType;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class BindableAggregationFunction
@@ -105,10 +106,12 @@ public class BindableAggregationFunction
             throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
         }
 
-        Class<?> definitionClass = implementation.get().getDefinitionClass();
-        Class<?> stateClass = implementation.get().getStateClass();
-        Method inputFunction = implementation.get().getInputFunction();
-        Method outputFunction = implementation.get().getOutputFunction();
+        AggregationImplementation concreteImplementation = implementation.get();
+        Class<?> definitionClass = concreteImplementation.getDefinitionClass();
+        Class<?> stateClass = concreteImplementation.getStateClass();
+        Method inputFunction = concreteImplementation.getInputFunction();
+        Method outputFunction = concreteImplementation.getOutputFunction();
+        Optional<Method> stateSerializerFactory = concreteImplementation.getStateSerializerFactory();
 
         List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
@@ -119,25 +122,25 @@ public class BindableAggregationFunction
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         AggregationMetadata metadata;
-        AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateClass, classLoader);
+        AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(variables, typeManager, functionRegistry, concreteImplementation, stateClass, stateSerializerFactory, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
         Method combineFunction = AggregationFromAnnotationsParser.getCombineFunction(definitionClass, stateClass);
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         try {
-            MethodHandle inputHandle = lookup().unreflect(inputFunction);
-            for (ImplementationDependency dependency : implementation.get().getInputDependencies()) {
+            MethodHandle inputHandle = methodHandle(inputFunction);
+            for (ImplementationDependency dependency : concreteImplementation.getInputDependencies()) {
                 inputHandle = inputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
             }
 
-            MethodHandle combineHandle = lookup().unreflect(combineFunction);
-            for (ImplementationDependency dependency : implementation.get().getCombineDependencies()) {
+            MethodHandle combineHandle = methodHandle(combineFunction);
+            for (ImplementationDependency dependency : concreteImplementation.getCombineDependencies()) {
                 combineHandle = combineHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
             }
 
             // FIXME
-            MethodHandle outputHandle = outputFunction == null ? null : lookup().unreflect(outputFunction);
-            for (ImplementationDependency dependency : implementation.get().getOutputDependencies()) {
+            MethodHandle outputHandle = outputFunction == null ? null : methodHandle(outputFunction);
+            for (ImplementationDependency dependency : concreteImplementation.getOutputDependencies()) {
                 outputHandle = outputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
             }
 
@@ -164,6 +167,27 @@ public class BindableAggregationFunction
                 outputType,
                 details.isDecomposable(),
                 factory);
+    }
+
+    private AccumulatorStateSerializer<?> getAccumulatorStateSerializer(BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry, AggregationImplementation implementation, Class<?> stateClass, Optional<Method> stateSerializerFactory, DynamicClassLoader classLoader)
+    {
+        AccumulatorStateSerializer<?> stateSerializer;
+        if (stateSerializerFactory.isPresent()) {
+            try {
+                MethodHandle stateSerializerFactoryHandle = methodHandle(stateSerializerFactory.get());
+                for (ImplementationDependency dependency : implementation.getStateSerializerFactoryDependencies()) {
+                    stateSerializerFactoryHandle = stateSerializerFactoryHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
+                }
+                stateSerializer = (AccumulatorStateSerializer<?>) stateSerializerFactoryHandle.invoke();
+            }
+            catch (Throwable e) {
+                throw Throwables.propagate(e);
+            }
+        }
+        else {
+            stateSerializer = generateStateSerializer(stateClass, classLoader);
+        }
+        return stateSerializer;
     }
 
     public InternalAggregationFunction specialize(BoundVariables variables, int arity, TypeManager typeManager)

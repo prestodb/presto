@@ -18,6 +18,7 @@ import com.facebook.presto.operator.ParametricImplementations;
 import com.facebook.presto.operator.annotations.AnnotationHelpers;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -81,6 +82,7 @@ public class AggregationFromAnnotationsParser
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
+            Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
@@ -88,7 +90,7 @@ public class AggregationFromAnnotationsParser
                                 name,
                                 AggregationImplementation.getDescription(aggregationDefinition, outputFunction),
                                 aggregationAnnotation.decomposable());
-                        AggregationImplementation onlyImplementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction);
+                        AggregationImplementation onlyImplementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction, aggregationStateSerializerFactory);
                         builder.add(
                                 new BindableAggregationFunction(
                                         onlyImplementation.getSignature(),
@@ -114,9 +116,10 @@ public class AggregationFromAnnotationsParser
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
+            Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    AggregationImplementation implementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction);
+                    AggregationImplementation implementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction, aggregationStateSerializerFactory);
                     if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
                             && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
                             && !implementation.getSignature().getReturnType().isCalculated()) {
@@ -147,6 +150,26 @@ public class AggregationFromAnnotationsParser
                                 exactImplementations.build(),
                                 specializedImplementations.build(),
                                 genericImplementations.build()));
+    }
+
+    private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)
+    {
+        // Only include methods that match this state class
+        List<Method> stateSerializerFactories = AnnotationHelpers.findPublicStaticMethodsWithAnnotation(aggregationDefinition, AggregationStateSerializerFactory.class).stream()
+                .filter(method -> ((AggregationStateSerializerFactory) method.getAnnotation(AggregationStateSerializerFactory.class)).value().equals(stateClass))
+                .collect(toImmutableList());
+
+        if (stateSerializerFactories.isEmpty()) {
+            return Optional.empty();
+        }
+
+        checkArgument(stateSerializerFactories.size() == 1,
+                String.format(
+                        "Expect at most 1 @AggregationStateSerializerFactory(%s.class) annotation, found %s in %s",
+                        stateClass.toGenericString(),
+                        stateSerializerFactories.size(),
+                        aggregationDefinition.toGenericString()));
+        return Optional.of(getOnlyElement(stateSerializerFactories));
     }
 
     private static AggregationHeader parseHeader(Class<?> aggregationDefinition)

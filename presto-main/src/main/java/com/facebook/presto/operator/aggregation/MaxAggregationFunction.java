@@ -14,14 +14,17 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.operator.aggregation.state.BlockState;
+import com.facebook.presto.operator.aggregation.state.BlockStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.operator.aggregation.state.SliceState;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
+import com.facebook.presto.spi.function.AggregationStateSerializerFactory;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.InputFunction;
@@ -189,5 +192,12 @@ public class MaxAggregationFunction
             BlockBuilder out)
     {
         BlockState.write(type, state, out);
+    }
+
+    @AggregationStateSerializerFactory(BlockState.class)
+    @TypeParameter("T")
+    public static AccumulatorStateSerializer<?> getStateSerializer(@TypeParameter("T") Type type)
+    {
+        return new BlockStateSerializer(type);
     }
 }
