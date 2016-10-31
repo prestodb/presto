@@ -32,7 +32,7 @@ public class TestLocalQueries
         super(createLocalQueryRunner());
     }
 
-    private static LocalQueryRunner createLocalQueryRunner()
+    public static LocalQueryRunner createLocalQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
