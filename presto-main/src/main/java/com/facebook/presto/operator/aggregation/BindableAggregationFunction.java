@@ -54,12 +54,13 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.generate
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class BindableAggregationFunction
     extends SqlAggregationFunction
@@ -113,51 +114,48 @@ public class BindableAggregationFunction
         Method outputFunction = concreteImplementation.getOutputFunction();
         Optional<Method> stateSerializerFactory = concreteImplementation.getStateSerializerFactory();
 
+        checkCondition(
+                definitionClass.getAnnotation(AggregationFunction.class) != null,
+                FUNCTION_IMPLEMENTATION_ERROR,
+                format("Class that defines aggregation function must be annotated with @AggregationFunction"));
+
         List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(x -> typeManager.getType(x)).collect(toImmutableList());
         Type outputType = typeManager.getType(boundSignature.getReturnType());
-
-        AggregationFunction aggregationAnnotation = definitionClass.getAnnotation(AggregationFunction.class);
-        requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
 
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         AggregationMetadata metadata;
         AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(variables, typeManager, functionRegistry, concreteImplementation, stateClass, stateSerializerFactory, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
-        Method combineFunction = AggregationFromAnnotationsParser.getCombineFunction(definitionClass, stateClass);
+        Method combineFunction = concreteImplementation.getCombineFunction();
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
-        try {
-            MethodHandle inputHandle = methodHandle(inputFunction);
-            for (ImplementationDependency dependency : concreteImplementation.getInputDependencies()) {
-                inputHandle = inputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-            }
-
-            MethodHandle combineHandle = methodHandle(combineFunction);
-            for (ImplementationDependency dependency : concreteImplementation.getCombineDependencies()) {
-                combineHandle = combineHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-            }
-
-            // FIXME
-            MethodHandle outputHandle = outputFunction == null ? null : methodHandle(outputFunction);
-            for (ImplementationDependency dependency : concreteImplementation.getOutputDependencies()) {
-                outputHandle = outputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
-            }
-
-            metadata = new AggregationMetadata(
-                    generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
-                    getParameterMetadata(inputFunction, inputTypes),
-                    inputHandle,
-                    combineHandle,
-                    outputHandle,
-                    stateClass,
-                    stateSerializer,
-                    stateFactory,
-                    outputType);
+        MethodHandle inputHandle = methodHandle(inputFunction);
+        for (ImplementationDependency dependency : concreteImplementation.getInputDependencies()) {
+            inputHandle = inputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
         }
-        catch (IllegalAccessException e) {
-            throw Throwables.propagate(e);
+
+        MethodHandle combineHandle = methodHandle(combineFunction);
+        for (ImplementationDependency dependency : concreteImplementation.getCombineDependencies()) {
+            combineHandle = combineHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
         }
+
+        // FIXME
+        MethodHandle outputHandle = outputFunction == null ? null : methodHandle(outputFunction);
+        for (ImplementationDependency dependency : concreteImplementation.getOutputDependencies()) {
+            outputHandle = outputHandle.bindTo(dependency.resolve(variables, typeManager, functionRegistry));
+        }
+
+        metadata = new AggregationMetadata(
+                generateAggregationName(getSignature().getName(), outputType.getTypeSignature(), signaturesFromTypes(inputTypes)),
+                getParameterMetadata(inputFunction, inputTypes),
+                inputHandle,
+                combineHandle,
+                outputHandle,
+                stateClass,
+                stateSerializer,
+                stateFactory,
+                outputType);
 
         AccumulatorFactoryBinder factory = new LazyAccumulatorFactoryBinder(metadata, classLoader);
 

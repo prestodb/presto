@@ -90,7 +90,7 @@ public class AggregationFromAnnotationsParser
                                 name,
                                 AggregationImplementation.getDescription(aggregationDefinition, outputFunction),
                                 aggregationAnnotation.decomposable());
-                        AggregationImplementation onlyImplementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction, aggregationStateSerializerFactory);
+                        AggregationImplementation onlyImplementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         builder.add(
                                 new BindableAggregationFunction(
                                         onlyImplementation.getSignature(),
@@ -119,7 +119,7 @@ public class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    AggregationImplementation implementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, combineFunction, outputFunction, aggregationStateSerializerFactory);
+                    AggregationImplementation implementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                     if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
                             && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
                             && !implementation.getSignature().getReturnType().isCalculated()) {
