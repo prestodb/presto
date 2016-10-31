@@ -865,6 +865,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExtractDistinctAggregationOptimizer()
+            throws Exception
+    {
+        assertQuery("SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT custkey, orderstatus, avg(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+
+        assertQuery("SELECT s, MAX(custkey), SUM(a) FROM (" +
+                    "    SELECT custkey, avg(shippriority) as a, SUM(DISTINCT orderkey) as s FROM orders GROUP BY custkey, orderstatus" +
+                    ") " +
+                    "GROUP BY s");
+
+        assertQuery("SELECT max(orderstatus), COUNT(distinct orderkey), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT max(orderstatus), COUNT(distinct shippriority), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT COUNT(tan(shippriority)), sum(DISTINCT orderkey) FROM orders");
+    }
+
+    @Test
     public void testDistinctHaving()
             throws Exception
     {

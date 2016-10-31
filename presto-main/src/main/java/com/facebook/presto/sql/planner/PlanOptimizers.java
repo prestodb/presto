@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
 import com.facebook.presto.sql.planner.optimizations.DesugaringOptimizer;
 import com.facebook.presto.sql.planner.optimizations.EmptyDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.EvaluateConstantApply;
+import com.facebook.presto.sql.planner.optimizations.ExtractDistinctAggregationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
@@ -103,6 +104,8 @@ public class PlanOptimizers
             builder.add(new SingleDistinctOptimizer());
             builder.add(new PruneUnreferencedOutputs());
         }
+
+        builder.add(new ExtractDistinctAggregationOptimizer(metadata));
 
         if (!forceSingleNode) {
             builder.add(new PushTableWriteThroughUnion()); // Must run before AddExchanges
