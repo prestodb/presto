@@ -58,7 +58,7 @@ public class TaskManagerConfig
     private Duration infoUpdateInterval = new Duration(200, TimeUnit.MILLISECONDS);
 
     private int writerCount = 1;
-    private int taskConcurrency = 1;
+    private int taskConcurrency = 16;
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 

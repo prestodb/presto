@@ -49,7 +49,7 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(new DataSize(32, Unit.MEGABYTE))
                 .setNewSinkBufferImplementation(false)
                 .setWriterCount(1)
-                .setTaskConcurrency(1)
+                .setTaskConcurrency(16)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5));
