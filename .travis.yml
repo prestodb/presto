@@ -31,6 +31,8 @@ before_install:
   # This is needed until Travis #4629 is fixed (https://github.com/travis-ci/travis-ci/issues/4629)
   - sed -i.bak -e 's|https://nexus.codehaus.org/snapshots/|https://oss.sonatype.org/content/repositories/codehaus-snapshots/|g' ~/.m2/settings.xml
 
+install: true
+
 script:
   - |
     test -v INTEGRATION_TESTS ||
