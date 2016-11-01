@@ -1359,7 +1359,7 @@ class StatementAnalyzer
             List<Expression> orderByExpressions,
             Set<Expression> columnReferences)
     {
-        List<FunctionCall> aggregates = extractAggregates(node);
+        extractAggregates(node);
 
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {
