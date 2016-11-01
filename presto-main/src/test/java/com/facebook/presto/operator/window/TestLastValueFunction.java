@@ -42,10 +42,10 @@ public class TestLastValueFunction
                         .build());
         assertUnboundedWindowQueryWithNulls("last_value(orderdate) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
-                        .row(3L, "F", "1992-02-21")
-                        .row(5L, "F", "1992-02-21")
-                        .row(null, "F", "1992-02-21")
-                        .row(null, "F", "1992-02-21")
+                        .row(3L, "F", "1993-10-27")
+                        .row(5L, "F", "1993-10-27")
+                        .row(6L, "F", "1993-10-27")
+                        .row(null, "F", "1993-10-27")
                         .row(34L, "O", "1996-12-01")
                         .row(null, "O", "1996-12-01")
                         .row(1L, null, "1995-07-16")
@@ -71,7 +71,7 @@ public class TestLastValueFunction
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", null)
                         .row(5L, "F", null)
-                        .row(null, "F", null)
+                        .row(6L, "F", null)
                         .row(null, "F", null)
                         .row(34L, "O", null)
                         .row(null, "O", null)
@@ -116,9 +116,9 @@ public class TestLastValueFunction
         assertWindowQueryWithNulls("last_value(orderkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
                         "ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
-                        .row(3L, "F", null)
+                        .row(3L, "F", 6L)
                         .row(5L, "F", null)
-                        .row(null, "F", null)
+                        .row(6L, "F", null)
                         .row(null, "F", null)
                         .row(34L, "O", null)
                         .row(null, "O", null)
