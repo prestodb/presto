@@ -44,19 +44,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            try {
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invoke(readNativeValue(type, block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -67,19 +64,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            try {
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getLong(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -90,19 +84,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            try {
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getBoolean(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -113,19 +104,16 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            try {
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getSlice(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
     }
 
     @TypeParameter("T")
@@ -136,18 +124,23 @@ public final class ArrayHashCodeOperator
             @TypeParameter("T") Type type,
             @SqlType("array(T)") Block block)
     {
-        long hash = 0;
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            try {
+        try {
+            long hash = 0;
+            for (int i = 0; i < block.getPositionCount(); i++) {
                 hash = CombineHashFunction.getHash(hash, block.isNull(i) ? NULL_HASH_CODE : (long) hashFunction.invokeExact(type.getDouble(block, i)));
             }
-            catch (Throwable t) {
-                Throwables.propagateIfInstanceOf(t, Error.class);
-                Throwables.propagateIfInstanceOf(t, PrestoException.class);
-
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
-            }
+            return hash;
         }
-        return hash;
+        catch (Throwable t) {
+            throw internalError(t);
+        }
+    }
+
+    private static PrestoException internalError(Throwable t)
+    {
+        Throwables.propagateIfInstanceOf(t, Error.class);
+        Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+        return new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
     }
 }
