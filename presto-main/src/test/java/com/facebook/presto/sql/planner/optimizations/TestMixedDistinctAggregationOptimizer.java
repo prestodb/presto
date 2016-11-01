@@ -39,11 +39,11 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
-public class TestExtractDistinctAggregationOptimizer
+public class TestMixedDistinctAggregationOptimizer
 {
     private final LocalQueryRunner queryRunner;
 
-    public TestExtractDistinctAggregationOptimizer()
+    public TestMixedDistinctAggregationOptimizer()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")
@@ -58,7 +58,7 @@ public class TestExtractDistinctAggregationOptimizer
     }
 
     @Test
-    public void testExtractDistinctAggregationOptimizer()
+    public void testMixedDistinctAggregationOptimizer()
     {
         @Language("SQL") String sql = "SELECT custkey, max(totalprice) AS s, count(DISTINCT orderdate) AS d FROM orders GROUP BY custkey";
 
