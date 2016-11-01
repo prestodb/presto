@@ -69,6 +69,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -298,6 +299,12 @@ class AggregationAnalyzer
                             windowExtractor.getWindowFunctions());
                 }
 
+                if (node.getFilter().isPresent() && node.isDistinct()) {
+                    throw new SemanticException(NOT_SUPPORTED,
+                            node,
+                            "Filtered aggregations not supported with DISTINCT: '%s'",
+                            node);
+                }
                 return true;
             }
 
