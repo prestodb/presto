@@ -34,7 +34,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.presto.accumulo.io.SortedEntryIterator.FILL_SIZE;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -47,6 +46,8 @@ import static org.testng.AssertJUnit.assertTrue;
 
 public class TestSortedEntryIterator
 {
+    private static final int FILL_SIZE = 100;
+
     @Test
     public void testEmpty()
             throws Exception
@@ -118,7 +119,7 @@ public class TestSortedEntryIterator
     private void assertScan(List<Entry<Key, Value>> entries)
             throws Exception
     {
-        SortedEntryIterator iterator = new SortedEntryIterator(entries.iterator());
+        SortedEntryIterator iterator = new SortedEntryIterator(FILL_SIZE, entries.iterator());
 
         if (entries.isEmpty()) {
             assertFalse(iterator.hasNext());

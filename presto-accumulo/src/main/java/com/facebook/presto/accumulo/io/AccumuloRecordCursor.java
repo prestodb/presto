@@ -33,7 +33,6 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.io.Text;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -67,7 +66,7 @@ public class AccumuloRecordCursor
     private final List<AccumuloColumnHandle> columnHandles;
     private final String[] fieldToColumnName;
     private final BatchScanner scanner;
-    private final Iterator<Entry<Key, Value>> iterator;
+    private final SortedEntryIterator iterator;
     private final AccumuloRowSerializer serializer;
     private final Text prevRowID = new Text();
     private final Text rowID = new Text();
@@ -82,7 +81,8 @@ public class AccumuloRecordCursor
             BatchScanner scanner,
             String rowIdName,
             List<AccumuloColumnHandle> columnHandles,
-            List<AccumuloColumnConstraint> constraints)
+            List<AccumuloColumnConstraint> constraints,
+            int bufferSize)
     {
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.scanner = requireNonNull(scanner, "scanner is null");
@@ -131,7 +131,7 @@ public class AccumuloRecordCursor
             }
         }
 
-        iterator = new SortedEntryIterator(this.scanner.iterator());
+        iterator = new SortedEntryIterator(bufferSize, this.scanner.iterator());
     }
 
     @Override
@@ -322,6 +322,10 @@ public class AccumuloRecordCursor
     @Override
     public void close()
     {
+        // Interrupt iterator thread to avoid a logging 'error' on race condition
+        // between reading the last entry, closing the scanner, and then hasNext()
+        // on the scanner's iterator
+        iterator.close();
         scanner.close();
         nanoEnd = System.nanoTime();
     }

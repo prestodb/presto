@@ -13,32 +13,34 @@
  */
 package com.facebook.presto.accumulo.io;
 
-import com.facebook.presto.spi.PrestoException;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 
+import java.io.Closeable;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.accumulo.AccumuloErrorCode.IO_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class SortedEntryIterator
-        implements Iterator<Entry<Key, Value>>
+        implements Iterator<Entry<Key, Value>>, Closeable
 {
-    public static final int FILL_SIZE = 10_000;
-    private final BlockingQueue<Entry<Key, Value>> orderedEntries = new BoundedPriorityBlockingQueue<>(FILL_SIZE, new KeyValueEntryComparator(), FILL_SIZE * 2);
+    private final BlockingQueue<Entry<Key, Value>> orderedEntries;
     private final AtomicBoolean finishedScan = new AtomicBoolean(false);
+    private final int bufferSize;
+    private final Thread scanThread;
 
-    public SortedEntryIterator(Iterator<Entry<Key, Value>> parent)
+    public SortedEntryIterator(int bufferSize, Iterator<Entry<Key, Value>> parent)
     {
         requireNonNull(parent, "parent iterator is null");
+        this.bufferSize = bufferSize;
+        orderedEntries = new BoundedPriorityBlockingQueue<>(bufferSize, new KeyValueEntryComparator(), (int) (bufferSize * 1.25));
 
         // Begin reading from the parent iterator, adding entries to the queue
-        new Thread(() ->
+        scanThread = new Thread(() ->
         {
             while (parent.hasNext()) {
                 try {
@@ -46,12 +48,14 @@ public class SortedEntryIterator
                 }
                 catch (InterruptedException e) {
                     Thread.interrupted();
-                    throw new PrestoException(IO_ERROR, "Received InterruptedException when adding an entry");
+                    break;
                 }
             }
 
             finishedScan.set(true);
-        }).start();
+        });
+
+        scanThread.start();
     }
 
     @Override
@@ -59,7 +63,7 @@ public class SortedEntryIterator
     {
         // Wait for the scan to finish or there are at least FILL_SIZE entries
         // This will guarantee ordering of the last FILL_SIZE entries that were put in the queue
-        while (!finishedScan.get() && orderedEntries.size() < FILL_SIZE) {
+        while (!finishedScan.get() && orderedEntries.size() < bufferSize) {
             try {
                 Thread.sleep(1);
             }
@@ -75,6 +79,12 @@ public class SortedEntryIterator
     public Entry<Key, Value> next()
     {
         return orderedEntries.poll();
+    }
+
+    @Override
+    public void close()
+    {
+        scanThread.interrupt();
     }
 
     private static class KeyValueEntryComparator
