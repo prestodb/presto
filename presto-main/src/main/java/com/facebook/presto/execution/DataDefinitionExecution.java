@@ -84,11 +84,6 @@ public class DataDefinitionExecution<T extends Statement>
         metadata.beginQuery(getSession(), ImmutableSet.of(connectorId.get()));
     }
 
-    private void notifyEndQuery()
-    {
-        metadata.endQuery(stateMachine.getSession());
-    }
-
     @Override
     public VersionedMemoryPoolId getMemoryPool()
     {
@@ -136,22 +131,11 @@ public class DataDefinitionExecution<T extends Statement>
 
             CompletableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
             future.whenComplete((o, throwable) -> {
-                Throwable failure = throwable;
-                if (statement instanceof CatalogRelatedStatement) {
-                    try {
-                        notifyEndQuery();
-                    }
-                    catch (Throwable t) {
-                        if (failure == null) {
-                            failure = t;
-                        }
-                    }
-                }
-                if (failure == null) {
+                if (throwable == null) {
                     stateMachine.transitionToFinishing();
                 }
                 else {
-                    fail(failure);
+                    fail(throwable);
                 }
             });
         }
@@ -282,7 +266,7 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

@@ -109,7 +109,8 @@ public class TestResetSessionTask
                 false,
                 transactionManager,
                 accessControl,
-                executor);
+                executor,
+                metadata);
 
         new ResetSessionTask().execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
