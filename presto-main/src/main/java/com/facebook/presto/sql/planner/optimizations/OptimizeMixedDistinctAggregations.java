@@ -125,6 +125,11 @@ public class OptimizeMixedDistinctAggregations
 
             PlanNode source = context.rewrite(node.getSource(), Optional.of(aggregateInfo));
 
+            // make sure there's a markdistinct associated with this aggregation
+            if (!aggregateInfo.isFoundMarkDistinct()) {
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
             // Change aggregate node to do second aggregation, handles this part of optimized plan mentioned above:
             //          SELECT a1, a2,..., an, arbitrary(if(group = 0, f1)),...., arbitrary(if(group = 0, fm)), F(if(group = 1, c))
             ImmutableMap.Builder<Symbol, FunctionCall> aggregations = ImmutableMap.builder();
@@ -174,6 +179,8 @@ public class OptimizeMixedDistinctAggregations
             if (!aggregateInfo.isPresent() || !aggregateInfo.get().getMask().equals(node.getMarkerSymbol())) {
                 return context.defaultRewrite(node, Optional.empty());
             }
+
+            aggregateInfo.get().foundMarkDistinct();
 
             PlanNode source = context.rewrite(node.getSource(), Optional.empty());
 
@@ -440,6 +447,7 @@ public class OptimizeMixedDistinctAggregations
         // Filled on the way back, these are the symbols corresponding to their distinct or non-distinct original symbols
         private Map<Symbol, Symbol> newNonDistinctAggregateSymbols;
         private Symbol newDistinctAggregateSymbol;
+        private boolean foundMarkDistinct;
 
         public AggregateInfo(List<Symbol> groupBySymbols, Symbol mask, Map<Symbol, FunctionCall> aggregations, Map<Symbol, Signature> functions)
         {
@@ -509,6 +517,16 @@ public class OptimizeMixedDistinctAggregations
         public Map<Symbol, Signature> getFunctions()
         {
             return functions;
+        }
+
+        public void foundMarkDistinct()
+        {
+            foundMarkDistinct = true;
+        }
+
+        public boolean isFoundMarkDistinct()
+        {
+            return foundMarkDistinct;
         }
     }
 }
