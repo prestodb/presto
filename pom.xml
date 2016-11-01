@@ -823,6 +823,32 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>2.19.1</version>
+                    <configuration combine.self="override">
+                        <systemPropertyVariables>
+                            <sun.jnu.encoding>${project.build.sourceEncoding}</sun.jnu.encoding>
+                            <user.timezone>${air.test.timezone}</user.timezone>
+                            <java.awt.headless>true</java.awt.headless>
+                            <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$td %1$tH:%1$tM:%1$tS %4$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
+                        </systemPropertyVariables>
+                        <forkMode>${air.test.fork-mode}</forkMode>
+                        <runOrder>random</runOrder>
+                        <parallel>${air.test.parallel}</parallel>
+                        <threadCount>${air.test.thread-count}</threadCount>
+                        <argLine>
+                            ${argLine}
+                            -Dfile.encoding=${project.build.sourceEncoding}
+                            -Xmx${air.test.jvmsize}
+                            -Xms${air.test.jvmsize}
+                            -XX:OnOutOfMemoryError="kill -9 %p"
+                            -XX:+HeapDumpOnOutOfMemoryError
+                        </argLine>
+                    </configuration>
+                </plugin>
+
+                <plugin>
                     <groupId>org.antlr</groupId>
                     <artifactId>antlr4-maven-plugin</artifactId>
                     <version>${dep.antlr.version}</version>
