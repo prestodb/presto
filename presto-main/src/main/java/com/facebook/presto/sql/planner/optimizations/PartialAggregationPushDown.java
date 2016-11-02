@@ -190,11 +190,23 @@ public class PartialAggregationPushDown
         private Map<Symbol, Symbol> buildExchangeMap(List<Symbol> exchangeOutput, List<Symbol> sourceOutput)
         {
             checkState(exchangeOutput.size() == sourceOutput.size(), "exchange output length doesn't match source output length");
-            ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
+            Map<Symbol, Symbol> assignments = new HashMap<>();
             for (int i = 0; i < exchangeOutput.size(); i++) {
-                builder.put(exchangeOutput.get(i), sourceOutput.get(i));
+                Symbol output = exchangeOutput.get(i);
+                Symbol input = sourceOutput.get(i);
+                if (!assignments.containsKey(output)) {
+                    assignments.put(output, input);
+                }
+                else {
+                    checkState(assignments.get(output).equals(input),
+                            "Different input symbols (%s vs %s) for same output symbol (%s)",
+                            input,
+                            assignments.get(output),
+                            output);
+                }
             }
-            return builder.build();
+
+            return ImmutableMap.copyOf(assignments);
         }
 
         private List<Expression> replaceArguments(List<Expression> arguments, Map<Symbol, Symbol> exchangeMap)
