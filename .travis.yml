@@ -50,7 +50,7 @@ script:
       presto-hive-hadoop2/bin/run_on_docker.sh
   - |
     test ! -v INTEGRATION_TESTS ||
-      ./mvnw install -DskipTests -B
+      ./mvnw install -DskipTests -B -T C1
   - |
     # Build presto-server-rpm for later artifact upload
     test ! -v DEPLOY_S3_ACCESS_KEY || test ! -v PRODUCT_TESTS ||
