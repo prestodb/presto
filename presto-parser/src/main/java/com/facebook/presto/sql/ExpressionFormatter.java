@@ -57,6 +57,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -603,6 +604,20 @@ public final class ExpressionFormatter
                     return "UNBOUNDED FOLLOWING";
             }
             throw new IllegalArgumentException("unhandled type: " + node.getType());
+        }
+
+        @Override
+        protected String visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Boolean unmangleNames)
+        {
+            return new StringBuilder()
+                    .append(process(node.getValue(), unmangleNames))
+                    .append(' ')
+                    .append(node.getComparisonType().getValue())
+                    .append(' ')
+                    .append(node.getQuantifier().toString())
+                    .append(' ')
+                    .append(process(node.getSubquery(), unmangleNames))
+                    .toString();
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right, boolean unmangleNames)

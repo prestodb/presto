@@ -76,6 +76,7 @@ import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -93,10 +94,12 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -114,6 +117,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.nameReference;
 import static com.facebook.presto.sql.QueryUtil.query;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -1648,6 +1652,32 @@ public class TestSqlParser
                                 Optional.empty()),
                         ImmutableList.of(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testQuantifiedComparison()
+    {
+        assertExpression("col1 < ANY (SELECT col2 FROM table1)",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.LESS_THAN,
+                        QuantifiedComparisonExpression.Quantifier.ANY,
+                        nameReference("col1"),
+                        new SubqueryExpression(simpleQuery(selectList(new SingleColumn(nameReference("col2"))), table(QualifiedName.of("table1"))))
+                ));
+        assertExpression("col1 = ALL (VALUES ROW(1), ROW(2))",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.EQUAL,
+                        QuantifiedComparisonExpression.Quantifier.ALL,
+                        nameReference("col1"),
+                        new SubqueryExpression(query(values(row(new LongLiteral("1")), row(new LongLiteral("2")))))
+                ));
+        assertExpression("col1 >= SOME (SELECT 10)",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.GREATER_THAN_OR_EQUAL,
+                        QuantifiedComparisonExpression.Quantifier.SOME,
+                        nameReference("col1"),
+                        new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))
+                ));
     }
 
     private static void assertCast(String type)
