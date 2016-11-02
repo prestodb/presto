@@ -11,7 +11,7 @@ env:
     - TEST_MODULES=presto-accumulo
     - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
     - PRODUCT_TESTS=true
-    - INTEGRATION_TESTS=true
+    - HIVE_TESTS=true
 
 sudo: required
 dist: trusty
@@ -50,7 +50,7 @@ script:
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
   - |
-    test ! -v INTEGRATION_TESTS ||
+    test ! -v HIVE_TESTS ||
       presto-hive-hadoop2/bin/run_on_docker.sh
   - |
     # Build presto-server-rpm for later artifact upload
