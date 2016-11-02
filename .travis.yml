@@ -39,7 +39,7 @@ script:
       ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl '!presto-docs,!presto-server-rpm'
   - |
     test ! -v INTEGRATION_TESTS ||
-      ./mvnw install -DskipTests -B -T C1
+      ./mvnw install -DskipTests -B
   - |
     test ! -v TEST_MODULES ||
       ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES
