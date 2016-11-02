@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.Analysis;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -32,7 +32,6 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -40,6 +39,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -63,10 +63,10 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
@@ -304,6 +304,8 @@ class SubqueryPlanner
         switch (quantifiedComparison.getComparisonType()) {
             case EQUAL:
                 switch (quantifiedComparison.getQuantifier()) {
+                    case ALL:
+                        return planQuantifiedEqualsAll(subPlan, quantifiedComparison, correlationAllowed);
                     case ANY:
                     case SOME:
                         // A = ANY B <=> A IN B
@@ -318,7 +320,7 @@ class SubqueryPlanner
                     case ALL:
                         // A <> ALL B <=> !(A IN B) <=> !(A = ANY B)
                         QuantifiedComparisonExpression rewrittenAny = new QuantifiedComparisonExpression(
-                                ComparisonExpressionType.EQUAL,
+                                EQUAL,
                                 Quantifier.ANY,
                                 quantifiedComparison.getValue(),
                                 quantifiedComparison.getSubquery());
@@ -327,6 +329,19 @@ class SubqueryPlanner
                         subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, notAny);
                         // now plan "A = ANY B" part by calling ourselves for rewrittenAny
                         return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed);
+                    case ANY:
+                    case SOME:
+                        // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
+                        QuantifiedComparisonExpression rewrittenAll = new QuantifiedComparisonExpression(
+                                EQUAL,
+                                QuantifiedComparisonExpression.Quantifier.ALL,
+                                quantifiedComparison.getValue(),
+                                quantifiedComparison.getSubquery());
+                        Expression notAll = new NotExpression(rewrittenAll);
+                        // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
+                        subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, notAll);
+                        // now plan "A = ALL B" part by calling ourselves for rewrittenAll
+                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAll, correlationAllowed);
                 }
                 break;
 
@@ -336,8 +351,51 @@ class SubqueryPlanner
             case GREATER_THAN_OR_EQUAL:
                 return planQuantifiedOrderable(subPlan, quantifiedComparison, correlationAllowed);
         }
-        throw new SemanticException(NOT_SUPPORTED, quantifiedComparison,
-                format("Quantified comparison '%s %s' is not yet supported", quantifiedComparison.getComparisonType().getValue(), quantifiedComparison.getQuantifier()));
+        // all cases are checked, so this exception should never be thrown
+        throw new IllegalArgumentException(
+                format("Unexpected quantified comparison: '%s %s'", quantifiedComparison.getComparisonType().getValue(), quantifiedComparison.getQuantifier()));
+    }
+
+    private PlanBuilder planQuantifiedEqualsAll(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
+    {
+        checkArgument(quantifiedComparison.getComparisonType() == EQUAL && quantifiedComparison.getQuantifier() == Quantifier.ALL);
+        // A = ALL B <=> min B = max B && A = min B
+        RelationPlan subqueryRelationPlan = createRelationPlan(quantifiedComparison.getSubquery());
+        PlanNode subqueryPlan = subqueryRelationPlan.getRoot();
+        List<Expression> outputColumnReference = ImmutableList.of(getOnlyElement(subqueryRelationPlan.getOutputSymbols()).toSymbolReference());
+        Type outputColumnType = getOnlyElement(subqueryRelationPlan.getDescriptor().getAllFields()).getType();
+        if (!outputColumnType.isOrderable()) {
+            throwNotSupportedException(quantifiedComparison, "Quantified comparison '= ALL' or '<> ANY' for unorderable type " + outputColumnType.getDisplayName());
+        }
+        List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        QualifiedName min = QualifiedName.of("min");
+        QualifiedName max = QualifiedName.of("max");
+        Symbol minValue = symbolAllocator.newSymbol(min.toString(), outputColumnType);
+        Symbol maxValue = symbolAllocator.newSymbol(max.toString(), outputColumnType);
+        subqueryPlan = new AggregationNode(
+                idAllocator.getNextId(),
+                subqueryPlan,
+                ImmutableMap.of(
+                        minValue, new FunctionCall(min, outputColumnReference),
+                        maxValue, new FunctionCall(max, outputColumnReference)
+                ),
+                ImmutableMap.of(
+                        minValue, functionRegistry.resolveFunction(min, outputColumnTypeSignature),
+                        maxValue, functionRegistry.resolveFunction(max, outputColumnTypeSignature)
+                ),
+                ImmutableMap.of(),
+                ImmutableList.of(ImmutableList.of()),
+                AggregationNode.Step.SINGLE,
+                Optional.empty(),
+                Optional.empty());
+        subqueryPlan = new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan);
+        LogicalBinaryExpression valueComparedToSubquery = new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
+                new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
+                new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), minValue.toSymbolReference())
+        );
+        subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, valueComparedToSubquery);
+        return appendSubqueryApplyNode(subPlan, quantifiedComparison.getSubquery(), quantifiedComparison.getSubquery(), subqueryPlan, correlationAllowed);
     }
 
     private PlanBuilder planQuantifiedOrderable(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
@@ -396,7 +454,7 @@ class SubqueryPlanner
                 }
                 break;
         }
-        throw new IllegalStateException("Unexpected quantifier: " + quantifiedComparison.getQuantifier());
+        throw new IllegalArgumentException("Unexpected quantifier: " + quantifiedComparison.getQuantifier());
     }
 
     private boolean isAggregationWithEmptyGroupBy(PlanNode subqueryPlan)
@@ -420,7 +478,9 @@ class SubqueryPlanner
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
         TranslationMap translations = subPlan.copyTranslations();
-        translations.put(subqueryExpression, getOnlyElement(subqueryNode.getOutputSymbols()));
+        if (subqueryNode.getOutputSymbols().size() == 1) {
+            translations.put(subqueryExpression, subqueryNode.getOutputSymbols().get(0));
+        }
 
         PlanNode root = subPlan.getRoot();
         if (root.getOutputSymbols().isEmpty()) {

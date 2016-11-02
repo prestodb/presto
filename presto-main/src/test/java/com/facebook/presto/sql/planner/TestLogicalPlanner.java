@@ -304,6 +304,59 @@ public class TestLogicalPlanner
                 "X >= MIN", "X", "min", "MIN");
     }
 
+    @Test
+    public void testQuantifiedComparisonEqualAll()
+    {
+        String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ALL (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
+
+        assertPlan(query, LogicalPlanner.Stage.CREATED,
+                anyTree(
+                        project(
+                                filter("MIN = MAX AND X = MIN",
+                                        apply(ImmutableList.of(),
+                                                project(
+                                                        tableScan("orders").withSymbol("orderkey", "X")),
+                                                node(EnforceSingleRowNode.class,
+                                                        node(AggregationNode.class,
+                                                                anyTree(
+                                                                        node(ValuesNode.class)))).withSymbol("min", "MIN").withSymbol("max", "MAX")
+                                        )))));
+        assertPlan(query, anyTree(
+                node(JoinNode.class,
+                        anyTree(
+                                tableScan("orders")),
+                        anyTree(
+                                node(AggregationNode.class,
+                                        node(ValuesNode.class)))))
+        );
+    }
+
+    @Test
+    public void testQuantifiedComparisonNotEqualAny()
+    {
+        String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> SOME (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
+
+        assertPlan(query, LogicalPlanner.Stage.CREATED,
+                anyTree(
+                        project(
+                                filter("NOT (MIN = MAX AND X = MIN)",
+                                        apply(ImmutableList.of(),
+                                                project(
+                                                        tableScan("orders").withSymbol("orderkey", "X")),
+                                                node(EnforceSingleRowNode.class,
+                                                        node(AggregationNode.class,
+                                                                anyTree(
+                                                                        node(ValuesNode.class)))).withSymbol("min", "MIN").withSymbol("max", "MAX")
+                                        )))));
+        assertPlan(query, anyTree(
+                node(JoinNode.class,
+                        tableScan("orders"),
+                        anyTree(
+                                node(AggregationNode.class,
+                                        node(ValuesNode.class)))))
+        );
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
