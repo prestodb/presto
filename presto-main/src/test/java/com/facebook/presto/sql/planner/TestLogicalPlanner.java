@@ -238,6 +238,44 @@ public class TestLogicalPlanner
                                                                 ))))))));
     }
 
+    @Test
+    public void testQuantifiedComparisonEqualsAny()
+    {
+        String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ANY (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
+        assertPlan(query, LogicalPlanner.Stage.CREATED, anyTree(
+                filter("X IN (Y)",
+                        apply(ImmutableList.of(),
+                                anyTree(tableScan("orders").withSymbol("orderkey", "X")),
+                                anyTree(node(ValuesNode.class).withSymbol("field", "Y")))))
+        );
+        assertPlan(query, anyTree(
+                filter("S",
+                        project(
+                                semiJoin("X", "Y", "S",
+                                        anyTree(tableScan("orders").withSymbol("orderkey", "X")),
+                                        anyTree(node(ValuesNode.class).withSymbol("field", "Y"))))))
+        );
+    }
+
+    @Test
+    public void testQuantifiedComparisonNotEqualsAll()
+    {
+        String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> ALL (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
+        assertPlan(query, LogicalPlanner.Stage.CREATED, anyTree(
+                filter("NOT (X IN (Y))",
+                        apply(ImmutableList.of(),
+                                anyTree(tableScan("orders").withSymbol("orderkey", "X")),
+                                anyTree(node(ValuesNode.class).withSymbol("field", "Y")))))
+        );
+        assertPlan(query, anyTree(
+                filter("NOT S",
+                        project(
+                                semiJoin("X", "Y", "S",
+                                        anyTree(tableScan("orders").withSymbol("orderkey", "X")),
+                                        anyTree(node(ValuesNode.class).withSymbol("field", "Y"))))))
+        );
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);

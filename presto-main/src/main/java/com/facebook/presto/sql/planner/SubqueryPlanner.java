@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -40,9 +41,11 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -291,6 +294,35 @@ class SubqueryPlanner
         if (subPlan.canTranslate(quantifiedComparison)) {
             // given subquery is already appended
             return subPlan;
+        }
+        switch (quantifiedComparison.getComparisonType()) {
+            case EQUAL:
+                switch (quantifiedComparison.getQuantifier()) {
+                    case ANY:
+                    case SOME:
+                        // A = ANY B <=> A IN B
+                        InPredicate inPredicate = new InPredicate(quantifiedComparison.getValue(), quantifiedComparison.getSubquery());
+                        subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, inPredicate);
+                        return appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed);
+                }
+                break;
+
+            case NOT_EQUAL:
+                switch (quantifiedComparison.getQuantifier()) {
+                    case ALL:
+                        // A <> ALL B <=> !(A IN B) <=> !(A = ANY B)
+                        QuantifiedComparisonExpression rewrittenAny = new QuantifiedComparisonExpression(
+                                ComparisonExpressionType.EQUAL,
+                                Quantifier.ANY,
+                                quantifiedComparison.getValue(),
+                                quantifiedComparison.getSubquery());
+                        Expression notAny = new NotExpression(rewrittenAny);
+                        // "A <> ALL B" is equivalent to "NOT (A = ANY B)" so add a rewrite for the initial quantifiedComparison to notAny
+                        subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, notAny);
+                        // now plan "A = ANY B" part by calling ourselves for rewrittenAny
+                        return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed);
+                }
+                break;
         }
         throw new SemanticException(NOT_SUPPORTED, quantifiedComparison,
                 format("Quantified comparison '%s %s' is not yet supported", quantifiedComparison.getComparisonType().getValue(), quantifiedComparison.getQuantifier()));
