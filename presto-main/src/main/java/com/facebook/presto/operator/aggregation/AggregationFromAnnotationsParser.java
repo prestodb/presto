@@ -50,20 +50,20 @@ public class AggregationFromAnnotationsParser
     // This function should only be used for function matching for testing purposes.
     // General purpose function matching is done through FunctionRegistry.
     @VisibleForTesting
-    public static BindableAggregationFunction generateAggregationBindableFunction(Class<?> clazz)
+    public static ParametricAggregation generateAggregationBindableFunction(Class<?> clazz)
     {
-        List<BindableAggregationFunction> aggregations = generateBindableAggregationFunctions(clazz);
+        List<ParametricAggregation> aggregations = parseFunctionDefinitions(clazz);
         checkArgument(aggregations.size() == 1, "More than one aggregation function found");
         return aggregations.get(0);
     }
 
     // This function should only be used for function matching for testing purposes.
     // General purpose function matching is done through FunctionRegistry.
-    public static BindableAggregationFunction generateAggregationBindableFunction(Class<?> clazz, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    public static ParametricAggregation parseFunctionDefinitionWithTypesConstraint(Class<?> clazz, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        for (BindableAggregationFunction aggregation : generateBindableAggregationFunctions(clazz)) {
+        for (ParametricAggregation aggregation : parseFunctionDefinitions(clazz)) {
             if (aggregation.getSignature().getReturnType().equals(returnType) &&
                     aggregation.getSignature().getArgumentTypes().equals(argumentTypes)) {
                 return aggregation;
@@ -72,12 +72,12 @@ public class AggregationFromAnnotationsParser
         throw new IllegalArgumentException(String.format("No method with return type %s and arguments %s", returnType, argumentTypes));
     }
 
-    public static List<BindableAggregationFunction> generateBindableAggregationFunctions(Class<?> aggregationDefinition)
+    public static List<ParametricAggregation> parseFunctionDefinitions(Class<?> aggregationDefinition)
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
 
-        ImmutableList.Builder<BindableAggregationFunction> builder = ImmutableList.builder();
+        ImmutableList.Builder<ParametricAggregation> builder = ImmutableList.builder();
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
@@ -91,7 +91,7 @@ public class AggregationFromAnnotationsParser
                                 aggregationAnnotation.decomposable());
                         AggregationImplementation onlyImplementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         builder.add(
-                                new BindableAggregationFunction(
+                                new ParametricAggregation(
                                         onlyImplementation.getSignature(),
                                         header,
                                         new ParametricImplementations(ImmutableMap.of(),
@@ -106,7 +106,7 @@ public class AggregationFromAnnotationsParser
         return builder.build();
     }
 
-    public static BindableAggregationFunction generateBindableAggregationFunction(Class<?> aggregationDefinition)
+    public static ParametricAggregation parseFunctionDefinition(Class<?> aggregationDefinition)
     {
         ParametricImplementations.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementations.builder();
         Optional<Signature> genericSignature = Optional.empty();
@@ -124,7 +124,7 @@ public class AggregationFromAnnotationsParser
         }
 
         ParametricImplementations<AggregationImplementation> implementations = implementationsBuilder.build();
-        return new BindableAggregationFunction(implementations.getSignature(), header, implementations);
+        return new ParametricAggregation(implementations.getSignature(), header, implementations);
     }
 
     private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)

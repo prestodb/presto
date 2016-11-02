@@ -33,12 +33,12 @@ public abstract class SqlAggregationFunction
 
     public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
     {
-        return ImmutableList.of(AggregationFromAnnotationsParser.generateBindableAggregationFunction(aggregationDefinition));
+        return ImmutableList.of(AggregationFromAnnotationsParser.parseFunctionDefinition(aggregationDefinition));
     }
 
     public static List<SqlAggregationFunction> createFunctionsByAnnotations(Class<?> aggregationDefinition)
     {
-        return AggregationFromAnnotationsParser.generateBindableAggregationFunctions(aggregationDefinition)
+        return AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition)
                 .stream()
                 .map(x -> (SqlAggregationFunction) x)
                 .collect(toImmutableList());

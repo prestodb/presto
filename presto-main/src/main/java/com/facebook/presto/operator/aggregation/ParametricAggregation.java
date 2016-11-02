@@ -40,18 +40,17 @@ import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDepende
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
-public class BindableAggregationFunction
-    extends SqlAggregationFunction
+public class ParametricAggregation
+        extends SqlAggregationFunction
 {
     AggregationHeader details;
     ParametricImplementations<AggregationImplementation> implementations;
 
-    public BindableAggregationFunction(Signature signature,
+    public ParametricAggregation(Signature signature,
             AggregationHeader details,
             ParametricImplementations implementations)
     {

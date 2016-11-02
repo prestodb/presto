@@ -44,6 +44,6 @@ public class AggregationTestUtils
     @VisibleForTesting
     public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeManager typeManager, BoundVariables boundVariables, int arity)
     {
-        return AggregationFromAnnotationsParser.generateAggregationBindableFunction(clazz, outputType, inputTypes).specialize(boundVariables, arity, typeManager);
+        return AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(clazz, outputType, inputTypes).specialize(boundVariables, arity, typeManager);
     }
 }
