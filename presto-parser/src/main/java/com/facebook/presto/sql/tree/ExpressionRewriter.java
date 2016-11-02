@@ -194,4 +194,9 @@ public class ExpressionRewriter<C>
     {
         return rewriteExpression(node, context, treeRewriter);
     }
+
+    public Expression rewriteQuantifiedComparison(QuantifiedComparisonExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
 }

@@ -799,6 +799,26 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteQuantifiedComparison(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression subquery = rewrite(node.getSubquery(), context.get());
+
+            if (node.getValue() != value || node.getSubquery() != subquery) {
+                return new QuantifiedComparisonExpression(node.getComparisonType(), node.getQuantifier(), value, subquery);
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>
