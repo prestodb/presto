@@ -24,6 +24,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimaps;
+import io.airlift.log.Logger;
 import org.skife.jdbi.v2.IDBI;
 
 import java.sql.Connection;
@@ -57,6 +58,8 @@ import static java.util.stream.Collectors.toSet;
 
 public class ShardOrganizerUtil
 {
+    private static final Logger log = Logger.get(ShardOrganizerUtil.class);
+
     private ShardOrganizerUtil() {}
 
     public static Collection<ShardIndexInfo> toShardIndexInfo(
@@ -140,6 +143,33 @@ public class ShardOrganizerUtil
                 shardMetadata.getUncompressedSize(),
                 sortRange,
                 temporalRange);
+    }
+
+    public static List<ShardIndexInfo> getOrganizationEligibleShards(Collection<ShardIndexInfo> shardIndexInfos)
+    {
+        ImmutableList.Builder<ShardIndexInfo> eligibleShards = ImmutableList.builder();
+
+        for (ShardIndexInfo shard : shardIndexInfos) {
+            if (shard.getSortRange().isPresent()) {
+                if (shard.getSortRange().get().getMinTuple().getValues().stream().anyMatch(x -> !x.isPresent()) ||
+                        shard.getSortRange().get().getMaxTuple().getValues().stream().anyMatch(x -> !x.isPresent())) {
+                    log.info("Shard %s is ineligible for organization because it has empty min/max stats for sort columns", shard);
+                    continue;
+                }
+            }
+
+            if (shard.getTemporalRange().isPresent()) {
+                if (shard.getTemporalRange().get().getMinTuple().getValues().stream().anyMatch(x -> !x.isPresent()) ||
+                        shard.getTemporalRange().get().getMaxTuple().getValues().stream().anyMatch(x -> !x.isPresent())) {
+                    log.info("Shard %s is ineligible for organization because it has empty min/max stat for the temporal column", shard);
+                    continue;
+                }
+            }
+
+            eligibleShards.add(shard);
+        }
+
+        return eligibleShards.build();
     }
 
     public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards)

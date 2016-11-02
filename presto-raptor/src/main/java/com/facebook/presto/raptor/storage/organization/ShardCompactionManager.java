@@ -44,6 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.toShardIndexInfo;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -197,14 +198,16 @@ public class ShardCompactionManager
                 .collect(toSet());
 
         Collection<ShardIndexInfo> shardIndexInfos = toShardIndexInfo(dbi, metadataDao, tableInfo, filteredShards, false);
+        List<ShardIndexInfo> eligibleShards = getOrganizationEligibleShards(shardIndexInfos);
+
         if (tableInfo.getTemporalColumnId().isPresent()) {
-            Set<ShardIndexInfo> temporalShards = shardIndexInfos.stream()
+            Set<ShardIndexInfo> temporalShards = eligibleShards.stream()
                     .filter(shard -> shard.getTemporalRange().isPresent())
                     .collect(toSet());
             return compactionSetCreator.createCompactionSets(tableInfo, temporalShards);
         }
 
-        return compactionSetCreator.createCompactionSets(tableInfo, shardIndexInfos);
+        return compactionSetCreator.createCompactionSets(tableInfo, eligibleShards);
     }
 
     private static boolean isValidTemporalColumn(long tableId, Type type)

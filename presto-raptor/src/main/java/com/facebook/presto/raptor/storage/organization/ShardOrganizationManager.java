@@ -44,6 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.createOrganizationSet;
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.toShardIndexInfo;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
@@ -228,7 +229,9 @@ public class ShardOrganizationManager
     @VisibleForTesting
     static Set<OrganizationSet> createOrganizationSets(Table tableInfo, Collection<ShardIndexInfo> shards)
     {
-        return getShardsByDaysBuckets(tableInfo, shards).stream()
+        List<ShardIndexInfo> eligibleShards = getOrganizationEligibleShards(shards);
+
+        return getShardsByDaysBuckets(tableInfo, eligibleShards).stream()
             .map(indexInfos -> getOverlappingOrganizationSets(tableInfo, indexInfos))
             .flatMap(Collection::stream)
             .collect(toSet());

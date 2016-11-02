@@ -29,6 +29,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -176,6 +177,35 @@ public class TestCompactionSetCreator
 
         Set<OrganizationSet> expected = ImmutableSet.of(
                 new OrganizationSet(tableId, extractIndexes(inputShards, 0, 3, 5), OptionalInt.empty()),
+                new OrganizationSet(tableId, extractIndexes(inputShards, 1, 4), OptionalInt.empty()));
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testTemporalCompactionNullValues()
+            throws Exception
+    {
+        long day1 = Duration.ofNanos(System.nanoTime()).toDays();
+        long day2 = day1 + 1;
+        long day3 = day1 + 2;
+
+        List<ShardIndexInfo> inputShards = ImmutableList.of(
+                shardWithTemporalRange(DATE, day1, day1),
+                shardWithTemporalRange(DATE, day2, day2),
+                shardWithTemporalRange(DATE, day3, day3),
+                shardWithTemporalRange(DATE, day1, day3),
+                shardWithTemporalRange(DATE, day2, day3),
+                shardWithTemporalRange(DATE, day1, null));
+
+        long tableId = temporalTableInfo.getTableId();
+
+        List<ShardIndexInfo> eligibleShards = getOrganizationEligibleShards(inputShards);
+        Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(temporalTableInfo, eligibleShards);
+
+        assertEquals(actual.size(), 2);
+
+        Set<OrganizationSet> expected = ImmutableSet.of(
+                new OrganizationSet(tableId, extractIndexes(inputShards, 0, 3), OptionalInt.empty()),
                 new OrganizationSet(tableId, extractIndexes(inputShards, 1, 4), OptionalInt.empty()));
         assertEquals(actual, expected);
     }

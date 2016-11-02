@@ -75,7 +75,7 @@ public class Tuple
             Optional<Object> o2 = o.getValues().get(i);
 
             // This is stricter than it needs to be, because we can compare a null with a null.
-            // However, we should skip such shards during organization, and therefore never be able to get to this.
+            // However, we skip such shards during organization, and therefore should never be able to get to this.
             checkArgument(o1.isPresent() && o2.isPresent(), "cannot compare tuples with empty values");
 
             int result = compare(o1.get(), o2.get());
