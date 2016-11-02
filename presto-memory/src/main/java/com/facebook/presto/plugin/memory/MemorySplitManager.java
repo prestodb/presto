@@ -34,13 +34,11 @@ import static java.util.Objects.requireNonNull;
 public final class MemorySplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final NodeManager nodeManager;
     private final int splitsPerNode;
 
-    public MemorySplitManager(String connectorId, NodeManager nodeManager, int splitsPerNode)
+    public MemorySplitManager(NodeManager nodeManager, int splitsPerNode)
     {
-        this.connectorId = connectorId;
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.splitsPerNode = splitsPerNode;
     }
@@ -53,7 +51,7 @@ public final class MemorySplitManager
                 MemoryTableLayoutHandle.class,
                 "MemoryTableLayoutHandle");
 
-        Set<Node> nodes = nodeManager.getActiveDatasourceNodes(connectorId);
+        Set<Node> nodes = nodeManager.getWorkerNodes();
         checkState(!nodes.isEmpty(), "No Memory nodes available");
 
         // Split the data using split and skew by the number of nodes available.

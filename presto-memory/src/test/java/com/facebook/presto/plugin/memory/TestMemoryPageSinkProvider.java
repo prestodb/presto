@@ -74,7 +74,7 @@ public class TestMemoryPageSinkProvider
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createMemoryInsertTableHandle(tableId, activeTableIds));
-        pageSink.appendPage(createEmptyPage(), null);
+        pageSink.appendPage(createEmptyPage());
     }
 
     private void createTable(long tableId, Long... activeTableIds)
@@ -83,7 +83,7 @@ public class TestMemoryPageSinkProvider
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createMemoryOutputTableHandle(tableId, activeTableIds));
-        pageSink.appendPage(createEmptyPage(), null);
+        pageSink.appendPage(createEmptyPage());
     }
 
     private ConnectorOutputTableHandle createMemoryOutputTableHandle(long tableId, Long... activeTableIds)

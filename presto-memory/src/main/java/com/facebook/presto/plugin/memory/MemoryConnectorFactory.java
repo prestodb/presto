@@ -15,7 +15,6 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -23,22 +22,19 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.util.Objects.requireNonNull;
 
 public class MemoryConnectorFactory
         implements ConnectorFactory
 {
     private final int defaultSplitsPerNode;
-    private final NodeManager nodeManager;
 
-    public MemoryConnectorFactory(NodeManager nodeManager)
+    public MemoryConnectorFactory()
     {
-        this(nodeManager, Runtime.getRuntime().availableProcessors());
+        this(Runtime.getRuntime().availableProcessors());
     }
 
-    public MemoryConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
+    public MemoryConnectorFactory(int defaultSplitsPerNode)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
     }
 
@@ -62,7 +58,7 @@ public class MemoryConnectorFactory
 
         return new MemoryConnector(
                 new MemoryMetadata(connectorId),
-                new MemorySplitManager(connectorId, nodeManager, splitsPerNode),
+                new MemorySplitManager(context.getNodeManager(), splitsPerNode),
                 new MemoryPageSourceProvider(pagesStore),
                 new MemoryPageSinkProvider(pagesStore));
     }

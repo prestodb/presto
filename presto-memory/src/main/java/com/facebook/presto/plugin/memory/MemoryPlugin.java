@@ -16,14 +16,13 @@ package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.connector.ConnectorFactoryContext;
 import com.google.common.collect.ImmutableList;
 
 public final class MemoryPlugin
         implements Plugin
 {
-    public Iterable<ConnectorFactory> getConnectorFactories(ConnectorFactoryContext context)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new MemoryConnectorFactory(context.getNodeManager()));
+        return ImmutableList.of(new MemoryConnectorFactory());
     }
 }

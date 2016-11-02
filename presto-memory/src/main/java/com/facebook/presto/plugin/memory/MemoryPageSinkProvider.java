@@ -19,7 +19,6 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -79,16 +78,16 @@ public class MemoryPageSinkProvider
         }
 
         @Override
-        public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+        public CompletableFuture<?> appendPage(Page page)
         {
             pagesStore.add(tableId, page);
             return NOT_BLOCKED;
         }
 
         @Override
-        public Collection<Slice> finish()
+        public CompletableFuture<Collection<Slice>> finish()
         {
-            return ImmutableList.of();
+            return CompletableFuture.completedFuture(ImmutableList.of());
         }
 
         @Override

@@ -14,16 +14,15 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.MemoryPoolId;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.plugin.memory.MemoryConnectorFactory;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -64,16 +63,16 @@ public class AbstractJmhSqlBenchmark
         public void runQuery(String query)
         {
             Session session = testSessionBuilder()
-                    .setSystemProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "true"))
+                    .setSystemProperty("optimizer.optimize-hash-generation", "true")
                     .build();
             ExecutorService executor = localQueryRunner.getExecutor();
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             MemoryPool systemMemoryPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
 
             TaskContext taskContext = new QueryContext(new QueryId("test"), new DataSize(256, MEGABYTE), memoryPool, systemMemoryPool, executor)
-                    .addTaskContext(new TaskStateMachine(new TaskId("query", "stage", 0), executor),
+                    .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), executor),
                             session,
-                            new DataSize(1, MEGABYTE),
+                            //new DataSize(1, MEGABYTE),
                             false,
                             false);
 
@@ -102,9 +101,8 @@ public class AbstractJmhSqlBenchmark
             LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
             // add tpch
-            InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
-            localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
-            localQueryRunner.createCatalog("memory", new MemoryConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+            localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
+            localQueryRunner.createCatalog("memory", new MemoryConnectorFactory(1), ImmutableMap.<String, String>of());
 
             return localQueryRunner;
         }

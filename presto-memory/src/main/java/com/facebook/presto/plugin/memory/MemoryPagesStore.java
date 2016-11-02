@@ -26,8 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
-
 @ThreadSafe
 public class MemoryPagesStore
 {
@@ -38,16 +36,16 @@ public class MemoryPagesStore
         if (!pages.containsKey(tableId)) {
             pages.put(tableId, new ArrayList<>());
         }
-
         List<Page> tablePages = pages.get(tableId);
         tablePages.add(page);
     }
 
     public synchronized List<Page> getPages(Long tableId, int partNumber, int totalParts, List<Integer> columnIndexes)
     {
-        checkState(pages.containsKey(tableId));
-
         List<Page> tablePages = pages.get(tableId);
+        if (tablePages == null) {
+            return ImmutableList.of();
+        }
         ImmutableList.Builder<Page> partitionedPages = ImmutableList.builder();
 
         for (int i = partNumber; i < tablePages.size(); i += totalParts) {

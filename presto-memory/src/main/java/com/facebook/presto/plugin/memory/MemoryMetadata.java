@@ -160,7 +160,7 @@ public class MemoryMetadata
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         long nextId = nextTableId.getAndIncrement();
-        Set<Long> activeTableIds = new HashSet(tableIds.values());
+        Set<Long> activeTableIds = new HashSet<>(tableIds.values());
         activeTableIds.add(nextId);
         return new MemoryOutputTableHandle(new MemoryTableHandle(
                 connectorId,
