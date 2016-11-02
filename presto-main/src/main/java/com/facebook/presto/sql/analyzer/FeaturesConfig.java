@@ -56,6 +56,7 @@ public class FeaturesConfig
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean optimizeMixedDistinctAggregations;
+    private boolean pushProjectionThroughJoin;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -349,6 +350,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
     {
         this.optimizeMixedDistinctAggregations = value;
+        return this;
+    }
+
+    public boolean isPushProjectionThroughJoin()
+    {
+        return pushProjectionThroughJoin;
+    }
+
+    @Config("optimizer.push-projection-through-join")
+    public FeaturesConfig setPushProjectionThroughJoin(boolean pushProjectionThroughJoin)
+    {
+        this.pushProjectionThroughJoin = pushProjectionThroughJoin;
         return this;
     }
 }

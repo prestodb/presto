@@ -635,7 +635,8 @@ public class LocalQueryRunner
 
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
+                .setOptimizeHashGeneration(true)
+                .setPushProjectionThroughJoin(true);
         PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true);
         return createPlan(session, sql, planOptimizers.get(), stage);
     }

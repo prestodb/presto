@@ -67,6 +67,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
     public static final String REORDER_WINDOWS = "reorder_windows";
+    public static final String PUSH_PROJECTION_THROUGH_JOIN = "push_projection_through_join";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -248,6 +249,11 @@ public final class SystemSessionProperties
                         "Experimental: Enable spilling",
                         featuresConfig.isSpillEnabled(),
                         false),
+                booleanSessionProperty(
+                        PUSH_PROJECTION_THROUGH_JOIN,
+                        "Optimize query by pushing projections through join",
+                        featuresConfig.isPushProjectionThroughJoin(),
+                        false),
                 new PropertyMetadata<>(
                         OPERATOR_MEMORY_LIMIT_BEFORE_SPILL,
                         "Experimental: Operator memory limit before spill",
@@ -426,5 +432,10 @@ public final class SystemSessionProperties
     public static boolean isLegacyOrderByEnabled(Session session)
     {
         return session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class);
+    }
+
+    public static boolean isPushProjectionThroughJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_PROJECTION_THROUGH_JOIN, Boolean.class);
     }
 }

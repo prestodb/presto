@@ -57,7 +57,8 @@ public class TestFeaturesConfig
                 .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .setSpillerThreads(4)
                 .setOptimizeMixedDistinctAggregations(false)
-                .setLegacyOrderBy(false));
+                .setLegacyOrderBy(false)
+                .setPushProjectionThroughJoin(false));
     }
 
     @Test
@@ -80,6 +81,7 @@ public class TestFeaturesConfig
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.processing-optimization", "columnar_dictionary")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("optimizer.push-projection-through-join", "true")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -105,6 +107,7 @@ public class TestFeaturesConfig
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.processing-optimization", "columnar_dictionary")
                 .put("optimizer.dictionary-aggregation", "true")
+                .put("optimizer.push-projection-through-join", "true")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -126,6 +129,7 @@ public class TestFeaturesConfig
                 .setOptimizeSingleDistinct(false)
                 .setReorderWindows(false)
                 .setOptimizeMixedDistinctAggregations(true)
+                .setPushProjectionThroughJoin(true)
                 .setPushTableWriteThroughUnion(false)
                 .setProcessingOptimization(COLUMNAR_DICTIONARY)
                 .setDictionaryAggregation(true)

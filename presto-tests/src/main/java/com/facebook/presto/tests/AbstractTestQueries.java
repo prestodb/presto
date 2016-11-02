@@ -2142,6 +2142,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testProjectionPushThroughJoin()
+            throws Exception
+    {
+        assertQuery("SELECT discount - tax, orderstatus FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertQuery("SELECT discount - tax, totalprice * 2 FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertQuery("SELECT orderstatus, totalprice * (discount - tax) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertQuery("SELECT a.dist, b.price FROM " +
+                " (SELECT lineitem.orderkey, (discount - tax) as dist, orderstatus FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) a " +
+                " JOIN (SELECT orders.orderkey, discount - tax, (totalprice * 2) as price FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) b " +
+                " ON a.orderkey = b.orderkey");
+    }
+
+    @Test
     public void testNonEqualityJoin()
     {
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.quantity + length(orders.comment) > 7");

@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.ProjectionPushDown;
+import com.facebook.presto.sql.planner.optimizations.ProjectionPushThroughJoin;
 import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
@@ -118,6 +119,10 @@ public class PlanOptimizers
         }
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
+
+        if (featuresConfig.isPushProjectionThroughJoin()) {
+            builder.add(new ProjectionPushThroughJoin());
+        }
 
         if (!forceSingleNode) {
             builder.add(new PushTableWriteThroughUnion()); // Must run before AddExchanges

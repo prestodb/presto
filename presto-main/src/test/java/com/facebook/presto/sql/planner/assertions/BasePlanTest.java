@@ -46,12 +46,12 @@ public class BasePlanTest
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
+                .setSystemProperty("push_projection_through_join", "true");
 
         sessionProperties.entrySet().stream().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
         this.queryRunner = new LocalQueryRunner(sessionBuilder.build());
-
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());

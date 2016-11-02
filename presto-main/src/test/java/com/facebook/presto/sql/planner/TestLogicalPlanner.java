@@ -249,6 +249,20 @@ public class TestLogicalPlanner
                                                                                         node(ValuesNode.class)))))))))));
     }
 
+    @Test
+    public void testProjectionPushThroughJoin()
+    {
+        assertPlan("SELECT discount - tax, totalprice * 2 FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
+                anyTree(
+                        project(
+                                join(INNER, ImmutableList.of(equiJoinClause("X", "Y")),
+                                        project(
+                                                tableScan("lineitem", ImmutableMap.of("X", "orderkey"))),
+                                        anyTree(
+                                                project(
+                                                        tableScan("orders", ImmutableMap.of("Y", "orderkey"))))))));
+    }
+
     private static final class PlanNodeExtractor
             extends SimplePlanVisitor<Void>
     {
