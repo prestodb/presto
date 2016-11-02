@@ -276,6 +276,34 @@ public class TestLogicalPlanner
         );
     }
 
+    @Test
+    public void testQuantifiedComparisonLessAll()
+    {
+        assertOrderedQuantifiedComparison("SELECT orderkey, custkey FROM orders WHERE orderkey < ALL (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))",
+                "X < MIN", "X", "min", "MIN");
+    }
+
+    @Test
+    public void testQuantifiedComparisonGreaterEqualAll()
+    {
+        assertOrderedQuantifiedComparison("SELECT orderkey, custkey FROM orders WHERE orderkey >= ALL (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))",
+                "X >= MAX", "X", "max", "MAX");
+    }
+
+    @Test
+    public void testQuantifiedComparisonLessSome()
+    {
+        assertOrderedQuantifiedComparison("SELECT orderkey, custkey FROM orders WHERE orderkey < SOME (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))",
+                "X < MAX", "X", "max", "MAX");
+    }
+
+    @Test
+    public void testQuantifiedComparisonGreaterEqualAny()
+    {
+        assertOrderedQuantifiedComparison("SELECT orderkey, custkey FROM orders WHERE orderkey >= ANY (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))",
+                "X >= MIN", "X", "min", "MIN");
+    }
+
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
@@ -304,6 +332,30 @@ public class TestLogicalPlanner
             fail("Invalid SQL: " + sql, ex);
             return null; // make compiler happy
         }
+    }
+
+    private void assertOrderedQuantifiedComparison(String query, String filter, String columnMapping, String function, String functionAlias)
+    {
+        assertPlan(query, LogicalPlanner.Stage.CREATED, anyTree(
+                project(
+                        filter(filter,
+                                apply(ImmutableList.of(),
+                                        project(
+                                                tableScan("orders").withSymbol("orderkey", columnMapping)),
+                                        node(EnforceSingleRowNode.class,
+                                                node(AggregationNode.class,
+                                                        anyTree(
+                                                                node(ValuesNode.class))).withSymbol(function, functionAlias)
+                                        ))))));
+        assertPlan(query, anyTree(
+                project(
+                        filter(filter,
+                                join(INNER, ImmutableList.of(),
+                                        tableScan("orders").withSymbol("orderkey", columnMapping),
+                                        node(EnforceSingleRowNode.class,
+                                                node(AggregationNode.class,
+                                                        node(ValuesNode.class)).withSymbol(function, functionAlias)
+                                        ))))));
     }
 
     private static final class PlanNodeExtractor

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
@@ -54,6 +55,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,10 +68,14 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSuppor
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.util.AstUtils.nodeContains;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -323,9 +329,74 @@ class SubqueryPlanner
                         return appendQuantifiedComparisonApplyNode(subPlan, rewrittenAny, correlationAllowed);
                 }
                 break;
+
+            case LESS_THAN:
+            case LESS_THAN_OR_EQUAL:
+            case GREATER_THAN:
+            case GREATER_THAN_OR_EQUAL:
+                return planQuantifiedOrderable(subPlan, quantifiedComparison, correlationAllowed);
         }
         throw new SemanticException(NOT_SUPPORTED, quantifiedComparison,
                 format("Quantified comparison '%s %s' is not yet supported", quantifiedComparison.getComparisonType().getValue(), quantifiedComparison.getQuantifier()));
+    }
+
+    private PlanBuilder planQuantifiedOrderable(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
+    {
+        checkArgument(EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getComparisonType()));
+        // A < ALL B <=> A < min B
+        // A > ALL B <=> A > max B
+        // A < ANY B <=> A < max B
+        // A > ANY B <=> A > min B
+        QualifiedName aggregationFunction = chooseAggregationFunction(quantifiedComparison);
+        RelationPlan subqueryRelationPlan = createRelationPlan(quantifiedComparison.getSubquery());
+        PlanNode subqueryPlan = subqueryRelationPlan.getRoot();
+        Symbol outputColumn = getOnlyElement(subqueryRelationPlan.getOutputSymbols());
+        Type outputColumnType = getOnlyElement(subqueryRelationPlan.getDescriptor().getAllFields()).getType();
+        checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        Symbol subValue = symbolAllocator.newSymbol(aggregationFunction.toString(), outputColumnType);
+        subqueryPlan = new AggregationNode(
+                idAllocator.getNextId(),
+                subqueryPlan,
+                ImmutableMap.of(subValue, new FunctionCall(aggregationFunction, ImmutableList.of(outputColumn.toSymbolReference()))),
+                ImmutableMap.of(subValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(outputColumnType.getTypeSignature()))),
+                ImmutableMap.of(),
+                ImmutableList.of(ImmutableList.of()),
+                AggregationNode.Step.SINGLE,
+                Optional.empty(),
+                Optional.empty());
+        subqueryPlan = new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan);
+        ComparisonExpression valueComparedToSubquery = new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), subValue.toSymbolReference());
+        subPlan.getTranslations().addIntermediateMapping(quantifiedComparison, valueComparedToSubquery);
+        return appendSubqueryApplyNode(subPlan, quantifiedComparison.getSubquery(), quantifiedComparison.getSubquery(), subqueryPlan, correlationAllowed);
+    }
+
+    private static QualifiedName chooseAggregationFunction(QuantifiedComparisonExpression quantifiedComparison)
+    {
+        switch (quantifiedComparison.getQuantifier()) {
+            case ALL:
+                switch (quantifiedComparison.getComparisonType()) {
+                    case LESS_THAN:
+                    case LESS_THAN_OR_EQUAL:
+                        return QualifiedName.of("min");
+                    case GREATER_THAN:
+                    case GREATER_THAN_OR_EQUAL:
+                        return QualifiedName.of("max");
+                }
+                break;
+            case ANY:
+            case SOME:
+                switch (quantifiedComparison.getComparisonType()) {
+                    case LESS_THAN:
+                    case LESS_THAN_OR_EQUAL:
+                        return QualifiedName.of("max");
+                    case GREATER_THAN:
+                    case GREATER_THAN_OR_EQUAL:
+                        return QualifiedName.of("min");
+                }
+                break;
+        }
+        throw new IllegalStateException("Unexpected quantifier: " + quantifiedComparison.getQuantifier());
     }
 
     private boolean isAggregationWithEmptyGroupBy(PlanNode subqueryPlan)
@@ -339,7 +410,7 @@ class SubqueryPlanner
                 .orElse(false);
     }
 
-    private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Query subquery, PlanNode subqueryNode, boolean correlationAllowed)
+    private PlanBuilder appendSubqueryApplyNode(PlanBuilder subPlan, Expression subqueryExpression, Node subquery, PlanNode subqueryNode, boolean correlationAllowed)
     {
         Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
@@ -392,6 +463,12 @@ class SubqueryPlanner
     }
 
     private RelationPlan createRelationPlan(Query subquery)
+    {
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+                .process(subquery, null);
+    }
+
+    private RelationPlan createRelationPlan(Expression subquery)
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
                 .process(subquery, null);
