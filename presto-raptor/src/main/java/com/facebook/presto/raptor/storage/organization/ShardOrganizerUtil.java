@@ -109,16 +109,16 @@ public class ShardOrganizerUtil
                         while (resultSet.next()) {
                             long shardId = resultSet.getLong("shard_id");
 
-                            Optional<ShardRange> shardRange = Optional.empty();
+                            Optional<ShardRange> sortRange = Optional.empty();
                             if (includeSortColumns) {
-                                shardRange = getShardRange(sortColumns.get(), resultSet);
+                                sortRange = getShardRange(sortColumns.get(), resultSet);
                             }
-                            Optional<ShardRange> shardTemporalRange = Optional.empty();
+                            Optional<ShardRange> temporalRange = Optional.empty();
                             if (temporalColumn.isPresent()) {
-                                shardTemporalRange = getShardRange(ImmutableList.of(temporalColumn.get()), resultSet);
+                                temporalRange = getShardRange(ImmutableList.of(temporalColumn.get()), resultSet);
                             }
                             ShardMetadata shardMetadata = shardsById.get(shardId);
-                            indexInfoBuilder.add(toShardIndexInfo(shardMetadata, shardTemporalRange, shardRange));
+                            indexInfoBuilder.add(toShardIndexInfo(shardMetadata, temporalRange, sortRange));
                         }
                     }
                 }
@@ -130,7 +130,7 @@ public class ShardOrganizerUtil
         return indexInfoBuilder.build();
     }
 
-    private static ShardIndexInfo toShardIndexInfo(ShardMetadata shardMetadata, Optional<ShardRange> shardTemporalRange, Optional<ShardRange> shardRange)
+    private static ShardIndexInfo toShardIndexInfo(ShardMetadata shardMetadata, Optional<ShardRange> temporalRange, Optional<ShardRange> sortRange)
     {
         return new ShardIndexInfo(
                 shardMetadata.getTableId(),
@@ -138,8 +138,8 @@ public class ShardOrganizerUtil
                 shardMetadata.getShardUuid(),
                 shardMetadata.getRowCount(),
                 shardMetadata.getUncompressedSize(),
-                shardRange,
-                shardTemporalRange);
+                sortRange,
+                temporalRange);
     }
 
     public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards)
@@ -177,10 +177,10 @@ public class ShardOrganizerUtil
         return sets.build();
     }
 
-    private static long determineDay(ShardRange shardRange)
+    private static long determineDay(ShardRange temporalRange)
     {
-        Tuple min = shardRange.getMinTuple();
-        Tuple max = shardRange.getMaxTuple();
+        Tuple min = temporalRange.getMinTuple();
+        Tuple max = temporalRange.getMaxTuple();
 
         verify(min.getTypes().equals(max.getTypes()));
         Type type = getOnlyElement(min.getTypes());
