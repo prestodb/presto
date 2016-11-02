@@ -5,6 +5,7 @@ env:
     - MAVEN_OPTS="-Xmx512M"
     - MAVEN_SKIP_CHECKS_AND_DOCS="-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
   matrix:
+    - MAVEN_CHECKS=true
     - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql,!presto-accumulo
     - TEST_MODULES=presto-tests
     - TEST_MODULES=presto-accumulo
@@ -35,6 +36,9 @@ install: ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl 
 
 script:
   - |
+    test ! -v MAVEN_CHECKS ||
+      ./mvnw install -DskipTests -B -T C1
+  - |
     test ! -v TEST_MODULES ||
       ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES
   - |
@@ -48,9 +52,6 @@ script:
   - |
     test ! -v INTEGRATION_TESTS ||
       presto-hive-hadoop2/bin/run_on_docker.sh
-  - |
-    test ! -v INTEGRATION_TESTS ||
-      ./mvnw install -DskipTests -B -T C1
   - |
     # Build presto-server-rpm for later artifact upload
     test ! -v DEPLOY_S3_ACCESS_KEY || test ! -v PRODUCT_TESTS ||
