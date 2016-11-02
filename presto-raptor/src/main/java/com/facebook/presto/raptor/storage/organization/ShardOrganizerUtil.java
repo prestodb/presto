@@ -185,13 +185,15 @@ public class ShardOrganizerUtil
         verify(min.getTypes().equals(max.getTypes()));
         Type type = getOnlyElement(min.getTypes());
         verify(type.equals(DATE) || type.equals(TimestampType.TIMESTAMP));
+        verify(getOnlyElement(min.getValues()).isPresent());
+        verify(getOnlyElement(max.getValues()).isPresent());
 
         if (type.equals(DATE)) {
-            return ((Integer) getOnlyElement(min.getValues())).longValue();
+            return ((Integer) getOnlyElement(min.getValues()).get()).longValue();
         }
 
-        Long minValue = (Long) getOnlyElement(min.getValues());
-        Long maxValue = (Long) getOnlyElement(max.getValues());
+        Long minValue = (Long) getOnlyElement(min.getValues()).get();
+        Long maxValue = (Long) getOnlyElement(max.getValues()).get();
         return determineDay(minValue, maxValue);
     }
 
@@ -217,16 +219,16 @@ public class ShardOrganizerUtil
     private static Optional<ShardRange> getShardRange(List<TableColumn> columns, ResultSet resultSet)
             throws SQLException
     {
-        ImmutableList.Builder<Object> minValuesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Object> maxValuesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Optional<Object>> minValuesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Optional<Object>> maxValuesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
 
         for (TableColumn tableColumn : columns) {
             long columnId = tableColumn.getColumnId();
             Type type = tableColumn.getDataType();
 
-            Object min = getValue(resultSet, type, minColumn(columnId));
-            Object max = getValue(resultSet, type, maxColumn(columnId));
+            Optional<Object> min = getValue(resultSet, type, minColumn(columnId));
+            Optional<Object> max = getValue(resultSet, type, maxColumn(columnId));
 
             minValuesBuilder.add(min);
             maxValuesBuilder.add(max);
@@ -240,12 +242,12 @@ public class ShardOrganizerUtil
         return Optional.of(ShardRange.of(minTuple, maxTuple));
     }
 
-    private static Object getValue(ResultSet resultSet, Type type, String columnName)
+    private static Optional<Object> getValue(ResultSet resultSet, Type type, String columnName)
             throws SQLException
     {
         JDBCType jdbcType = jdbcType(type);
         Object value = getValue(resultSet, type, columnName, jdbcType);
-        return resultSet.wasNull() ? null : value;
+        return resultSet.wasNull() ? Optional.empty() : Optional.of(value);
     }
 
     private static Object getValue(ResultSet resultSet, Type type, String columnName, JDBCType jdbcType)

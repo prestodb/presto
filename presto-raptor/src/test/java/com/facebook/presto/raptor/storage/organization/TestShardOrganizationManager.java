@@ -131,10 +131,10 @@ public class TestShardOrganizationManager
         int day = 1;
 
         List<ShardIndexInfo> shards = ImmutableList.of(
-                shardWithRange(1, ShardRange.of(new Tuple(types, 5L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 7L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 6L, "hello", day, timestamp), new Tuple(types, 9L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 1L, "hello", day, timestamp), new Tuple(types, 5L, "hello", day, timestamp))));
+                shardWithRange(1, ShardRange.of(Tuple.of(types, 5L, "hello", day, timestamp), Tuple.of(types, 10L, "hello", day, timestamp))),
+                shardWithRange(1, ShardRange.of(Tuple.of(types, 7L, "hello", day, timestamp), Tuple.of(types, 10L, "hello", day, timestamp))),
+                shardWithRange(1, ShardRange.of(Tuple.of(types, 6L, "hello", day, timestamp), Tuple.of(types, 9L, "hello", day, timestamp))),
+                shardWithRange(1, ShardRange.of(Tuple.of(types, 1L, "hello", day, timestamp), Tuple.of(types, 5L, "hello", day, timestamp))));
 
         Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards);
 
@@ -156,10 +156,10 @@ public class TestShardOrganizationManager
         int day5 = 5;
 
         List<ShardIndexInfo> shards = ImmutableList.of(
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 5L), new Tuple(types, 10L)), ShardRange.of(new Tuple(temporalType, day1), new Tuple(temporalType, day2))),
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 7L), new Tuple(types, 10L)), ShardRange.of(new Tuple(temporalType, day4), new Tuple(temporalType, day5))),
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 6L), new Tuple(types, 9L)), ShardRange.of(new Tuple(temporalType, day1), new Tuple(temporalType, day2))),
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 4L), new Tuple(types, 8L)), ShardRange.of(new Tuple(temporalType, day4), new Tuple(temporalType, day5))));
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 5L), Tuple.of(types, 10L)), ShardRange.of(Tuple.of(temporalType, day1), Tuple.of(temporalType, day2))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 7L), Tuple.of(types, 10L)), ShardRange.of(Tuple.of(temporalType, day4), Tuple.of(temporalType, day5))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 6L), Tuple.of(types, 9L)), ShardRange.of(Tuple.of(temporalType, day1), Tuple.of(temporalType, day2))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 4L), Tuple.of(types, 8L)), ShardRange.of(Tuple.of(temporalType, day4), Tuple.of(temporalType, day5))));
 
         Set<OrganizationSet> organizationSets = createOrganizationSets(temporalTableInfo, shards);
         Set<Set<UUID>> actual = organizationSets.stream()

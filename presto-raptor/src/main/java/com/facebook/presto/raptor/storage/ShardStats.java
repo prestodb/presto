@@ -126,8 +126,8 @@ public final class ShardStats
         }
 
         return new ColumnStats(columnId,
-                minSet ? min : null,
-                maxSet ? max : null);
+                minSet ? Optional.of(min) : Optional.empty(),
+                maxSet ? Optional.of(max) : Optional.empty());
     }
 
     private static ColumnStats indexLong(Type type, OrcRecordReader reader, int columnIndex, long columnId)
@@ -162,8 +162,8 @@ public final class ShardStats
         }
 
         return new ColumnStats(columnId,
-                minSet ? min : null,
-                maxSet ? max : null);
+                minSet ? Optional.of(min) : Optional.empty(),
+                maxSet ? Optional.of(max) : Optional.empty());
     }
 
     private static ColumnStats indexDouble(Type type, OrcRecordReader reader, int columnIndex, long columnId)
@@ -203,6 +203,7 @@ public final class ShardStats
             }
         }
 
+        // this is the only data type that does not guarantee minSet == maxSet
         if (isInfinite(min)) {
             minSet = false;
         }
@@ -211,8 +212,8 @@ public final class ShardStats
         }
 
         return new ColumnStats(columnId,
-                minSet ? min : null,
-                maxSet ? max : null);
+                minSet ? Optional.of(min) : Optional.empty(),
+                maxSet ? Optional.of(max) : Optional.empty());
     }
 
     private static ColumnStats indexString(Type type, OrcRecordReader reader, int columnIndex, long columnId)
@@ -248,7 +249,7 @@ public final class ShardStats
         }
 
         return new ColumnStats(columnId,
-                minSet ? min.toStringUtf8() : null,
-                maxSet ? max.toStringUtf8() : null);
+                minSet ? Optional.of(min.toStringUtf8()) : Optional.empty(),
+                maxSet ? Optional.of(max.toStringUtf8()) : Optional.empty());
     }
 }

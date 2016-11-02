@@ -279,7 +279,10 @@ public class TestCompactionSetCreator
                     1,
                     1,
                     Optional.empty(),
-                    Optional.of(ShardRange.of(new Tuple(type, start.intValue()), new Tuple(type, end.intValue()))));
+                    Optional.of(
+                            ShardRange.of(
+                                    new Tuple(type, start == null ? Optional.empty() : Optional.of(start.intValue())),
+                                    new Tuple(type, end == null ? Optional.empty() : Optional.of(end.intValue())))));
         }
         return new ShardIndexInfo(
                 1,
@@ -288,6 +291,6 @@ public class TestCompactionSetCreator
                 1,
                 1,
                 Optional.empty(),
-                Optional.of(ShardRange.of(new Tuple(type, start), new Tuple(type, end))));
+                Optional.of(ShardRange.of(new Tuple(type, Optional.ofNullable(start)), new Tuple(type, Optional.ofNullable(end)))));
     }
 }

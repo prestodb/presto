@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -27,19 +29,21 @@ public class Tuple
         implements Comparable<Tuple>
 {
     private final List<Type> types;
-    private final List<Object> values;
+    private final List<Optional<Object>> values;
 
-    public Tuple(Type type, Object value)
+    public static Tuple of(List<Type> types, Object... values)
     {
-        this(ImmutableList.of(type), ImmutableList.of(value));
+        return new Tuple(types, ImmutableList.copyOf(values).stream()
+                .map(Optional::ofNullable)
+                .collect(Collectors.toList()));
     }
 
-    public Tuple(List<Type> types, Object... values)
+    public Tuple(Type type, Optional<Object> value)
     {
-        this(types, ImmutableList.copyOf(values));
+        this(ImmutableList.of(type), ImmutableList.of(requireNonNull(value, "value is null")));
     }
 
-    public Tuple(List<Type> types, List<Object> values)
+    public Tuple(List<Type> types, List<Optional<Object>> values)
     {
         this.types = requireNonNull(types, "types is null");
         this.values = requireNonNull(values, "values is null");
@@ -53,7 +57,7 @@ public class Tuple
         return types;
     }
 
-    public List<Object> getValues()
+    public List<Optional<Object>> getValues()
     {
         return values;
     }
@@ -67,13 +71,19 @@ public class Tuple
         }
 
         for (int i = 0; i < types.size(); i++) {
-            Object o1 = values.get(i);
-            Object o2 = o.getValues().get(i);
+            Optional<Object> o1 = values.get(i);
+            Optional<Object> o2 = o.getValues().get(i);
 
-            int result = compare(o1, o2);
-            if (result != 0) {
-                return result;
+            // This is stricter than it needs to be, because we can compare a null with a null.
+            // However, we should skip such shards during organization, and therefore never be able to get to this.
+            checkArgument(o1.isPresent() && o2.isPresent(), "cannot compare tuples with empty values");
+
+            int result = compare(o1.get(), o2.get());
+            if (result == 0) {
+                continue;
             }
+
+            return result;
         }
         return 0;
     }

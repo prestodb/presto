@@ -128,23 +128,30 @@ public class TestShardOrganizerUtil
                         UUID.randomUUID(),
                         "node1",
                         ImmutableList.of(
-                                new ColumnStats(orderDate, day1, day1 + 10),
-                                new ColumnStats(orderKey, 13L, 14L),
-                                new ColumnStats(orderStatus, "aaa", "abc"))))
+                                new ColumnStats(orderDate, Optional.of(day1), Optional.of(day1 + 10)),
+                                new ColumnStats(orderKey, Optional.of(13L), Optional.of(14L)),
+                                new ColumnStats(orderStatus, Optional.of("aaa"), Optional.of("abc")))))
                 .add(shardInfo(
                         UUID.randomUUID(),
                         "node1",
                         ImmutableList.of(
-                                new ColumnStats(orderDate, day2, day2 + 100),
-                                new ColumnStats(orderKey, 2L, 20L),
-                                new ColumnStats(orderStatus, "aaa", "abc"))))
+                                new ColumnStats(orderDate, Optional.of(day2), Optional.of(day2 + 100)),
+                                new ColumnStats(orderKey, Optional.of(2L), Optional.of(20L)),
+                                new ColumnStats(orderStatus, Optional.of("aaa"), Optional.of("abc")))))
                 .add(shardInfo(
                         UUID.randomUUID(),
                         "node1",
                         ImmutableList.of(
-                                new ColumnStats(orderDate, day1, day2),
-                                new ColumnStats(orderKey, 2L, 11L),
-                                new ColumnStats(orderStatus, "aaa", "abc"))))
+                                new ColumnStats(orderDate, Optional.of(day1), Optional.of(day2)),
+                                new ColumnStats(orderKey, Optional.of(2L), Optional.of(11L)),
+                                new ColumnStats(orderStatus, Optional.of("aaa"), Optional.of("abc")))))
+                .add(shardInfo(
+                        UUID.randomUUID(),
+                        "node1",
+                        ImmutableList.of(
+                                new ColumnStats(orderDate, Optional.of(day1), Optional.empty()),
+                                new ColumnStats(orderKey, Optional.empty(), Optional.of(11L)),
+                                new ColumnStats(orderStatus, Optional.of("aaa"), Optional.of("abc")))))
                 .build();
 
         long transactionId = shardManager.beginTransaction();
@@ -182,8 +189,8 @@ public class TestShardOrganizerUtil
             if (sortColumns.isPresent()) {
                 Map<Long, ColumnStats> columnIdToStats = Maps.uniqueIndex(shard.getColumnStats(), ColumnStats::getColumnId);
                 ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
-                ImmutableList.Builder<Object> minBuilder = ImmutableList.builder();
-                ImmutableList.Builder<Object> maxBuilder = ImmutableList.builder();
+                ImmutableList.Builder<Optional<Object>> minBuilder = ImmutableList.builder();
+                ImmutableList.Builder<Optional<Object>> maxBuilder = ImmutableList.builder();
                 for (TableColumn sortColumn : sortColumns.get()) {
                     ColumnStats columnStats = columnIdToStats.get(sortColumn.getColumnId());
                     typesBuilder.add(sortColumn.getDataType());
@@ -191,8 +198,8 @@ public class TestShardOrganizerUtil
                     maxBuilder.add(columnStats.getMax());
                 }
                 List<Type> types = typesBuilder.build();
-                List<Object> minValues = minBuilder.build();
-                List<Object> maxValues = maxBuilder.build();
+                List<Optional<Object>> minValues = minBuilder.build();
+                List<Optional<Object>> maxValues = maxBuilder.build();
                 sortRange = Optional.of(ShardRange.of(new Tuple(types, minValues), new Tuple(types, maxValues)));
             }
             builder.add(new ShardIndexInfo(

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -38,10 +39,10 @@ public class TestTuple
     {
         List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, DOUBLE, DATE, TIMESTAMP);
 
-        Tuple tuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1112));
-        Tuple equalToTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1112));
-        Tuple greaterThanTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1113));
-        Tuple lessThanTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1111));
+        Tuple tuple1 = Tuple.of(types, 1L, "hello", false, 1.2d, 11111, 1112);
+        Tuple equalToTuple1 = Tuple.of(types, 1L, "hello", false, 1.2d, 11111, 1112);
+        Tuple greaterThanTuple1 = Tuple.of(types, 1L, "hello", false, 1.2d, 11111, 1113);
+        Tuple lessThanTuple1 = Tuple.of(types, 1L, "hello", false, 1.2d, 11111, 1111);
 
         assertEquals(tuple1.compareTo(equalToTuple1), 0);
         assertLessThan(tuple1.compareTo(greaterThanTuple1), 0);
@@ -54,8 +55,18 @@ public class TestTuple
     {
         List<Type> types1 = ImmutableList.of(createVarcharType(3));
         List<Type> types2 = ImmutableList.of(createVarcharType(4));
-        Tuple tuple1 = new Tuple(types1, ImmutableList.of("abc"));
-        Tuple tuple2 = new Tuple(types2, ImmutableList.of("abcd"));
+        Tuple tuple1 = Tuple.of(types1, ImmutableList.of("abc"));
+        Tuple tuple2 = Tuple.of(types2, ImmutableList.of("abcd"));
+        tuple1.compareTo(tuple2);
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "cannot compare tuples with empty values")
+    public void testNullMinMax()
+            throws Exception
+    {
+        List<Type> types1 = ImmutableList.of(createVarcharType(3));
+        Tuple tuple1 = new Tuple(types1, ImmutableList.of(Optional.empty()));
+        Tuple tuple2 = new Tuple(types1, ImmutableList.of(Optional.of("abc")));
         tuple1.compareTo(tuple2);
     }
 }
