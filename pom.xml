@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>58</version>
+        <version>59</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
