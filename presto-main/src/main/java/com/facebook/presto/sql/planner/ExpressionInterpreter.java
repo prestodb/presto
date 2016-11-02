@@ -68,6 +68,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -1153,6 +1154,15 @@ public class ExpressionInterpreter
             }
 
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
+        }
+
+        @Override
+        protected Object visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Object context)
+        {
+            if (!optimize) {
+                throw new UnsupportedOperationException("QuantifiedComparison not yet implemented");
+            }
+            return node;
         }
 
         @Override

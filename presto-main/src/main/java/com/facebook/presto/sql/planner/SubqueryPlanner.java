@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -41,6 +42,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -56,6 +58,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -66,6 +69,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class SubqueryPlanner
@@ -120,6 +124,7 @@ class SubqueryPlanner
         builder = appendInPredicateApplyNodes(builder, collectInPredicateSubqueries(expression, node), correlationAllowed);
         builder = appendScalarSubqueryApplyNodes(builder, collectScalarSubqueries(expression, node), correlationAllowed);
         builder = appendExistsSubqueryApplyNodes(builder, collectExistsSubqueries(expression, node), correlationAllowed);
+        builder = appendQuantifiedComparisonApplyNodes(builder, collectQuantifiedComparisonSubqueries(expression, node), correlationAllowed);
         return builder;
     }
 
@@ -144,6 +149,14 @@ class SubqueryPlanner
         return analysis.getExistsSubqueries(node)
                 .stream()
                 .filter(subquery -> nodeContains(expression, subquery))
+                .collect(toImmutableSet());
+    }
+
+    public Set<QuantifiedComparisonExpression> collectQuantifiedComparisonSubqueries(Expression expression, Node node)
+    {
+        return analysis.getQuantifiedComparisonSubqueries(node)
+                .stream()
+                .filter(quantifiedComparison -> nodeContains(expression, quantifiedComparison.getSubquery()))
                 .collect(toImmutableSet());
     }
 
@@ -263,6 +276,24 @@ class SubqueryPlanner
                         ImmutableMap.of(exists, countGreaterThanZero)));
 
         return appendSubqueryApplyNode(subPlan, existsPredicate, existsPredicate.getSubquery(), subqueryPlan, correlationAllowed);
+    }
+
+    private PlanBuilder appendQuantifiedComparisonApplyNodes(PlanBuilder subPlan, Set<QuantifiedComparisonExpression> quantifiedComparisons, boolean correlationAllowed)
+    {
+        for (QuantifiedComparisonExpression quantifiedComparison : quantifiedComparisons) {
+            subPlan = appendQuantifiedComparisonApplyNode(subPlan, quantifiedComparison, correlationAllowed);
+        }
+        return subPlan;
+    }
+
+    private PlanBuilder appendQuantifiedComparisonApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
+    {
+        if (subPlan.canTranslate(quantifiedComparison)) {
+            // given subquery is already appended
+            return subPlan;
+        }
+        throw new SemanticException(NOT_SUPPORTED, quantifiedComparison,
+                format("Quantified comparison '%s %s' is not yet supported", quantifiedComparison.getComparisonType().getValue(), quantifiedComparison.getQuantifier()));
     }
 
     private boolean isAggregationWithEmptyGroupBy(PlanNode subqueryPlan)

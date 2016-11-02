@@ -229,6 +229,11 @@ public class ExpressionAnalyzer
         return existsSubqueries;
     }
 
+    public Set<QuantifiedComparisonExpression> getQuantifiedComparisons()
+    {
+        return quantifiedComparisons;
+    }
+
     private class Visitor
             extends StackableAstVisitor<Type, Void>
     {
@@ -1259,7 +1264,8 @@ public class ExpressionAnalyzer
                 analyzer.getScalarSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions());
+                analyzer.getTypeOnlyCoercions(),
+                analyzer.getQuantifiedComparisons());
     }
 
     public static ExpressionAnalysis analyzeExpression(
@@ -1291,7 +1297,8 @@ public class ExpressionAnalyzer
                 analyzer.getScalarSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions());
+                analyzer.getTypeOnlyCoercions(),
+                analyzer.getQuantifiedComparisons());
     }
 
     public static ExpressionAnalyzer create(
