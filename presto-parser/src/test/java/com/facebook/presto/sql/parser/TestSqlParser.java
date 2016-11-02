@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -789,28 +790,28 @@ public class TestSqlParser
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT 10",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("10")));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT ALL",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("ALL")));
     }
@@ -1228,7 +1229,7 @@ public class TestSqlParser
         assertStatement("DELETE FROM t", new Delete(table(QualifiedName.of("t")), Optional.empty()));
 
         assertStatement("DELETE FROM t WHERE a = b", new Delete(table(QualifiedName.of("t")), Optional.of(
-                new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                new ComparisonExpression(ComparisonExpressionType.EQUAL,
                         new QualifiedNameReference(QualifiedName.of("a")),
                         new QualifiedNameReference(QualifiedName.of("b"))))));
     }
@@ -1592,7 +1593,7 @@ public class TestSqlParser
                 "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
                 simpleQuery(
                         selectList(new ComparisonExpression(
-                                ComparisonExpression.Type.EQUAL,
+                                ComparisonExpressionType.EQUAL,
                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
 
@@ -1602,7 +1603,7 @@ public class TestSqlParser
                         selectList(
                                 new NotExpression(
                                         new ComparisonExpression(
-                                                ComparisonExpression.Type.EQUAL,
+                                                ComparisonExpressionType.EQUAL,
                                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
                                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2")))))))));
 
@@ -1611,7 +1612,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(
                                 new ComparisonExpression(
-                                        ComparisonExpression.Type.EQUAL,
+                                        ComparisonExpressionType.EQUAL,
                                         new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
                                         new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
     }
@@ -1634,7 +1635,7 @@ public class TestSqlParser
                                                 QualifiedName.of("SUM"),
                                                 Optional.empty(),
                                                 Optional.of(new ComparisonExpression(
-                                                        ComparisonExpression.Type.GREATER_THAN,
+                                                        ComparisonExpressionType.GREATER_THAN,
                                                         new QualifiedNameReference(QualifiedName.of("x")),
                                                         new LongLiteral("4"))),
                                                 false,

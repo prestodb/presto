@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.IfExpression;
@@ -291,7 +292,7 @@ public class OptimizeMixedDistinctAggregations
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
                             new Cast(new LongLiteral("1"), "bigint"), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            ComparisonExpression.Type.EQUAL,
+                            ComparisonExpressionType.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
                     outputSymbols.put(newSymbol, expression);
@@ -303,7 +304,7 @@ public class OptimizeMixedDistinctAggregations
                     Expression expression = createIfExpression(
                             groupSymbol.toSymbolReference(),
                             new Cast(new LongLiteral("0"), "bigint"), // TODO: this should use GROUPING() when that's available instead of relying on specific group numbering
-                            ComparisonExpression.Type.EQUAL,
+                            ComparisonExpressionType.EQUAL,
                             symbol.toSymbolReference(),
                             symbolAllocator.getTypes().get(symbol));
                     outputSymbols.put(newSymbol, expression);
@@ -433,7 +434,7 @@ public class OptimizeMixedDistinctAggregations
         }
 
         // creates if clause specific to use case here, default value always null
-        private IfExpression createIfExpression(Expression left, Expression right, ComparisonExpression.Type type, Expression result, Type trueValueType)
+        private IfExpression createIfExpression(Expression left, Expression right, ComparisonExpressionType type, Expression result, Type trueValueType)
         {
             return new IfExpression(
                     new ComparisonExpression(type, left, right),
