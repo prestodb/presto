@@ -36,26 +36,32 @@ install: ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl 
 
 script:
   - |
-    test ! -v MAVEN_CHECKS ||
+    if [[ -v MAVEN_CHECKS ]]; then
       ./mvnw install -DskipTests -B -T C1
+    fi
   - |
-    test ! -v TEST_MODULES ||
+    if [[ -v TEST_MODULES ]]; then
       ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES
+    fi
   - |
-    test ! -v PRODUCT_TESTS ||
+    if [[ -v PRODUCT_TESTS ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         multinode -x quarantine,big_query,storage_formats,profile_specific_tests
+    fi
   - |
-    test ! -v PRODUCT_TESTS ||
+    if [[ -v PRODUCT_TESTS ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         singlenode-kerberos-hdfs-impersonation -g storage_formats,cli,hdfs_impersonation,authorization
+    fi
   - |
-    test ! -v HIVE_TESTS ||
+    if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_on_docker.sh
+    fi
   - |
     # Build presto-server-rpm for later artifact upload
-    test ! -v DEPLOY_S3_ACCESS_KEY || test ! -v PRODUCT_TESTS ||
+    if [[ -v DEPLOY_S3_ACCESS_KEY && -v PRODUCT_TESTS ]]; then
        ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl presto-server-rpm
+    fi
 
 before_cache:
   # Make the cache stable between builds by removing build output
