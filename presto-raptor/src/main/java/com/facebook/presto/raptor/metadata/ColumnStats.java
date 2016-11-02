@@ -16,25 +16,26 @@ package com.facebook.presto.raptor.metadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
 public class ColumnStats
 {
     private final long columnId;
-    private final Object min;
-    private final Object max;
+    private final Optional<Object> min;
+    private final Optional<Object> max;
 
     @JsonCreator
     public ColumnStats(
             @JsonProperty("columnId") long columnId,
-            @JsonProperty("min") @Nullable Object min,
-            @JsonProperty("max") @Nullable Object max)
+            @JsonProperty("min") Optional<Object> min,
+            @JsonProperty("max") Optional<Object> max)
     {
         this.columnId = columnId;
-        this.min = min;
-        this.max = max;
+        this.min = requireNonNull(min, "min is null");
+        this.max = requireNonNull(max, "max is null");
     }
 
     @JsonProperty
@@ -43,16 +44,14 @@ public class ColumnStats
         return columnId;
     }
 
-    @Nullable
     @JsonProperty
-    public Object getMin()
+    public Optional<Object> getMin()
     {
         return min;
     }
 
-    @Nullable
     @JsonProperty
-    public Object getMax()
+    public Optional<Object> getMax()
     {
         return max;
     }

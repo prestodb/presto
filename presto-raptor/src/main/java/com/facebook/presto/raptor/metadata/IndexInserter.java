@@ -142,8 +142,8 @@ class IndexInserter
         for (ColumnStats column : stats) {
             int index = indexes.get(column.getColumnId());
             JDBCType type = types.get(column.getColumnId());
-            bindValue(statement, type, convert(column.getMin()), index);
-            bindValue(statement, type, convert(column.getMax()), index + 1);
+            bindValue(statement, type, convert(column.getMin().orElse(null)), index);
+            bindValue(statement, type, convert(column.getMax().orElse(null)), index + 1);
         }
 
         statement.addBatch();

@@ -623,8 +623,8 @@ public class TestOrcStorageManager
     {
         for (ColumnStats stats : list) {
             if (stats.getColumnId() == columnId) {
-                assertEquals(stats.getMin(), min);
-                assertEquals(stats.getMax(), max);
+                assertEquals(stats.getMin().orElse(null), min);
+                assertEquals(stats.getMax().orElse(null), max);
                 return;
             }
         }

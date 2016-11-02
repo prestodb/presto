@@ -33,7 +33,7 @@ public class TestShardRange
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, TIMESTAMP);
-        ShardRange range = ShardRange.of(new Tuple(types, 2L, "aaa", true, 1L), new Tuple(types, 5L, "ccc", false, 2L));
+        ShardRange range = ShardRange.of(Tuple.of(types, 2L, "aaa", true, 1L), Tuple.of(types, 5L, "ccc", false, 2L));
         assertTrue(range.encloses(range));
     }
 
@@ -42,18 +42,18 @@ public class TestShardRange
             throws Exception
     {
         List<Type> types1 = ImmutableList.of(BIGINT);
-        ShardRange range1 = ShardRange.of(new Tuple(types1, 2L), new Tuple(types1, 5L));
+        ShardRange range1 = ShardRange.of(Tuple.of(types1, 2L), Tuple.of(types1, 5L));
 
-        ShardRange enclosesRange1 = ShardRange.of(new Tuple(types1, 1L), new Tuple(types1, 10L));
-        ShardRange notEnclosesRange1 = ShardRange.of(new Tuple(types1, 1L), new Tuple(types1, 4L));
+        ShardRange enclosesRange1 = ShardRange.of(Tuple.of(types1, 1L), Tuple.of(types1, 10L));
+        ShardRange notEnclosesRange1 = ShardRange.of(Tuple.of(types1, 1L), Tuple.of(types1, 4L));
 
         assertTrue(enclosesRange1.encloses(range1));
         assertFalse(notEnclosesRange1.encloses(range1));
 
         List<Type> types2 = ImmutableList.of(BIGINT, VARCHAR);
-        ShardRange range2 = ShardRange.of(new Tuple(types2, 2L, "aaa"), new Tuple(types2, 5L, "ccc"));
-        ShardRange enclosesRange2 = ShardRange.of(new Tuple(types2, 1L, "ccc"), new Tuple(types2, 10L, "ccc"));
-        ShardRange notEnclosesRange2 = ShardRange.of(new Tuple(types2, 2L, "aaa"), new Tuple(types2, 5L, "bbb"));
+        ShardRange range2 = ShardRange.of(Tuple.of(types2, 2L, "aaa"), Tuple.of(types2, 5L, "ccc"));
+        ShardRange enclosesRange2 = ShardRange.of(Tuple.of(types2, 1L, "ccc"), Tuple.of(types2, 10L, "ccc"));
+        ShardRange notEnclosesRange2 = ShardRange.of(Tuple.of(types2, 2L, "aaa"), Tuple.of(types2, 5L, "bbb"));
 
         assertTrue(range2.encloses(range2));
         assertTrue(enclosesRange2.encloses(range2));
@@ -65,7 +65,7 @@ public class TestShardRange
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, TIMESTAMP);
-        ShardRange range = ShardRange.of(new Tuple(types, 2L, "aaa", true, 1L), new Tuple(types, 5L, "ccc", false, 2L));
+        ShardRange range = ShardRange.of(Tuple.of(types, 2L, "aaa", true, 1L), Tuple.of(types, 5L, "ccc", false, 2L));
         assertTrue(range.overlaps(range));
     }
 
@@ -74,21 +74,21 @@ public class TestShardRange
             throws Exception
     {
         List<Type> types1 = ImmutableList.of(BIGINT);
-        ShardRange range1 = ShardRange.of(new Tuple(types1, 2L), new Tuple(types1, 5L));
+        ShardRange range1 = ShardRange.of(Tuple.of(types1, 2L), Tuple.of(types1, 5L));
 
-        ShardRange enclosesRange1 = ShardRange.of(new Tuple(types1, 1L), new Tuple(types1, 10L));
-        ShardRange overlapsRange1 = ShardRange.of(new Tuple(types1, 1L), new Tuple(types1, 4L));
-        ShardRange notOverlapsRange1 = ShardRange.of(new Tuple(types1, 6L), new Tuple(types1, 8L));
+        ShardRange enclosesRange1 = ShardRange.of(Tuple.of(types1, 1L), Tuple.of(types1, 10L));
+        ShardRange overlapsRange1 = ShardRange.of(Tuple.of(types1, 1L), Tuple.of(types1, 4L));
+        ShardRange notOverlapsRange1 = ShardRange.of(Tuple.of(types1, 6L), Tuple.of(types1, 8L));
 
         assertTrue(enclosesRange1.overlaps(range1));
         assertTrue(overlapsRange1.overlaps(range1));
         assertFalse(notOverlapsRange1.overlaps(range1));
 
         List<Type> types2 = ImmutableList.of(BIGINT, VARCHAR);
-        ShardRange range2 = ShardRange.of(new Tuple(types2, 2L, "aaa"), new Tuple(types2, 5L, "ccc"));
-        ShardRange enclosesRange2 = ShardRange.of(new Tuple(types2, 1L, "ccc"), new Tuple(types2, 10L, "ccc"));
-        ShardRange overlapsRange2 = ShardRange.of(new Tuple(types2, 2L, "aaa"), new Tuple(types2, 5L, "bbb"));
-        ShardRange notOverlapsRange2 = ShardRange.of(new Tuple(types2, 6L, "aaa"), new Tuple(types2, 8L, "bbb"));
+        ShardRange range2 = ShardRange.of(Tuple.of(types2, 2L, "aaa"), Tuple.of(types2, 5L, "ccc"));
+        ShardRange enclosesRange2 = ShardRange.of(Tuple.of(types2, 1L, "ccc"), Tuple.of(types2, 10L, "ccc"));
+        ShardRange overlapsRange2 = ShardRange.of(Tuple.of(types2, 2L, "aaa"), Tuple.of(types2, 5L, "bbb"));
+        ShardRange notOverlapsRange2 = ShardRange.of(Tuple.of(types2, 6L, "aaa"), Tuple.of(types2, 8L, "bbb"));
 
         assertTrue(enclosesRange2.encloses(range2));
         assertTrue(overlapsRange2.overlaps(range2));
@@ -100,8 +100,8 @@ public class TestShardRange
             throws Exception
     {
         List<Type> types1 = ImmutableList.of(BIGINT);
-        ShardRange range1 = ShardRange.of(new Tuple(types1, 2L), new Tuple(types1, 5L));
-        ShardRange adjacentRange1 = ShardRange.of(new Tuple(types1, 5L), new Tuple(types1, 10L));
+        ShardRange range1 = ShardRange.of(Tuple.of(types1, 2L), Tuple.of(types1, 5L));
+        ShardRange adjacentRange1 = ShardRange.of(Tuple.of(types1, 5L), Tuple.of(types1, 10L));
 
         assertFalse(range1.adjacent(range1));
 
@@ -109,11 +109,11 @@ public class TestShardRange
         assertTrue(range1.adjacent(adjacentRange1));
 
         List<Type> types2 = ImmutableList.of(BIGINT, VARCHAR);
-        ShardRange range2 = ShardRange.of(new Tuple(types2, 2L, "aaa"), new Tuple(types2, 5L, "ccc"));
-        ShardRange adjacentRange2 = ShardRange.of(new Tuple(types2, 5L, "ccc"), new Tuple(types2, 10L, "ccc"));
-        ShardRange subsetAdjacentRange2 = ShardRange.of(new Tuple(types2, 5L, "ddd"), new Tuple(types2, 10L, "ccc"));
-        ShardRange overlapsRange2 = ShardRange.of(new Tuple(types2, 3L, "aaa"), new Tuple(types2, 10L, "ccc"));
-        ShardRange notAdjacentRange2 = ShardRange.of(new Tuple(types2, 6L, "ccc"), new Tuple(types2, 10L, "ccc"));
+        ShardRange range2 = ShardRange.of(Tuple.of(types2, 2L, "aaa"), Tuple.of(types2, 5L, "ccc"));
+        ShardRange adjacentRange2 = ShardRange.of(Tuple.of(types2, 5L, "ccc"), Tuple.of(types2, 10L, "ccc"));
+        ShardRange subsetAdjacentRange2 = ShardRange.of(Tuple.of(types2, 5L, "ddd"), Tuple.of(types2, 10L, "ccc"));
+        ShardRange overlapsRange2 = ShardRange.of(Tuple.of(types2, 3L, "aaa"), Tuple.of(types2, 10L, "ccc"));
+        ShardRange notAdjacentRange2 = ShardRange.of(Tuple.of(types2, 6L, "ccc"), Tuple.of(types2, 10L, "ccc"));
 
         assertTrue(adjacentRange2.adjacent(range2));
         assertTrue(subsetAdjacentRange2.adjacent(range2));

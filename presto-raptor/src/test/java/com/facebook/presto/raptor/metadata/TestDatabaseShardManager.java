@@ -437,36 +437,36 @@ public class TestDatabaseShardManager
                 UUID.randomUUID(),
                 "node1",
                 ImmutableList.<ColumnStats>builder()
-                        .add(new ColumnStats(1, 5, 10))
-                        .add(new ColumnStats(2, -20.0, 20.0))
-                        .add(new ColumnStats(3, date(2013, 5, 11), date(2013, 6, 13)))
-                        .add(new ColumnStats(4, timestamp(2013, 5, 11, 4, 5, 6), timestamp(2013, 6, 13, 7, 8, 9)))
-                        .add(new ColumnStats(5, "hello", "world"))
-                        .add(new ColumnStats(6, false, true))
+                        .add(columnStats(1, 5, 10))
+                        .add(columnStats(2, -20.0, 20.0))
+                        .add(columnStats(3, date(2013, 5, 11), date(2013, 6, 13)))
+                        .add(columnStats(4, timestamp(2013, 5, 11, 4, 5, 6), timestamp(2013, 6, 13, 7, 8, 9)))
+                        .add(columnStats(5, "hello", "world"))
+                        .add(columnStats(6, false, true))
                         .build());
 
         ShardInfo shard2 = shardInfo(
                 UUID.randomUUID(),
                 "node2",
                 ImmutableList.<ColumnStats>builder()
-                        .add(new ColumnStats(1, 2, 8))
-                        .add(new ColumnStats(2, null, 50.0))
-                        .add(new ColumnStats(3, date(2012, 1, 1), date(2012, 12, 31)))
-                        .add(new ColumnStats(4, timestamp(2012, 1, 1, 2, 3, 4), timestamp(2012, 12, 31, 5, 6, 7)))
-                        .add(new ColumnStats(5, "cat", "dog"))
-                        .add(new ColumnStats(6, true, true))
+                        .add(columnStats(1, 2, 8))
+                        .add(columnStats(2, null, 50.0))
+                        .add(columnStats(3, date(2012, 1, 1), date(2012, 12, 31)))
+                        .add(columnStats(4, timestamp(2012, 1, 1, 2, 3, 4), timestamp(2012, 12, 31, 5, 6, 7)))
+                        .add(columnStats(5, "cat", "dog"))
+                        .add(columnStats(6, true, true))
                         .build());
 
         ShardInfo shard3 = shardInfo(
                 UUID.randomUUID(),
                 "node3",
                 ImmutableList.<ColumnStats>builder()
-                        .add(new ColumnStats(1, 15, 20))
-                        .add(new ColumnStats(2, null, null))
-                        .add(new ColumnStats(3, date(2013, 4, 1), date(2013, 6, 1)))
-                        .add(new ColumnStats(4, timestamp(2013, 4, 1, 8, 7, 6), timestamp(2013, 6, 1, 6, 5, 4)))
-                        .add(new ColumnStats(5, "grape", "orange"))
-                        .add(new ColumnStats(6, false, false))
+                        .add(columnStats(1, 15, 20))
+                        .add(columnStats(2, null, null))
+                        .add(columnStats(3, date(2013, 4, 1), date(2013, 6, 1)))
+                        .add(columnStats(4, timestamp(2013, 4, 1, 8, 7, 6), timestamp(2013, 6, 1, 6, 5, 4)))
+                        .add(columnStats(5, "grape", "orange"))
+                        .add(columnStats(6, false, false))
                         .build());
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()
@@ -566,7 +566,7 @@ public class TestDatabaseShardManager
     {
         String prefix = repeat("x", MAX_BINARY_INDEX_SIZE);
 
-        ColumnStats stats = new ColumnStats(1, prefix + "a", prefix + "z");
+        ColumnStats stats = columnStats(1, prefix + "a", prefix + "z");
         ShardInfo shard = shardInfo(UUID.randomUUID(), "node", ImmutableList.of(stats));
 
         List<ShardInfo> shards = ImmutableList.of(shard);
@@ -733,5 +733,10 @@ public class TestDatabaseShardManager
     private static Node createTestingNode()
     {
         return new PrestoNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
+    }
+
+    private static ColumnStats columnStats(long columnId, Object min, Object max)
+    {
+        return new ColumnStats(columnId, Optional.ofNullable(min), Optional.ofNullable(max));
     }
 }

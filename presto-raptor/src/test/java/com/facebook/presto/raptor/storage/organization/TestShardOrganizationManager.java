@@ -131,16 +131,39 @@ public class TestShardOrganizationManager
         int day = 1;
 
         List<ShardIndexInfo> shards = ImmutableList.of(
-                shardWithRange(1, ShardRange.of(new Tuple(types, 5L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 7L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 6L, "hello", day, timestamp), new Tuple(types, 9L, "hello", day, timestamp))),
-                shardWithRange(1, ShardRange.of(new Tuple(types, 1L, "hello", day, timestamp), new Tuple(types, 5L, "hello", day, timestamp))));
+                shardWithSortRange(1, ShardRange.of(Tuple.of(types, 5L, "hello", day, timestamp), Tuple.of(types, 10L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(Tuple.of(types, 7L, "hello", day, timestamp), Tuple.of(types, 10L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(Tuple.of(types, 6L, "hello", day, timestamp), Tuple.of(types, 9L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(Tuple.of(types, 1L, "hello", day, timestamp), Tuple.of(types, 5L, "hello", day, timestamp))));
 
         Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards);
 
         assertEquals(actual.size(), 1);
         // Shards 0, 1 and 2 are overlapping, so we should get an organization set with these shards
         assertEquals(getOnlyElement(actual).getShards(), extractIndexes(shards, 0, 1, 2));
+    }
+
+    @Test
+    public void testSimpleWithNulls()
+            throws Exception
+    {
+        long timestamp = 1L;
+        int day = 1;
+
+        List<ShardIndexInfo> shards = ImmutableList.of(
+                shardWithSortRange(
+                        1,
+                        ShardRange.of(Tuple.of(types, 5L, "hello", day, timestamp),
+                                new Tuple(types, ImmutableList.of(Optional.empty(), Optional.of("hello"), Optional.of(day), Optional.of(timestamp))))),
+                shardWithSortRange(1, ShardRange.of(Tuple.of(types, 7L, "hello", day, timestamp), Tuple.of(types, 10L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(Tuple.of(types, 6L, "hello", day, timestamp), Tuple.of(types, 9L, "hello", day, timestamp))),
+                shardWithSortRange(1, ShardRange.of(Tuple.of(types, 1L, "hello", day, timestamp), Tuple.of(types, 5L, "hello", day, timestamp))));
+
+        Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards);
+
+        assertEquals(actual.size(), 1);
+        // Shards 0, 1 and 2 are overlapping, so we should get an organization set with these shards
+        assertEquals(getOnlyElement(actual).getShards(), extractIndexes(shards, 1, 2));
     }
 
     @Test
@@ -156,10 +179,10 @@ public class TestShardOrganizationManager
         int day5 = 5;
 
         List<ShardIndexInfo> shards = ImmutableList.of(
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 5L), new Tuple(types, 10L)), ShardRange.of(new Tuple(temporalType, day1), new Tuple(temporalType, day2))),
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 7L), new Tuple(types, 10L)), ShardRange.of(new Tuple(temporalType, day4), new Tuple(temporalType, day5))),
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 6L), new Tuple(types, 9L)), ShardRange.of(new Tuple(temporalType, day1), new Tuple(temporalType, day2))),
-                shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 4L), new Tuple(types, 8L)), ShardRange.of(new Tuple(temporalType, day4), new Tuple(temporalType, day5))));
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 5L), Tuple.of(types, 10L)), ShardRange.of(Tuple.of(temporalType, day1), Tuple.of(temporalType, day2))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 7L), Tuple.of(types, 10L)), ShardRange.of(Tuple.of(temporalType, day4), Tuple.of(temporalType, day5))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 6L), Tuple.of(types, 9L)), ShardRange.of(Tuple.of(temporalType, day1), Tuple.of(temporalType, day2))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 4L), Tuple.of(types, 8L)), ShardRange.of(Tuple.of(temporalType, day4), Tuple.of(temporalType, day5))));
 
         Set<OrganizationSet> organizationSets = createOrganizationSets(temporalTableInfo, shards);
         Set<Set<UUID>> actual = organizationSets.stream()
@@ -171,7 +194,39 @@ public class TestShardOrganizationManager
         assertEquals(actual, ImmutableSet.of(extractIndexes(shards, 0, 2), extractIndexes(shards, 1, 3)));
     }
 
-    private static ShardIndexInfo shardWithRange(int bucketNumber, ShardRange shardRange)
+    @Test
+    public void testSimpleTemporalWithNulls()
+            throws Exception
+    {
+        List<Type> temporalType = ImmutableList.of(DATE);
+        List<Type> types = ImmutableList.of(BIGINT);
+
+        int day1 = 1;
+        int day2 = 2;
+        int day4 = 4;
+        int day5 = 5;
+
+        List<ShardIndexInfo> shards = ImmutableList.of(
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 5L), Tuple.of(types, 10L)), ShardRange.of(Tuple.of(temporalType, day1), Tuple.of(temporalType, day2))),
+                shardWithTemporalRange(
+                        1,
+                        ShardRange.of(Tuple.of(types, 5L), Tuple.of(types, 10L)),
+                        ShardRange.of(Tuple.of(temporalType, day1), new Tuple(temporalType, ImmutableList.of(Optional.empty())))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 7L), Tuple.of(types, 10L)), ShardRange.of(Tuple.of(temporalType, day4), Tuple.of(temporalType, day5))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 6L), Tuple.of(types, 9L)), ShardRange.of(Tuple.of(temporalType, day1), Tuple.of(temporalType, day2))),
+                shardWithTemporalRange(1, ShardRange.of(Tuple.of(types, 4L), Tuple.of(types, 8L)), ShardRange.of(Tuple.of(temporalType, day4), Tuple.of(temporalType, day5))));
+
+        Set<OrganizationSet> organizationSets = createOrganizationSets(temporalTableInfo, shards);
+        Set<Set<UUID>> actual = organizationSets.stream()
+                .map(OrganizationSet::getShards)
+                .collect(toSet());
+
+        // expect 2 organization sets, of overlapping shards (0, 2) and (1, 3)
+        assertEquals(organizationSets.size(), 2);
+        assertEquals(actual, ImmutableSet.of(extractIndexes(shards, 0, 3), extractIndexes(shards, 2, 4)));
+    }
+
+    private static ShardIndexInfo shardWithSortRange(int bucketNumber, ShardRange sortRange)
     {
         return new ShardIndexInfo(
                 1,
@@ -179,11 +234,11 @@ public class TestShardOrganizationManager
                 UUID.randomUUID(),
                 1,
                 1,
-                Optional.of(shardRange),
+                Optional.of(sortRange),
                 Optional.empty());
     }
 
-    private static ShardIndexInfo shardWithTemporalRange(int bucketNumber, ShardRange shardRange, ShardRange temporalRange)
+    private static ShardIndexInfo shardWithTemporalRange(int bucketNumber, ShardRange sortRange, ShardRange temporalRange)
     {
         return new ShardIndexInfo(
                 1,
@@ -191,7 +246,7 @@ public class TestShardOrganizationManager
                 UUID.randomUUID(),
                 1,
                 1,
-                Optional.of(shardRange),
+                Optional.of(sortRange),
                 Optional.of(temporalRange));
     }
 

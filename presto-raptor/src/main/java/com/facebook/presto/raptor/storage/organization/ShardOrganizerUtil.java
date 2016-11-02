@@ -24,6 +24,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimaps;
+import io.airlift.log.Logger;
 import org.skife.jdbi.v2.IDBI;
 
 import java.sql.Connection;
@@ -57,6 +58,8 @@ import static java.util.stream.Collectors.toSet;
 
 public class ShardOrganizerUtil
 {
+    private static final Logger log = Logger.get(ShardOrganizerUtil.class);
+
     private ShardOrganizerUtil() {}
 
     public static Collection<ShardIndexInfo> toShardIndexInfo(
@@ -109,16 +112,16 @@ public class ShardOrganizerUtil
                         while (resultSet.next()) {
                             long shardId = resultSet.getLong("shard_id");
 
-                            Optional<ShardRange> shardRange = Optional.empty();
+                            Optional<ShardRange> sortRange = Optional.empty();
                             if (includeSortColumns) {
-                                shardRange = getShardRange(sortColumns.get(), resultSet);
+                                sortRange = getShardRange(sortColumns.get(), resultSet);
                             }
-                            Optional<ShardRange> shardTemporalRange = Optional.empty();
+                            Optional<ShardRange> temporalRange = Optional.empty();
                             if (temporalColumn.isPresent()) {
-                                shardTemporalRange = getShardRange(ImmutableList.of(temporalColumn.get()), resultSet);
+                                temporalRange = getShardRange(ImmutableList.of(temporalColumn.get()), resultSet);
                             }
                             ShardMetadata shardMetadata = shardsById.get(shardId);
-                            indexInfoBuilder.add(toShardIndexInfo(shardMetadata, shardTemporalRange, shardRange));
+                            indexInfoBuilder.add(toShardIndexInfo(shardMetadata, temporalRange, sortRange));
                         }
                     }
                 }
@@ -130,7 +133,7 @@ public class ShardOrganizerUtil
         return indexInfoBuilder.build();
     }
 
-    private static ShardIndexInfo toShardIndexInfo(ShardMetadata shardMetadata, Optional<ShardRange> shardTemporalRange, Optional<ShardRange> shardRange)
+    private static ShardIndexInfo toShardIndexInfo(ShardMetadata shardMetadata, Optional<ShardRange> temporalRange, Optional<ShardRange> sortRange)
     {
         return new ShardIndexInfo(
                 shardMetadata.getTableId(),
@@ -138,8 +141,35 @@ public class ShardOrganizerUtil
                 shardMetadata.getShardUuid(),
                 shardMetadata.getRowCount(),
                 shardMetadata.getUncompressedSize(),
-                shardRange,
-                shardTemporalRange);
+                sortRange,
+                temporalRange);
+    }
+
+    public static List<ShardIndexInfo> getOrganizationEligibleShards(Collection<ShardIndexInfo> shardIndexInfos)
+    {
+        ImmutableList.Builder<ShardIndexInfo> eligibleShards = ImmutableList.builder();
+
+        for (ShardIndexInfo shard : shardIndexInfos) {
+            if (shard.getSortRange().isPresent()) {
+                if (shard.getSortRange().get().getMinTuple().getValues().stream().anyMatch(x -> !x.isPresent()) ||
+                        shard.getSortRange().get().getMaxTuple().getValues().stream().anyMatch(x -> !x.isPresent())) {
+                    log.info("Shard %s is ineligible for organization because it has empty min/max stats for sort columns", shard);
+                    continue;
+                }
+            }
+
+            if (shard.getTemporalRange().isPresent()) {
+                if (shard.getTemporalRange().get().getMinTuple().getValues().stream().anyMatch(x -> !x.isPresent()) ||
+                        shard.getTemporalRange().get().getMaxTuple().getValues().stream().anyMatch(x -> !x.isPresent())) {
+                    log.info("Shard %s is ineligible for organization because it has empty min/max stat for the temporal column", shard);
+                    continue;
+                }
+            }
+
+            eligibleShards.add(shard);
+        }
+
+        return eligibleShards.build();
     }
 
     public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards)
@@ -177,21 +207,23 @@ public class ShardOrganizerUtil
         return sets.build();
     }
 
-    private static long determineDay(ShardRange shardRange)
+    private static long determineDay(ShardRange temporalRange)
     {
-        Tuple min = shardRange.getMinTuple();
-        Tuple max = shardRange.getMaxTuple();
+        Tuple min = temporalRange.getMinTuple();
+        Tuple max = temporalRange.getMaxTuple();
 
         verify(min.getTypes().equals(max.getTypes()));
         Type type = getOnlyElement(min.getTypes());
         verify(type.equals(DATE) || type.equals(TimestampType.TIMESTAMP));
+        verify(getOnlyElement(min.getValues()).isPresent());
+        verify(getOnlyElement(max.getValues()).isPresent());
 
         if (type.equals(DATE)) {
-            return ((Integer) getOnlyElement(min.getValues())).longValue();
+            return ((Integer) getOnlyElement(min.getValues()).get()).longValue();
         }
 
-        Long minValue = (Long) getOnlyElement(min.getValues());
-        Long maxValue = (Long) getOnlyElement(max.getValues());
+        Long minValue = (Long) getOnlyElement(min.getValues()).get();
+        Long maxValue = (Long) getOnlyElement(max.getValues()).get();
         return determineDay(minValue, maxValue);
     }
 
@@ -217,16 +249,16 @@ public class ShardOrganizerUtil
     private static Optional<ShardRange> getShardRange(List<TableColumn> columns, ResultSet resultSet)
             throws SQLException
     {
-        ImmutableList.Builder<Object> minValuesBuilder = ImmutableList.builder();
-        ImmutableList.Builder<Object> maxValuesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Optional<Object>> minValuesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Optional<Object>> maxValuesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typeBuilder = ImmutableList.builder();
 
         for (TableColumn tableColumn : columns) {
             long columnId = tableColumn.getColumnId();
             Type type = tableColumn.getDataType();
 
-            Object min = getValue(resultSet, type, minColumn(columnId));
-            Object max = getValue(resultSet, type, maxColumn(columnId));
+            Optional<Object> min = getValue(resultSet, type, minColumn(columnId));
+            Optional<Object> max = getValue(resultSet, type, maxColumn(columnId));
 
             minValuesBuilder.add(min);
             maxValuesBuilder.add(max);
@@ -240,12 +272,12 @@ public class ShardOrganizerUtil
         return Optional.of(ShardRange.of(minTuple, maxTuple));
     }
 
-    private static Object getValue(ResultSet resultSet, Type type, String columnName)
+    private static Optional<Object> getValue(ResultSet resultSet, Type type, String columnName)
             throws SQLException
     {
         JDBCType jdbcType = jdbcType(type);
         Object value = getValue(resultSet, type, columnName, jdbcType);
-        return resultSet.wasNull() ? null : value;
+        return resultSet.wasNull() ? Optional.empty() : Optional.of(value);
     }
 
     private static Object getValue(ResultSet resultSet, Type type, String columnName, JDBCType jdbcType)

@@ -29,6 +29,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -181,6 +182,35 @@ public class TestCompactionSetCreator
     }
 
     @Test
+    public void testTemporalCompactionNullValues()
+            throws Exception
+    {
+        long day1 = Duration.ofNanos(System.nanoTime()).toDays();
+        long day2 = day1 + 1;
+        long day3 = day1 + 2;
+
+        List<ShardIndexInfo> inputShards = ImmutableList.of(
+                shardWithTemporalRange(DATE, day1, day1),
+                shardWithTemporalRange(DATE, day2, day2),
+                shardWithTemporalRange(DATE, day3, day3),
+                shardWithTemporalRange(DATE, day1, day3),
+                shardWithTemporalRange(DATE, day2, day3),
+                shardWithTemporalRange(DATE, day1, null));
+
+        long tableId = temporalTableInfo.getTableId();
+
+        List<ShardIndexInfo> eligibleShards = getOrganizationEligibleShards(inputShards);
+        Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(temporalTableInfo, eligibleShards);
+
+        assertEquals(actual.size(), 2);
+
+        Set<OrganizationSet> expected = ImmutableSet.of(
+                new OrganizationSet(tableId, extractIndexes(inputShards, 0, 3), OptionalInt.empty()),
+                new OrganizationSet(tableId, extractIndexes(inputShards, 1, 4), OptionalInt.empty()));
+        assertEquals(actual, expected);
+    }
+
+    @Test
     public void testBucketedTableCompaction()
             throws Exception
     {
@@ -279,7 +309,10 @@ public class TestCompactionSetCreator
                     1,
                     1,
                     Optional.empty(),
-                    Optional.of(ShardRange.of(new Tuple(type, start.intValue()), new Tuple(type, end.intValue()))));
+                    Optional.of(
+                            ShardRange.of(
+                                    new Tuple(type, start == null ? Optional.empty() : Optional.of(start.intValue())),
+                                    new Tuple(type, end == null ? Optional.empty() : Optional.of(end.intValue())))));
         }
         return new ShardIndexInfo(
                 1,
@@ -288,6 +321,6 @@ public class TestCompactionSetCreator
                 1,
                 1,
                 Optional.empty(),
-                Optional.of(ShardRange.of(new Tuple(type, start), new Tuple(type, end))));
+                Optional.of(ShardRange.of(new Tuple(type, Optional.ofNullable(start)), new Tuple(type, Optional.ofNullable(end)))));
     }
 }
