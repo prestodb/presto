@@ -14,30 +14,53 @@
 
 package com.facebook.presto.spi.statistics;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnStatistics
 {
-    public static final ColumnStatistics EMPTY_STATISTICS = ColumnStatistics.builder().build();
-
-    private final Estimate dataSize;
-    private final Estimate nullsCount;
-    private final Estimate distinctValuesCount;
+    private final Map<String, Estimate> statistics;
+    private static final String DATA_SIZE_STATISTIC_KEY = "data_size";
+    private static final String NULLS_COUNT_STATISTIC_KEY = "nulls_count";
+    private static final String DISTINCT_VALUES_STATITIC_KEY = "distinct_values_count";
 
     private ColumnStatistics(Estimate dataSize, Estimate nullsCount, Estimate distinctValuesCount)
     {
-        this.nullsCount = nullsCount;
-        this.distinctValuesCount = distinctValuesCount;
-        this.dataSize = requireNonNull(dataSize, "dataSize can not be null");
+        requireNonNull(dataSize, "dataSize can not be null");
+        statistics = createStatisticsMap(dataSize, nullsCount, distinctValuesCount);
     }
 
-    /**
-     * Size of data in bytes.
-     */
+    private static Map<String, Estimate> createStatisticsMap(Estimate dataSize, Estimate nullsCount, Estimate distinctValuesCount)
+    {
+        Map<String, Estimate> statistics = new HashMap<>();
+        statistics.put(DATA_SIZE_STATISTIC_KEY, dataSize);
+        statistics.put(NULLS_COUNT_STATISTIC_KEY, nullsCount);
+        statistics.put(DISTINCT_VALUES_STATITIC_KEY, distinctValuesCount);
+        return unmodifiableMap(statistics);
+    }
+
     public Estimate getDataSize()
     {
-        return dataSize;
+        return statistics.get(DATA_SIZE_STATISTIC_KEY);
+    }
+
+    public Estimate getNullsCount()
+    {
+        return statistics.get(NULLS_COUNT_STATISTIC_KEY);
+    }
+
+    public Estimate getDistinctValuesCount()
+    {
+        return statistics.get(DISTINCT_VALUES_STATITIC_KEY);
+    }
+
+    public Map<String, Estimate> getStatistics()
+    {
+        return statistics;
     }
 
     public static Builder builder()
