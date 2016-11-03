@@ -96,12 +96,10 @@ public class AggregationFromAnnotationsParser
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
-            for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
-                for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
-                    implementationsBuilder.addImplementation(implementation);
-                }
-            }
+            Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
+            Method inputFunction = getOnlyElement(getInputFunctions(aggregationDefinition, stateClass));
+            AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+            implementationsBuilder.addImplementation(implementation);
         }
 
         ParametricImplementations<AggregationImplementation> implementations = implementationsBuilder.build();
