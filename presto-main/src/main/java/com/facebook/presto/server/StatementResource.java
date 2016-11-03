@@ -30,7 +30,6 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
@@ -46,7 +45,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -530,17 +528,11 @@ public class StatementResource
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
                     OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
-                    List<BufferInfo> buffers = outputBuffers.getBuffers();
-                    if (buffers.isEmpty() || outputBuffers.getState().canAddBuffers()) {
-                        // output buffer has not been created yet
+                    if (outputBuffers.getState().canAddBuffers()) {
+                        // output buffer are still being created
                         continue;
                     }
-                    Preconditions.checkState(buffers.size() == 1,
-                            "Expected a single output buffer for task %s, but found %s",
-                            taskInfo.getTaskStatus().getTaskId(),
-                            buffers);
-
-                    OutputBufferId bufferId = Iterables.getOnlyElement(buffers).getBufferId();
+                    OutputBufferId bufferId = new OutputBufferId(0);
                     URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
                     exchangeClient.addLocation(uri);
                 }
