@@ -75,7 +75,6 @@ public final class QueryAssertions
             @Language("SQL") String expected,
             boolean ensureOrdering,
             boolean compareUpdate)
-            throws Exception
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = null;
@@ -175,7 +174,6 @@ public final class QueryAssertions
             @Language("SQL") String actual,
             H2QueryRunner h2QueryRunner,
             @Language("SQL") String expected)
-            throws Exception
     {
         long start = System.nanoTime();
         MaterializedResult actualResults = queryRunner.execute(session, actual);
@@ -186,7 +184,6 @@ public final class QueryAssertions
     }
 
     public static void assertApproximatelyEqual(List<MaterializedRow> actual, List<MaterializedRow> expected)
-            throws Exception
     {
         // TODO: support GROUP BY queries
         assertEquals(actual.size(), 1, "approximate query returned more than one row");
@@ -217,7 +214,6 @@ public final class QueryAssertions
             String sourceSchema,
             Session session,
             Iterable<TpchTable<?>> tables)
-            throws Exception
     {
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
@@ -228,7 +224,6 @@ public final class QueryAssertions
     }
 
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
-            throws Exception
     {
         QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
         copyTable(queryRunner, table, session);

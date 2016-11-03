@@ -59,7 +59,6 @@ public abstract class AbstractTestQueryFramework
 
     @AfterClass(alwaysRun = true)
     public void close()
-            throws Exception
     {
         try {
             h2QueryRunner.close();
@@ -90,55 +89,46 @@ public abstract class AbstractTestQueryFramework
     }
 
     protected void assertQuery(@Language("SQL") String sql)
-            throws Exception
     {
         assertQuery(getSession(), sql);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String sql)
-            throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, session, sql, h2QueryRunner, sql, false, false);
     }
 
     public void assertQueryOrdered(@Language("SQL") String sql)
-            throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, getSession(), sql, h2QueryRunner, sql, true, false);
     }
 
     protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, false, false);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false);
     }
 
     protected void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
         assertQueryOrdered(getSession(), actual, expected);
     }
 
     protected void assertQueryOrdered(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, true, false);
     }
 
     protected void assertUpdate(@Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
         assertUpdate(getSession(), actual, expected);
     }
 
     protected void assertUpdate(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
-            throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, true);
     }
@@ -184,13 +174,11 @@ public abstract class AbstractTestQueryFramework
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
-            throws Exception
     {
         assertAccessAllowed(getSession(), sql, deniedPrivileges);
     }
 
     protected void assertAccessAllowed(Session session, @Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
-            throws Exception
     {
         queryRunner.getExclusiveLock().lock();
         try {
@@ -204,7 +192,6 @@ public abstract class AbstractTestQueryFramework
     }
 
     protected void assertAccessDenied(@Language("SQL") String sql, @Language("RegExp") String exceptionsMessageRegExp, TestingPrivilege... deniedPrivileges)
-            throws Exception
     {
         assertAccessDenied(getSession(), sql, exceptionsMessageRegExp, deniedPrivileges);
     }
@@ -214,7 +201,6 @@ public abstract class AbstractTestQueryFramework
             @Language("SQL") String sql,
             @Language("RegExp") String exceptionsMessageRegExp,
             TestingPrivilege... deniedPrivileges)
-            throws Exception
     {
         queryRunner.getExclusiveLock().lock();
         try {
