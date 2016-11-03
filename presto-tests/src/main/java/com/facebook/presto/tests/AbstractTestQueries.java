@@ -2551,7 +2551,7 @@ public abstract class AbstractTestQueries
         QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
         QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
         QueryTemplate queryTemplate = new QueryTemplate(
-                "SELECT * " + "FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
+                "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
                 type,
                 condition);
 
@@ -2619,6 +2619,17 @@ public abstract class AbstractTestQueries
         assertQuery(
                 queryTemplate.replace(type.of("full"), xPlusYEqualsSubqueryJoinCondition),
                 "VALUES (1,3), (2,2), (3,1), (4, null), (null, 5)");
+    }
+
+    @Test
+    public void testJoinWithScalarSubqueryInOnClause()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT count() FROM nation a" +
+                        " INNER JOIN nation b ON a.name = (SELECT max(name) FROM nation)" +
+                        " INNER JOIN nation c ON c.name = split_part(b.name,'<',2)",
+                "SELECT 0");
     }
 
     @Test
