@@ -355,6 +355,9 @@ public class HiveMetadata
         for (Map.Entry<String, ColumnHandle> columnEntry : tableColumns.entrySet()) {
             String columnName = columnEntry.getKey();
             HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnEntry.getValue();
+            if (getColumnMetadata(session, tableHandle, hiveColumnHandle).isHidden()) {
+                continue;
+            }
             com.facebook.presto.spi.statistics.ColumnStatistics.Builder columnStatistics = com.facebook.presto.spi.statistics.ColumnStatistics.builder();
             if (hiveColumnHandle.isPartitionKey()) {
                 columnStatistics.setDistinctValuesCount(calculateDistinctValuesCountForPartitioningKey(hiveColumnHandle, hivePartitions));
