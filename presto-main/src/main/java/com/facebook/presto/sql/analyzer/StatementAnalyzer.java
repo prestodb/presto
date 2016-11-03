@@ -161,6 +161,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 class StatementAnalyzer
@@ -257,7 +258,6 @@ class StatementAnalyzer
                     "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
         }
 
-        analysis.setRowCountQuery(true);
         return createScope(insert, scope, Field.newUnqualified("rows", BIGINT));
     }
 
@@ -308,7 +308,6 @@ class StatementAnalyzer
 
         accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        analysis.setRowCountQuery(true);
         return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
     }
 
@@ -346,7 +345,6 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
-        analysis.setRowCountQuery(true);
         return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
     }
 
@@ -373,15 +371,13 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
-        analysis.setRowCountQuery(true);
         return createScope(node, scope, queryScope.getRelationType());
     }
 
     @Override
     protected Scope visitDataDefinitionStatement(DataDefinitionStatement node, Scope scope)
     {
-        analysis.setRowCountQuery(true);
-        return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
+        return createScope(node, scope, emptyList());
     }
 
     @Override
