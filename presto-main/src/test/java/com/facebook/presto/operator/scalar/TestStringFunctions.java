@@ -27,6 +27,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
@@ -253,6 +256,36 @@ public class TestStringFunctions
         assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
         assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
+    }
+
+    @Test
+    public void testSplitToMapMy()
+    {
+        MapType expectedType = new MapType(VARCHAR, VARCHAR);
+
+        {
+            Map<String, String> map = new HashMap<>();
+            map.put("a", "10");
+            map.put("c", "18");
+            map.put("d", null);
+            assertFunction("SPLIT_TO_MAP('a:10,b:17,c:18', ',', ':', ARRAY['a', 'c', 'd'])", expectedType, map);
+        }
+        {
+            Map<String, String> map = new HashMap<>();
+            map.put("a", null);
+            assertFunction("SPLIT_TO_MAP('', ',', '=', ARRAY['a'])", expectedType, map);
+        }
+        assertFunction(
+                "SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=', ARRAY['a', 'b', 'c', ''])",
+                expectedType,
+                ImmutableMap.of("a", "123", "b", ".4", "c", "", "", "d"));
+
+        assertFunction("SPLIT_TO_MAP('=', ',', '=')", expectedType, ImmutableMap.of("", ""));
+        assertFunction("SPLIT_TO_MAP('key=>value', ',', '=>', ARRAY['key'])", expectedType, ImmutableMap.of("key", "value"));
+        assertFunction("SPLIT_TO_MAP('key => value', ',', '=>', ARRAY['key '])", expectedType, ImmutableMap.of("key ", " value"));
+
+        assertInvalidFunction("SPLIT_TO_MAP('a:0.1,b:0.7,a:0.3,c:0.8', ',', ':', ARRAY['a', NULL])", "Keys array should not contain NULL");
+        assertInvalidFunction("SPLIT_TO_MAP('a:0.1,b:0.7,a:0.3,c:0.8', ',', ':', ARRAY['a', 'c'])", "Duplicate keys (a) are not allowed");
     }
 
     @Test

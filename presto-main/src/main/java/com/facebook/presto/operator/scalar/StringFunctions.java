@@ -400,16 +400,16 @@ public final class StringFunctions
                 Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
 
                 if (value.indexOf(keyValueDelimiter) >= 0) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+                    throwKeyValueDelimiterInvalid(keyValuePair);
                 }
                 if (map.containsKey(key)) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
+                    throwDuplicateKey(key);
                 }
 
                 map.put(key, value);
             }
             else {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+                throwKeyValueDelimiterInvalid(keyValuePair);
             }
 
             if (entryEnd < 0) {
@@ -427,6 +427,91 @@ public final class StringFunctions
         }
 
         return builder.build();
+    }
+
+    @Description("creates a map using entryDelimiter and keyValueDelimiter, projecting onto keys")
+    @ScalarFunction
+    @SqlType("map<varchar,varchar>")
+    public static Block splitToMap(
+            @SqlType(StandardTypes.VARCHAR) Slice string,
+            @SqlType(StandardTypes.VARCHAR) Slice entryDelimiter,
+            @SqlType(StandardTypes.VARCHAR) Slice keyValueDelimiter,
+            @SqlType("array(varchar)") Block keys)
+    {
+        checkCondition(entryDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "entryDelimiter is empty");
+        checkCondition(keyValueDelimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "keyValueDelimiter is empty");
+        checkCondition(!entryDelimiter.equals(keyValueDelimiter), INVALID_FUNCTION_ARGUMENT, "entryDelimiter and keyValueDelimiter must not be the same");
+
+        Map<Slice, Slice> map = new HashMap<>();
+        for (int i = 0; i < keys.getPositionCount(); i++) {
+            if (keys.isNull(i)) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Keys array should not contain NULL");
+            }
+            map.put(keys.getSlice(i, 0, keys.getLength(i)), null);
+        }
+
+        if (string.length() > 0) {
+            // Note that this code doesn't check for duplicates of every key, because it uses much more memory to do so, while this overload
+            // is focused on performance.
+            int entryStart = 0;
+            while (true) {
+                // Extract key-value pair based on current index
+                // then add the pair if it can be split by keyValueDelimiter
+                int entryEnd = string.indexOf(entryDelimiter, entryStart);
+                if (entryEnd < 0) {
+                    entryEnd = string.length();
+                }
+
+                Slice keyValuePair = string.slice(entryStart, entryEnd - entryStart);
+                int keyEnd = keyValuePair.indexOf(keyValueDelimiter);
+                if (keyEnd < 0) {
+                    throwKeyValueDelimiterInvalid(keyValuePair);
+                }
+
+                Slice key = keyValuePair.slice(0, keyEnd);
+                if (map.containsKey(key)) {
+                    if (map.get(key) != null) {
+                        throwDuplicateKey(key);
+                    }
+                    int valueStart = keyEnd + keyValueDelimiter.length();
+                    Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
+                    if (value.indexOf(keyValueDelimiter) >= 0) {
+                        throwKeyValueDelimiterInvalid(keyValuePair);
+                    }
+                    map.put(key, value);
+                }
+
+                if (entryEnd == string.length()) {
+                    // No more pairs to add
+                    break;
+                }
+                // Next possible pair is placed next to the current entryDelimiter
+                entryStart = entryEnd + entryDelimiter.length();
+            }
+        }
+
+        BlockBuilder builder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), map.size());
+        for (Map.Entry<Slice, Slice> entry : map.entrySet()) {
+            VARCHAR.writeSlice(builder, entry.getKey());
+            if (entry.getValue() == null) {
+                builder.appendNull();
+            }
+            else {
+                VARCHAR.writeSlice(builder, entry.getValue());
+            }
+        }
+
+        return builder.build();
+    }
+
+    private static void throwKeyValueDelimiterInvalid(Slice keyValuePair)
+    {
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: '" + keyValuePair.toStringUtf8() + "'");
+    }
+
+    private static void throwDuplicateKey(Slice key)
+    {
+        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", key.toStringUtf8()));
     }
 
     @Description("removes whitespace from the beginning of a string")
