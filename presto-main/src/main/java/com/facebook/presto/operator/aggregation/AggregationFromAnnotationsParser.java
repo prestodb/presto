@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.ParametricImplementations;
 import com.facebook.presto.operator.annotations.AnnotationHelpers;
 import com.facebook.presto.spi.function.AccumulatorState;
@@ -25,17 +24,18 @@ import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static com.facebook.presto.operator.annotations.AnnotationHelpers.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -85,20 +85,10 @@ public class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    for (String name : getNames(outputFunction, aggregationAnnotation)) {
-                        AggregationHeader header = new AggregationHeader(
-                                name,
-                                parseDescription(aggregationDefinition, outputFunction),
-                                aggregationAnnotation.decomposable());
-                        AggregationImplementation onlyImplementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
-                        builder.add(
-                                new ParametricAggregation(
-                                        onlyImplementation.getSignature(),
-                                        header,
-                                        new ParametricImplementations(ImmutableMap.of(),
-                                                ImmutableList.of(),
-                                                ImmutableList.of(onlyImplementation),
-                                                onlyImplementation.getSignature())));
+                    for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        ParametricImplementations<AggregationImplementation> implementations = ParametricImplementations.of(onlyImplementation);
+                        builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations));
                     }
                 }
             }
@@ -110,7 +100,6 @@ public class AggregationFromAnnotationsParser
     public static ParametricAggregation parseFunctionDefinition(Class<?> aggregationDefinition)
     {
         ParametricImplementations.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementations.builder();
-        Optional<Signature> genericSignature = Optional.empty();
         AggregationHeader header = parseHeader(aggregationDefinition);
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
@@ -118,7 +107,7 @@ public class AggregationFromAnnotationsParser
             Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
-                    AggregationImplementation implementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                    AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                     implementationsBuilder.addImplementation(implementation);
                 }
             }
@@ -148,14 +137,27 @@ public class AggregationFromAnnotationsParser
         return Optional.of(getOnlyElement(stateSerializerFactories));
     }
 
-    private static AggregationHeader parseHeader(Class<?> aggregationDefinition)
+    private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition)
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
         return new AggregationHeader(aggregationAnnotation.value(), parseDescription(aggregationDefinition), aggregationAnnotation.decomposable());
     }
 
-    private static List<String> getNames(@Nullable Method outputFunction, AggregationFunction aggregationAnnotation)
+    private static List<AggregationHeader> parseHeaders(AnnotatedElement aggregationDefinition, AnnotatedElement toParse)
+    {
+        AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
+
+        return getNames(toParse, aggregationAnnotation).stream()
+                .map(name ->
+                        new AggregationHeader(
+                                name,
+                                parseDescription(aggregationDefinition, toParse),
+                                aggregationAnnotation.decomposable()))
+                .collect(toImmutableList());
+    }
+
+    private static List<String> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
     {
         List<String> defaultNames = ImmutableList.<String>builder().add(aggregationAnnotation.value()).addAll(Arrays.asList(aggregationAnnotation.alias())).build();
 

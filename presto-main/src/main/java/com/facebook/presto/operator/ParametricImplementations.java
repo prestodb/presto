@@ -54,6 +54,15 @@ public class ParametricImplementations<T extends ParametricImplementation>
         this.signature = requireNonNull(signature, "signature cannot be null");
     }
 
+    public static <T extends ParametricImplementation> ParametricImplementations<T> of(T... implementations)
+    {
+        ParametricImplementations.Builder<T> builder = builder();
+        for (T implementation : implementations) {
+            builder.addImplementation(implementation);
+        }
+        return builder.build();
+    }
+
     public List<T> getGenericImplementations()
     {
         return genericImplementations;
