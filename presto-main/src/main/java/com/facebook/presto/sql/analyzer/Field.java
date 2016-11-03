@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Field
 {
-    private final Optional<QualifiedObjectName> qualifiedOriginTable;
+    private final Optional<QualifiedObjectName> originTable;
     private final Optional<QualifiedName> relationAlias;
     private final Optional<String> name;
     private final Type type;
@@ -46,46 +46,46 @@ public class Field
         return new Field(Optional.empty(), name, type, false, Optional.empty(), false);
     }
 
-    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> qualifiedOriginTable, boolean aliased)
+    public static Field newUnqualified(Optional<String> name, Type type, Optional<QualifiedObjectName> originTable, boolean aliased)
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
-        requireNonNull(qualifiedOriginTable, "qualifiedOriginTable is null");
+        requireNonNull(originTable, "originTable is null");
         requireNonNull(aliased, "aliased is null");
 
-        return new Field(Optional.empty(), name, type, false, qualifiedOriginTable, aliased);
+        return new Field(Optional.empty(), name, type, false, originTable, aliased);
     }
 
-    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> qualifiedOriginTable, boolean aliased)
+    public static Field newQualified(QualifiedName relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
-        requireNonNull(qualifiedOriginTable, "qualifiedOriginTable is null");
+        requireNonNull(originTable, "originTable is null");
         requireNonNull(aliased, "aliased is null");
 
-        return new Field(Optional.of(relationAlias), name, type, hidden, qualifiedOriginTable, aliased);
+        return new Field(Optional.of(relationAlias), name, type, hidden, originTable, aliased);
     }
 
-    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> qualifiedOriginTable, boolean aliased)
+    public Field(Optional<QualifiedName> relationAlias, Optional<String> name, Type type, boolean hidden, Optional<QualifiedObjectName> originTable, boolean aliased)
     {
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
-        requireNonNull(qualifiedOriginTable, "originTable is null");
+        requireNonNull(originTable, "originTable is null");
         requireNonNull(aliased, "aliased is null");
 
         this.relationAlias = relationAlias;
         this.name = name;
         this.type = type;
         this.hidden = hidden;
-        this.qualifiedOriginTable = qualifiedOriginTable;
+        this.originTable = originTable;
         this.aliased = aliased;
     }
 
-    public Optional<QualifiedObjectName> getQualifiedOriginTable()
+    public Optional<QualifiedObjectName> getOriginTable()
     {
-        return qualifiedOriginTable;
+        return originTable;
     }
 
     public Optional<QualifiedName> getRelationAlias()

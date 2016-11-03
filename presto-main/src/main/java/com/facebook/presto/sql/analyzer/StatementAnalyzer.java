@@ -529,7 +529,7 @@ class StatementAnalyzer
                                 Optional.of(columnName),
                                 inputField.getType(),
                                 false,
-                                inputField.getQualifiedOriginTable(),
+                                inputField.getOriginTable(),
                                 inputField.isAliased()));
 
                         field++;
@@ -544,7 +544,7 @@ class StatementAnalyzer
                                     field.getName(),
                                     field.getType(),
                                     field.isHidden(),
-                                    field.getQualifiedOriginTable(),
+                                    field.getOriginTable(),
                                     field.isAliased()))
                             .collect(toImmutableList());
                 }
@@ -768,7 +768,7 @@ class StatementAnalyzer
                     oldField.getName(),
                     outputFieldTypes[i],
                     oldField.isHidden(),
-                    oldField.getQualifiedOriginTable(),
+                    oldField.getOriginTable(),
                     oldField.isAliased());
         }
 
@@ -1324,7 +1324,7 @@ class StatementAnalyzer
                 Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                 for (Field field : scope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
-                    outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getQualifiedOriginTable(), false));
+                    outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getOriginTable(), false));
                 }
             }
             else if (item instanceof SingleColumn) {
@@ -1333,7 +1333,7 @@ class StatementAnalyzer
                 Expression expression = column.getExpression();
                 Optional<String> fieldName = column.getAlias();
 
-                Optional<QualifiedObjectName> qualifiedOriginTable = Optional.empty();
+                Optional<QualifiedObjectName> originTable = Optional.empty();
                 QualifiedName name = null;
 
                 if (expression instanceof QualifiedNameReference) {
@@ -1346,7 +1346,7 @@ class StatementAnalyzer
                 if (name != null) {
                     List<Field> matchingFields = scope.getRelationType().resolveFields(name);
                     if (!matchingFields.isEmpty()) {
-                        qualifiedOriginTable = matchingFields.get(0).getQualifiedOriginTable();
+                        originTable = matchingFields.get(0).getOriginTable();
                     }
                 }
 
@@ -1356,7 +1356,7 @@ class StatementAnalyzer
                     }
                 }
 
-                outputFields.add(Field.newUnqualified(fieldName, analysis.getType(expression), qualifiedOriginTable, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                outputFields.add(Field.newUnqualified(fieldName, analysis.getType(expression), originTable, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());

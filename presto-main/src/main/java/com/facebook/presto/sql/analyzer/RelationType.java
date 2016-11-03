@@ -175,7 +175,7 @@ public class RelationType
                         columnAlias,
                         field.getType(),
                         field.isHidden(),
-                        field.getQualifiedOriginTable(),
+                        field.getOriginTable(),
                         field.isAliased()));
             }
             else if (!field.isHidden()) {
@@ -186,7 +186,7 @@ public class RelationType
                         columnAlias,
                         field.getType(),
                         false,
-                        field.getQualifiedOriginTable(),
+                        field.getOriginTable(),
                         field.isAliased()));
             }
         }
