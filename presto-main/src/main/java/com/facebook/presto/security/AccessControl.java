@@ -148,4 +148,10 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName);
+
+    /**
+     * Check if identity is allowed to access the specified catalog.
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanAccessCatalog(TransactionId transactionId, Identity identity, String catalogName);
 }

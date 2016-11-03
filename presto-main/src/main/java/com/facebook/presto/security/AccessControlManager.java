@@ -441,6 +441,17 @@ public class AccessControlManager
         }
     }
 
+    @Override
+    public void checkCanAccessCatalog(TransactionId transactionId, Identity identity, String catalogName)
+    {
+        authorizationCheck(() -> systemAccessControl.get().checkCanAccessCatalog(identity, catalogName));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanAccessCatalog(entry.getTransactionHandle(transactionId), identity, catalogName));
+        }
+    }
+
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
@@ -580,6 +591,11 @@ public class AccessControlManager
 
         @Override
         public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
+        {
+        }
+
+        @Override
+        public void checkCanAccessCatalog(Identity identity, String catalogName)
         {
         }
 

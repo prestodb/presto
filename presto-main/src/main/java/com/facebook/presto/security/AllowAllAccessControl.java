@@ -128,4 +128,9 @@ public class AllowAllAccessControl
     public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
     {
     }
+
+    @Override
+    public void checkCanAccessCatalog(TransactionId transactionId, Identity identity, String catalogName)
+    {
+    }
 }

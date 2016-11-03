@@ -68,7 +68,8 @@ public class TestResetSessionTask
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
-                transactionManager);
+                transactionManager,
+                accessControl);
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringSessionProperty(
                 "foo",

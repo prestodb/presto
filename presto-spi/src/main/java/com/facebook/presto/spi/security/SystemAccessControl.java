@@ -18,6 +18,7 @@ import com.facebook.presto.spi.CatalogSchemaTableName;
 
 import java.security.Principal;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAccessCatalog;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -81,6 +82,16 @@ public interface SystemAccessControl
     default void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
     {
         denyRenameSchema(schema.toString(), newSchemaName);
+    }
+
+    /**
+     * Check if identity is allowed to access the specified catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAccessCatalog(Identity identity, String catalogName)
+    {
+        denyAccessCatalog(catalogName);
     }
 
     /**

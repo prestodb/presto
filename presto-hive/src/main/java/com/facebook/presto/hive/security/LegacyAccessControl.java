@@ -57,6 +57,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanAccessCatalog(ConnectorTransactionHandle transactionHandle, Identity identity, String catalogName)
+    {
+    }
+
+    @Override
     public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName)
     {
     }

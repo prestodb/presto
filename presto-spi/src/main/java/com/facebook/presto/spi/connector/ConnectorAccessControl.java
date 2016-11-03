@@ -17,6 +17,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAccessCatalog;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -38,6 +39,16 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySetCata
 
 public interface ConnectorAccessControl
 {
+    /**
+     * Check if identity is allowed to access the specified catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAccessCatalog(ConnectorTransactionHandle transactionHandle, Identity identity, String catalogName)
+    {
+        denyAccessCatalog(catalogName);
+    }
+
     /**
      * Check if identity is allowed to create the specified schema in this catalog.
      *
