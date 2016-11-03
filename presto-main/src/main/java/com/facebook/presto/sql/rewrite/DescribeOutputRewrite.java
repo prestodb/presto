@@ -30,7 +30,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -45,8 +44,7 @@ import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
-import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeOutputRewrite
@@ -104,30 +102,34 @@ final class DescribeOutputRewrite
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, experimentalSyntaxEnabled, parameters);
             Analysis analysis = analyzer.analyze(statement, true);
 
+            Optional<String> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
-            Query query = simpleQuery(
+            if (rows.length == 0) {
+                NullLiteral nullLiteral = new NullLiteral();
+                rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
+                limit = Optional.of("0");
+            }
+            return simpleQuery(
                     selectList(nameReference("Column Name"),
                             nameReference("Table"),
                             nameReference("Schema"),
-                            nameReference("Connector"),
+                            nameReference("Catalog"),
                             nameReference("Type"),
                             nameReference("Type Size"),
-                            nameReference("Aliased"),
-                            nameReference("Row Count Query")),
+                            nameReference("Aliased")),
                     aliased(
                             values(rows),
                             "Statement Output",
-                            ImmutableList.of("Column Name", "Table", "Schema", "Connector", "Type", "Type Size", "Aliased", "Row Count Query")));
-            return query;
+                            ImmutableList.of("Column Name", "Table", "Schema", "Catalog", "Type", "Type Size", "Aliased")),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    emptyList(),
+                    limit);
         }
 
         private Row createDescribeOutputRow(Field field, Analysis analysis)
         {
-            NullLiteral nullLiteral = new NullLiteral();
-            if (analysis.isRowCountQuery()) {
-                return row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, TRUE_LITERAL);
-            }
-
             LongLiteral typeSize = new LongLiteral("0");
             if (field.getType() instanceof FixedWidthType) {
                 typeSize = new LongLiteral(String.valueOf(((FixedWidthType) field.getType()).getFixedSize()));
@@ -142,7 +144,7 @@ final class DescribeOutputRewrite
                 columnName = "_col" + columnIndex;
             }
 
-            Optional<QualifiedObjectName> qualifiedOriginTable = field.getQualifiedOriginTable();
+            Optional<QualifiedObjectName> qualifiedOriginTable = field.getOriginTable();
 
             StringLiteral empty = new StringLiteral("");
 
@@ -153,8 +155,7 @@ final class DescribeOutputRewrite
                     (!qualifiedOriginTable.isPresent()) ? empty : new StringLiteral(qualifiedOriginTable.get().getCatalogName()),
                     new StringLiteral(field.getType().getDisplayName()),
                     typeSize,
-                    new BooleanLiteral(String.valueOf(field.isAliased())),
-                    FALSE_LITERAL);
+                    new BooleanLiteral(String.valueOf(field.isAliased())));
         }
 
         @Override

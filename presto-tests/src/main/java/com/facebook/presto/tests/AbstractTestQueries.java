@@ -7906,11 +7906,11 @@ public abstract class AbstractTestQueries
     {
         Session session = getSession().withPreparedStatement("my_query", "select * from nation");
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN, BOOLEAN)
-                .row("nationkey", "nation", session.getSchema().get(), session.getCatalog().get(), "bigint", 8, false, false)
-                .row("name", "nation", session.getSchema().get(), session.getCatalog().get(), "varchar(25)", 0, false, false)
-                .row("regionkey", "nation", session.getSchema().get(), session.getCatalog().get(), "bigint", 8, false, false)
-                .row("comment", "nation", session.getSchema().get(), session.getCatalog().get(), "varchar(152)", 0, false, false)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("nationkey", "nation", session.getSchema().get(), session.getCatalog().get(), "bigint", 8, false)
+                .row("name", "nation", session.getSchema().get(), session.getCatalog().get(), "varchar(25)", 0, false)
+                .row("regionkey", "nation", session.getSchema().get(), session.getCatalog().get(), "bigint", 8, false)
+                .row("comment", "nation", session.getSchema().get(), session.getCatalog().get(), "varchar(152)", 0, false)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -7920,10 +7920,10 @@ public abstract class AbstractTestQueries
     {
         Session session = getSession().withPreparedStatement("my_query", "select 1, name, regionkey as my_alias from nation");
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN, BOOLEAN)
-                .row("_col0", "", "", "", "integer", 4, false, false)
-                .row("name", "nation", session.getSchema().get(), session.getCatalog().get(), "varchar(25)", 0, false, false)
-                .row("my_alias", "nation", session.getSchema().get(), session.getCatalog().get(), "bigint", 8, true, false)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("_col0", "", "", "", "integer", 4, false)
+                .row("name", "nation", session.getSchema().get(), session.getCatalog().get(), "varchar(25)", 0, false)
+                .row("my_alias", "nation", session.getSchema().get(), session.getCatalog().get(), "bigint", 8, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -7933,8 +7933,8 @@ public abstract class AbstractTestQueries
     {
         Session session = getSession().withPreparedStatement("my_query", "CREATE TABLE foo AS SELECT * FROM nation");
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN, BOOLEAN)
-                .row(null, null, null, null, null, null, null, true)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("rows", "", "", "", "bigint", 8, false)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -7944,8 +7944,7 @@ public abstract class AbstractTestQueries
     {
         Session session = getSession().withPreparedStatement("my_query", "SET SESSION optimize_hash_generation=false");
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN, BOOLEAN)
-                .row(null, null, null, null, null, null, null, true)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -7955,8 +7954,8 @@ public abstract class AbstractTestQueries
     {
         Session session = getSession().withPreparedStatement("my_query", "SHOW TABLES");
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN, BOOLEAN)
-                .row("Table", "tables", "information_schema", session.getCatalog().get(), "varchar", 0, true, false)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("Table", "tables", "information_schema", session.getCatalog().get(), "varchar", 0, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -7966,9 +7965,9 @@ public abstract class AbstractTestQueries
     {
         Session session = getSession().withPreparedStatement("my_query", "select count(*) as this_is_aliased, 1 + 2 from nation");
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN, BOOLEAN)
-                .row("this_is_aliased", "", "", "", "bigint", 8, true, false)
-                .row("_col1", "", "", "", "integer", 4, false, false)
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("this_is_aliased", "", "", "", "bigint", 8, true)
+                .row("_col1", "", "", "", "integer", 4, false)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
