@@ -219,6 +219,22 @@ public class TestLogicalPlanner
         }
     }
 
+    @Test
+    public void testJoinOutputPruning()
+    {
+        assertPlan("SELECT nationkey FROM nation JOIN region ON nation.regionkey = region.regionkey",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("REGIONKEY_LEFT", "REGIONKEY_RIGHT")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("REGIONKEY_LEFT", "regionkey", "NATIONKEY", "nationkey"))),
+                                anyTree(
+                                        tableScan("region", ImmutableMap.of("REGIONKEY_RIGHT", "regionkey"))))
+                )
+                .withNumberOfOutputColumns(1)
+                .withOutputs(ImmutableList.of("NATIONKEY"))
+        );
+    }
+
     private void assertPlanContainsNoApplyOrJoin(String sql)
     {
         PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(
