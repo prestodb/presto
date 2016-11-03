@@ -47,14 +47,14 @@ import static java.util.Objects.requireNonNull;
 public class ParquetPageSource
         implements ConnectorPageSource
 {
-    public static final int MAX_VECTOR_LENGTH = 1024;
+    private static final int MAX_VECTOR_LENGTH = 1024;
     private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private final ParquetReader parquetReader;
     private final ParquetDataSource dataSource;
-    private final MessageType requestedSchema;
     private final MessageType fileSchema;
     // for debugging heap dump
+    private final MessageType requestedSchema;
     private final List<String> columnNames;
     private final List<Type> types;
 
@@ -204,16 +204,13 @@ public class ParquetPageSource
             closeWithSuppression(e);
             throw e;
         }
-        catch (IOException | RuntimeException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+        catch (RuntimeException e) {
             closeWithSuppression(e);
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
     }
 
-    protected void closeWithSuppression(Throwable throwable)
+    private void closeWithSuppression(Throwable throwable)
     {
         requireNonNull(throwable, "throwable is null");
         try {
