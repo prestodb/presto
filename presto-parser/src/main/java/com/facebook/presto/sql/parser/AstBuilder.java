@@ -1165,15 +1165,9 @@ class AstBuilder
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
 
-        boolean ignoreNulls = false;
-        if (context.nullTreatment() != null) {
-            String functionName = name.toString();
-            check(functionName.equalsIgnoreCase("lag") || functionName.equalsIgnoreCase("lead"),
-                    "IGNORE NULLS clause not valid for '" + functionName + "' function", context);
-            ignoreNulls = context.nullTreatment().getText().equalsIgnoreCase("ignorenulls");
-        }
-
         boolean distinct = isDistinct(context.setQuantifier());
+
+        boolean ignoreNulls = ignoreNulls(context.nullTreatment());
 
         if (name.toString().equalsIgnoreCase("if")) {
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
@@ -1482,6 +1476,11 @@ class AstBuilder
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)
     {
         return setQuantifier != null && setQuantifier.DISTINCT() != null;
+    }
+
+    private static boolean ignoreNulls(SqlBaseParser.NullTreatmentContext nullTreatment)
+    {
+        return nullTreatment != null && nullTreatment.IGNORE() != null;
     }
 
     private static Optional<String> getTextIfPresent(ParserRuleContext context)

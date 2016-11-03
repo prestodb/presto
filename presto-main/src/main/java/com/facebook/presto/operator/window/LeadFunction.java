@@ -56,23 +56,26 @@ public class LeadFunction
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
             long valuePosition = currentPosition + offset;
+            boolean withinParition = (valuePosition >= 0) && (valuePosition < windowIndex.size());
 
-            while (true) {
-                if ((valuePosition >= 0) && (valuePosition < windowIndex.size())) {
-                    if (ignoreNulls && windowIndex.isNull(valueChannel, Ints.checkedCast(valuePosition))) {
-                        ++valuePosition;
-                        continue;
+            if (ignoreNulls) {
+                while (withinParition) {
+                    if (!windowIndex.isNull(valueChannel, Ints.checkedCast(valuePosition))) {
+                        break;
                     }
+                    valuePosition++;
+                    withinParition = (valuePosition >= 0) && (valuePosition < windowIndex.size());
+                }
+            }
 
-                    windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
-                }
-                else if (defaultChannel >= 0) {
-                    windowIndex.appendTo(defaultChannel, currentPosition, output);
-                }
-                else {
-                    output.appendNull();
-                }
-                break;
+            if (withinParition) {
+                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            }
+            else if (defaultChannel >= 0) {
+                windowIndex.appendTo(defaultChannel, currentPosition, output);
+            }
+            else {
+                output.appendNull();
             }
         }
     }

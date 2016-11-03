@@ -34,11 +34,6 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     private final Constructor<T> constructor;
     private final boolean canIgnoreNulls;
 
-    public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
-    {
-        this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), false, type);
-    }
-
     public ReflectionWindowFunctionSupplier(String name, Type returnType, boolean canIgnoreNulls, List<? extends Type> argumentTypes, Class<T> type)
     {
         this(new Signature(name, WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), canIgnoreNulls, type);
@@ -47,6 +42,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     public ReflectionWindowFunctionSupplier(Signature signature, boolean canIgnoreNulls, Class<T> type)
     {
         super(signature, getDescription(requireNonNull(type, "type is null")));
+        this.canIgnoreNulls = canIgnoreNulls;
         try {
             if (signature.getArgumentTypes().isEmpty()) {
                 constructor = type.getConstructor();
@@ -57,8 +53,6 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
             else {
                 constructor = type.getConstructor(List.class);
             }
-
-            this.canIgnoreNulls = canIgnoreNulls;
         }
         catch (NoSuchMethodException e) {
             throw Throwables.propagate(e);

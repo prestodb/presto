@@ -819,6 +819,7 @@ public class HashGenerationOptimizer
                     QualifiedName.of(HASH_CODE),
                     Optional.empty(),
                     false,
+                    false,
                     ImmutableList.of(symbol.toSymbolReference()));
             List<Expression> arguments = ImmutableList.of(previousHashValue, orNullHashCode(functionCall));
             return new FunctionCall(QualifiedName.of("combine_hash"), arguments);

@@ -106,26 +106,26 @@ Value Functions
     the window, null is returned.  It is an error for the offset to be zero or
     negative.
 
-.. function:: lead(x[, offset [, default_value]]) ignore nulls -> [same as input]
+.. function:: lead(x[, offset [, default_value]]) [ignore nulls | respect nulls] -> [same as input]
 
     Returns the value at ``offset`` rows after the current row in the window.
-    Offsets start at ``0``, which is the current row. The
-    offset can be any scalar expression.  The default ``offset`` is ``1``. If the
-    offset is null or larger than the window, the ``default_value`` is returned,
-    or if it is not specified ``null`` is returned.
+    Offsets start at ``0``, which is the current row. The offset can be any scalar expression.
+    The default ``offset`` is ``1``. If the offset is null or larger than the window, the
+    ``default_value`` is returned, or if it is not specified ``null`` is returned.
 
-    If ``IGNORE NULLS`` is specified, all rows where ``x`` is null are excluded from the calculation. If ``IGNORE NULLS``
-    is specified and ``x`` is null for all rows, the ``default_value`` is returned. If ``IGNORE NULLS`` is
-    not specified, null values are respected.
+    If ``IGNORE NULLS`` is specified, all rows where ``x`` is null are excluded
+    from the calculation. If ``IGNORE NULLS``is specified and ``x`` is null for all
+    rows, the ``default_value`` is returned. If ``IGNORE NULLS`` is not specified,
+    null values are respected.
 
-.. function:: lag(x[, offset [, default_value]]) ignore nulls -> [same as input]
+.. function:: lag(x[, offset [, default_value]]) [ignore nulls | respect nulls] -> [same as input]
 
     Returns the value at ``offset`` rows before the current row in the window
-    Offsets start at ``0``, which is the current row.  The
-    offset can be any scalar expression.  The default ``offset`` is ``1``. If the
-    offset is null or larger than the window, the ``default_value`` is returned,
-    or if it is not specified ``null`` is returned.
+    Offsets start at ``0``, which is the current row. The offset can be any scalar expression.
+    The default ``offset`` is ``1``. If the offset is null or larger than the window, the
+    ``default_value`` is returned, or if it is not specified ``null`` is returned.
 
-    If ``IGNORE NULLS`` is specified, all rows where ``x`` is null are excluded from the calculation. If ``IGNORE NULLS``
-    is specified and ``x`` is null for all rows, the ``default_value`` is returned. If ``IGNORE NULLS`` is
-    not specified, null values are respected.
+    If ``IGNORE NULLS`` is specified, all rows where ``x`` is null are excluded from
+    the calculation. If ``IGNORE NULLS`` is specified and ``x`` is null for all rows,
+    the ``default_value`` is returned. If ``IGNORE NULLS`` is not specified, null
+    values are respected.

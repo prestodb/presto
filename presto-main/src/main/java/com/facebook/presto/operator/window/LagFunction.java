@@ -56,23 +56,26 @@ public class LagFunction
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
             long valuePosition = currentPosition - offset;
+            boolean withinPartition = (valuePosition >= 0) && (valuePosition <= currentPosition);
 
-            while (true) {
-                if ((valuePosition >= 0) && (valuePosition <= currentPosition)) {
-                    if (ignoreNulls && windowIndex.isNull(valueChannel, Ints.checkedCast(valuePosition))) {
-                        --valuePosition;
-                        continue;
+            if (ignoreNulls) {
+                while (withinPartition) {
+                    if (!windowIndex.isNull(valueChannel, Ints.checkedCast(valuePosition))) {
+                        break;
                     }
+                    valuePosition--;
+                    withinPartition = (valuePosition >= 0) && (valuePosition <= currentPosition);
+                }
+            }
 
-                    windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
-                }
-                else if (defaultChannel >= 0) {
-                    windowIndex.appendTo(defaultChannel, currentPosition, output);
-                }
-                else {
-                    output.appendNull();
-                }
-                break;
+            if (withinPartition) {
+                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+            }
+            else if (defaultChannel >= 0) {
+                windowIndex.appendTo(defaultChannel, currentPosition, output);
+            }
+            else {
+                output.appendNull();
             }
         }
     }

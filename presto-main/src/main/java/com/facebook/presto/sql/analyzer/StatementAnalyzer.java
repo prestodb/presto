@@ -1000,6 +1000,13 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
             }
 
+            if (windowFunction.isIgnoreNulls()) {
+                String functionName = windowFunction.getName().toString();
+                if(!functionName.equalsIgnoreCase("lag") && !functionName.equalsIgnoreCase("lead")) {
+                    throw new SemanticException(NOT_SUPPORTED, node,  "IGNORE NULLS clause not valid for this window function: %s", windowFunction);
+                }
+            }
+
             if (window.getFrame().isPresent()) {
                 analyzeWindowFrame(window.getFrame().get());
             }

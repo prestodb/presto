@@ -71,7 +71,7 @@ public class CountConstantOptimizer
                     FunctionCall functionCall = entry.getValue();
                     Signature signature = node.getFunctions().get(symbol);
                     if (isCountConstant(projectNode, functionCall, signature)) {
-                        aggregations.put(symbol, new FunctionCall(functionCall.getName(), functionCall.getWindow(), functionCall.getFilter(), functionCall.isDistinct(), ImmutableList.of()));
+                        aggregations.put(symbol, new FunctionCall(functionCall.getName(), functionCall.getWindow(), functionCall.getFilter(), functionCall.isDistinct(), functionCall.isIgnoreNulls(), ImmutableList.of()));
                         functions.put(symbol, new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)));
                     }
                 }

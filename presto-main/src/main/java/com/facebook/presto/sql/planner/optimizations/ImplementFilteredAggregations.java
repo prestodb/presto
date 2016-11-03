@@ -119,6 +119,7 @@ public class ImplementFilteredAggregations
                         call.getWindow(),
                         Optional.empty(),
                         call.isDistinct(),
+                        call.isIgnoreNulls(),
                         call.getArguments()));
             }
 

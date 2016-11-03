@@ -38,15 +38,15 @@ public final class WindowAnnotationsParser
     {
         WindowFunctionSignature[] signatures = clazz.getAnnotationsByType(WindowFunctionSignature.class);
         checkArgument(signatures.length > 0, "Class is not annotated with @WindowFunctionSignature: %s", clazz.getName());
-        WindowFunctionOptions[] options = clazz.getAnnotationsByType(WindowFunctionOptions.class);
-        boolean canIgnoreNulls = options.length > 0 && options[0].canIgnoreNulls();
+        WindowFunctionOptions options = clazz.getAnnotation(WindowFunctionOptions.class);
+        boolean canIgnoreNulls = options != null && options.canIgnoreNulls();
         return Stream.of(signatures)
                 .map(signature -> parse(clazz, signature, canIgnoreNulls))
                 .collect(toImmutableList());
     }
 
     private static SqlWindowFunction parse(Class<? extends WindowFunction> clazz, WindowFunctionSignature window,
-                                           boolean canIgnoreNulls)
+            boolean canIgnoreNulls)
     {
         List<TypeVariableConstraint> typeVariables = ImmutableList.of();
         if (!window.typeVariable().isEmpty()) {

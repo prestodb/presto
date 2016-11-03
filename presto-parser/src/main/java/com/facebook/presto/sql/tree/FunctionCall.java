@@ -49,29 +49,14 @@ public class FunctionCall
         this(Optional.of(location), name, Optional.empty(), Optional.empty(), distinct, false, arguments);
     }
 
-    public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, List<Expression> arguments)
-    {
-        this(Optional.empty(), name, window, Optional.empty(), distinct, false, arguments);
-    }
-
     public FunctionCall(QualifiedName name, Optional<Window> window, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
     {
         this(Optional.empty(), name, window, Optional.empty(), distinct, ignoreNulls, arguments);
     }
 
-    public FunctionCall(QualifiedName name, Optional<Window> window, Optional<Expression> filter, boolean distinct, List<Expression> arguments)
-    {
-        this(Optional.empty(), name, window, filter, distinct, false, arguments);
-    }
-
     public FunctionCall(QualifiedName name, Optional<Window> window, Optional<Expression> filter, boolean distinct, boolean ignoreNulls, List<Expression> arguments)
     {
         this(Optional.empty(), name, window, filter, distinct, ignoreNulls, arguments);
-    }
-
-    public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, boolean distinct, List<Expression> arguments)
-    {
-        this(Optional.of(location), name, window, filter, distinct, false, arguments);
     }
 
     public FunctionCall(NodeLocation location, QualifiedName name, Optional<Window> window, Optional<Expression> filter, boolean distinct, boolean ignoreNulls, List<Expression> arguments)

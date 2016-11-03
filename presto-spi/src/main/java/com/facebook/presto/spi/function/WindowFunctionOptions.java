@@ -21,7 +21,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Retention(RUNTIME)
 @Target(TYPE)
-public  @interface WindowFunctionOptions
+public @interface WindowFunctionOptions
 {
     boolean canIgnoreNulls() default false;
 }

@@ -1638,6 +1638,7 @@ public class TestSqlParser
                                                         new QualifiedNameReference(QualifiedName.of("x")),
                                                         new LongLiteral("4"))),
                                                 false,
+                                                false,
                                                 ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x"))))),
                                 Optional.empty(),
                                 Optional.empty(),

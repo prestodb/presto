@@ -231,7 +231,7 @@ public class PartialAggregationPushDown
                 signatureMap.put(symbol, node.getFunctions().get(entry.getKey()));
 
                 List<Expression> arguments = replaceArguments(entry.getValue().getArguments(), exchangeMap);
-                functionCallMap.put(symbol, new FunctionCall(entry.getValue().getName(), Optional.empty(), entry.getValue().getFilter(), false, arguments));
+                functionCallMap.put(symbol, new FunctionCall(entry.getValue().getName(), Optional.empty(), entry.getValue().getFilter(), false, false, arguments));
                 if (node.getMasks().containsKey(entry.getKey())) {
                     mask.put(symbol, exchangeMap.get(node.getMasks().get(entry.getKey())));
                 }

@@ -281,8 +281,8 @@ primaryExpression
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' nullTreatment?
-        filter? over?                                                                     #functionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')'
+        nullTreatment? filter? over?                                                      #functionCall
     | identifier '->' expression                                                          #lambda
     | '(' identifier (',' identifier)* ')' '->' expression                                #lambda
     | '(' query ')'                                                                       #subqueryExpression
@@ -453,6 +453,7 @@ nonReserved
     | SCHEMA | CASCADE | RESTRICT
     | INPUT
     | INCLUDING | EXCLUDING | PROPERTIES
+    | IGNORE | RESPECT
     ;
 
 normalForm

@@ -139,8 +139,8 @@ public class TestLeadFunction
         assertWindowQueryWithNulls("lead(orderkey, 1, -1) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 5L)
-                        .row(5L, "F", -1L)
-                        .row(null, "F", -1L)
+                        .row(5L, "F", 6L)
+                        .row(6L, "F", -1L)
                         .row(null, "F", -1L)
                         .row(34L, "O", -1L)
                         .row(null, "O", -1L)

@@ -200,7 +200,7 @@ public final class PlanMatchPattern
 
     public static FunctionCall functionCall(String name, Window window, boolean distinct, String... args)
     {
-        return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, toExpressionList(args));
+        return new FunctionCall(QualifiedName.of(name), Optional.of(window), distinct, false, toExpressionList(args));
     }
 
     public static FunctionCall functionCall(String name, String... args)

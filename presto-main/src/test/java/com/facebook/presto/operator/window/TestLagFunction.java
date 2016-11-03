@@ -196,8 +196,8 @@ public class TestLagFunction
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", -1L)
                         .row(5L, "F", 3L)
-                        .row(null, "F", 5L)
-                        .row(null, "F", 5L)
+                        .row(6L, "F", 5L)
+                        .row(null, "F", 6L)
                         .row(34L, "O", -1L)
                         .row(null, "O", 34L)
                         .row(1L, null, -1L)
@@ -206,15 +206,15 @@ public class TestLagFunction
                         .row(null, null, 7L)
                         .build());
 
-        assertWindowQueryWithNulls("lag(orderstatus, 1, null) IGNORE NULLS OVER (ORDER BY orderkey)",
+        assertWindowQueryWithNulls("lag(orderstatus, 1, null) IGNORE NULLS OVER (ORDER BY orderkey, orderstatus)",
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, VARCHAR)
                         .row(1L, null, null)
                         .row(3L, "F", null)
                         .row(5L, "F", "F")
+                        .row(6L, "F", "F")
                         .row(7L, null, "F")
                         .row(34L, "O", "F")
                         .row(null, "F", "O")
-                        .row(null, "F", "F")
                         .row(null, "O", "F")
                         .row(null, null, "O")
                         .row(null, null, "O")

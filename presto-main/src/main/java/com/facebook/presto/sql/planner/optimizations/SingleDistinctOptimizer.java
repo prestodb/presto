@@ -92,7 +92,7 @@ public class SingleDistinctOptimizer
                 return context.defaultRewrite(node, Optional.empty());
             }
 
-            Map<Symbol, FunctionCall> aggregations = ImmutableMap.copyOf(Maps.transformValues(node.getAggregations(), call -> new FunctionCall(call.getName(), call.getWindow(), false, call.getArguments())));
+            Map<Symbol, FunctionCall> aggregations = ImmutableMap.copyOf(Maps.transformValues(node.getAggregations(), call -> new FunctionCall(call.getName(), call.getWindow(), false, false, call.getArguments())));
 
             return new Result<>(
                     new AggregationNode(
