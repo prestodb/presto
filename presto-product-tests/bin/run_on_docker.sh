@@ -218,7 +218,7 @@ retry check_presto
 
 # run product tests
 set +e
-run_product_tests "$*"
+run_product_tests "$@"
 EXIT_CODE=$?
 set -e
 
