@@ -42,6 +42,7 @@ public interface SchemaDao
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
             "  UNIQUE (schema_name, table_name),\n" +
+            "  UNIQUE (distribution_id, table_id),\n" +
             "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id)\n" +
             ")")
     void createTableTables();
@@ -88,6 +89,8 @@ public interface SchemaDao
             "  compressed_size BIGINT NOT NULL,\n" +
             "  uncompressed_size BIGINT NOT NULL,\n" +
             "  UNIQUE (shard_uuid),\n" +
+            // include a covering index organized by table_id
+            "  UNIQUE (table_id, bucket_number, shard_id, shard_uuid, create_time, row_count, compressed_size, uncompressed_size),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableShards();
@@ -96,6 +99,7 @@ public interface SchemaDao
             "  shard_id BIGINT NOT NULL,\n" +
             "  node_id INT NOT NULL,\n" +
             "  PRIMARY KEY (shard_id, node_id),\n" +
+            "  UNIQUE (node_id, shard_id),\n" +
             "  FOREIGN KEY (shard_id) REFERENCES shards (shard_id),\n" +
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
             ")")
@@ -111,7 +115,8 @@ public interface SchemaDao
             "  transaction_id BIGINT PRIMARY KEY AUTO_INCREMENT,\n" +
             "  successful BOOLEAN,\n" +
             "  start_time DATETIME NOT NULL,\n" +
-            "  end_time DATETIME\n" +
+            "  end_time DATETIME,\n" +
+            "  UNIQUE (successful, start_time, transaction_id)\n" +
             ")")
     void createTableTransactions();
 
@@ -119,13 +124,15 @@ public interface SchemaDao
             "  shard_uuid BINARY(16) NOT NULL,\n" +
             "  transaction_id BIGINT NOT NULL,\n" +
             "  PRIMARY KEY (shard_uuid),\n" +
+            "  UNIQUE (transaction_id, shard_uuid),\n" +
             "  FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id)\n" +
             ")")
     void createTableCreatedShards();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS deleted_shards (\n" +
             "  shard_uuid BINARY(16) PRIMARY KEY,\n" +
-            "  delete_time DATETIME NOT NULL\n" +
+            "  delete_time DATETIME NOT NULL,\n" +
+            "  UNIQUE (delete_time, shard_uuid)\n" +
             ")")
     void createTableDeletedShards();
 
@@ -134,6 +141,7 @@ public interface SchemaDao
             "  bucket_number INT NOT NULL,\n" +
             "  node_id INT NOT NULL,\n" +
             "  PRIMARY KEY (distribution_id, bucket_number),\n" +
+            "  UNIQUE (node_id, distribution_id, bucket_number),\n" +
             "  FOREIGN KEY (distribution_id) REFERENCES distributions (distribution_id),\n" +
             "  FOREIGN KEY (node_id) REFERENCES nodes (node_id)\n" +
             ")")
@@ -144,6 +152,7 @@ public interface SchemaDao
             "  table_id BIGINT NOT NULL,\n" +
             "  last_start_time BIGINT,\n" +
             "  PRIMARY KEY (node_identifier, table_id),\n" +
+            "  UNIQUE (table_id, node_identifier),\n" +
             "  FOREIGN KEY (table_id) REFERENCES tables (table_id)\n" +
             ")")
     void createTableShardOrganizerJobs();
