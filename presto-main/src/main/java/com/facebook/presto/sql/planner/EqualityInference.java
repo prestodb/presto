@@ -67,7 +67,7 @@ public class EqualityInference
             return ComparisonChain.start()
                     .compare(DependencyExtractor.extractAll(expression1).size(), DependencyExtractor.extractAll(expression2).size())
                     .compare(SubExpressionExtractor.extract(expression1).size(), SubExpressionExtractor.extract(expression2).size())
-                    .compare(expression1, expression2, Ordering.arbitrary())
+                    .compare(expression1.toString(), expression2.toString())
                     .result();
         }
     });
