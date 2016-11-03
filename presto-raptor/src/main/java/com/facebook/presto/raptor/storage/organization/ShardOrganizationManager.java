@@ -44,8 +44,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.createOrganizationSet;
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.toShardIndexInfo;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -188,7 +188,7 @@ public class ShardOrganizationManager
                 .filter(shard -> !organizer.inProgress(shard.getShardUuid()))
                 .collect(toSet());
 
-        Collection<ShardIndexInfo> indexInfos = toShardIndexInfo(dbi, metadataDao, tableInfo, filteredShards, true);
+        Collection<ShardIndexInfo> indexInfos = getOrganizationEligibleShards(dbi, metadataDao, tableInfo, filteredShards, true);
         Set<OrganizationSet> organizationSets = createOrganizationSets(tableInfo, indexInfos);
 
         if (organizationSets.isEmpty()) {

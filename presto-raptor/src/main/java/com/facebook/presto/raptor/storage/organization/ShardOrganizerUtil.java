@@ -59,7 +59,7 @@ public class ShardOrganizerUtil
 {
     private ShardOrganizerUtil() {}
 
-    public static Collection<ShardIndexInfo> toShardIndexInfo(
+    public static Collection<ShardIndexInfo> getOrganizationEligibleShards(
             IDBI dbi,
             MetadataDao metadataDao,
             Table tableInfo,
@@ -112,10 +112,16 @@ public class ShardOrganizerUtil
                             Optional<ShardRange> sortRange = Optional.empty();
                             if (includeSortColumns) {
                                 sortRange = getShardRange(sortColumns.get(), resultSet);
+                                if (!sortRange.isPresent()) {
+                                    continue;
+                                }
                             }
                             Optional<ShardRange> temporalRange = Optional.empty();
                             if (temporalColumn.isPresent()) {
                                 temporalRange = getShardRange(ImmutableList.of(temporalColumn.get()), resultSet);
+                                if (!temporalRange.isPresent()) {
+                                    continue;
+                                }
                             }
                             ShardMetadata shardMetadata = shardsById.get(shardId);
                             indexInfoBuilder.add(toShardIndexInfo(shardMetadata, temporalRange, sortRange));
@@ -227,6 +233,10 @@ public class ShardOrganizerUtil
 
             Object min = getValue(resultSet, type, minColumn(columnId));
             Object max = getValue(resultSet, type, maxColumn(columnId));
+
+            if (min == null || max == null) {
+                return Optional.empty();
+            }
 
             minValuesBuilder.add(min);
             maxValuesBuilder.add(max);
