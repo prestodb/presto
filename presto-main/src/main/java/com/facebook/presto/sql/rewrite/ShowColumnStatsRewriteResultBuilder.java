@@ -77,7 +77,7 @@ class ShowColumnStatsRewriteResultBuilder
 
     private static Expression createStatisticValueOrNull(Map<String, Estimate> columnStatisticsValues, String statName)
     {
-        if (columnStatisticsValues.containsKey(statName)) {
+        if (columnStatisticsValues.containsKey(statName) && !columnStatisticsValues.get(statName).isValueUnknown()) {
             return new DoubleLiteral(Double.toString(columnStatisticsValues.get(statName).getValue()));
         }
         else {
