@@ -504,22 +504,23 @@ public class PruneUnreferencedOutputs
             return new ProjectNode(node.getId(), rewrittenSource, assignments);
         }
 
-        private PlanNode pruneUnreferencedApplyNodes(List<Expression> removedExpressions, PlanNode rewrittenSource, Map<Symbol, Expression> assignments)
+        private PlanNode pruneUnreferencedApplyNodes(List<Expression> removedExpressions, PlanNode node, Map<Symbol, Expression> assignments)
         {
             Set<Symbol> symbolsUsedByProjection = assignments.values().stream()
                     .map(DependencyExtractor::extractUnique)
                     .flatMap(Set::stream)
                     .collect(toImmutableSet());
 
+            PlanNode rewrittenNode = node;
             for (Expression removedExpression : removedExpressions) {
                 for (Symbol symbol : DependencyExtractor.extractUnique(removedExpression)) {
                     if (!symbolsUsedByProjection.contains(symbol)) {
                         UnusedApplyRemover unusedApplyRemover = new UnusedApplyRemover(symbol.toSymbolReference());
-                        rewrittenSource = SimplePlanRewriter.rewriteWith(unusedApplyRemover, rewrittenSource, null);
+                        rewrittenNode = SimplePlanRewriter.rewriteWith(unusedApplyRemover, rewrittenNode, null);
                     }
                 }
             }
-            return rewrittenSource;
+            return rewrittenNode;
         }
 
         @Override
