@@ -204,10 +204,7 @@ public class ParquetPageSource
             closeWithSuppression(e);
             throw e;
         }
-        catch (IOException | RuntimeException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+        catch (RuntimeException e) {
             closeWithSuppression(e);
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
