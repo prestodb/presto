@@ -759,10 +759,7 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            if (usesSymbol(node, Symbol.from(reference))) {
-                return node;
-            }
-            return context.defaultRewrite(node);
+            return visitPlan(node, context);
         }
 
         @Override
