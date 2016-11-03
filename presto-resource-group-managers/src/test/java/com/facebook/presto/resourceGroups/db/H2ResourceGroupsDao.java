@@ -29,10 +29,10 @@ public interface H2ResourceGroupsDao
     void updateResourceGroupsGlobalProperties(@Bind("name") String name);
 
     @SqlUpdate("INSERT INTO resource_groups\n" +
-            "(id, name, soft_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, parent)\n" +
-            "VALUES (:id, :name, :soft_memory_limit, :max_queued, :max_running, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :parent)")
+            "(resource_group_id, name, soft_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_timeout, running_timeout, parent)\n" +
+            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :max_running, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_timeout, :running_timeout, :parent)")
     void insertResourceGroup(
-            @Bind("id") long id,
+            @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String name,
             @Bind("soft_memory_limit") String softMemoryLimit,
             @Bind("max_queued") int maxQueued,
@@ -42,11 +42,13 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
+            @Bind("queued_timeout") String queuedTimeout,
+            @Bind("running_timeout") String runningTimeout,
             @Bind("parent") Long parent
     );
 
     @SqlUpdate("UPDATE resource_groups SET\n" +
-            " id = :id\n" +
+            " resource_group_id = :resource_group_id\n" +
             ", name = :name\n" +
             ", soft_memory_limit = :soft_memory_limit\n" +
             ", max_queued = :max_queued\n" +
@@ -56,10 +58,12 @@ public interface H2ResourceGroupsDao
             ", jmx_export = :jmx_export\n" +
             ", soft_cpu_limit = :soft_cpu_limit\n" +
             ", hard_cpu_limit = :hard_cpu_limit\n" +
+            ", queued_timeout = :queued_timeout\n" +
+            ", running_timeout = :running_timeout\n" +
             ", parent = :parent\n" +
-            "WHERE id = :id")
+            "WHERE resource_group_id = :resource_group_id")
     void updateResourceGroup(
-            @Bind("id") long id,
+            @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String resourceGroup,
             @Bind("soft_memory_limit") String softMemoryLimit,
             @Bind("max_queued") int maxQueued,
@@ -69,10 +73,12 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
+            @Bind("queued_timeout") String queuedTimeout,
+            @Bind("running_timeout") String runningTimeout,
             @Bind("parent") Long parent);
 
-    @SqlUpdate("DELETE FROM resource_groups WHERE id = :resource_group_id")
-    void deleteResourceGroup(@Bind("resource_group_id") long id);
+    @SqlUpdate("DELETE FROM resource_groups WHERE resource_group_id = :resource_group_id")
+    void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 
     @SqlUpdate("INSERT INTO selectors\n" +
             "(resource_group_id, user_regex, source_regex)\n" +

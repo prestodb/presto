@@ -67,6 +67,8 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
         assertEquals(global.getSchedulingWeight(), 0);
         assertEquals(global.getJmxExport(), true);
+        assertEquals(global.getQueuedTimeout(), new Duration(1, HOURS));
+        assertEquals(global.getRunningTimeout(), new Duration(1, HOURS));
 
         ResourceGroup sub = new TestingResourceGroup(new ResourceGroupId(new ResourceGroupId("global"), "sub"));
         manager.configure(sub, new SelectionContext(true, "user", Optional.empty(), 1));
@@ -76,6 +78,8 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getSchedulingPolicy(), null);
         assertEquals(sub.getSchedulingWeight(), 5);
         assertEquals(sub.getJmxExport(), false);
+        assertEquals(global.getQueuedTimeout(), new Duration(1, HOURS));
+        assertEquals(global.getRunningTimeout(), new Duration(1, HOURS));
     }
 
     private FileResourceGroupConfigurationManager parse(String fileName)

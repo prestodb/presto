@@ -82,6 +82,7 @@
         <module>presto-accumulo</module>
         <module>presto-cassandra</module>
         <module>presto-blackhole</module>
+        <module>presto-memory</module>
         <module>presto-orc</module>
         <module>presto-rcfile</module>
         <module>presto-hive</module>
@@ -130,6 +131,13 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-resource-group-managers</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-resource-group-managers</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -210,6 +218,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-blackhole</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
