@@ -51,15 +51,6 @@ public class AggregationFromAnnotationsParser
     // This function should only be used for function matching for testing purposes.
     // General purpose function matching is done through FunctionRegistry.
     @VisibleForTesting
-    public static ParametricAggregation generateAggregationBindableFunction(Class<?> clazz)
-    {
-        List<ParametricAggregation> aggregations = parseFunctionDefinitions(clazz);
-        checkArgument(aggregations.size() == 1, "More than one aggregation function found");
-        return aggregations.get(0);
-    }
-
-    // This function should only be used for function matching for testing purposes.
-    // General purpose function matching is done through FunctionRegistry.
     public static ParametricAggregation parseFunctionDefinitionWithTypesConstraint(Class<?> clazz, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         requireNonNull(returnType, "returnType is null");
