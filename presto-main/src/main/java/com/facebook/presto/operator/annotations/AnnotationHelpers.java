@@ -15,6 +15,7 @@ package com.facebook.presto.operator.annotations;
 
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TypeVariableConstraint;
+import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.OperatorType;
@@ -30,6 +31,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -190,5 +192,21 @@ public class AnnotationHelpers
                 annotation instanceof SqlType ||
                 annotation instanceof SqlNullable ||
                 annotation instanceof IsNull;
+    }
+
+    public static Optional<String> parseDescription(AnnotatedElement base, AnnotatedElement override)
+    {
+        Optional<String> overrideDescription = parseDescription(override);
+        if (overrideDescription.isPresent()) {
+            return overrideDescription;
+        }
+
+        return parseDescription(base);
+    }
+
+    public static Optional<String> parseDescription(AnnotatedElement base)
+    {
+        Description description = base.getAnnotation(Description.class);
+        return (description == null) ? Optional.empty() : Optional.of(description.value());
     }
 }

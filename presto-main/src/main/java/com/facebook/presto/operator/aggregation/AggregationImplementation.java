@@ -25,7 +25,6 @@ import com.facebook.presto.operator.annotations.ImplementationDependency;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.AggregationState;
-import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
@@ -38,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -65,22 +63,6 @@ import static java.util.Objects.requireNonNull;
 public class AggregationImplementation
         implements ParametricImplementation
 {
-    static Optional<String> getDescription(AnnotatedElement base, AnnotatedElement override)
-    {
-        Description description = override.getAnnotation(Description.class);
-        if (description != null) {
-            return Optional.of(description.value());
-        }
-        description = base.getAnnotation(Description.class);
-        return (description == null) ? Optional.empty() : Optional.of(description.value());
-    }
-
-    static Optional<String> getDescription(AnnotatedElement base)
-    {
-        Description description = base.getAnnotation(Description.class);
-        return (description == null) ? Optional.empty() : Optional.of(description.value());
-    }
-
     public static class AggregateNativeContainerType
     {
         private final Class<?> javaType;

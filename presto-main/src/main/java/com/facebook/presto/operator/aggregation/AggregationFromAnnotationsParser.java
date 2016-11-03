@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.parseDescription;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -87,7 +88,7 @@ public class AggregationFromAnnotationsParser
                     for (String name : getNames(outputFunction, aggregationAnnotation)) {
                         AggregationHeader header = new AggregationHeader(
                                 name,
-                                AggregationImplementation.getDescription(aggregationDefinition, outputFunction),
+                                parseDescription(aggregationDefinition, outputFunction),
                                 aggregationAnnotation.decomposable());
                         AggregationImplementation onlyImplementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
                         builder.add(
@@ -151,7 +152,7 @@ public class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
-        return new AggregationHeader(aggregationAnnotation.value(), AggregationImplementation.getDescription(aggregationDefinition), aggregationAnnotation.decomposable());
+        return new AggregationHeader(aggregationAnnotation.value(), parseDescription(aggregationDefinition), aggregationAnnotation.decomposable());
     }
 
     private static List<String> getNames(@Nullable Method outputFunction, AggregationFunction aggregationAnnotation)
