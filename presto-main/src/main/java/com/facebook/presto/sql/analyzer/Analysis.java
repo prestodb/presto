@@ -45,6 +45,8 @@ import com.google.common.collect.ListMultimap;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,6 +105,9 @@ public class Analysis
 
     // for describe input and describe output
     private final boolean isDescribe;
+
+    // for recursive view detection
+    private final Deque<Table> tablesForView = new ArrayDeque<>();
 
     public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -512,6 +517,21 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(tableReference, query);
+    }
+
+    public void registerTableForView(Table tableReference)
+    {
+        tablesForView.push(requireNonNull(tableReference, "table is null"));
+    }
+
+    public void unregisterTableForView()
+    {
+        tablesForView.pop();
+    }
+
+    public boolean hasTableInView(Table tableReference)
+    {
+        return tablesForView.contains(tableReference);
     }
 
     public void setSampleRatio(SampledRelation relation, double ratio)
