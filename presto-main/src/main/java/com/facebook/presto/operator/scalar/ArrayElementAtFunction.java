@@ -37,7 +37,6 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Void voidElementAt(@SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        indexInRange(array, index);
         checkedIndexToBlockPosition(array, index);
         return null;
     }
@@ -47,10 +46,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Long longElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if (!indexInRange(array, index)) {
+        int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
             return null;
         }
-        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -63,10 +62,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Boolean booleanElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if (!indexInRange(array, index)) {
+        int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
             return null;
         }
-        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -79,10 +78,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Double doubleElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if (!indexInRange(array, index)) {
+        int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
             return null;
         }
-        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -95,10 +94,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Slice sliceElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if (!indexInRange(array, index)) {
+        int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
             return null;
         }
-        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -111,10 +110,10 @@ public final class ArrayElementAtFunction
     @SqlType("E")
     public static Block blockElementAt(@TypeParameter("E") Type elementType, @SqlType("array(E)") Block array, @SqlType("bigint") long index)
     {
-        if (!indexInRange(array, index)) {
+        int position = checkedIndexToBlockPosition(array, index);
+        if (position == -1) {
             return null;
         }
-        int position = checkedIndexToBlockPosition(array, index);
         if (array.isNull(position)) {
             return null;
         }
@@ -122,21 +121,18 @@ public final class ArrayElementAtFunction
         return (Block) elementType.getObject(array, position);
     }
 
-    private static boolean indexInRange(Block block, long index)
+    /**
+     * @return PrestoException if the index is 0, -1 if the index is out of range (to tell the calling function to return null), and the element position otherwise.
+     */
+    private static int checkedIndexToBlockPosition(Block block, long index)
     {
         int arrayLength = block.getPositionCount();
         if (index == 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
-        else if (Math.abs(index) > arrayLength) {
-            return false;
+        if (Math.abs(index) > arrayLength) {
+            return -1; // -1 indicates that the element is out of range and "ELEMENT_AT" should return null
         }
-        return true;
-    }
-
-    private static int checkedIndexToBlockPosition(Block block, long index)
-    {
-        int arrayLength = block.getPositionCount();
         if (index > 0) {
             return Ints.checkedCast(index - 1);
         }
