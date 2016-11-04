@@ -43,6 +43,7 @@ import com.google.common.collect.ListMultimap;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,9 @@ public class Analysis
 
     // for describe input and describe output
     private final boolean isDescribe;
+
+    // for recursive view detection
+    private final HashSet<Table> tablesForView = new HashSet<>();
 
     public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -494,6 +498,15 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(tableReference, query);
+    }
+
+    public void registerTableForView(Table tableReference) {
+        requireNonNull(tableReference, "table is null");
+        tablesForView.add(tableReference);
+    }
+
+    public boolean hasTableInView(Table tableReference) {
+        return tablesForView.contains(tableReference);
     }
 
     public void setSampleRatio(SampledRelation relation, double ratio)

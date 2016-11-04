@@ -83,4 +83,6 @@ public enum SemanticErrorCode
     AMBIGUOUS_FUNCTION_CALL,
 
     INVALID_PARAMETER_USAGE,
+
+    VIEW_CANNOT_BE_RECURSIVE,
 }

@@ -136,6 +136,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_B
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_CANNOT_BE_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
@@ -490,11 +491,16 @@ class StatementAnalyzer
 
         Optional<ViewDefinition> optionalView = metadata.getView(session, name);
         if (optionalView.isPresent()) {
+            Statement statement = analysis.getStatement();
+            if (statement instanceof CreateView && ((CreateView) statement).isReplace() && ((CreateView) statement).getName().equals(table.getName())) {
+                throw new SemanticException(VIEW_CANNOT_BE_RECURSIVE, table, "Statement would create a recursive view.");
+            }
             ViewDefinition view = optionalView.get();
 
             Query query = parseView(view.getOriginalSql(), name, table);
 
             analysis.registerNamedQuery(table, query);
+            analysis.registerTableForView(table);
 
             accessControl.checkCanSelectFromView(session.getRequiredTransactionId(), session.getIdentity(), name);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
