@@ -167,7 +167,10 @@ public class HivePageSink
     private void doAbort()
     {
         for (HiveWriter writer : writers) {
-            writer.rollback();
+            // writers can contain nulls if an exception is thrown when doAppend expends the writer list
+            if (writer != null) {
+                writer.rollback();
+            }
         }
     }
 
