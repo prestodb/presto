@@ -32,7 +32,11 @@ before_install:
   # This is needed until Travis #4629 is fixed (https://github.com/travis-ci/travis-ci/issues/4629)
   - sed -i.bak -e 's|https://nexus.codehaus.org/snapshots/|https://oss.sonatype.org/content/repositories/codehaus-snapshots/|g' ~/.m2/settings.xml
 
-install: ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl '!presto-docs,!presto-server-rpm'
+install:
+  - |
+    if [[ -v PRODUCT_TESTS || -v HIVE_TESTS ]]; then
+      ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl '!presto-docs,!presto-server-rpm'
+    fi
 
 script:
   - |
