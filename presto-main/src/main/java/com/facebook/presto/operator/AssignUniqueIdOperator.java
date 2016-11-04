@@ -106,7 +106,7 @@ public class AssignUniqueIdOperator
         this.rowIdPool = requireNonNull(rowIdPool, "rowIdPool is null");
 
         TaskId fullTaskId = operatorContext.getDriverContext().getTaskId();
-        uniqueValueMask = (fullTaskId.getStageId().getId() << 54L) | ((long) fullTaskId.getId() << 40L);
+        uniqueValueMask = ((long) fullTaskId.getStageId().getId() << 54L) | ((long) fullTaskId.getId() << 40L);
         inputPageChannelCount = types.size() - 1;
 
         requestValues();
