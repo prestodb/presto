@@ -610,8 +610,12 @@ public class RaptorMetadata
 
         List<ColumnInfo> columns = table.getColumnHandles().stream().map(ColumnInfo::fromHandle).collect(toList());
 
+        OptionalLong temporalColumnId = table.getTemporalColumnHandle().map(RaptorColumnHandle::getColumnId)
+                .map(OptionalLong::of)
+                .orElse(OptionalLong.empty());
+
         // TODO: refactor this to avoid creating an empty table on failure
-        shardManager.createTable(newTableId, columns, table.getBucketCount().isPresent());
+        shardManager.createTable(newTableId, columns, table.getBucketCount().isPresent(), temporalColumnId);
         shardManager.commitShards(transactionId, newTableId, columns, parseFragments(fragments), Optional.empty(), updateTime);
 
         clearRollback();

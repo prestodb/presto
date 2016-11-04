@@ -30,7 +30,7 @@ public interface ShardManager
     /**
      * Create a table.
      */
-    void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed);
+    void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId);
 
     /**
      * Drop a table.
