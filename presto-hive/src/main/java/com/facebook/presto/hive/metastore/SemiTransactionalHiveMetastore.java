@@ -37,7 +37,6 @@ import io.airlift.log.Logger;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
@@ -77,6 +76,7 @@ import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 
 public class SemiTransactionalHiveMetastore
 {
@@ -334,7 +334,7 @@ public class SemiTransactionalHiveMetastore
         if (!table.isPresent()) {
             throw new TableNotFoundException(schemaTableName);
         }
-        if (!table.get().getTableType().equals(TableType.MANAGED_TABLE.toString())) {
+        if (!table.get().getTableType().equals(MANAGED_TABLE.toString())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
         }
         if (!table.get().getPartitionColumns().isEmpty()) {
@@ -852,9 +852,9 @@ public class SemiTransactionalHiveMetastore
         private void prepareAddTable(String user, TableAndMore tableAndMore)
         {
             Table table = tableAndMore.getTable();
-            String targetLocation = table.getStorage().getLocation();
-            // targetLocation is empty when it's a view
-            if (!targetLocation.isEmpty()) {
+            if (table.getTableType().equals(MANAGED_TABLE.name())) {
+                String targetLocation = table.getStorage().getLocation();
+                checkArgument(!targetLocation.isEmpty(), "target location is empty");
                 Optional<Path> currentPath = tableAndMore.getCurrentLocation();
                 Path targetPath = new Path(targetLocation);
                 if (table.getPartitionColumns().isEmpty() && currentPath.isPresent()) {

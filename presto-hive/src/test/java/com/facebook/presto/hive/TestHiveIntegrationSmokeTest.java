@@ -33,11 +33,14 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -68,6 +71,8 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.Files.createTempDir;
+import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -80,6 +85,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
+import static org.testng.FileAssert.assertFile;
 
 public class TestHiveIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -1469,6 +1475,41 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+    }
+
+    @Test
+    public void testCreateExternalTable()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+        File dataFile = new File(tempDir, "test.txt");
+        Files.write("hello\nworld\n", dataFile, UTF_8);
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_create_external (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   external_location = '%s',\n" +
+                        "   format = 'TEXTFILE'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                new Path(tempDir.toURI().toASCIIString()).toString());
+
+        assertUpdate(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+
+        actual = computeActual("SELECT name FROM test_create_external");
+        assertEquals(actual.getOnlyColumnAsSet(), ImmutableSet.of("hello", "world"));
+
+        assertUpdate("DROP TABLE test_create_external");
+
+        // file should still exist after drop
+        assertFile(dataFile);
+
+        deleteRecursively(tempDir);
     }
 
     @Test

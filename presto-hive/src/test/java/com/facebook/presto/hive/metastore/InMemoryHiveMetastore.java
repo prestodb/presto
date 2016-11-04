@@ -31,7 +31,6 @@ import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -39,6 +38,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.io.File;
 import java.net.URI;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -59,6 +59,9 @@ import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
@@ -162,22 +165,28 @@ public class InMemoryHiveMetastore
     @Override
     public synchronized void createTable(Table table)
     {
+        TableType tableType = TableType.valueOf(table.getTableType());
+        checkArgument(EnumSet.of(MANAGED_TABLE, EXTERNAL_TABLE, VIRTUAL_VIEW).contains(tableType), "Invalid table type: %s", tableType);
+
+        if (tableType == VIRTUAL_VIEW) {
+            checkArgument(table.getSd().getLocation() == null, "Storage location for view must be null");
+        }
+        else {
+            File directory = new File(new Path(table.getSd().getLocation()).toUri());
+            checkArgument(directory.exists(), "Table directory does not exist");
+            if (tableType == MANAGED_TABLE) {
+                checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
+            }
+        }
+
         SchemaTableName schemaTableName = new SchemaTableName(table.getDbName(), table.getTableName());
         Table tableCopy = table.deepCopy();
-        if (tableCopy.getSd() == null) {
-            tableCopy.setSd(new StorageDescriptor());
-        }
-        else if (tableCopy.getSd().getLocation() != null) {
-            File directory = new File(new Path(tableCopy.getSd().getLocation()).toUri());
-            checkArgument(directory.exists(), "Table directory does not exist");
-            checkArgument(isParentDir(directory, baseDirectory), "Table directory must be inside of the metastore base directory");
-        }
 
         if (relations.putIfAbsent(schemaTableName, tableCopy) != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
-        if (tableCopy.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (tableType == VIRTUAL_VIEW) {
             views.put(schemaTableName, tableCopy);
         }
 
@@ -216,7 +225,7 @@ public class InMemoryHiveMetastore
         partitions.keySet().removeIf(partitionName -> partitionName.matches(databaseName, tableName));
 
         // remove data
-        if (deleteData) {
+        if (deleteData && table.getTableType().equals(MANAGED_TABLE.name())) {
             for (String location : locations) {
                 if (location != null) {
                     File directory = new File(new Path(location).toUri());
