@@ -17,10 +17,8 @@ env:
 sudo: required
 dist: trusty
 
-addons:
-  apt:
-    packages:
-      - oracle-java8-installer
+jdk:
+  - oraclejdk8
 
 cache:
   directories:
