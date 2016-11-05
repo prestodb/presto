@@ -21,9 +21,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -34,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiDatabase;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -63,7 +62,7 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Database> getDatabase(String databaseName)
     {
-        return delegate.getDatabase(databaseName);
+        return delegate.getDatabase(databaseName).map(MetastoreUtil::fromMetastoreApiDatabase);
     }
 
     @Override
@@ -93,7 +92,7 @@ public class BridgingHiveMetastore
     @Override
     public void createDatabase(Database database)
     {
-        delegate.createDatabase(database);
+        delegate.createDatabase(toMetastoreApiDatabase(database));
     }
 
     @Override
@@ -105,7 +104,7 @@ public class BridgingHiveMetastore
     @Override
     public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        Database database = delegate.getDatabase(databaseName)
+        org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
         database.setName(newDatabaseName);
         delegate.alterDatabase(databaseName, database);
@@ -118,9 +117,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void createTable(Table table, PrincipalPrivilegeSet principalPrivilegeSet)
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        delegate.createTable(toMetastoreApiTable(table, principalPrivilegeSet));
+        delegate.createTable(toMetastoreApiTable(table, principalPrivileges));
     }
 
     @Override
@@ -130,9 +129,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivilegeSet principalPrivilegeSet)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
-        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivilegeSet));
+        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
     }
 
     @Override
@@ -267,14 +266,20 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
     {
-        delegate.grantTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfoSet);
+        Set<PrivilegeGrantInfo> privilegeGrantInfos = privileges.stream()
+                .map(privilege -> MetastoreUtil.toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
+                .collect(Collectors.toSet());
+        delegate.grantTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfos);
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
     {
-        delegate.revokeTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfoSet);
+        Set<PrivilegeGrantInfo> privilegeGrantInfos = privileges.stream()
+                .map(privilege -> MetastoreUtil.toMetastoreApiPrivilegeGrantInfo(grantee, privilege))
+                .collect(Collectors.toSet());
+        delegate.revokeTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfos);
     }
 }

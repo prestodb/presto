@@ -16,9 +16,11 @@ package com.facebook.presto.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Order;
+import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.testng.annotations.Test;
@@ -58,6 +60,10 @@ public class TestMetastoreUtil
             "view original text",
             "view extended text",
             "MANAGED_TABLE");
+    static {
+        TEST_TABLE.setPrivileges(new PrincipalPrivilegeSet(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()));
+    }
+
     private static final org.apache.hadoop.hive.metastore.api.Partition TEST_PARTITION = new org.apache.hadoop.hive.metastore.api.Partition(
             ImmutableList.of("pk1v", "pk2v"),
             "db_name",
@@ -109,7 +115,8 @@ public class TestMetastoreUtil
             throws Exception
     {
         Table table = MetastoreUtil.fromMetastoreApiTable(TEST_TABLE);
-        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable = MetastoreUtil.toMetastoreApiTable(table, null);
+        PrincipalPrivileges privileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
+        org.apache.hadoop.hive.metastore.api.Table metastoreApiTable =  MetastoreUtil.toMetastoreApiTable(table, privileges);
         assertEquals(metastoreApiTable, TEST_TABLE);
     }
 

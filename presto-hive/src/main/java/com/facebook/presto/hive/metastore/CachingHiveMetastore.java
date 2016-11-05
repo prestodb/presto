@@ -26,9 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ExecutionError;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -322,7 +319,7 @@ public class CachingHiveMetastore
             delegate.createDatabase(database);
         }
         finally {
-            invalidateDatabase(database.getName());
+            invalidateDatabase(database.getDatabaseName());
         }
     }
 
@@ -356,10 +353,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void createTable(Table table, PrincipalPrivilegeSet principalPrivilegeSet)
+    public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
         try {
-            delegate.createTable(table, principalPrivilegeSet);
+            delegate.createTable(table, principalPrivileges);
         }
         finally {
             invalidateTable(table.getDatabaseName(), table.getTableName());
@@ -378,10 +375,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivilegeSet principalPrivilegeSet)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         try {
-            delegate.replaceTable(databaseName, tableName, newTable, principalPrivilegeSet);
+            delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -428,6 +425,8 @@ public class CachingHiveMetastore
         tableCache.invalidate(new HiveTableName(databaseName, tableName));
         tableNamesCache.invalidate(databaseName);
         viewNamesCache.invalidate(databaseName);
+        // todo this should only remove keys for this table
+        userTablePrivileges.invalidateAll();
         invalidatePartitionCache(databaseName, tableName);
     }
 
@@ -589,10 +588,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
-            delegate.grantTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfoSet);
+            delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
         }
         finally {
             userTablePrivileges.invalidate(new UserTableKey(grantee, tableName, databaseName));
@@ -600,10 +599,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet)
+    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
-            delegate.revokeTablePrivileges(databaseName, tableName, grantee, privilegeGrantInfoSet);
+            delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
         }
         finally {
             userTablePrivileges.invalidate(new UserTableKey(grantee, tableName, databaseName));

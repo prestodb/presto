@@ -27,6 +27,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 
 public class HivePrivilegeInfo
@@ -121,5 +122,14 @@ public class HivePrivilegeInfo
         HivePrivilegeInfo hivePrivilegeInfo = (HivePrivilegeInfo) o;
         return Objects.equals(hivePrivilege, hivePrivilegeInfo.hivePrivilege) &&
                 Objects.equals(grantOption, hivePrivilegeInfo.grantOption);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("privilege", hivePrivilege)
+                .add("grantOption", grantOption)
+                .toString();
     }
 }
