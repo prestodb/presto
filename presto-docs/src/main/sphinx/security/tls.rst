@@ -8,7 +8,7 @@ Java Keystore File for TLS
 --------------------------
 
 Access to the Presto coordinator must be through HTTPS when using Kerberos
-authentication. The Presto coordinator uses a :ref:`Java Keystore
+and LDAP authentication. The Presto coordinator uses a :ref:`Java Keystore
 <server_java_keystore>` file for its TLS configuration. These keys are
 generated using :command:`keytool` and stored in a Java Keystore file for the
 Presto coordinator.
@@ -43,6 +43,30 @@ that confirms the information is correct:
 
     Enter key password for <presto>
             (RETURN if same as keystore password):
+
+.. _cli_java_truststore:
+
+Java Truststore File for TLS
+----------------------------
+
+Truststore files contain certificates of trusted TLS/SSL servers, or of
+Certificate Authorities trusted to identify servers. For securing access
+to the Presto coordinator through HTTPS the clients can configure truststores.
+For the Presto CLI to trust the Presto coordinator, the coordinator's certificate
+must be imported to the CLI's truststore.
+
+You can either import the certificate to the default Java truststore, or to a
+custom truststore. You should be careful if you choose to use the default
+one, since you may need to remove the certificates of CAs you do not deem trustworthy.
+
+You can use :command:`keytool` to import the certificate to the truststore.
+In the example, we are going to import ``presto_certificate.cer`` to a custom
+truststore ``presto_trust.jks``, and you will get a prompt asking  if the certificate
+can be trusted or not.
+
+.. code-block:: none
+
+    $ keytool -import -v -trustcacerts -alias presto_trust -file presto_certificate.cer -keystore presto_trust.jks -keypass <truststore_pass>
 
 Troubleshooting
 ---------------
