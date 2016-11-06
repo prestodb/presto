@@ -31,31 +31,19 @@ public class SortedEntryIterator
     private final BlockingQueue<Entry<Key, Value>> orderedEntries;
     private final AtomicBoolean finishedScan = new AtomicBoolean(false);
     private final int bufferSize;
-    private final Thread scanThread;
+    private final IteratorTask iteratorTask = new IteratorTask();
+    private final Thread iteratorThread = new Thread(iteratorTask);
+    private final Iterator<Entry<Key, Value>> parent;
 
     public SortedEntryIterator(int bufferSize, Iterator<Entry<Key, Value>> parent)
     {
-        requireNonNull(parent, "parent iterator is null");
+        this.parent = requireNonNull(parent, "parent iterator is null");
         this.bufferSize = bufferSize;
-        orderedEntries = new BoundedPriorityBlockingQueue<>(bufferSize, new KeyValueEntryComparator(), (int) (bufferSize * 1.25));
+        this.orderedEntries = new BoundedPriorityBlockingQueue<>(bufferSize, new KeyValueEntryComparator(), (int) (bufferSize * 1.25));
 
         // Begin reading from the parent iterator, adding entries to the queue
-        scanThread = new Thread(() ->
-        {
-            while (parent.hasNext()) {
-                try {
-                    orderedEntries.put(parent.next());
-                }
-                catch (InterruptedException e) {
-                    Thread.interrupted();
-                    break;
-                }
-            }
-
-            finishedScan.set(true);
-        });
-
-        scanThread.start();
+        this.iteratorThread.setDaemon(true);
+        this.iteratorThread.start();
     }
 
     @Override
@@ -65,10 +53,16 @@ public class SortedEntryIterator
         // This will guarantee ordering of the last FILL_SIZE entries that were put in the queue
         while (!finishedScan.get() && orderedEntries.size() < bufferSize) {
             try {
+                // Say there are no more entries if this thread has been interrupted
+                if (Thread.currentThread().isInterrupted()) {
+                    return false;
+                }
+
                 Thread.sleep(1);
             }
             catch (InterruptedException e) {
-                Thread.interrupted();
+                Thread.currentThread().interrupt();
+                return false;
             }
         }
 
@@ -78,13 +72,32 @@ public class SortedEntryIterator
     @Override
     public Entry<Key, Value> next()
     {
+        // This won't block due to the behavior of hasNext
         return orderedEntries.poll();
     }
 
     @Override
     public void close()
     {
-        scanThread.interrupt();
+        // Alert the task to stop reading entries
+        iteratorTask.stop();
+
+        // Block until thread has finished reading
+        // Avoids race condition between closing the scanner and
+        // reading the next entry from the parent iterator
+        // (which causes Accumulo to log an error message)
+        while (iteratorThread.isAlive()) {
+            try {
+                Thread.sleep(1);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+
+        // Drop all entries in the queue
+        orderedEntries.clear();
     }
 
     private static class KeyValueEntryComparator
@@ -94,6 +107,33 @@ public class SortedEntryIterator
         public int compare(Entry<Key, Value> o1, Entry<Key, Value> o2)
         {
             return o1.getKey().compareTo(o2.getKey());
+        }
+    }
+
+    private class IteratorTask
+            implements Runnable
+    {
+        private final AtomicBoolean stop = new AtomicBoolean(false);
+
+        @Override
+        public void run()
+        {
+            while (!stop.get() && parent.hasNext()) {
+                try {
+                    orderedEntries.put(parent.next());
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+
+            finishedScan.set(true);
+        }
+
+        public void stop()
+        {
+            this.stop.set(true);
         }
     }
 }
