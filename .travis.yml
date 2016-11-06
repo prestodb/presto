@@ -17,9 +17,6 @@ env:
 sudo: required
 dist: trusty
 
-jdk:
-  - oraclejdk8
-
 cache:
   directories:
     - $HOME/.m2/repository
