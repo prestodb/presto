@@ -405,7 +405,7 @@ class AggregationAnalyzer
                 if (field.getName().isPresent()) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column '%s' not in GROUP BY clause", field.getName().get());
                 }
-                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Some columns from FROM clause not in GROUP BY clause");
+                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column %s not in GROUP BY clause", node.getFieldIndex() + 1);
             }
             return indexPresent;
         }
