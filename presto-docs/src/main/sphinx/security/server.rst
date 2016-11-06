@@ -56,47 +56,11 @@ In addition, the Presto coordinator needs a `keytab file
 
 .. include:: jce-policy.fragment
 
-.. _server_java_keystore:
-
 Java Keystore File for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Access to the Presto coordinator must be through HTTPS when using Kerberos
-authentication. The Presto coordinator uses a :ref:`Java Keystore
-<server_java_keystore>` file for its TLS configuration. These keys are
-generated using :command:`keytool` and stored in a Java Keystore file for the
-Presto coordinator.
-
-The alias in the :command:`keytool` command line should match the principal that the
-Presto coordinator will use.
-
-You'll be prompted for the first and last name. Use the Common Name that will
-be used in the certificate. In this case, it should be the unqualified hostname
-of the Presto coordinator. In the following example, you can see this in the prompt
-that confirms the information is correct:
-
-.. code-block:: none
-
-    keytool -genkeypair -alias presto -keyalg RSA -keystore keystore.jks
-    Enter keystore password:
-    Re-enter new password:
-    What is your first and last name?
-      [Unknown]:  presto-coordinator
-    What is the name of your organizational unit?
-      [Unknown]:
-    What is the name of your organization?
-      [Unknown]:
-    What is the name of your City or Locality?
-      [Unknown]:
-    What is the name of your State or Province?
-      [Unknown]:
-    What is the two-letter country code for this unit?
-      [Unknown]:
-    Is CN=eiger, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
-      [no]:  yes
-
-    Enter key password for <presto>
-            (RETURN if same as keystore password):
+When using Kerberos authentication, access to the Presto coordinator should be
+through HTTPS. You can do it by creating a :ref:`server_java_keystore` on the
+coordinator.
 
 System Access Control Plugin
 ----------------------------
@@ -127,7 +91,7 @@ Kerberos authentication is configured in the coordinator node's
 
 .. code-block:: none
 
-    http.server.authentication.enabled=true
+    http-server.authentication.type=KERBEROS
 
     http.server.authentication.krb5.service-name=presto
     http.server.authentication.krb5.keytab=/etc/presto/presto.keytab
@@ -142,8 +106,8 @@ Kerberos authentication is configured in the coordinator node's
 ======================================================= ======================================================
 Property                                                Description
 ======================================================= ======================================================
-``http.server.authentication.enabled``                  Enable authentication for the Presto coordinator.
-                                                        Must be set to ``true``.
+``http-server.authentication.type``                     Authentication type for the Presto
+                                                        coordinator. Must be set to ``KERBEROS``.
 ``http.server.authentication.krb5.service-name``        The Kerberos server name for the Presto coordinator.
                                                         Must match the Kerberos principal.
 ``http.server.authentication.krb5.keytab``              The location of the keytab that can be used to
@@ -215,12 +179,8 @@ Verify that the keytab file can be used to successfully obtain a ticket using
 Java Keystore File Verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Verify the password for a keystore file and view its contents using `keytool
-<http://docs.oracle.com/javase/8/docs/technotes/tools/windows/keytool.html>`_.
-
-.. code-block:: none
-
-    $ keytool -list -v -k /etc/presto/presto.jks
+Verify the password for a keystore file and view its contents using
+:ref:`troubleshooting_keystore`
 
 Additional Kerberos Debugging Information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
