@@ -17,13 +17,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static org.testng.Assert.assertEquals;
@@ -105,14 +105,14 @@ public class TestBigIntegerAndLongStateSerializer
 
             BigIntegerAndLong that = (BigIntegerAndLong) o;
 
-            return Objects.equal(this.bigIntegerValue, that.bigIntegerValue) &&
-                    Objects.equal(this.longValue, that.longValue);
+            return Objects.equals(this.bigIntegerValue, that.bigIntegerValue) &&
+                    Objects.equals(this.longValue, that.longValue);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(bigIntegerValue, longValue);
+            return Objects.hash(bigIntegerValue, longValue);
         }
 
         @Override
