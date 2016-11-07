@@ -8049,4 +8049,22 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey > ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey >= ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
     }
+
+    @Test
+    public void testAssignUniqueId()
+            throws Exception
+    {
+        String unionLineitem50Times = IntStream.range(0, 50)
+                .mapToObj(i -> "SELECT * FROM lineitem")
+                .collect(joining(" UNION ALL "));
+
+        assertQuery(
+                "SELECT count(*) FROM (" +
+                        "SELECT * FROM (" +
+                        "   SELECT (SELECT count(*) WHERE c = 1) " +
+                        "   FROM (SELECT CASE orderkey WHEN 1 THEN orderkey ELSE 1 END " +
+                        "       FROM (" + unionLineitem50Times + ")) o(c)) result(a) " +
+                        "WHERE a = 1)",
+                "VALUES 3008750");
+    }
 }
