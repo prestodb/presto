@@ -19,7 +19,6 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
@@ -38,6 +37,7 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -84,7 +84,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
@@ -225,7 +224,7 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, new FeaturesConfig(), false);
+        this(defaultSession, new FeaturesConfig().setOptimizeMixedDistinctAggregations(true), false);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
@@ -263,7 +262,7 @@ public class LocalQueryRunner
                 executor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
-        this.splitManager = new SplitManager();
+        this.splitManager = new SplitManager(new QueryManagerConfig());
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
                 featuresConfig,
@@ -369,11 +368,6 @@ public class LocalQueryRunner
     public int getNodeCount()
     {
         return 1;
-    }
-
-    public NodeManager getNodeManager()
-    {
-        return new ConnectorAwareNodeManager(nodeManager, "testenv", new ConnectorId("test"));
     }
 
     public TypeRegistry getTypeManager()

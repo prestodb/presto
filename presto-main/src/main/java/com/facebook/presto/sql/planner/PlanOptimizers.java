@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.optimizations.DesugaringOptimizer;
 import com.facebook.presto.sql.planner.optimizations.EmptyDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.EvaluateConstantApply;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
+import com.facebook.presto.sql.planner.optimizations.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.planner.optimizations.MergeProjections;
 import com.facebook.presto.sql.planner.optimizations.MergeWindows;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
+import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import com.facebook.presto.sql.planner.optimizations.PartialAggregationPushDown;
 import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -70,6 +72,7 @@ public class PlanOptimizers
 
         builder.add(
                 new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
+                new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
                 new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
@@ -103,6 +106,8 @@ public class PlanOptimizers
             builder.add(new SingleDistinctOptimizer());
             builder.add(new PruneUnreferencedOutputs());
         }
+
+        builder.add(new OptimizeMixedDistinctAggregations(metadata));
 
         if (!forceSingleNode) {
             builder.add(new PushTableWriteThroughUnion()); // Must run before AddExchanges

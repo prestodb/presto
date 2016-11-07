@@ -130,7 +130,7 @@ public class RcFileReader
         else if (SEQUENCE_FILE_MAGIC.equals(magic)) {
             // first version of RCFile used magic SEQ with version 6
             byte sequenceFileVersion = input.readByte();
-            if (sequenceFileVersion == SEQUENCE_FILE_VERSION) {
+            if (sequenceFileVersion != SEQUENCE_FILE_VERSION) {
                 throw corrupt("File %s is a SequenceFile not an RCFile", dataSource);
             }
 

@@ -69,6 +69,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -163,7 +164,7 @@ public class TestHivePageSink
         }
         Page page = pageBuilder.build();
         pageSink.appendPage(page);
-        pageSink.finish();
+        getFutureValue(pageSink.finish());
 
         File outputDir = new File(outputPath);
         List<File> files = ImmutableList.copyOf(outputDir.listFiles((dir, name) -> !name.endsWith(".crc")));

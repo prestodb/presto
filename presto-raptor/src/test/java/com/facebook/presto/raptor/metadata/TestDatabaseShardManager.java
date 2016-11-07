@@ -124,7 +124,7 @@ public class TestDatabaseShardManager
 
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
@@ -140,7 +140,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.rollbackTransaction(transactionId);
@@ -162,7 +162,7 @@ public class TestDatabaseShardManager
         List<ShardInfo> shardNodes = ImmutableList.of(shardInfo(shard, "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
@@ -210,7 +210,7 @@ public class TestDatabaseShardManager
                 new ShardInfo(shard2, bucketNumber, ImmutableSet.of("node1"), ImmutableList.of(), 5, 55, 555));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
@@ -246,7 +246,7 @@ public class TestDatabaseShardManager
             inputShards.add(shardInfo(uuid, node));
         }
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, inputShards.build(), Optional.empty(), 0);
@@ -269,7 +269,7 @@ public class TestDatabaseShardManager
         List<ShardInfo> shardNodes = ImmutableList.of(shardInfo(shard1, "node1"), shardInfo(shard2, "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
@@ -293,7 +293,7 @@ public class TestDatabaseShardManager
                 .add(shardInfo(originalUuids.get(2), nodes.get(2)))
                 .build();
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, oldShards, Optional.empty(), 0);
@@ -350,7 +350,7 @@ public class TestDatabaseShardManager
         List<ShardInfo> shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, 0);
@@ -410,7 +410,7 @@ public class TestDatabaseShardManager
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, TupleDomain.all())) {
             assertFalse(iterator.hasNext());
@@ -422,11 +422,24 @@ public class TestDatabaseShardManager
     {
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        shardManager.createTable(tableId, columns, true);
+        shardManager.createTable(tableId, columns, true, OptionalLong.empty());
 
         try (ResultIterator<BucketShards> iterator = shardManager.getShardNodesBucketed(tableId, true, ImmutableMap.of(), TupleDomain.all())) {
             assertFalse(iterator.hasNext());
         }
+    }
+
+    @Test
+    public void testTemporalColumnTableCreation()
+            throws Exception
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, TIMESTAMP));
+        shardManager.createTable(tableId, columns, false, OptionalLong.of(1));
+
+        long tableId2 = createTable("test2");
+        List<ColumnInfo> columns2 = ImmutableList.of(new ColumnInfo(1, TIMESTAMP));
+        shardManager.createTable(tableId2, columns2, true, OptionalLong.of(1));
     }
 
     @Test
@@ -493,7 +506,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c6 = new RaptorColumnHandle("raptor", "c6", 6, BOOLEAN);
 
         long tableId = createTable("test");
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
@@ -575,7 +588,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, createVarcharType(10));
 
         long tableId = createTable("test");
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
@@ -611,7 +624,7 @@ public class TestDatabaseShardManager
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
         RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, BIGINT);
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);

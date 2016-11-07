@@ -49,6 +49,7 @@ import static com.facebook.presto.mongodb.TypeUtils.isArrayType;
 import static com.facebook.presto.mongodb.TypeUtils.isMapType;
 import static com.facebook.presto.mongodb.TypeUtils.isRowType;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSink
@@ -194,9 +195,9 @@ public class MongoPageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
-        return ImmutableList.of();
+        return completedFuture(ImmutableList.of());
     }
 
     @Override

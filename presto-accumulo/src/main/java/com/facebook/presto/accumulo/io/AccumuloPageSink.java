@@ -59,7 +59,9 @@ import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Output class for serializing Presto pages (blocks of rows of data) to Accumulo.
@@ -262,7 +264,7 @@ public class AccumuloPageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
         try {
             // Done serializing rows, so flush and close the writer and indexer
@@ -277,13 +279,13 @@ public class AccumuloPageSink
         }
 
         // TODO Look into any use of the metadata for writing out the rows
-        return ImmutableList.of();
+        return completedFuture(ImmutableList.of());
     }
 
     @Override
     public void abort()
     {
-        finish();
+        getFutureValue(finish());
     }
 
     private void flush()

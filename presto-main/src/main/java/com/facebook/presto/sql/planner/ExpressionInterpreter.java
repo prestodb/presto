@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
@@ -52,6 +53,7 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -66,6 +68,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -199,13 +202,20 @@ public class ExpressionInterpreter
             }
         }, expression);
 
+        // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
+        analyzer.analyze(rewrite, Scope.builder().build());
+
+        // remove syntax sugar
+        rewrite = ExpressionTreeRewriter.rewriteWith(new DesugaringRewriter(analyzer.getExpressionTypes()), rewrite);
+
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
         Expression canonicalized = CanonicalizeExpressions.canonicalizeExpression(rewrite);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, session, parameters);
+        analyzer = createConstantAnalyzer(metadata, session, parameters);
         analyzer.analyze(canonicalized, Scope.builder().build());
 
         // evaluate the expression
@@ -491,6 +501,29 @@ public class ExpressionInterpreter
             return new SearchedCaseExpression(whenClauses, Optional.ofNullable(resultExpression));
         }
 
+        @Override
+        protected Object visitIfExpression(IfExpression node, Object context)
+        {
+            Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
+            Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
+            Object condition = processWithExceptionHandling(node.getCondition(), context);
+
+            if (condition instanceof Expression) {
+                Expression falseValueExpression = (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get()));
+                return new IfExpression(
+                        toExpression(condition, type(node.getCondition())),
+                        toExpression(trueValue, type(node.getTrueValue())),
+                        falseValueExpression
+                );
+            }
+            else if (Boolean.TRUE.equals(condition)) {
+                return trueValue;
+            }
+            else {
+                return falseValue;
+            }
+        }
+
         private Object processWithExceptionHandling(Expression expression, Object context)
         {
             if (expression == null) {
@@ -739,15 +772,15 @@ public class ExpressionInterpreter
         @Override
         protected Object visitComparisonExpression(ComparisonExpression node, Object context)
         {
-            ComparisonExpression.Type type = node.getType();
+            ComparisonExpressionType type = node.getType();
 
             Object left = process(node.getLeft(), context);
-            if (left == null && type != ComparisonExpression.Type.IS_DISTINCT_FROM) {
+            if (left == null && type != ComparisonExpressionType.IS_DISTINCT_FROM) {
                 return null;
             }
 
             Object right = process(node.getRight(), context);
-            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+            if (type == ComparisonExpressionType.IS_DISTINCT_FROM) {
                 if (left == null && right == null) {
                     return false;
                 }
@@ -971,7 +1004,7 @@ public class ExpressionInterpreter
             if (pattern instanceof Slice && escape == null) {
                 String stringPattern = ((Slice) pattern).toStringUtf8();
                 if (!stringPattern.contains("%") && !stringPattern.contains("_")) {
-                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                    return new ComparisonExpression(ComparisonExpressionType.EQUAL,
                             toExpression(value, expressionTypes.get(node.getValue())),
                             toExpression(pattern, expressionTypes.get(node.getPattern())));
                 }
@@ -1128,6 +1161,15 @@ public class ExpressionInterpreter
             }
 
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
+        }
+
+        @Override
+        protected Object visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Object context)
+        {
+            if (!optimize) {
+                throw new UnsupportedOperationException("QuantifiedComparison not yet implemented");
+            }
+            return node;
         }
 
         @Override

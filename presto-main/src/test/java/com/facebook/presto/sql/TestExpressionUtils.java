@@ -25,9 +25,9 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.ExpressionUtils.normalize;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils

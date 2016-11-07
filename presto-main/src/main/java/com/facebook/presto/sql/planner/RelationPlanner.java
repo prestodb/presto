@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
@@ -213,7 +214,7 @@ class RelationPlanner
 
             List<Expression> leftComparisonExpressions = new ArrayList<>();
             List<Expression> rightComparisonExpressions = new ArrayList<>();
-            List<ComparisonExpression.Type> joinConditionComparisonTypes = new ArrayList<>();
+            List<ComparisonExpressionType> joinConditionComparisonTypes = new ArrayList<>();
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts(criteria)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
@@ -226,7 +227,7 @@ class RelationPlanner
                 if (conjunct instanceof ComparisonExpression) {
                     Expression firstExpression = ((ComparisonExpression) conjunct).getLeft();
                     Expression secondExpression = ((ComparisonExpression) conjunct).getRight();
-                    ComparisonExpression.Type comparisonType = ((ComparisonExpression) conjunct).getType();
+                    ComparisonExpressionType comparisonType = ((ComparisonExpression) conjunct).getType();
                     Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(firstExpression, analysis.getColumnReferences());
                     Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
@@ -258,7 +259,7 @@ class RelationPlanner
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
-                if (joinConditionComparisonTypes.get(i) == ComparisonExpression.Type.EQUAL) {
+                if (joinConditionComparisonTypes.get(i) == ComparisonExpressionType.EQUAL) {
                     Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
                     Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
 
@@ -336,7 +337,7 @@ class RelationPlanner
 
     private boolean isEqualComparisonExpression(Expression conjunct)
     {
-        return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getType() == ComparisonExpression.Type.EQUAL;
+        return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getType() == ComparisonExpressionType.EQUAL;
     }
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)

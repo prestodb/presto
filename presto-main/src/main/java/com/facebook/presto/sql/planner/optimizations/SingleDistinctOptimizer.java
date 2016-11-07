@@ -21,8 +21,8 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -58,11 +58,11 @@ public class SingleDistinctOptimizer
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return SimplePlanRewriter.rewriteWith(new Optimizer(idAllocator), plan, Optional.empty());
+        return PlanRewriter.rewriteWith(new Optimizer(idAllocator), plan, Optional.empty()).getPlanNode();
     }
 
     private static class Optimizer
-            extends SimplePlanRewriter<Optional<Symbol>>
+            extends PlanRewriter<Optional<Symbol>, Boolean>
     {
         private final PlanNodeIdAllocator idAllocator;
 
@@ -72,7 +72,7 @@ public class SingleDistinctOptimizer
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Optional<Symbol>> context)
+        public Result<Boolean> visitAggregation(AggregationNode node, RewriteContext<Optional<Symbol>, Boolean> context)
         {
             // optimize if and only if
             // all aggregation functions have a single common distinct mask symbol
@@ -81,50 +81,67 @@ public class SingleDistinctOptimizer
             if (masks.size() != 1 || node.getMasks().size() != node.getAggregations().size()) {
                 return context.defaultRewrite(node, Optional.empty());
             }
-            PlanNode source = context.rewrite(node.getSource(), Optional.of(Iterables.getOnlyElement(masks)));
+
+            if (node.getAggregations().values().stream().map(FunctionCall::getFilter).anyMatch(Optional::isPresent)) {
+                // Skip if any aggregation contains a filter
+                return context.defaultRewrite(node, Optional.empty());
+            }
+
+            Result<Boolean> source = context.rewrite(node.getSource(), Optional.of(Iterables.getOnlyElement(masks)));
+            if (source.getPayload() == null || !source.getPayload()) {
+                return context.defaultRewrite(node, Optional.empty());
+            }
 
             Map<Symbol, FunctionCall> aggregations = ImmutableMap.copyOf(Maps.transformValues(node.getAggregations(), call -> new FunctionCall(call.getName(), call.getWindow(), false, call.getArguments())));
 
-            return new AggregationNode(idAllocator.getNextId(),
-                                        source,
-                                        aggregations,
-                                        node.getFunctions(),
-                                        Collections.emptyMap(),
-                                        node.getGroupingSets(),
-                                        node.getStep(),
-                                        node.getHashSymbol(),
-                                        node.getGroupIdSymbol());
+            return new Result<>(
+                    new AggregationNode(
+                            idAllocator.getNextId(),
+                            source.getPlanNode(),
+                            aggregations,
+                            node.getFunctions(),
+                            Collections.emptyMap(),
+                            node.getGroupingSets(),
+                            node.getStep(),
+                            node.getHashSymbol(),
+                            node.getGroupIdSymbol()),
+                    false);
         }
 
         @Override
-        public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Optional<Symbol>> context)
+        public Result<Boolean> visitMarkDistinct(MarkDistinctNode node, RewriteContext<Optional<Symbol>, Boolean> context)
         {
             Optional<Symbol> mask = context.get();
-            if (mask.isPresent() && mask.get().equals(node.getMarkerSymbol())) {
-                // rewrite Distinct into GroupBy
-                AggregationNode aggregationNode = new AggregationNode(idAllocator.getNextId(),
-                                                                        context.rewrite(node.getSource(), Optional.empty()),
-                                                                        Collections.emptyMap(),
-                                                                        Collections.emptyMap(),
-                                                                        Collections.emptyMap(),
-                                                                        ImmutableList.of(node.getDistinctSymbols()),
-                                                                        SINGLE,
-                                                                        node.getHashSymbol(),
-                                                                        Optional.empty());
 
-                ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
-                for (Symbol symbol : aggregationNode.getOutputSymbols()) {
-                    outputSymbols.put(symbol, symbol.toSymbolReference());
-                }
-
-                // add null assignment for mask
-                // unused mask will be removed by PruneUnreferencedOutputs
-                outputSymbols.put(mask.get(), new NullLiteral());
-                return new ProjectNode(idAllocator.getNextId(),
-                                        aggregationNode,
-                                        outputSymbols.build());
+            if (!mask.isPresent() || !mask.get().equals(node.getMarkerSymbol())) {
+                return context.defaultRewrite(node, Optional.empty());
             }
-            return context.defaultRewrite(node, Optional.empty());
+
+            AggregationNode aggregationNode = new AggregationNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource(), Optional.empty()).getPlanNode(),
+                    Collections.emptyMap(),
+                    Collections.emptyMap(),
+                    Collections.emptyMap(),
+                    ImmutableList.of(node.getDistinctSymbols()),
+                    SINGLE,
+                    node.getHashSymbol(),
+                    Optional.empty());
+
+            ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
+            for (Symbol symbol : aggregationNode.getOutputSymbols()) {
+                outputSymbols.put(symbol, symbol.toSymbolReference());
+            }
+
+            // add null assignment for mask
+            // unused mask will be removed by PruneUnreferencedOutputs
+            outputSymbols.put(mask.get(), new NullLiteral());
+            return new Result(
+                    new ProjectNode(
+                            idAllocator.getNextId(),
+                            aggregationNode,
+                            outputSymbols.build()),
+                    true);
         }
     }
 }

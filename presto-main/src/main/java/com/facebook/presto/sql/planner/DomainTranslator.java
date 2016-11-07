@@ -35,6 +35,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -65,12 +66,12 @@ import static com.facebook.presto.sql.ExpressionUtils.or;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.NOT_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -428,7 +429,7 @@ public final class DomainTranslator
             return Optional.of(NullableValue.of(targetType, coercedValue));
         }
 
-        private ExtractionResult createComparisonExtractionResult(ComparisonExpression.Type comparisonType, Symbol column, Type type, @Nullable Object value, boolean complement)
+        private ExtractionResult createComparisonExtractionResult(ComparisonExpressionType comparisonType, Symbol column, Type type, @Nullable Object value, boolean complement)
         {
             if (value == null) {
                 switch (comparisonType) {
@@ -467,7 +468,7 @@ public final class DomainTranslator
                     TRUE_LITERAL);
         }
 
-        private static Domain extractOrderableDomain(ComparisonExpression.Type comparisonType, Type type, Object value, boolean complement)
+        private static Domain extractOrderableDomain(ComparisonExpressionType comparisonType, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
             switch (comparisonType) {
@@ -491,7 +492,7 @@ public final class DomainTranslator
             }
         }
 
-        private static Domain extractEquatableDomain(ComparisonExpression.Type comparisonType, Type type, Object value, boolean complement)
+        private static Domain extractEquatableDomain(ComparisonExpressionType comparisonType, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
             switch (comparisonType) {
@@ -512,7 +513,7 @@ public final class DomainTranslator
                 SymbolReference fieldReference,
                 Type valueType,
                 Object value,
-                ComparisonExpression.Type comparisonType)
+                ComparisonExpressionType comparisonType)
         {
             requireNonNull(value, "value is null");
             return floorValue(valueType, fieldType, value)
@@ -525,7 +526,7 @@ public final class DomainTranslator
                 Type valueType,
                 Object originalValue,
                 Object coercedValue,
-                ComparisonExpression.Type comparisonType)
+                ComparisonExpressionType comparisonType)
         {
             int originalComparedToCoerced = compareOriginalValueToCoerced(valueType, originalValue, fieldType, coercedValue);
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
@@ -700,10 +701,10 @@ public final class DomainTranslator
     private static class NormalizedSimpleComparison
     {
         private final SymbolReference nameReference;
-        private final ComparisonExpression.Type comparisonType;
+        private final ComparisonExpressionType comparisonType;
         private final NullableValue value;
 
-        public NormalizedSimpleComparison(SymbolReference nameReference, ComparisonExpression.Type comparisonType, NullableValue value)
+        public NormalizedSimpleComparison(SymbolReference nameReference, ComparisonExpressionType comparisonType, NullableValue value)
         {
             this.nameReference = requireNonNull(nameReference, "nameReference is null");
             this.comparisonType = requireNonNull(comparisonType, "comparisonType is null");
@@ -715,7 +716,7 @@ public final class DomainTranslator
             return nameReference;
         }
 
-        public ComparisonExpression.Type getComparisonType()
+        public ComparisonExpressionType getComparisonType()
         {
             return comparisonType;
         }

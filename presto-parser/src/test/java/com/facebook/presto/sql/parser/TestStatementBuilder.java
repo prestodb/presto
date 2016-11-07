@@ -77,6 +77,12 @@ public class TestStatementBuilder
         printStatement("select count(*) x from src group by grouping sets ((k, v), (v))");
         printStatement("select count(*) x from src group by grouping sets (k, v, k)");
 
+        printStatement("select count(*) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(distinct x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(x) filter (where x > 4) over (partition by y) z from t");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +
@@ -221,6 +227,10 @@ public class TestStatementBuilder
         printStatement("revoke insert, delete on foo from public"); //check support for public
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
+
+        printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
+        printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
+        printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
     }
 
     @Test

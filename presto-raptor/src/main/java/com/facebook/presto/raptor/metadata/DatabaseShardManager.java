@@ -167,7 +167,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed)
+    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId)
     {
         StringJoiner tableColumns = new StringJoiner(",\n  ", "  ", ",\n").setEmptyValue("");
 
@@ -179,8 +179,19 @@ public class DatabaseShardManager
             }
         }
 
+        StringJoiner coveringIndexColumns = new StringJoiner(", ");
+
+        // Add the max temporal column first to accelerate queries that usually scan recent data
+        temporalColumnId.ifPresent(id -> coveringIndexColumns.add(maxColumn(id)));
+        temporalColumnId.ifPresent(id -> coveringIndexColumns.add(minColumn(id)));
+
         String sql;
         if (bucketed) {
+            coveringIndexColumns
+                    .add("bucket_number")
+                    .add("shard_id")
+                    .add("shard_uuid");
+
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                     "  shard_id BIGINT NOT NULL,\n" +
@@ -189,17 +200,26 @@ public class DatabaseShardManager
                     tableColumns +
                     "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
                     "  UNIQUE (shard_id),\n" +
-                    "  UNIQUE (shard_uuid)\n" +
+                    "  UNIQUE (shard_uuid),\n" +
+                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
                     ")";
         }
         else {
+            coveringIndexColumns
+                    .add("node_ids")
+                    .add("shard_id")
+                    .add("shard_uuid");
+
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
-                    "  shard_id BIGINT NOT NULL PRIMARY KEY,\n" +
+                    "  shard_id BIGINT NOT NULL,\n" +
                     "  shard_uuid BINARY(16) NOT NULL,\n" +
                     "  node_ids VARBINARY(128) NOT NULL,\n" +
                     tableColumns +
-                    "  UNIQUE (shard_uuid)\n" +
+                    "  PRIMARY KEY (node_ids, shard_uuid),\n" +
+                    "  UNIQUE (shard_id),\n" +
+                    "  UNIQUE (shard_uuid),\n" +
+                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
                     ")";
         }
 

@@ -198,7 +198,7 @@ public class HdfsConfigurationUpdater
         config.set(HIVE_ORC_COMPRESSION.varname, compressionCodec.getOrcCompressionKind().name());
         // For ORC
         config.set(OrcTableProperties.COMPRESSION.getPropName(), compressionCodec.getOrcCompressionKind().name());
-        // For RCFile
+        // For RCFile and Text
         if (compressionCodec.getCodec().isPresent()) {
             config.set("mapred.output.compression.codec", compressionCodec.getCodec().get().getName());
             config.set(FileOutputFormat.COMPRESS_CODEC, compressionCodec.getCodec().get().getName());

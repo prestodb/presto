@@ -34,14 +34,22 @@ public final class Table
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final OptionalLong temporalColumnId;
+    private final boolean organized;
 
-    public Table(long tableId, OptionalLong distributionId, Optional<String> distributionName, OptionalInt bucketCount, OptionalLong temporalColumnId)
+    public Table(
+            long tableId,
+            OptionalLong distributionId,
+            Optional<String> distributionName,
+            OptionalInt bucketCount,
+            OptionalLong temporalColumnId,
+            boolean organized)
     {
         this.tableId = tableId;
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
         this.distributionName = requireNonNull(distributionName, "distributionName is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
+        this.organized = organized;
     }
 
     public long getTableId()
@@ -69,6 +77,11 @@ public final class Table
         return temporalColumnId;
     }
 
+    public boolean isOrganized()
+    {
+        return organized;
+    }
+
     @Override
     public String toString()
     {
@@ -77,6 +90,7 @@ public final class Table
                 .add("distributionId", distributionId.isPresent() ? distributionId.getAsLong() : null)
                 .add("bucketCount", bucketCount.isPresent() ? bucketCount.getAsInt() : null)
                 .add("temporalColumnId", temporalColumnId.isPresent() ? temporalColumnId.getAsLong() : null)
+                .add("organized", organized)
                 .omitNullValues()
                 .toString();
     }
@@ -93,7 +107,8 @@ public final class Table
                     getOptionalLong(r, "distribution_id"),
                     Optional.ofNullable(r.getString("distribution_name")),
                     getOptionalInt(r, "bucket_count"),
-                    getOptionalLong(r, "temporal_column_id"));
+                    getOptionalLong(r, "temporal_column_id"),
+                    r.getBoolean("organization_enabled"));
         }
     }
 }

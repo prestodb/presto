@@ -39,10 +39,10 @@ public class TestCompactionSetCreator
 {
     private static final long MAX_SHARD_ROWS = 100;
     private static final DataSize MAX_SHARD_SIZE = new DataSize(100, DataSize.Unit.BYTE);
-    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty());
-    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1));
-    private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty());
-    private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1));
+    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), false);
+    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), false);
+    private static final Table bucketedTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.empty(), false);
+    private static final Table bucketedTemporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.of(3), OptionalLong.of(1), false);
 
     private final CompactionSetCreator compactionSetCreator = new CompactionSetCreator(MAX_SHARD_SIZE, MAX_SHARD_ROWS);
 

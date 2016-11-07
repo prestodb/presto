@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -75,6 +76,7 @@ import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -92,10 +94,12 @@ import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -113,6 +117,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.nameReference;
 import static com.facebook.presto.sql.QueryUtil.query;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -789,28 +794,28 @@ public class TestSqlParser
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.empty()));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT 10",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("10")));
 
         assertStatement("SHOW PARTITIONS FROM t WHERE x = 1 ORDER BY y LIMIT ALL",
                 new ShowPartitions(
                         QualifiedName.of("t"),
-                        Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpressionType.EQUAL, new QualifiedNameReference(QualifiedName.of("x")), new LongLiteral("1"))),
                         ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("y")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
                         Optional.of("ALL")));
     }
@@ -1228,7 +1233,7 @@ public class TestSqlParser
         assertStatement("DELETE FROM t", new Delete(table(QualifiedName.of("t")), Optional.empty()));
 
         assertStatement("DELETE FROM t WHERE a = b", new Delete(table(QualifiedName.of("t")), Optional.of(
-                new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                new ComparisonExpression(ComparisonExpressionType.EQUAL,
                         new QualifiedNameReference(QualifiedName.of("a")),
                         new QualifiedNameReference(QualifiedName.of("b"))))));
     }
@@ -1592,7 +1597,7 @@ public class TestSqlParser
                 "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
                 simpleQuery(
                         selectList(new ComparisonExpression(
-                                ComparisonExpression.Type.EQUAL,
+                                ComparisonExpressionType.EQUAL,
                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
 
@@ -1602,7 +1607,7 @@ public class TestSqlParser
                         selectList(
                                 new NotExpression(
                                         new ComparisonExpression(
-                                                ComparisonExpression.Type.EQUAL,
+                                                ComparisonExpressionType.EQUAL,
                                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
                                                 new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2")))))))));
 
@@ -1611,7 +1616,7 @@ public class TestSqlParser
                 simpleQuery(
                         selectList(
                                 new ComparisonExpression(
-                                        ComparisonExpression.Type.EQUAL,
+                                        ComparisonExpressionType.EQUAL,
                                         new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
                                         new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
     }
@@ -1620,6 +1625,59 @@ public class TestSqlParser
     public void testDescribeInput()
     {
         assertStatement("DESCRIBE INPUT myquery", new DescribeInput("myquery"));
+    }
+
+    @Test
+    public void testAggregationFilter()
+    {
+        assertStatement("SELECT SUM(x) FILTER (WHERE x > 4)",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(
+                                        new FunctionCall(
+                                                QualifiedName.of("SUM"),
+                                                Optional.empty(),
+                                                Optional.of(new ComparisonExpression(
+                                                        ComparisonExpressionType.GREATER_THAN,
+                                                        new QualifiedNameReference(QualifiedName.of("x")),
+                                                        new LongLiteral("4"))),
+                                                false,
+                                                ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x"))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty()),
+                        ImmutableList.of(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testQuantifiedComparison()
+    {
+        assertExpression("col1 < ANY (SELECT col2 FROM table1)",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.LESS_THAN,
+                        QuantifiedComparisonExpression.Quantifier.ANY,
+                        nameReference("col1"),
+                        new SubqueryExpression(simpleQuery(selectList(new SingleColumn(nameReference("col2"))), table(QualifiedName.of("table1"))))
+                ));
+        assertExpression("col1 = ALL (VALUES ROW(1), ROW(2))",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.EQUAL,
+                        QuantifiedComparisonExpression.Quantifier.ALL,
+                        nameReference("col1"),
+                        new SubqueryExpression(query(values(row(new LongLiteral("1")), row(new LongLiteral("2")))))
+                ));
+        assertExpression("col1 >= SOME (SELECT 10)",
+                new QuantifiedComparisonExpression(
+                        ComparisonExpressionType.GREATER_THAN_OR_EQUAL,
+                        QuantifiedComparisonExpression.Quantifier.SOME,
+                        nameReference("col1"),
+                        new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))
+                ));
     }
 
     private static void assertCast(String type)

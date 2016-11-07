@@ -44,7 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.toShardIndexInfo;
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -196,7 +196,7 @@ public class ShardCompactionManager
                 .filter(shard -> !organizer.inProgress(shard.getShardUuid()))
                 .collect(toSet());
 
-        Collection<ShardIndexInfo> shardIndexInfos = toShardIndexInfo(dbi, metadataDao, tableInfo, filteredShards, false);
+        Collection<ShardIndexInfo> shardIndexInfos = getOrganizationEligibleShards(dbi, metadataDao, tableInfo, filteredShards, false);
         if (tableInfo.getTemporalColumnId().isPresent()) {
             Set<ShardIndexInfo> temporalShards = shardIndexInfos.stream()
                     .filter(shard -> shard.getTemporalRange().isPresent())

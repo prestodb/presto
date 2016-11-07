@@ -74,7 +74,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -364,18 +363,25 @@ class QueryPlanner
             return subPlan;
         }
 
+        // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
         Set<Expression> distinctGroupingColumns = groupingSets.stream()
                 .flatMap(Collection::stream)
                 .collect(toImmutableSet());
 
-        List<Expression> arguments = analysis.getAggregates(node).stream()
+        ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+        analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
-                .collect(toImmutableList());
+                .forEach(arguments::add);
 
-        // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
-        Iterable<Expression> inputs = Iterables.concat(distinctGroupingColumns, arguments);
+        // filter expressions need to be projected first
+        analysis.getAggregates(node).stream()
+                .map(FunctionCall::getFilter)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(arguments::add);
 
+        Iterable<Expression> inputs = Iterables.concat(distinctGroupingColumns, arguments.build());
         subPlan = handleSubqueries(subPlan, node, inputs);
 
         if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
@@ -387,7 +393,7 @@ class QueryPlanner
         // 2.a. Rewrite aggregate arguments
         TranslationMap argumentTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis);
         ImmutableMap.Builder<Symbol, Symbol> argumentMappingBuilder = ImmutableMap.builder();
-        for (Expression argument : arguments) {
+        for (Expression argument : arguments.build()) {
             Expression parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), argument);
             argumentTranslations.addIntermediateMapping(argument, parametersReplaced);
             Symbol input = subPlan.translate(parametersReplaced);

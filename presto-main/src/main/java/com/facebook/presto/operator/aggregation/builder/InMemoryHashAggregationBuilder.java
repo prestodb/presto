@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.OperatorContext;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.airlift.units.DataSize;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -44,6 +46,8 @@ public class InMemoryHashAggregationBuilder
     private final List<Aggregator> aggregators;
     private final OperatorContext operatorContext;
     private final boolean partial;
+    private final long maxPartialMemory;
+    private final LocalMemoryContext systemMemoryContext;
 
     private boolean full;
 
@@ -54,11 +58,14 @@ public class InMemoryHashAggregationBuilder
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             Optional<Integer> hashChannel,
-            OperatorContext operatorContext)
+            OperatorContext operatorContext,
+            DataSize maxPartialMemory)
     {
         this.groupByHash = createGroupByHash(operatorContext.getSession(), groupByTypes, Ints.toArray(groupByChannels), hashChannel, expectedGroups);
         this.operatorContext = operatorContext;
         this.partial = step.isOutputPartial();
+        this.maxPartialMemory = maxPartialMemory.toBytes();
+        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
 
         // wrapper each function with an aggregator
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
@@ -97,12 +104,9 @@ public class InMemoryHashAggregationBuilder
         for (Aggregator aggregator : aggregators) {
             memorySize += aggregator.getEstimatedSize();
         }
-        memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-        if (memorySize < 0) {
-            memorySize = 0;
-        }
         if (partial) {
-            full = !operatorContext.trySetMemoryReservation(memorySize);
+            systemMemoryContext.setBytes(memorySize);
+            full = (memorySize > maxPartialMemory);
         }
         else {
             operatorContext.setMemoryReservation(memorySize);

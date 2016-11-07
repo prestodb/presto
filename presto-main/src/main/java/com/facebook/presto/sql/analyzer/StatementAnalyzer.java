@@ -140,7 +140,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
@@ -966,6 +966,11 @@ class StatementAnalyzer
         List<FunctionCall> windowFunctions = extractor.getWindowFunctions();
 
         for (FunctionCall windowFunction : windowFunctions) {
+            // filter with window function is not supported yet
+            if (windowFunction.getFilter().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
+            }
+
             Window window = windowFunction.getWindow().get();
 
             WindowFunctionExtractor nestedExtractor = new WindowFunctionExtractor();
@@ -1354,7 +1359,7 @@ class StatementAnalyzer
             List<Expression> orderByExpressions,
             Set<Expression> columnReferences)
     {
-        List<FunctionCall> aggregates = extractAggregates(node);
+        extractAggregates(node);
 
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {

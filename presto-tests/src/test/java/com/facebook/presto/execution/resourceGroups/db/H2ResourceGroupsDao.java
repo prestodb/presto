@@ -18,30 +18,13 @@ import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.SqlUpdate;
 
 public interface H2ResourceGroupsDao
-    extends ResourceGroupsDao
+        extends ResourceGroupsDao
 {
-    @Override
-    @SqlUpdate("/* noop */")
-    void dropResourceGroupsGlobalPropertiesInsertTrigger();
-
-    @Override
-    @SqlUpdate("/* noop */")
-    void createResourceGroupsGlobalPropertiesInsertTrigger();
-
-    @Override
-    @SqlUpdate("/* noop */")
-    void dropResourceGroupsGlobalPropertiesUpdateTrigger();
-
-    @Override
-    @SqlUpdate("/* noop */")
-    void createResourceGroupsGlobalPropertiesUpdateTrigger();
-
     @SqlUpdate("INSERT INTO resource_groups_global_properties\n" +
             "(name, value) VALUES (:name, :value)")
     void insertResourceGroupsGlobalProperties(
             @Bind("name") String name,
-            @Bind("value") String value
-    );
+            @Bind("value") String value);
 
     @SqlUpdate("INSERT INTO resource_groups\n" +
             "(id, name, soft_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, parent)\n" +
@@ -57,8 +40,7 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
-            @Bind("parent") Long parent
-    );
+            @Bind("parent") Long parent);
 
     @SqlUpdate("UPDATE resource_groups SET\n" +
             " id = :id\n" +
@@ -72,7 +54,7 @@ public interface H2ResourceGroupsDao
             ", soft_cpu_limit = :soft_cpu_limit\n" +
             ", hard_cpu_limit = :hard_cpu_limit\n" +
             ", parent = :parent\n" +
-            "WHERE id = :id;")
+            "WHERE id = :id")
     void updateResourceGroup(
             @Bind("id") long id,
             @Bind("name") String resourceGroup,
@@ -84,8 +66,7 @@ public interface H2ResourceGroupsDao
             @Bind("jmx_export") Boolean jmxExport,
             @Bind("soft_cpu_limit") String softCpuLimit,
             @Bind("hard_cpu_limit") String hardCpuLimit,
-            @Bind("parent") Long parent
-    );
+            @Bind("parent") Long parent);
 
     @SqlUpdate("INSERT INTO selectors\n" +
             "(resource_group_id, user_regex, source_regex)\n" +
@@ -101,6 +82,5 @@ public interface H2ResourceGroupsDao
     void deleteSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("user_regex") String userRegex,
-            @Bind("source_regex") String sourceRegex
-    );
+            @Bind("source_regex") String sourceRegex);
 }

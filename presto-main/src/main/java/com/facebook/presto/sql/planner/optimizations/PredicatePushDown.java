@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -346,7 +347,7 @@ public class PredicatePushDown
             newJoinPredicate = simplifyExpression(newJoinPredicate);
             // TODO: find a better way to directly optimize FALSE LITERAL in join predicate
             if (newJoinPredicate.equals(BooleanLiteral.FALSE_LITERAL)) {
-                newJoinPredicate = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+                newJoinPredicate = new ComparisonExpression(ComparisonExpressionType.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
             }
 
             PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
@@ -669,7 +670,7 @@ public class PredicatePushDown
 
         private static Expression equalsExpression(Symbol symbol1, Symbol symbol2)
         {
-            return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+            return new ComparisonExpression(ComparisonExpressionType.EQUAL,
                     symbol1.toSymbolReference(),
                     symbol2.toSymbolReference());
         }
@@ -763,7 +764,7 @@ public class PredicatePushDown
                 // At this point in time, our join predicates need to be deterministic
                 if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
                     ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
+                    if (comparison.getType() == ComparisonExpressionType.EQUAL) {
                         Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
                         Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
                         if (symbols1.isEmpty() || symbols2.isEmpty()) {

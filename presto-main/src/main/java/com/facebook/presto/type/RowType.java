@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -203,9 +204,8 @@ public class RowType
         Block arrayBlock = block.getObject(position, Block.class);
         long result = 1;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            checkElementNotNull(arrayBlock.isNull(i));
             Type elementType = fields.get(i).getType();
-            result = 31 * result + elementType.hash(arrayBlock, i);
+            result = 31 * result + hashPosition(elementType, arrayBlock, i);
         }
         return result;
     }

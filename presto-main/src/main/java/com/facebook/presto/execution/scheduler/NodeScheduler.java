@@ -60,9 +60,8 @@ public class NodeScheduler
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerNodePerStageWhenFull;
+    private final int maxPendingSplitsPerTask;
     private final NodeTaskMap nodeTaskMap;
-    private final boolean doubleScheduling;
     private final boolean useNetworkTopology;
 
     @Inject
@@ -82,11 +81,10 @@ public class NodeScheduler
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
-        this.doubleScheduling = config.isMultipleTasksPerNodeEnabled();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxPendingSplitsPerNodePerStageWhenFull = config.getMaxPendingSplitsPerNodePerStage();
+        this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        checkArgument(maxSplitsPerNode > maxPendingSplitsPerNodePerStageWhenFull, "maxSplitsPerNode must be > maxPendingSplitsPerNodePerStageWhenFull");
+        checkArgument(maxSplitsPerNode > maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
@@ -164,21 +162,20 @@ public class NodeScheduler
                     nodeManager,
                     nodeTaskMap,
                     includeCoordinator,
-                    doubleScheduling,
                     nodeMap,
                     minCandidates,
                     maxSplitsPerNode,
-                    maxPendingSplitsPerNodePerStageWhenFull,
+                    maxPendingSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, doubleScheduling, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerNodePerStageWhenFull);
+            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask);
         }
     }
 
-    public static List<Node> selectNodes(int limit, Iterator<Node> candidates, boolean doubleScheduling)
+    public static List<Node> selectNodes(int limit, Iterator<Node> candidates)
     {
         checkArgument(limit > 0, "limit must be at least 1");
 
@@ -187,18 +184,6 @@ public class NodeScheduler
             selected.add(candidates.next());
         }
 
-        if (doubleScheduling && !selected.isEmpty()) {
-            // Cycle the nodes until we reach the limit
-            int uniqueNodes = selected.size();
-            int i = 0;
-            while (selected.size() < limit) {
-                if (i >= uniqueNodes) {
-                    i = 0;
-                }
-                selected.add(selected.get(i));
-                i++;
-            }
-        }
         return selected;
     }
 
@@ -271,7 +256,7 @@ public class NodeScheduler
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
-            int maxPendingSplitsPerNodePerStageWhenFull,
+            int maxPendingSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             NodePartitionMap partitioning)
@@ -285,7 +270,7 @@ public class NodeScheduler
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
             if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
-                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerNodePerStageWhenFull) {
+                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask) {
                 assignments.put(node, split);
                 assignmentStats.addAssignedSplit(node);
             }

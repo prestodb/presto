@@ -18,7 +18,6 @@ import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import parquet.column.ColumnDescriptor;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -34,11 +33,13 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
+import static com.google.common.primitives.Ints.checkedCast;
+import static java.lang.Math.min;
 
 public class ParquetReader
         implements Closeable
 {
-    public static final int MAX_VECTOR_LENGTH = 1024;
+    private static final int MAX_VECTOR_LENGTH = 1024;
 
     private final MessageType requestedSchema;
     private final List<BlockMetaData> blocks;
@@ -46,23 +47,19 @@ public class ParquetReader
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
-    private long fileRowCount;
     private long currentPosition;
     private long currentGroupRowCount;
     private long nextRowInGroup;
-    private Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
+    private final Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
-    public ParquetReader(MessageType requestedSchema,
+    public ParquetReader(
+            MessageType requestedSchema,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource)
-            throws IOException
     {
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
-        for (BlockMetaData block : blocks) {
-            fileRowCount += block.getRowCount();
-        }
         initializeColumnReaders();
     }
 
@@ -73,30 +70,18 @@ public class ParquetReader
         dataSource.close();
     }
 
-    public float getProgress()
-            throws IOException, InterruptedException
-    {
-        if (fileRowCount == 0) {
-            return 0.0f;
-        }
-        return (float) currentPosition / fileRowCount;
-    }
-
     public long getPosition()
     {
         return currentPosition;
     }
 
     public int nextBatch()
-            throws IOException, InterruptedException
     {
-        if (nextRowInGroup >= currentGroupRowCount) {
-            if (!advanceToNextRowGroup()) {
-                return -1;
-            }
+        if (nextRowInGroup >= currentGroupRowCount && !advanceToNextRowGroup()) {
+            return -1;
         }
 
-        int batchSize = Ints.checkedCast(Math.min(MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
+        int batchSize = checkedCast(min(MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
 
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
@@ -108,7 +93,6 @@ public class ParquetReader
     }
 
     private boolean advanceToNextRowGroup()
-            throws InterruptedException
     {
         if (currentBlock == blocks.size()) {
             return false;
@@ -128,10 +112,10 @@ public class ParquetReader
     {
         ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
         if (columnReader.getPageReader() == null) {
-            validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group having 0 rows");
+            validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
-            int totalSize = Ints.checkedCast(metadata.getTotalSize());
+            int totalSize = checkedCast(metadata.getTotalSize());
             byte[] buffer = new byte[totalSize];
             dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
@@ -159,7 +143,7 @@ public class ParquetReader
         }
     }
 
-    private List<RichColumnDescriptor> getColumns(MessageType schema)
+    private static List<RichColumnDescriptor> getColumns(MessageType schema)
     {
         List<String[]> paths = schema.getPaths();
         List<RichColumnDescriptor> columns = new ArrayList<>(paths.size());

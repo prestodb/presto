@@ -73,7 +73,6 @@ public class TestMemoryManager
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("task.operator-pre-allocated-memory", "0B")
                 .put("query.max-memory-per-node", "1kB")
                 .put("query.max-memory", "1kB")
                 .build();
@@ -101,7 +100,6 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.verbose-stats", "true")
-                .put("task.operator-pre-allocated-memory", "0B")
                 .put("query.low-memory-killer.delay", "5s")
                 .put("query.low-memory-killer.enabled", "true")
                 .build();
@@ -160,7 +158,6 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.verbose-stats", "true")
-                .put("task.operator-pre-allocated-memory", "0B")
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
@@ -189,7 +186,6 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.verbose-stats", "true")
-                .put("task.operator-pre-allocated-memory", "0B")
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
@@ -302,7 +298,6 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory", "1kB")
-                .put("task.operator-pre-allocated-memory", "0B")
                 .build();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
@@ -328,7 +323,6 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory-per-node", "1kB")
-                .put("task.operator-pre-allocated-memory", "0B")
                 .build();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");

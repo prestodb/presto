@@ -865,6 +865,26 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExtractDistinctAggregationOptimizer()
+            throws Exception
+    {
+        assertQuery("SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT custkey, orderstatus, avg(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+
+        assertQuery("SELECT s, MAX(custkey), SUM(a) FROM (" +
+                    "    SELECT custkey, avg(shippriority) as a, SUM(DISTINCT orderkey) as s FROM orders GROUP BY custkey, orderstatus" +
+                    ") " +
+                    "GROUP BY s");
+
+        assertQuery("SELECT max(orderstatus), COUNT(distinct orderkey), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT max(orderstatus), COUNT(distinct shippriority), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT COUNT(tan(shippriority)), sum(DISTINCT orderkey) FROM orders");
+    }
+
+    @Test
     public void testDistinctHaving()
             throws Exception
     {
@@ -872,6 +892,23 @@ public abstract class AbstractTestQueries
                 "FROM orders " +
                 "GROUP BY orderdate " +
                 "HAVING COUNT(DISTINCT clerk) > 1");
+    }
+
+    @Test
+    public void testAggregationFilter()
+            throws Exception
+    {
+        assertQuery("SELECT sum(x) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 4");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(y) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 8, 5");
+        assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(x) FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 8, 9");
+        assertQuery("SELECT count(*) FILTER (WHERE x > 1), sum(x) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 3, 9");
+        assertQuery("SELECT count(*) FILTER (WHERE x > 1), count(DISTINCT y) FROM (VALUES (1, 10), (2, 10), (3, 10), (4, 20)) t (x, y)", "SELECT 3, 2");
+
+        // TODO: enable when DISTINCT is allowed with filtered aggregations
+        // assertQuery("SELECT count(distinct x) FILTER (where y = 1) FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)", "SELECT 2");
+        // assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE x > 1) AS x FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 6");
+        // assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE y > 3), sum(DISTINCT y) FILTER (WHERE x > 1) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 6, 9");
+        // assertQuery("SELECT sum(x) FILTER (WHERE x > 1) AS x, sum(DISTINCT x) FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 8, 9");
     }
 
     @Test
@@ -5290,6 +5327,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'Asia/Shanghai'", "SELECT TIMESTAMP '2012-10-30 18:00:00.000 America/Los_Angeles'");
         assertQuery("SELECT min(x) AT TIME ZONE 'America/Los_Angeles' AT TIME ZONE 'UTC' FROM (values TIMESTAMP '1970-01-01 00:01:00+00:00', TIMESTAMP '1970-01-01 08:01:00+08:00', TIMESTAMP '1969-12-31 16:01:00-08:00') t(x)",
                 "values TIMESTAMP '1969-12-31 16:01:00-08:00'");
+
+        // with AT TIME ZONE in VALUES
+        assertQuery("SELECT * from (VALUES TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral')", "SELECT TIMESTAMP '2012-10-30 18:00:00.000 America/Los_Angeles'");
     }
 
     @Test
@@ -7982,5 +8022,31 @@ public abstract class AbstractTestQueries
     public void testDescribeInputNoSuchQuery()
     {
         assertQueryFails("DESCRIBE INPUT my_query", "Prepared statement not found: my_query");
+    }
+
+    @Test
+    public void testQuantifiedComparison()
+            throws Exception
+    {
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ANY (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey <> ANY (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey <> ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ALL (SELECT regionkey FROM region WHERE name IN ('ASIA'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey <> ALL (SELECT regionkey FROM region WHERE name IN ('ASIA'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ANY (SELECT regionkey FROM region WHERE name IN ('EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey <> ANY (SELECT regionkey FROM region WHERE name IN ('EUROPE'))");
+
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey < SOME (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey <= ANY (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey > ANY (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey >= SOME (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey < ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey <= ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey > ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+        assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey >= ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
     }
 }

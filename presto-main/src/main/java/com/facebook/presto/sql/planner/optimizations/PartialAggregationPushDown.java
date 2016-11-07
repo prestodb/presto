@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -189,11 +190,23 @@ public class PartialAggregationPushDown
         private Map<Symbol, Symbol> buildExchangeMap(List<Symbol> exchangeOutput, List<Symbol> sourceOutput)
         {
             checkState(exchangeOutput.size() == sourceOutput.size(), "exchange output length doesn't match source output length");
-            ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
+            Map<Symbol, Symbol> assignments = new HashMap<>();
             for (int i = 0; i < exchangeOutput.size(); i++) {
-                builder.put(exchangeOutput.get(i), sourceOutput.get(i));
+                Symbol output = exchangeOutput.get(i);
+                Symbol input = sourceOutput.get(i);
+                if (!assignments.containsKey(output)) {
+                    assignments.put(output, input);
+                }
+                else {
+                    checkState(assignments.get(output).equals(input),
+                            "Different input symbols (%s vs %s) for same output symbol (%s)",
+                            input,
+                            assignments.get(output),
+                            output);
+                }
             }
-            return builder.build();
+
+            return ImmutableMap.copyOf(assignments);
         }
 
         private List<Expression> replaceArguments(List<Expression> arguments, Map<Symbol, Symbol> exchangeMap)
@@ -230,7 +243,7 @@ public class PartialAggregationPushDown
                 signatureMap.put(symbol, node.getFunctions().get(entry.getKey()));
 
                 List<Expression> arguments = replaceArguments(entry.getValue().getArguments(), exchangeMap);
-                functionCallMap.put(symbol, new FunctionCall(entry.getValue().getName(), arguments));
+                functionCallMap.put(symbol, new FunctionCall(entry.getValue().getName(), Optional.empty(), entry.getValue().getFilter(), false, arguments));
                 if (node.getMasks().containsKey(entry.getKey())) {
                     mask.put(symbol, exchangeMap.get(node.getMasks().get(entry.getKey())));
                 }

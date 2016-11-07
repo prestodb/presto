@@ -80,6 +80,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
@@ -783,11 +784,11 @@ public class TestAnalyzer
     public void testAggregateWithWildcard()
             throws Exception
     {
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 't.a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
 
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 'a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
     }
 
     @Test
@@ -1007,6 +1008,32 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT * FROM (VALUES (2, 2)) a(x,y) JOIN (VALUES (2, 2)) b(x,y) ON (a.x=b.x, a.y=b.y)");
     }
 
+    @Test
+    public void testInvalidAggregationFilter()
+            throws Exception
+    {
+        assertFails(NOT_SUPPORTED, "SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)");
+        assertFails(NOT_SUPPORTED, "SELECT count(DISTINCT x) FILTER (where y = 1) FROM (VALUES (1, 1)) t(x, y)");
+    }
+
+    @Test
+    public void testQuantifiedComparisonExpression()
+            throws Exception
+    {
+        analyze("SELECT * FROM t1 WHERE t1.a <= ALL (VALUES 10, 20)");
+        assertFails(MULTIPLE_FIELDS_FROM_SUBQUERY, "SELECT * FROM t1 WHERE t1.a = ANY (SELECT 1, 2)");
+        assertFails(TYPE_MISMATCH, "SELECT * FROM t1 WHERE t1.a = SOME (VALUES ('abc'))");
+
+        // map is not orderable
+        assertFails(TYPE_MISMATCH, ("SELECT map(ARRAY[1], ARRAY['hello']) < ALL (VALUES map(ARRAY[1], ARRAY['hello']))"));
+        // but map is comparable
+        analyze(("SELECT map(ARRAY[1], ARRAY['hello']) = ALL (VALUES map(ARRAY[1], ARRAY['hello']))"));
+
+        // HLL is neither orderable nor comparable
+        assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS HyperLogLog) < ALL (VALUES cast(NULL AS HyperLogLog))");
+        assertFails(TYPE_MISMATCH, "SELECT cast(NULL AS HyperLogLog) = ANY (VALUES cast(NULL AS HyperLogLog))");
+    }
+
     @BeforeMethod(alwaysRun = true)
     public void setup()
             throws Exception
@@ -1166,6 +1193,11 @@ public class TestAnalyzer
         assertFails(CLIENT_SESSION, error, query);
     }
 
+    private void assertFails(SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        assertFails(CLIENT_SESSION, error, message, query);
+    }
+
     private void assertFails(Session session, SemanticErrorCode error, @Language("SQL") String query)
     {
         try {
@@ -1175,6 +1207,23 @@ public class TestAnalyzer
         catch (SemanticException e) {
             if (e.getCode() != error) {
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
+            }
+        }
+    }
+
+    private void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        try {
+            analyze(session, query);
+            fail(format("Expected error %s, but analysis succeeded", error));
+        }
+        catch (SemanticException e) {
+            if (e.getCode() != error) {
+                fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
+            }
+
+            if (!e.getMessage().equals(message)) {
+                fail(format("Expected error '%s', but got '%s'", message, e.getMessage()), e);
             }
         }
     }

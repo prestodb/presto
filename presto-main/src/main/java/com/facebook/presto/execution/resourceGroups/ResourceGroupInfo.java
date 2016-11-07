@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +33,9 @@ public class ResourceGroupInfo
     private final int maxQueuedQueries;
     private final int runningQueries;
     private final int queuedQueries;
+    private final long cpuUsage;
     private final DataSize memoryUsage;
+    private final Set<QueryId> queryIds;
     private final List<ResourceGroupInfo> subGroups;
 
     public ResourceGroupInfo(
@@ -40,7 +45,9 @@ public class ResourceGroupInfo
             int maxQueuedQueries,
             int runningQueries,
             int queuedQueries,
+            long cpuUsage,
             DataSize memoryUsage,
+            Set<QueryId> queryIds,
             List<ResourceGroupInfo> subGroups)
     {
         this.id = id;
@@ -49,7 +56,9 @@ public class ResourceGroupInfo
         this.maxQueuedQueries = maxQueuedQueries;
         this.runningQueries = runningQueries;
         this.queuedQueries = queuedQueries;
+        this.cpuUsage = cpuUsage;
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
+        this.queryIds = ImmutableSet.copyOf(requireNonNull(queryIds, "queryIds is null"));
         this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null"));
     }
 
@@ -88,8 +97,18 @@ public class ResourceGroupInfo
         return queuedQueries;
     }
 
+    public long getCpuUsage()
+    {
+        return cpuUsage;
+    }
+
     public DataSize getMemoryUsage()
     {
         return memoryUsage;
+    }
+
+    public Set<QueryId> getQueryIds()
+    {
+        return queryIds;
     }
 }

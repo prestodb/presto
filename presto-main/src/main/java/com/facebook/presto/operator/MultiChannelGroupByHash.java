@@ -133,6 +133,15 @@ public class MultiChannelGroupByHash
     }
 
     @Override
+    public long getRawHash(int groupId)
+    {
+        long address = groupAddressByGroupId.get(groupId);
+        int blockIndex = decodeSliceIndex(address);
+        int position = decodePosition(address);
+        return hashStrategy.hashPosition(blockIndex, position);
+    }
+
+    @Override
     public long getEstimatedSize()
     {
         return (sizeOf(channelBuilders.get(0).elements()) * channelBuilders.size()) +

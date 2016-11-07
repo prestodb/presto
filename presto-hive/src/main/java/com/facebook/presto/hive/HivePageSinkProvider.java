@@ -27,6 +27,8 @@ import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 
+import java.util.OptionalInt;
+
 import static com.facebook.presto.hive.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +41,6 @@ public class HivePageSinkProvider
     private final TypeManager typeManager;
     private final int maxOpenPartitions;
     private final boolean immutablePartitions;
-    private final boolean compressed;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
@@ -61,7 +62,6 @@ public class HivePageSinkProvider
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
-        this.compressed = config.getHiveCompressionCodec() != HiveCompressionCodec.NONE;
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
     }
@@ -82,24 +82,33 @@ public class HivePageSinkProvider
 
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session)
     {
-        return new HivePageSink(
+        OptionalInt bucketCount = handle.getBucketProperty().isPresent() ? OptionalInt.of(handle.getBucketProperty().get().getBucketCount()) : OptionalInt.empty();
+
+        HiveWriterFactory writerFactory = new HiveWriterFactory(
                 handle.getSchemaName(),
                 handle.getTableName(),
                 isCreateTable,
                 handle.getInputColumns(),
                 handle.getTableStorageFormat(),
                 handle.getPartitionStorageFormat(),
+                bucketCount,
                 handle.getLocationHandle(),
                 locationService,
                 handle.getFilePrefix(),
-                handle.getBucketProperty(),
                 new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), metastore),
+                typeManager,
+                hdfsEnvironment,
+                immutablePartitions,
+                session);
+
+        return new HivePageSink(
+                writerFactory,
+                handle.getInputColumns(),
+                handle.getBucketProperty(),
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
                 maxOpenPartitions,
-                immutablePartitions,
-                compressed,
                 partitionUpdateCodec,
                 session);
     }

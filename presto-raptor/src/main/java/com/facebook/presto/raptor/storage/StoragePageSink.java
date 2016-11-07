@@ -17,6 +17,7 @@ import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.spi.Page;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public interface StoragePageSink
 {
@@ -30,7 +31,7 @@ public interface StoragePageSink
 
     void flush();
 
-    List<ShardInfo> commit();
+    CompletableFuture<List<ShardInfo>> commit();
 
     void rollback();
 }

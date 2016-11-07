@@ -70,6 +70,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
@@ -137,6 +138,7 @@ import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newIdentityHashSet;
 import static java.lang.String.format;
@@ -158,6 +160,7 @@ public class ExpressionAnalyzer
     private final Set<InPredicate> subqueryInPredicates = newIdentityHashSet();
     private final Set<Expression> columnReferences = newIdentityHashSet();
     private final IdentityHashMap<Expression, Type> expressionTypes = new IdentityHashMap<>();
+    private final Set<QuantifiedComparisonExpression> quantifiedComparisons = newIdentityHashSet();
 
     private final Session session;
     private final List<Expression> parameters;
@@ -224,6 +227,11 @@ public class ExpressionAnalyzer
     public Set<ExistsPredicate> getExistsSubqueries()
     {
         return existsSubqueries;
+    }
+
+    public Set<QuantifiedComparisonExpression> getQuantifiedComparisons()
+    {
+        return quantifiedComparisons;
     }
 
     private class Visitor
@@ -728,6 +736,12 @@ public class ExpressionAnalyzer
                 }
             }
 
+            if (node.getFilter().isPresent()) {
+                Expression expression = node.getFilter().get();
+                process(expression, context);
+                Type type = expressionTypes.get(expression);
+            }
+
             ImmutableList.Builder<TypeSignature> argumentTypes = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
                 argumentTypes.add(process(expression, context).getTypeSignature());
@@ -923,6 +937,9 @@ public class ExpressionAnalyzer
             if (previousNode instanceof InPredicate && ((InPredicate) previousNode).getValue() != node) {
                 subqueryInPredicates.add((InPredicate) previousNode);
             }
+            else if (previousNode instanceof QuantifiedComparisonExpression) {
+                quantifiedComparisons.add((QuantifiedComparisonExpression) previousNode);
+            }
             else {
                 scalarSubqueries.add(node);
             }
@@ -941,6 +958,40 @@ public class ExpressionAnalyzer
             analyzer.process(node.getSubquery(), subqueryScope);
 
             existsSubqueries.add(node);
+
+            expressionTypes.put(node, BOOLEAN);
+            return BOOLEAN;
+        }
+
+        @Override
+        protected Type visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, StackableAstVisitorContext<Void> context)
+        {
+            Expression value = node.getValue();
+            process(value, context);
+
+            Expression subquery = node.getSubquery();
+            process(subquery, context);
+
+            Type comparisonType = coerceToSingleType(context, node, "Value expression and result of subquery must be of the same type for quantified comparison: %s vs %s", value, subquery);
+
+            switch (node.getComparisonType()) {
+                case LESS_THAN:
+                case LESS_THAN_OR_EQUAL:
+                case GREATER_THAN:
+                case GREATER_THAN_OR_EQUAL:
+                    if (!comparisonType.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
+                    }
+                    break;
+                case EQUAL:
+                case NOT_EQUAL:
+                    if (!comparisonType.isComparable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
+                    }
+                    break;
+                default:
+                    checkState(false, "Unexpected comparison type: %s", node.getComparisonType());
+            }
 
             expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
@@ -1213,7 +1264,8 @@ public class ExpressionAnalyzer
                 analyzer.getScalarSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions());
+                analyzer.getTypeOnlyCoercions(),
+                analyzer.getQuantifiedComparisons());
     }
 
     public static ExpressionAnalysis analyzeExpression(
@@ -1245,7 +1297,8 @@ public class ExpressionAnalyzer
                 analyzer.getScalarSubqueries(),
                 analyzer.getExistsSubqueries(),
                 analyzer.getColumnReferences(),
-                analyzer.getTypeOnlyCoercions());
+                analyzer.getTypeOnlyCoercions(),
+                analyzer.getQuantifiedComparisons());
     }
 
     public static ExpressionAnalyzer create(

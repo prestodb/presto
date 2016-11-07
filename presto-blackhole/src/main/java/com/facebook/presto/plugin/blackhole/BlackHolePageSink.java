@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class BlackHolePageSink
@@ -50,9 +51,9 @@ class BlackHolePageSink
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
-        return ImmutableList.of();
+        return completedFuture(ImmutableList.of());
     }
 
     @Override

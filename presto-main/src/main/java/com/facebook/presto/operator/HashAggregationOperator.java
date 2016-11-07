@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 
 import java.util.Iterator;
 import java.util.List;
@@ -54,7 +53,7 @@ public class HashAggregationOperator
 
         private final int expectedGroups;
         private final List<Type> types;
-        private final long maxPartialMemory;
+        private final DataSize maxPartialMemory;
 
         private boolean closed;
 
@@ -81,7 +80,7 @@ public class HashAggregationOperator
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.expectedGroups = expectedGroups;
-            this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null").toBytes();
+            this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
 
             this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
         }
@@ -97,13 +96,7 @@ public class HashAggregationOperator
         {
             checkState(!closed, "Factory is already closed");
 
-            OperatorContext operatorContext;
-            if (step.isOutputPartial()) {
-                operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashAggregationOperator.class.getSimpleName(), maxPartialMemory);
-            }
-            else {
-                operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashAggregationOperator.class.getSimpleName());
-            }
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashAggregationOperator.class.getSimpleName());
             HashAggregationOperator hashAggregationOperator = new HashAggregationOperator(
                     operatorContext,
                     groupByTypes,
@@ -113,7 +106,8 @@ public class HashAggregationOperator
                     accumulatorFactories,
                     hashChannel,
                     groupIdChannel,
-                    expectedGroups);
+                    expectedGroups,
+                    maxPartialMemory);
             return hashAggregationOperator;
         }
 
@@ -137,7 +131,7 @@ public class HashAggregationOperator
                     hashChannel,
                     groupIdChannel,
                     expectedGroups,
-                    new DataSize(maxPartialMemory, Unit.BYTE));
+                    maxPartialMemory);
         }
     }
 
@@ -150,6 +144,7 @@ public class HashAggregationOperator
     private final Optional<Integer> hashChannel;
     private final Optional<Integer> groupIdChannel;
     private final int expectedGroups;
+    private final DataSize maxPartialMemory;
 
     private final List<Type> types;
 
@@ -168,7 +163,8 @@ public class HashAggregationOperator
             List<AccumulatorFactory> accumulatorFactories,
             Optional<Integer> hashChannel,
             Optional<Integer> groupIdChannel,
-            int expectedGroups)
+            int expectedGroups,
+            DataSize maxPartialMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(step, "step is null");
@@ -183,6 +179,7 @@ public class HashAggregationOperator
         this.groupIdChannel = requireNonNull(groupIdChannel, "groupIdChannel is null");
         this.step = step;
         this.expectedGroups = expectedGroups;
+        this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         this.types = toTypes(groupByTypes, step, accumulatorFactories, hashChannel);
     }
 
@@ -231,7 +228,8 @@ public class HashAggregationOperator
                     groupByTypes,
                     groupByChannels,
                     hashChannel,
-                    operatorContext);
+                    operatorContext,
+                    maxPartialMemory);
 
             // assume initial aggregationBuilder is not full
         }

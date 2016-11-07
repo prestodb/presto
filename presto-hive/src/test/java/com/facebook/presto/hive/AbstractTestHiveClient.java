@@ -1516,7 +1516,7 @@ public abstract class AbstractTestHiveClient
                 // write the data
                 ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
                 sink.appendPage(CREATE_TABLE_DATA.toPage());
-                sink.finish();
+                getFutureValue(sink.finish());
 
                 // verify we have data files
                 stagingPathRoot = getStagingPathRoot(outputHandle);
@@ -1752,7 +1752,7 @@ public abstract class AbstractTestHiveClient
             // write the data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
             sink.appendPage(CREATE_TABLE_DATA.toPage());
-            Collection<Slice> fragments = sink.finish();
+            Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // verify all new files start with the unique prefix
             for (String filePath : listAllDataFiles(getStagingPathRoot(outputHandle))) {
@@ -1888,7 +1888,7 @@ public abstract class AbstractTestHiveClient
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             sink.appendPage(CREATE_TABLE_DATA.toPage());
-            sink.finish();
+            getFutureValue(sink.finish());
 
             // verify we did not modify the table directory
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
@@ -2056,7 +2056,7 @@ public abstract class AbstractTestHiveClient
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA_2ND.toPage());
-            sink.finish();
+            getFutureValue(sink.finish());
 
             // verify we did not modify the table directory
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
@@ -2167,7 +2167,7 @@ public abstract class AbstractTestHiveClient
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
-            sink.finish();
+            getFutureValue(sink.finish());
 
             // verify we did not modify the table directory
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
@@ -2223,7 +2223,7 @@ public abstract class AbstractTestHiveClient
 
             // write data
             sink.appendPage(data.toPage());
-            Collection<Slice> fragments = sink.finish();
+            Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // commit the insert
             metadata.finishInsert(session, insertTableHandle, fragments);
@@ -3064,7 +3064,7 @@ public abstract class AbstractTestHiveClient
                 ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
                 sink.appendPage(insertData.toPage());
                 rollbackIfEquals(tag, ROLLBACK_AFTER_APPEND_PAGE);
-                Collection<Slice> fragments = sink.finish();
+                Collection<Slice> fragments = getFutureValue(sink.finish());
                 rollbackIfEquals(tag, ROLLBACK_AFTER_SINK_FINISH);
                 metadata.finishInsert(session, insertTableHandle, fragments);
                 rollbackIfEquals(tag, ROLLBACK_AFTER_FINISH_INSERT);

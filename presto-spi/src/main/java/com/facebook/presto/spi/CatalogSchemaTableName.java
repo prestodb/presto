@@ -14,39 +14,25 @@
 
 package com.facebook.presto.spi;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.util.Objects;
 
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
+import static java.util.Objects.requireNonNull;
 
-public class CatalogSchemaTableName
+public final class CatalogSchemaTableName
 {
     private final String catalogName;
     private final SchemaTableName schemaTableName;
 
-    @JsonCreator
-    public static CatalogSchemaTableName valueOf(String catalogSchemaTableName)
-    {
-        checkNotEmpty(catalogSchemaTableName, "catalogSchemaTableName");
-        String[] parts = catalogSchemaTableName.split("\\.");
-        if (parts.length != 3) {
-            throw new IllegalArgumentException("Invalid catalogSchemaTableName " + catalogSchemaTableName);
-        }
-        return new CatalogSchemaTableName(parts[0], parts[1], parts[2]);
-    }
-
     public CatalogSchemaTableName(String catalogName, SchemaTableName schemaTableName)
     {
-        this.catalogName = catalogName;
-        this.schemaTableName = schemaTableName;
+        this.catalogName = checkNotEmpty(catalogName, "catalogName");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
     }
 
     public CatalogSchemaTableName(String catalogName, String schemaName, String tableName)
     {
-        this.catalogName = catalogName;
-        this.schemaTableName = new SchemaTableName(schemaName, tableName);
+        this(catalogName, new SchemaTableName(schemaName, tableName));
     }
 
     public String getCatalogName()
@@ -79,7 +65,6 @@ public class CatalogSchemaTableName
         return Objects.hash(catalogName, schemaTableName);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

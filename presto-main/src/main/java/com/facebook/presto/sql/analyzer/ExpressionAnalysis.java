@@ -17,6 +17,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.google.common.collect.ImmutableSet;
 
@@ -34,6 +35,7 @@ public class ExpressionAnalysis
     private final Set<InPredicate> subqueryInPredicates;
     private final Set<SubqueryExpression> scalarSubqueries;
     private final Set<ExistsPredicate> existsSubqueries;
+    private final Set<QuantifiedComparisonExpression> quantifiedComparisons;
 
     public ExpressionAnalysis(
             IdentityHashMap<Expression, Type> expressionTypes,
@@ -42,7 +44,8 @@ public class ExpressionAnalysis
             Set<SubqueryExpression> scalarSubqueries,
             Set<ExistsPredicate> existsSubqueries,
             Set<Expression> columnReferences,
-            Set<Expression> typeOnlyCoercions)
+            Set<Expression> typeOnlyCoercions,
+            Set<QuantifiedComparisonExpression> quantifiedComparisons)
     {
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
@@ -51,6 +54,7 @@ public class ExpressionAnalysis
         this.subqueryInPredicates = requireNonNull(subqueryInPredicates, "subqueryInPredicates is null");
         this.scalarSubqueries = requireNonNull(scalarSubqueries, "subqueryInPredicates is null");
         this.existsSubqueries = requireNonNull(existsSubqueries, "existsSubqueries is null");
+        this.quantifiedComparisons = requireNonNull(quantifiedComparisons, "quantifiedComparisons is null");
     }
 
     public Type getType(Expression expression)
@@ -91,5 +95,10 @@ public class ExpressionAnalysis
     public Set<ExistsPredicate> getExistsSubqueries()
     {
         return existsSubqueries;
+    }
+
+    public Set<QuantifiedComparisonExpression> getQuantifiedComparisons()
+    {
+        return quantifiedComparisons;
     }
 }

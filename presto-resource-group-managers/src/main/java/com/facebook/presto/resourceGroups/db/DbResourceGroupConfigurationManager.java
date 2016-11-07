@@ -76,10 +76,6 @@ public class DbResourceGroupConfigurationManager
         requireNonNull(dao, "daoProvider is null");
         this.dao = dao;
         this.dao.createResourceGroupsGlobalPropertiesTable();
-        this.dao.dropResourceGroupsGlobalPropertiesInsertTrigger();
-        this.dao.dropResourceGroupsGlobalPropertiesUpdateTrigger();
-        this.dao.createResourceGroupsGlobalPropertiesInsertTrigger();
-        this.dao.createResourceGroupsGlobalPropertiesUpdateTrigger();
         this.dao.createResourceGroupsTable();
         this.dao.createSelectorsTable();
         load();

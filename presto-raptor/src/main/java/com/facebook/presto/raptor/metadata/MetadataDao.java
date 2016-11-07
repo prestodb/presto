@@ -27,7 +27,7 @@ import java.util.Set;
 public interface MetadataDao
 {
     String TABLE_INFORMATION_SELECT = "" +
-            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id\n" +
+            "SELECT t.table_id, t.distribution_id, d.distribution_name, d.bucket_count, t.temporal_column_id, t.organization_enabled\n" +
             "FROM tables t\n" +
             "LEFT JOIN distributions d ON (t.distribution_id = d.distribution_id)\n";
 
@@ -237,7 +237,7 @@ public interface MetadataDao
             @Bind("columnTypes") String columnTypes,
             @Bind("bucketCount") int bucketCount);
 
-    @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count\n" +
+    @SqlQuery("SELECT table_id, schema_name, table_name, temporal_column_id, distribution_name, bucket_count, organization_enabled\n" +
             "FROM tables\n" +
             "LEFT JOIN distributions\n" +
             "ON tables.distribution_id = distributions.distribution_id\n" +

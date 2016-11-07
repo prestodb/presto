@@ -53,7 +53,8 @@ public class TestFeaturesConfig
                 .setSpillEnabled(false)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB"))
                 .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
-                .setSpillerThreads(4));
+                .setSpillerThreads(4)
+                .setOptimizeMixedDistinctAggregations(false));
     }
 
     @Test
@@ -69,6 +70,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.processing-optimization", "columnar_dictionary")
                 .put("optimizer.dictionary-aggregation", "true")
@@ -90,6 +92,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.processing-optimization", "columnar_dictionary")
                 .put("optimizer.dictionary-aggregation", "true")
@@ -111,6 +114,7 @@ public class TestFeaturesConfig
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeSingleDistinct(false)
+                .setOptimizeMixedDistinctAggregations(true)
                 .setPushTableWriteThroughUnion(false)
                 .setProcessingOptimization(COLUMNAR_DICTIONARY)
                 .setDictionaryAggregation(true)

@@ -152,9 +152,9 @@ public class QueryContext
         });
     }
 
-    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, DataSize operatorPreAllocatedMemory, boolean verboseStats, boolean cpuTimerEnabled)
+    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, operatorPreAllocatedMemory, verboseStats, cpuTimerEnabled);
+        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
     }

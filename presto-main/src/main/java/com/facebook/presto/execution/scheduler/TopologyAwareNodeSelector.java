@@ -53,11 +53,10 @@ public class TopologyAwareNodeSelector
     private final InternalNodeManager nodeManager;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
-    private final boolean doubleScheduling;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
     private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerNodePerStageWhenFull;
+    private final int maxPendingSplitsPerTask;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final NetworkLocationCache networkLocationCache;
@@ -66,11 +65,10 @@ public class TopologyAwareNodeSelector
             InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
-            boolean doubleScheduling,
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             int maxSplitsPerNode,
-            int maxPendingSplitsPerNodePerStageWhenFull,
+            int maxPendingSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
             List<String> networkLocationSegmentNames,
             NetworkLocationCache networkLocationCache)
@@ -78,11 +76,10 @@ public class TopologyAwareNodeSelector
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
-        this.doubleScheduling = doubleScheduling;
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
         this.maxSplitsPerNode = maxSplitsPerNode;
-        this.maxPendingSplitsPerNodePerStageWhenFull = maxPendingSplitsPerNodePerStageWhenFull;
+        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkLocationCache = requireNonNull(networkLocationCache, "networkLocationCache is null");
@@ -110,7 +107,7 @@ public class TopologyAwareNodeSelector
     @Override
     public List<Node> selectRandomNodes(int limit)
     {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator), doubleScheduling);
+        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator));
     }
 
     @Override
@@ -129,7 +126,7 @@ public class TopologyAwareNodeSelector
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
-                Node chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxPendingSplitsPerNodePerStageWhenFull, assignmentStats);
+                Node chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxPendingSplitsPerTask, assignmentStats);
                 if (chosenNode != null) {
                     assignment.put(chosenNode, split);
                     assignmentStats.addAssignedSplit(chosenNode);
@@ -163,7 +160,7 @@ public class TopologyAwareNodeSelector
                     }
                     Set<Node> nodes = nodeMap.getWorkersByNetworkPath().get(location);
                     double queueFraction = (1.0 + i) / (1.0 + depth);
-                    chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, (int) Math.ceil(queueFraction * maxPendingSplitsPerNodePerStageWhenFull), assignmentStats);
+                    chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, (int) Math.ceil(queueFraction * maxPendingSplitsPerTask), assignmentStats);
                     if (chosenNode != null) {
                         chosenDepth = i;
                         break;
@@ -188,11 +185,11 @@ public class TopologyAwareNodeSelector
     @Override
     public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerNodePerStageWhenFull, splits, existingTasks, partitioning);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, partitioning);
     }
 
     @Nullable
-    private Node bestNodeSplitCount(Iterator<Node> candidates, int minCandidatesWhenFull, int maxSplitsPerNodePerTaskWhenFull, NodeAssignmentStats assignmentStats)
+    private Node bestNodeSplitCount(Iterator<Node> candidates, int minCandidatesWhenFull, int maxPendingSplitsPerTask, NodeAssignmentStats assignmentStats)
     {
         Node bestQueueNotFull = null;
         int min = Integer.MAX_VALUE;
@@ -205,7 +202,7 @@ public class TopologyAwareNodeSelector
             }
             fullCandidatesConsidered++;
             int totalSplitCount = assignmentStats.getQueuedSplitCountForStage(node);
-            if (totalSplitCount < min && totalSplitCount < maxSplitsPerNodePerTaskWhenFull) {
+            if (totalSplitCount < min && totalSplitCount < maxPendingSplitsPerTask) {
                 bestQueueNotFull = node;
             }
         }

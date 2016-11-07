@@ -51,7 +51,7 @@ import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tab
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.shardInfo;
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.toShardIndexInfo;
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -101,7 +101,7 @@ public class TestShardOrganizerUtil
     }
 
     @Test
-    public void testShardIndexInfoConverter()
+    public void testGetOrganizationEligibleShards()
             throws Exception
     {
         int day1 = 1111;
@@ -145,6 +145,20 @@ public class TestShardOrganizerUtil
                                 new ColumnStats(orderDate, day1, day2),
                                 new ColumnStats(orderKey, 2L, 11L),
                                 new ColumnStats(orderStatus, "aaa", "abc"))))
+                .add(shardInfo(
+                        UUID.randomUUID(),
+                        "node1",
+                        ImmutableList.of(
+                                new ColumnStats(orderDate, day1, day2),
+                                new ColumnStats(orderKey, 2L, null),
+                                new ColumnStats(orderStatus, "aaa", "abc"))))
+                .add(shardInfo(
+                        UUID.randomUUID(),
+                        "node1",
+                        ImmutableList.of(
+                                new ColumnStats(orderDate, day1, null),
+                                new ColumnStats(orderKey, 2L, 11L),
+                                new ColumnStats(orderStatus, "aaa", "abc"))))
                 .build();
 
         long transactionId = shardManager.beginTransaction();
@@ -154,13 +168,13 @@ public class TestShardOrganizerUtil
         Long temporalColumnId = metadataDao.getTemporalColumnId(tableInfo.getTableId());
         TableColumn temporalColumn = metadataDao.getTableColumn(tableInfo.getTableId(), temporalColumnId);
 
-        Set<ShardIndexInfo> actual = ImmutableSet.copyOf(toShardIndexInfo(dbi, metadataDao, tableInfo, shardMetadatas, false));
+        Set<ShardIndexInfo> actual = ImmutableSet.copyOf(getOrganizationEligibleShards(dbi, metadataDao, tableInfo, shardMetadatas, false));
         List<ShardIndexInfo> expected = getShardIndexInfo(tableInfo, shards, temporalColumn, Optional.empty());
 
         assertEquals(actual, expected);
 
         List<TableColumn> sortColumns = metadataDao.listSortColumns(tableInfo.getTableId());
-        Set<ShardIndexInfo> actualSortRange = ImmutableSet.copyOf(toShardIndexInfo(dbi, metadataDao, tableInfo, shardMetadatas, true));
+        Set<ShardIndexInfo> actualSortRange = ImmutableSet.copyOf(getOrganizationEligibleShards(dbi, metadataDao, tableInfo, shardMetadatas, true));
         List<ShardIndexInfo> expectedSortRange = getShardIndexInfo(tableInfo, shards, temporalColumn, Optional.of(sortColumns));
 
         assertEquals(actualSortRange, expectedSortRange);
@@ -178,18 +192,34 @@ public class TestShardOrganizerUtil
                     .findFirst()
                     .get();
 
+            if (temporalColumnStats.getMin() == null || temporalColumnStats.getMax() == null) {
+                continue;
+            }
+
             Optional<ShardRange> sortRange = Optional.empty();
             if (sortColumns.isPresent()) {
                 Map<Long, ColumnStats> columnIdToStats = Maps.uniqueIndex(shard.getColumnStats(), ColumnStats::getColumnId);
                 ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
                 ImmutableList.Builder<Object> minBuilder = ImmutableList.builder();
                 ImmutableList.Builder<Object> maxBuilder = ImmutableList.builder();
+                boolean isShardEligible = true;
                 for (TableColumn sortColumn : sortColumns.get()) {
                     ColumnStats columnStats = columnIdToStats.get(sortColumn.getColumnId());
                     typesBuilder.add(sortColumn.getDataType());
+
+                    if (columnStats.getMin() == null || columnStats.getMax() == null) {
+                        isShardEligible = false;
+                        break;
+                    }
+
                     minBuilder.add(columnStats.getMin());
                     maxBuilder.add(columnStats.getMax());
                 }
+
+                if (!isShardEligible) {
+                    continue;
+                }
+
                 List<Type> types = typesBuilder.build();
                 List<Object> minValues = minBuilder.build();
                 List<Object> maxValues = maxBuilder.build();

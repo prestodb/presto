@@ -55,7 +55,6 @@ import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
@@ -90,9 +89,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
+import static com.facebook.presto.hive.HiveTableProperties.getExternalLocation;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -127,7 +128,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 
 public class HiveMetadata
         implements ConnectorMetadata
@@ -233,6 +235,9 @@ public class HiveMetadata
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (table.get().getTableType().equals(EXTERNAL_TABLE.name())) {
+            properties.put(EXTERNAL_LOCATION_PROPERTY, table.get().getStorage().getLocation());
+        }
         try {
             HiveStorageFormat format = extractHiveStorageFormat(table.get());
             properties.put(STORAGE_FORMAT_PROPERTY, format);
@@ -398,12 +403,48 @@ public class HiveMetadata
 
         hiveStorageFormat.validateColumns(columnHandles);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
-        Path targetPath = locationService.targetPathRoot(locationHandle);
+        Path targetPath;
+        boolean external;
+        String externalLocation = getExternalLocation(tableMetadata.getProperties());
+        if (externalLocation != null) {
+            external = true;
+            targetPath = getExternalPath(session.getUser(), externalLocation);
+        }
+        else {
+            external = false;
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
+            targetPath = locationService.targetPathRoot(locationHandle);
+        }
 
-        Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, prestoVersion);
+        Table table = buildTableObject(
+                session.getQueryId(),
+                schemaName,
+                tableName,
+                session.getUser(),
+                columnHandles,
+                hiveStorageFormat,
+                partitionedBy,
+                bucketProperty,
+                additionalTableParameters,
+                targetPath,
+                external,
+                prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
+    }
+
+    private Path getExternalPath(String user, String location)
+    {
+        try {
+            Path path = new Path(location);
+            if (!hdfsEnvironment.getFileSystem(user, path).isDirectory(path)) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
+            }
+            return path;
+        }
+        catch (IllegalArgumentException | IOException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
+        }
     }
 
     private static Table buildTableObject(
@@ -417,6 +458,7 @@ public class HiveMetadata
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
             Path targetPath,
+            boolean external,
             String prestoVersion)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -444,7 +486,7 @@ public class HiveMetadata
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setOwner(tableOwner)
-                .setTableType(TableType.MANAGED_TABLE.name())
+                .setTableType((external ? EXTERNAL_TABLE : MANAGED_TABLE).name())
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
                 .setParameters(ImmutableMap.<String, String>builder()
@@ -516,6 +558,10 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
+        if (getExternalLocation(tableMetadata.getProperties()) != null) {
+            throw new PrestoException(NOT_SUPPORTED, "External tables cannot be created using CREATE TABLE AS");
+        }
+
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
@@ -581,6 +627,7 @@ public class HiveMetadata
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
                 targetPath,
+                false,
                 prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
 
@@ -637,12 +684,12 @@ public class HiveMetadata
             return ImmutableList.of();
         }
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(targetPath));
-        String fileExtension = HivePageSink.getFileExtension(conf, storageFormat.getOutputFormat());
+        String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
         Set<String> fileNames = partitionUpdate.getFileNames().stream()
                 .collect(Collectors.toSet());
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
-            String fileName = HivePageSink.computeBucketedFileName(filePrefix, i) + fileExtension;
+            String fileName = HiveWriterFactory.computeBucketedFileName(filePrefix, i) + fileExtension;
             if (!fileNames.contains(fileName)) {
                 missingFileNamesBuilder.add(fileName);
             }
@@ -655,7 +702,6 @@ public class HiveMetadata
     private void createEmptyFile(Path path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
         JobConf conf = new JobConf(hdfsEnvironment.getConfiguration(path));
-        boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
 
         Properties schema;
         StorageFormat format;
@@ -669,17 +715,17 @@ public class HiveMetadata
         }
 
         for (String fileName : fileNames) {
-            writeEmptyFile(new Path(path, fileName), conf, compress, schema, format.getSerDe(), format.getOutputFormat());
+            writeEmptyFile(new Path(path, fileName), conf, schema, format.getSerDe(), format.getOutputFormat());
         }
     }
 
-    private static void writeEmptyFile(Path target, JobConf conf, boolean compress, Properties properties, String serDe, String outputFormatName)
+    private static void writeEmptyFile(Path target, JobConf conf, Properties properties, String serDe, String outputFormatName)
     {
         // Some serializers such as Avro set a property in the schema.
         initializeSerializer(conf, properties, serDe);
 
         // The code below is not a try with resources because RecordWriter is not Closeable.
-        FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, compress, properties, outputFormatName);
+        FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, properties, outputFormatName);
         try {
             recordWriter.close(false);
         }

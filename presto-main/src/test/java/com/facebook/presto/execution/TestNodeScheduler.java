@@ -91,7 +91,7 @@ public class TestNodeScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
-                .setMaxPendingSplitsPerNodePerStage(10);
+                .setMaxPendingSplitsPerTask(10);
 
         NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
         // contents of taskMap indicate the node-task map for the current stage
@@ -143,7 +143,7 @@ public class TestNodeScheduler
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
                 .setNetworkTopology("test")
-                .setMaxPendingSplitsPerNodePerStage(15);
+                .setMaxPendingSplitsPerTask(15);
 
         TestNetworkTopology topology = new TestNetworkTopology();
         NetworkLocationCache locationCache = new NetworkLocationCache(topology)
@@ -259,34 +259,6 @@ public class TestNodeScheduler
         assignments = nodeSelector.computeAssignments(localSplits.build(), ImmutableList.copyOf(taskMap.values()));
         assertEquals(assignments.size(), 3);
         assertEquals(assignments.keySet().size(), 3);
-    }
-
-    @Test
-    public void testMultipleTasksPerNode()
-    {
-        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
-                .setMaxSplitsPerNode(20)
-                .setIncludeCoordinator(false)
-                .setMaxPendingSplitsPerNodePerStage(10);
-
-        NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
-        List<Node> nodes = nodeSelector.selectRandomNodes(10);
-        assertEquals(nodes.size(), 3);
-
-        nodeSchedulerConfig.setMultipleTasksPerNodeEnabled(true);
-        nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
-        nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
-        nodes = nodeSelector.selectRandomNodes(9);
-        assertEquals(nodes.size(), 9);
-        Map<String, Integer> counts = new HashMap<>();
-        for (Node node : nodes) {
-            Integer value = counts.get(node.getNodeIdentifier());
-            counts.put(node.getNodeIdentifier(), (value == null ? 0 : value) + 1);
-        }
-        assertEquals(counts.get("other1").intValue(), 3);
-        assertEquals(counts.get("other2").intValue(), 3);
-        assertEquals(counts.get("other3").intValue(), 3);
     }
 
     @Test

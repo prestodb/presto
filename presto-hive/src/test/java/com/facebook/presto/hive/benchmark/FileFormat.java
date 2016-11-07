@@ -19,10 +19,9 @@ import com.facebook.presto.hive.GenericHiveRecordCursorProvider;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveCompressionCodec;
-import com.facebook.presto.hive.HivePageSink.DataColumn;
-import com.facebook.presto.hive.HivePageSink.HiveRecordWriter;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
+import com.facebook.presto.hive.HiveRecordWriter;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveTypeTranslator;
@@ -56,6 +55,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HdfsConfigurationUpdater.configureCompression;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -391,27 +391,13 @@ public enum FileFormat
                 HiveStorageFormat format)
         {
             JobConf config = new JobConf(conf);
-            TypeTranslator typeTranslator = new HiveTypeTranslator();
             configureCompression(config, compressionCodec);
 
-            List<DataColumn> dataColumns = new ArrayList<>(columnNames.size());
-            for (int i = 0; i < columnNames.size(); i++) {
-                dataColumns.add(new DataColumn(columnNames.get(i), columnTypes.get(i), HiveType.toHiveType(typeTranslator, columnTypes.get(i))));
-            }
-
             recordWriter = new HiveRecordWriter(
-                    "test_schema",
-                    "test_table",
-                    null,
-                    compressionCodec != HiveCompressionCodec.NONE,
-                    true,
-                    dataColumns,
-                    format.getOutputFormat(),
-                    format.getSerDe(),
+                    new Path(targetFile.toURI()),
+                    columnNames,
+                    fromHiveStorageFormat(format),
                     createSchema(format, columnNames, columnTypes),
-                    targetFile.getName(),
-                    targetFile.getParent(),
-                    targetFile.toString(),
                     TYPE_MANAGER,
                     config);
         }

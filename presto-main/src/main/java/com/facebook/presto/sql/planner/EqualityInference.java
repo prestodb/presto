@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -189,13 +190,13 @@ public class EqualityInference
             Expression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
                 for (Expression expression : filter(scopeExpressions, not(equalTo(matchingCanonical)))) {
-                    scopeEqualities.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL, matchingCanonical, expression));
+                    scopeEqualities.add(new ComparisonExpression(ComparisonExpressionType.EQUAL, matchingCanonical, expression));
                 }
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions);
             if (scopeComplementExpressions.size() >= 2) {
                 for (Expression expression : filter(scopeComplementExpressions, not(equalTo(complementCanonical)))) {
-                    scopeComplementEqualities.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL, complementCanonical, expression));
+                    scopeComplementEqualities.add(new ComparisonExpression(ComparisonExpressionType.EQUAL, complementCanonical, expression));
                 }
             }
 
@@ -208,7 +209,7 @@ public class EqualityInference
             Expression connectingCanonical = getCanonical(connectingExpressions);
             if (connectingCanonical != null) {
                 for (Expression expression : filter(connectingExpressions, not(equalTo(connectingCanonical)))) {
-                    scopeStraddlingEqualities.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL, connectingCanonical, expression));
+                    scopeStraddlingEqualities.add(new ComparisonExpression(ComparisonExpressionType.EQUAL, connectingCanonical, expression));
                 }
             }
         }
@@ -255,7 +256,7 @@ public class EqualityInference
             expression = normalizeInPredicateToEquality(expression);
             if (expression instanceof ComparisonExpression && DeterminismEvaluator.isDeterministic(expression) && !NullabilityAnalyzer.mayReturnNullOnNonNullInput(expression)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
-                if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
+                if (comparison.getType() == ComparisonExpressionType.EQUAL) {
                     // We should only consider equalities that have distinct left and right components
                     return !comparison.getLeft().equals(comparison.getRight());
                 }
@@ -274,7 +275,7 @@ public class EqualityInference
             if (inPredicate.getValueList() instanceof InListExpression) {
                 InListExpression valueList = (InListExpression) inPredicate.getValueList();
                 if (valueList.getValues().size() == 1) {
-                    return new ComparisonExpression(ComparisonExpression.Type.EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
+                    return new ComparisonExpression(ComparisonExpressionType.EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
                 }
             }
         }

@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -92,6 +93,7 @@ import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -884,7 +886,7 @@ class AstBuilder
     {
         Expression expression = new ComparisonExpression(
                 getLocation(context),
-                ComparisonExpression.Type.IS_DISTINCT_FROM,
+                ComparisonExpressionType.IS_DISTINCT_FROM,
                 (Expression) visit(context.value),
                 (Expression) visit(context.right));
 
@@ -974,6 +976,17 @@ class AstBuilder
     public Node visitExists(SqlBaseParser.ExistsContext context)
     {
         return new ExistsPredicate(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitQuantifiedComparison(SqlBaseParser.QuantifiedComparisonContext context)
+    {
+        return new QuantifiedComparisonExpression(
+                getLocation(context.comparisonOperator()),
+                getComparisonOperator(((TerminalNode) context.comparisonOperator().getChild(0)).getSymbol()),
+                getComparisonQuantifier(((TerminalNode) context.comparisonQuantifier().getChild(0)).getSymbol()),
+                (Expression) visit(context.value),
+                new SubqueryExpression(getLocation(context.query()), (Query) visit(context.query())));
     }
 
     // ************** value expressions **************
@@ -1160,6 +1173,7 @@ class AstBuilder
     @Override
     public Node visitFunctionCall(SqlBaseParser.FunctionCallContext context)
     {
+        Optional<Expression> filter = visitIfPresent(context.filter(), Expression.class);
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
@@ -1210,6 +1224,7 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 window,
+                filter,
                 distinct,
                 visit(context.expression(), Expression.class));
     }
@@ -1224,6 +1239,12 @@ class AstBuilder
         Expression body = (Expression) visit(context.expression());
 
         return new LambdaExpression(arguments, body);
+    }
+
+    @Override
+    public Node visitFilter(SqlBaseParser.FilterContext context)
+    {
+        return visit(context.booleanExpression());
     }
 
     @Override
@@ -1509,21 +1530,21 @@ class AstBuilder
         throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
     }
 
-    private static ComparisonExpression.Type getComparisonOperator(Token symbol)
+    private static ComparisonExpressionType getComparisonOperator(Token symbol)
     {
         switch (symbol.getType()) {
             case SqlBaseLexer.EQ:
-                return ComparisonExpression.Type.EQUAL;
+                return ComparisonExpressionType.EQUAL;
             case SqlBaseLexer.NEQ:
-                return ComparisonExpression.Type.NOT_EQUAL;
+                return ComparisonExpressionType.NOT_EQUAL;
             case SqlBaseLexer.LT:
-                return ComparisonExpression.Type.LESS_THAN;
+                return ComparisonExpressionType.LESS_THAN;
             case SqlBaseLexer.LTE:
-                return ComparisonExpression.Type.LESS_THAN_OR_EQUAL;
+                return ComparisonExpressionType.LESS_THAN_OR_EQUAL;
             case SqlBaseLexer.GT:
-                return ComparisonExpression.Type.GREATER_THAN;
+                return ComparisonExpressionType.GREATER_THAN;
             case SqlBaseLexer.GTE:
-                return ComparisonExpression.Type.GREATER_THAN_OR_EQUAL;
+                return ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
         }
 
         throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
@@ -1661,6 +1682,20 @@ class AstBuilder
         }
 
         throw new IllegalArgumentException("Unsupported ordering: " + token.getText());
+    }
+
+    private static QuantifiedComparisonExpression.Quantifier getComparisonQuantifier(Token symbol)
+    {
+        switch (symbol.getType()) {
+            case SqlBaseLexer.ALL:
+                return QuantifiedComparisonExpression.Quantifier.ALL;
+            case SqlBaseLexer.ANY:
+                return QuantifiedComparisonExpression.Quantifier.ANY;
+            case SqlBaseLexer.SOME:
+                return QuantifiedComparisonExpression.Quantifier.SOME;
+        }
+
+        throw new IllegalArgumentException("Unsupported quantifier: " + symbol.getText());
     }
 
     private static String getType(SqlBaseParser.TypeContext type)

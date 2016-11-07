@@ -30,6 +30,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
+import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -73,7 +75,7 @@ public class SourcePartitionedScheduler
         // This code may need to return a future when the workers are full, and
         // it is critical that this future is notified of any changes that occur
         // during this calculation (to avoid starvation).
-        CompletableFuture<?> taskStateChange = stage.getTaskStateChange();
+        CompletableFuture<?> taskHasSpace = stage.whenTaskSplitQueueHasSpace();
 
         // try to get the next batch if necessary
         if (pendingSplits.isEmpty()) {
@@ -81,7 +83,7 @@ public class SourcePartitionedScheduler
                 if (splitSource.isFinished()) {
                     // no more splits
                     splitSource.close();
-                    return new ScheduleResult(true, ImmutableSet.of(), CompletableFuture.completedFuture(null));
+                    return new ScheduleResult(true, ImmutableSet.of(), 0);
                 }
 
                 long start = System.nanoTime();
@@ -92,7 +94,7 @@ public class SourcePartitionedScheduler
             if (!batchFuture.isDone()) {
                 // wrap batch future in unmodifiable future so cancellation is not propagated
                 CompletableFuture<List<Split>> blocked = unmodifiableFuture(batchFuture);
-                return new ScheduleResult(false, ImmutableSet.of(), blocked);
+                return new ScheduleResult(false, ImmutableSet.of(), blocked, WAITING_FOR_SOURCE, 0);
             }
             pendingSplits = ImmutableSet.copyOf(getFutureValue(batchFuture));
             batchFuture = null;
@@ -112,7 +114,7 @@ public class SourcePartitionedScheduler
                     .addAll(finalizeTaskCreationIfNecessary())
                     .build();
 
-            return new ScheduleResult(false, newTasks, taskStateChange);
+            return new ScheduleResult(false, newTasks, taskHasSpace, SPLIT_QUEUES_FULL, splitAssignment.values().size());
         }
 
         // all splits assigned - check if the source is finished
@@ -120,7 +122,7 @@ public class SourcePartitionedScheduler
         if (finished) {
             splitSource.close();
         }
-        return new ScheduleResult(finished, newTasks, CompletableFuture.completedFuture(null));
+        return new ScheduleResult(finished, newTasks, splitAssignment.values().size());
     }
 
     @Override

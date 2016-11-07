@@ -23,7 +23,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -201,11 +200,6 @@ public class PipelineContext
     public boolean isDone()
     {
         return taskContext.isDone();
-    }
-
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return taskContext.getOperatorPreAllocatedMemory();
     }
 
     public void transferMemoryToTaskContext(long bytes)

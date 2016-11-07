@@ -25,6 +25,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -75,6 +76,7 @@ public class Analysis
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<Node, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -258,6 +260,7 @@ public class Analysis
         this.inPredicatesSubqueries.putAll(node, expressionAnalysis.getSubqueryInPredicates());
         this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
         this.existsSubqueries.putAll(node, expressionAnalysis.getExistsSubqueries());
+        this.quantifiedComparisonSubqueries.putAll(node, expressionAnalysis.getQuantifiedComparisons());
     }
 
     public List<InPredicate> getInPredicateSubqueries(Node node)
@@ -280,6 +283,14 @@ public class Analysis
     {
         if (existsSubqueries.containsKey(node)) {
             return existsSubqueries.get(node);
+        }
+        return ImmutableList.of();
+    }
+
+    public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
+    {
+        if (quantifiedComparisonSubqueries.containsKey(node)) {
+            return quantifiedComparisonSubqueries.get(node);
         }
         return ImmutableList.of();
     }

@@ -765,7 +765,8 @@ public class LocalExecutionPlanner
                     (int) node.getCount(),
                     sortChannels,
                     sortOrders,
-                    node.isPartial());
+                    node.isPartial(),
+                    maxPartialAggregationMemorySize);
 
             return new PhysicalOperation(operator, source.getLayout(), source);
         }

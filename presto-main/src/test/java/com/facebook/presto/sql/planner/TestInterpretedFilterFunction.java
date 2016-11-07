@@ -17,7 +17,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -175,8 +175,8 @@ public class TestInterpretedFilterFunction
     @Test
     public void testComparisonExpressionWithNulls()
     {
-        for (ComparisonExpression.Type type : ComparisonExpression.Type.values()) {
-            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+        for (ComparisonExpressionType type : ComparisonExpressionType.values()) {
+            if (type == ComparisonExpressionType.IS_DISTINCT_FROM) {
                 // IS DISTINCT FROM has different NULL semantics
                 continue;
             }
