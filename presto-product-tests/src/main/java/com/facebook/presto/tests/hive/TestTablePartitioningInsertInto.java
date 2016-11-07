@@ -83,32 +83,32 @@ public class TestTablePartitioningInsertInto
             throws Exception
     {
         // read all data
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_nationkey < 40", 3);
+        testQuerySplitsNumber("p_nationkey < 40", 3);
 
         // read no partitions
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 42", 0);
+        testQuerySplitsNumber("p_regionkey = 42", 0);
 
         // read one partition
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 AND p_nationkey < 40", 1);
+        testQuerySplitsNumber("p_regionkey = 2 AND p_nationkey < 40", 1);
         // read two partitions
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 AND p_nationkey < 40 or p_regionkey = 3", 2);
+        testQuerySplitsNumber("p_regionkey = 2 AND p_nationkey < 40 or p_regionkey = 3", 2);
         // read all (three) partitions
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 OR p_nationkey < 40", 3);
+        testQuerySplitsNumber("p_regionkey = 2 OR p_nationkey < 40", 3);
 
         // range read two partitions
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey <= 2", 2);
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey <= 1 OR p_regionkey >= 3", 2);
+        testQuerySplitsNumber("p_regionkey <= 2", 2);
+        testQuerySplitsNumber("p_regionkey <= 1 OR p_regionkey >= 3", 2);
     }
 
-    private void testQuerySplitsNumber(String query, int expectedProcessedSplits)
+    private void testQuerySplitsNumber(String condition, int expectedProcessedSplits)
             throws Exception
     {
         String partitionedNation = mutableTablesState().get(PARTITIONED_NATION_NAME).getNameInDatabase();
         String targetNation = mutableTablesState().get(TARGET_NATION_NAME).getNameInDatabase();
-        String sqlStatement = String.format(query, targetNation, partitionedNation);
-        QueryResult queryResult = query(sqlStatement, UPDATE);
+        String query = String.format("INSERT INTO %s SELECT * FROM %s WHERE %s", targetNation, partitionedNation, condition);
+        QueryResult queryResult = query(query, UPDATE);
 
-        long processedLinesCount = getProcessedLinesCount(sqlStatement, queryResult);
+        long processedLinesCount = getProcessedLinesCount(query, queryResult);
         assertThat(processedLinesCount).isEqualTo(expectedProcessedSplits * NUMBER_OF_LINES_PER_SPLIT);
     }
 }
