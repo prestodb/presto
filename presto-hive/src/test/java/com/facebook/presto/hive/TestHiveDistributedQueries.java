@@ -14,6 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import org.testng.annotations.Test;
+
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static io.airlift.tpch.TpchTable.getTables;
@@ -53,5 +56,23 @@ public class TestHiveDistributedQueries
             throws Exception
     {
         // Hive connector currently does not support table rename
+    }
+
+    @Test
+    public void testAssignUniqueId()
+            throws Exception
+    {
+        String lineitemX50 = java.util.stream.IntStream.range(0, 50)
+                .mapToObj(i -> "SELECT * FROM lineitem")
+                .collect(Collectors.joining(" UNION ALL "));
+
+        assertQuery(
+                "SELECT count(*) FROM (" +
+                        "SELECT * FROM (" +
+                        "   SELECT (SELECT count(*) WHERE c = 1) " +
+                        "   FROM (SELECT CASE orderkey WHEN 1 THEN orderkey ELSE 1 END " +
+                        "       FROM (" + lineitemX50 + ")) o(c)) result(a) " +
+                        "WHERE a = 1)",
+                "VALUES 3008750");
     }
 }
