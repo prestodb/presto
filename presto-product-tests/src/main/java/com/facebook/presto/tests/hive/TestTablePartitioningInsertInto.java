@@ -17,16 +17,15 @@ import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
-import com.teradata.tempto.fulfillment.table.hive.HiveTableDefinition;
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
+import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static com.teradata.tempto.query.QueryType.UPDATE;
@@ -36,35 +35,15 @@ public class TestTablePartitioningInsertInto
         extends HivePartitioningTest
         implements RequirementsProvider
 {
-    private static final String PARTITIONED_NATION_NAME = "partitioned_nation_read_test";
     private static final String TARGET_NATION_NAME = "target_nation_test";
 
     private static final int NUMBER_OF_LINES_PER_SPLIT = 5;
-    private static final String DATA_REVISION = "1";
-    private static final HiveTableDefinition PARTITIONED_NATION =
-            HiveTableDefinition.builder(PARTITIONED_NATION_NAME)
-                    .setCreateTableDDLTemplate("" +
-                            "CREATE %EXTERNAL% TABLE %NAME%(" +
-                            "   p_nationkey     BIGINT," +
-                            "   p_name          STRING," +
-                            "   p_comment       STRING) " +
-                            "PARTITIONED BY (p_regionkey INT)" +
-                            "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' ")
-                    .addPartition("p_regionkey=1", createResourceDataSource(PARTITIONED_NATION_NAME, DATA_REVISION, partitionDataFileResource(1)))
-                    .addPartition("p_regionkey=2", createResourceDataSource(PARTITIONED_NATION_NAME, DATA_REVISION, partitionDataFileResource(2)))
-                    .addPartition("p_regionkey=3", createResourceDataSource(PARTITIONED_NATION_NAME, DATA_REVISION, partitionDataFileResource(3)))
-                    .build();
-
-    private static String partitionDataFileResource(int region)
-    {
-        return "com/facebook/presto/tests/hive/data/partitioned_nation/nation_region_" + region + ".textfile";
-    }
 
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(
-                MutableTableRequirement.builder(PARTITIONED_NATION).build(),
+                MutableTableRequirement.builder(NATION_PARTITIONED_BY_REGIONKEY).build(),
                 MutableTableRequirement.builder(NATION).withState(CREATED).withName(TARGET_NATION_NAME).build());
     }
 
@@ -93,7 +72,7 @@ public class TestTablePartitioningInsertInto
     private void testQuerySplitsNumber(String condition, int expectedProcessedSplits)
             throws Exception
     {
-        String partitionedNation = mutableTablesState().get(PARTITIONED_NATION_NAME).getNameInDatabase();
+        String partitionedNation = mutableTablesState().get(NATION_PARTITIONED_BY_REGIONKEY.getTableHandle()).getNameInDatabase();
         String targetNation = mutableTablesState().get(TARGET_NATION_NAME).getNameInDatabase();
         String query = String.format(
                 "INSERT INTO %s SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s",
