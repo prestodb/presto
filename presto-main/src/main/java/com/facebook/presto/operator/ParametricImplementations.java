@@ -14,12 +14,16 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.presto.operator.annotations.AnnotationHelpers.validateSignaturesCompatibility;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -36,11 +40,18 @@ public class ParametricImplementations<T extends ParametricImplementation>
     // These are generic implementations
     private final List<T> genericImplementations;
 
-    public ParametricImplementations(Map<Signature, T> exactImplementations, List<T> specializedImplementations, List<T> genericImplementations)
+    private final Signature signature;
+
+    public ParametricImplementations(
+            Map<Signature, T> exactImplementations,
+            List<T> specializedImplementations,
+            List<T> genericImplementations,
+            Signature signature)
     {
         this.exactImplementations = ImmutableMap.copyOf(requireNonNull(exactImplementations, "exactImplementation cannot be null"));
         this.specializedImplementations = ImmutableList.copyOf(requireNonNull(specializedImplementations, "specializedImplementations cannot be null"));
         this.genericImplementations = ImmutableList.copyOf(requireNonNull(genericImplementations, "genericImplementations cannot be null"));
+        this.signature = requireNonNull(signature, "signature cannot be null");
     }
 
     public List<T> getGenericImplementations()
@@ -56,5 +67,74 @@ public class ParametricImplementations<T extends ParametricImplementation>
     public List<T> getSpecializedImplementations()
     {
         return specializedImplementations;
+    }
+
+    public Signature getSignature()
+    {
+        return signature;
+    }
+
+    public static <T extends ParametricImplementation> Builder<T> builder()
+    {
+        return new Builder<>();
+    }
+
+    public static final class Builder<T extends ParametricImplementation>
+    {
+        private final ImmutableMap.Builder<Signature, T> exactImplementations = ImmutableMap.builder();
+        private final ImmutableList.Builder<T> specializedImplementations = ImmutableList.builder();
+        private final ImmutableList.Builder<T> genericImplementations = ImmutableList.builder();
+
+        private Builder() {}
+
+        public ParametricImplementations<T> build()
+        {
+            Map<Signature, T> exactImplementations = this.exactImplementations.build();
+            List<T> specializedImplementations = this.specializedImplementations.build();
+            List<T> genericImplementations = this.genericImplementations.build();
+            return new ParametricImplementations<>(
+                    exactImplementations,
+                    specializedImplementations,
+                    genericImplementations,
+                    determineGenericSignature(exactImplementations, specializedImplementations, genericImplementations));
+        }
+
+        public void addImplementation(T implementation)
+        {
+            if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
+                    && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
+                    && !implementation.getSignature().getReturnType().isCalculated()) {
+                exactImplementations.put(implementation.getSignature(), implementation);
+            }
+            else if (implementation.hasSpecializedTypeParameters()) {
+                specializedImplementations.add(implementation);
+            }
+            else {
+                genericImplementations.add(implementation);
+            }
+        }
+
+        private static <T extends ParametricImplementation> Signature determineGenericSignature(
+                Map<Signature, T> exactImplementations,
+                List<T> specializedImplementations,
+                List<T> genericImplementations)
+        {
+            if (specializedImplementations.size() + genericImplementations.size() == 0) {
+                return getOnlyElement(exactImplementations.keySet());
+            }
+
+            Optional<Signature> signature = Optional.empty();
+            for (T implementation : specializedImplementations) {
+                validateSignaturesCompatibility(signature, implementation.getSignature());
+                signature = Optional.of(implementation.getSignature());
+            }
+
+            for (T implementation : genericImplementations) {
+                validateSignaturesCompatibility(signature, implementation.getSignature());
+                signature = Optional.of(implementation.getSignature());
+            }
+
+            return signature.get();
+        }
     }
 }

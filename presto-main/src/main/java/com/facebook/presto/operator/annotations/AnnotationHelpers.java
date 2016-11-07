@@ -114,9 +114,12 @@ public class AnnotationHelpers
         return typeVariableConstraints.build();
     }
 
-    public static void validateSignaturesCompatibility(Signature signatureOld, Signature signatureNew)
+    public static void validateSignaturesCompatibility(Optional<Signature> signatureOld, Signature signatureNew)
     {
-        checkArgument(signatureOld.equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
+        if (!signatureOld.isPresent()) {
+            return;
+        }
+        checkArgument(signatureOld.get().equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
     }
 
     public static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)

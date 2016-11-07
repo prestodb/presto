@@ -22,22 +22,17 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.validateSignaturesCompatibility;
 import static com.facebook.presto.operator.scalar.annotations.OperatorValidator.validateOperator;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFromAnnotationsParser
@@ -98,42 +93,20 @@ public final class ScalarFromAnnotationsParser
 
     private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Map<Set<TypeParameter>, Constructor<?>> constructors)
     {
-        ImmutableMap.Builder<Signature, ScalarImplementation> exactImplementations = ImmutableMap.builder();
-        ImmutableList.Builder<ScalarImplementation> specializedImplementations = ImmutableList.builder();
-        ImmutableList.Builder<ScalarImplementation> genericImplementations = ImmutableList.builder();
-        Optional<Signature> signature = Optional.empty();
+        ParametricImplementations.Builder<ScalarImplementation> implementationsBuilder = ParametricImplementations.builder();
         ScalarImplementationHeader header = scalar.getHeader();
         checkArgument(!header.getName().isEmpty());
 
         for (Method method : scalar.getMethods()) {
             ScalarImplementation implementation = ScalarImplementation.Parser.parseImplementation(header.getName(), method, constructors);
-            if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
-                    && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
-                    && !implementation.getSignature().getReturnType().isCalculated()) {
-                exactImplementations.put(implementation.getSignature(), implementation);
-                continue;
-            }
-
-            if (implementation.hasSpecializedTypeParameters()) {
-                specializedImplementations.add(implementation);
-            }
-            else {
-                genericImplementations.add(implementation);
-            }
-
-            if (!signature.isPresent()) {
-                signature = Optional.of(implementation.getSignature());
-            }
-            validateSignaturesCompatibility(signature, implementation.getSignature());
+            implementationsBuilder.addImplementation(implementation);
         }
 
-        Signature scalarSignature = signature.orElseGet(() -> getOnlyElement(exactImplementations.build().keySet()));
+        ParametricImplementations<ScalarImplementation> implementations = implementationsBuilder.build();
+        Signature scalarSignature = implementations.getSignature();
 
         header.getOperatorType().ifPresent(operatorType ->
                 validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
-
-        ParametricImplementations<ScalarImplementation> implementations =
-                new ParametricImplementations(exactImplementations.build(), specializedImplementations.build(), genericImplementations.build());
 
         return new ParametricScalar(scalarSignature, header.getHeader(), implementations);
     }

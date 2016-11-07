@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.operator.annotations.AnnotationHelpers.validateSignaturesCompatibility;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -97,7 +96,8 @@ public class AggregationFromAnnotationsParser
                                         header,
                                         new ParametricImplementations(ImmutableMap.of(),
                                                 ImmutableList.of(),
-                                                ImmutableList.of(onlyImplementation))));
+                                                ImmutableList.of(onlyImplementation),
+                                                onlyImplementation.getSignature())));
                     }
                 }
             }
@@ -108,9 +108,7 @@ public class AggregationFromAnnotationsParser
 
     public static BindableAggregationFunction generateBindableAggregationFunction(Class<?> aggregationDefinition)
     {
-        ImmutableMap.Builder<Signature, AggregationImplementation> exactImplementations = ImmutableMap.builder();
-        ImmutableList.Builder<AggregationImplementation> specializedImplementations = ImmutableList.builder();
-        ImmutableList.Builder<AggregationImplementation> genericImplementations = ImmutableList.builder();
+        ParametricImplementations.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementations.builder();
         Optional<Signature> genericSignature = Optional.empty();
         AggregationHeader header = parseHeader(aggregationDefinition);
 
@@ -120,36 +118,13 @@ public class AggregationFromAnnotationsParser
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     AggregationImplementation implementation = AggregationImplementation.Parser.parseImplementation(aggregationDefinition, header, stateClass, inputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
-                    if (implementation.getSignature().getTypeVariableConstraints().isEmpty()
-                            && implementation.getSignature().getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
-                            && !implementation.getSignature().getReturnType().isCalculated()) {
-                        exactImplementations.put(implementation.getSignature(), implementation);
-                        continue;
-                    }
-
-                    if (implementation.hasSpecializedTypeParameters()) {
-                        specializedImplementations.add(implementation);
-                    }
-                    else {
-                        genericImplementations.add(implementation);
-                    }
-
-                    if (!genericSignature.isPresent()) {
-                        genericSignature = Optional.of(implementation.getSignature());
-                    }
-                    validateSignaturesCompatibility(genericSignature, implementation.getSignature());
+                    implementationsBuilder.addImplementation(implementation);
                 }
             }
         }
 
-        Signature aggregateSignature = genericSignature.orElseGet(() -> getOnlyElement(exactImplementations.build().keySet()));
-
-        return new BindableAggregationFunction(aggregateSignature,
-                        header,
-                        new ParametricImplementations(
-                                exactImplementations.build(),
-                                specializedImplementations.build(),
-                                genericImplementations.build()));
+        ParametricImplementations<AggregationImplementation> implementations = implementationsBuilder.build();
+        return new BindableAggregationFunction(implementations.getSignature(), header, implementations);
     }
 
     private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)
