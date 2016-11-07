@@ -16,7 +16,6 @@ package com.facebook.presto.tests.hive;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
 import com.teradata.tempto.configuration.Configuration;
-import com.teradata.tempto.fulfillment.table.MutableTableRequirement;
 import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
@@ -27,6 +26,7 @@ import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITI
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static com.teradata.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static com.teradata.tempto.query.QueryType.UPDATE;
@@ -42,8 +42,8 @@ public class TestTablePartitioningInsertInto
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(
-                MutableTableRequirement.builder(NATION_PARTITIONED_BY_REGIONKEY).build(),
-                MutableTableRequirement.builder(NATION).withState(CREATED).withName(TARGET_NATION_NAME).build());
+                mutableTable(NATION_PARTITIONED_BY_REGIONKEY),
+                mutableTable(NATION, TARGET_NATION_NAME, CREATED));
     }
 
     @Test(groups = {HIVE_CONNECTOR, SMOKE})
