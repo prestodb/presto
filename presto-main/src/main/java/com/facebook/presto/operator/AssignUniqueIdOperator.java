@@ -188,7 +188,9 @@ public class AssignUniqueIdOperator
             if (rowIdCounter >= maxRowIdCounterValue) {
                 requestValues();
             }
-            BIGINT.writeLong(block, uniqueValueMask | rowIdCounter++);
+            long rowId = rowIdCounter++;
+            checkState((rowId & uniqueValueMask) == 0, "RowId and uniqueValue mask overlaps");
+            BIGINT.writeLong(block, uniqueValueMask | rowId);
         }
         return block.build();
     }
