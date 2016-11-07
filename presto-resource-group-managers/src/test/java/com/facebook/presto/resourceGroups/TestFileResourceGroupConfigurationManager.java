@@ -78,6 +78,12 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getJmxExport(), false);
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector refers to nonexistent group: a.b.c.X")
+    public void testNonExistentGroup()
+    {
+        parse("resource_groups_config_bad_selector.json");
+    }
+
     private FileResourceGroupConfigurationManager parse(String fileName)
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();

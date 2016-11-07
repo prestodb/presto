@@ -70,9 +70,29 @@ public abstract class AbstractResourceConfigurationManager
     {
         ImmutableList.Builder<ResourceGroupSelector> selectors = ImmutableList.builder();
         for (SelectorSpec spec : managerSpec.getSelectors()) {
+            validateSelectors(managerSpec.getRootGroups(), spec.getGroup().getSegments());
             selectors.add(new StaticSelector(spec.getUserRegex(), spec.getSourceRegex(), spec.getGroup()));
         }
         return selectors.build();
+    }
+
+    private void validateSelectors(List<ResourceGroupSpec> groups, List<ResourceGroupNameTemplate> selectorGroups)
+    {
+        StringBuilder fullyQualifiedGroupName = new StringBuilder();
+        while (!selectorGroups.isEmpty()) {
+            ResourceGroupNameTemplate groupName = selectorGroups.get(0);
+            fullyQualifiedGroupName.append(groupName);
+            Optional<ResourceGroupSpec> match = groups
+                    .stream()
+                    .filter(groupSpec -> groupSpec.getName().equals(groupName))
+                    .findFirst();
+            if (!match.isPresent()) {
+                throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName.toString()));
+            }
+            fullyQualifiedGroupName.append(".");
+            groups = match.get().getSubGroups();
+            selectorGroups = selectorGroups.subList(1, selectorGroups.size());
+        }
     }
 
     protected AbstractResourceConfigurationManager(ClusterMemoryPoolManager memoryPoolManager)
