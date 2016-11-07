@@ -29,9 +29,9 @@ public class HiveTableDefinitions
                     .setCreateTableDDLTemplate(
                             "CREATE %EXTERNAL% TABLE %NAME%(" +
                                     "   p_nationkey     BIGINT," +
-                                    "   p_name          STRING," +
-                                    "   p_comment       STRING) " +
-                                    "PARTITIONED BY (p_regionkey INT)" +
+                                    "   p_name          VARCHAR(25)," +
+                                    "   p_comment       VARCHAR(152)) " +
+                                    "PARTITIONED BY (p_regionkey BIGINT)" +
                                     "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|' ")
                     .addPartition(
                             "p_regionkey=1",
