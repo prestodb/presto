@@ -83,24 +83,24 @@ public class TestTablePartitioningInsertInto
             throws Exception
     {
         // read all data
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_nationkey < 40", NUMBER_OF_LINES_PER_SPLIT * 3);
+        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_nationkey < 40", 3);
 
         // read no partitions
         testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 42", 0);
 
         // read one partition
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 AND p_nationkey < 40", NUMBER_OF_LINES_PER_SPLIT * 1);
+        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 AND p_nationkey < 40", 1);
         // read two partitions
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 AND p_nationkey < 40 or p_regionkey = 3", NUMBER_OF_LINES_PER_SPLIT * 2);
+        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 AND p_nationkey < 40 or p_regionkey = 3", 2);
         // read all (three) partitions
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 OR p_nationkey < 40", NUMBER_OF_LINES_PER_SPLIT * 3);
+        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey = 2 OR p_nationkey < 40", 3);
 
         // range read two partitions
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey <= 2", NUMBER_OF_LINES_PER_SPLIT * 2);
-        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey <= 1 OR p_regionkey >= 3", NUMBER_OF_LINES_PER_SPLIT * 2);
+        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey <= 2", 2);
+        testQuerySplitsNumber("INSERT INTO %s SELECT * FROM %s WHERE p_regionkey <= 1 OR p_regionkey >= 3", 2);
     }
 
-    private void testQuerySplitsNumber(String query, int expectedProcessedLines)
+    private void testQuerySplitsNumber(String query, int expectedProcessedSplits)
             throws Exception
     {
         String partitionedNation = mutableTablesState().get(PARTITIONED_NATION_NAME).getNameInDatabase();
@@ -109,6 +109,6 @@ public class TestTablePartitioningInsertInto
         QueryResult queryResult = query(sqlStatement, UPDATE);
 
         long processedLinesCount = getProcessedLinesCount(sqlStatement, queryResult);
-        assertThat(processedLinesCount).isEqualTo(expectedProcessedLines);
+        assertThat(processedLinesCount).isEqualTo(expectedProcessedSplits * NUMBER_OF_LINES_PER_SPLIT);
     }
 }
