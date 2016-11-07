@@ -24,8 +24,10 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.teradata.tempto.Requirements.compose;
+import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static com.teradata.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static com.teradata.tempto.query.QueryExecutor.query;
 import static com.teradata.tempto.query.QueryType.UPDATE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,18 +55,6 @@ public class TestTablePartitioningInsertInto
                     .addPartition("p_regionkey=3", createResourceDataSource(PARTITIONED_NATION_NAME, DATA_REVISION, partitionDataFileResource(3)))
                     .build();
 
-    private static final HiveTableDefinition TARGET_NATION =
-            HiveTableDefinition.builder(TARGET_NATION_NAME)
-                    .setCreateTableDDLTemplate("" +
-                            "CREATE %EXTERNAL% TABLE %NAME%(" +
-                            "   p_nationkey     BIGINT," +
-                            "   p_name          STRING," +
-                            "   p_comment       STRING," +
-                            "   p_regionkey     INT) " +
-                            "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
-                    .setNoData()
-                    .build();
-
     private static String partitionDataFileResource(int region)
     {
         return "com/facebook/presto/tests/hive/data/partitioned_nation/nation_region_" + region + ".textfile";
@@ -75,7 +65,7 @@ public class TestTablePartitioningInsertInto
     {
         return compose(
                 MutableTableRequirement.builder(PARTITIONED_NATION).build(),
-                MutableTableRequirement.builder(TARGET_NATION).build());
+                MutableTableRequirement.builder(NATION).withState(CREATED).withName(TARGET_NATION_NAME).build());
     }
 
     @Test(groups = {HIVE_CONNECTOR, SMOKE})
@@ -105,7 +95,11 @@ public class TestTablePartitioningInsertInto
     {
         String partitionedNation = mutableTablesState().get(PARTITIONED_NATION_NAME).getNameInDatabase();
         String targetNation = mutableTablesState().get(TARGET_NATION_NAME).getNameInDatabase();
-        String query = String.format("INSERT INTO %s SELECT * FROM %s WHERE %s", targetNation, partitionedNation, condition);
+        String query = String.format(
+                "INSERT INTO %s SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s",
+                targetNation,
+                partitionedNation,
+                condition);
         QueryResult queryResult = query(query, UPDATE);
 
         long processedLinesCount = getProcessedLinesCount(query, queryResult);
