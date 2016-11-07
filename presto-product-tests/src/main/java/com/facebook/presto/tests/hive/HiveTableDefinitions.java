@@ -24,6 +24,8 @@ public class HiveTableDefinitions
 
     private static final String NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME = "nation_partitioned_by_regionkey";
 
+    public static final int NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT = 5;
+
     public static final HiveTableDefinition NATION_PARTITIONED_BY_REGIONKEY =
             HiveTableDefinition.builder(NATION_PARTITIONED_BY_REGIONKEY_TABLE_NAME)
                     .setCreateTableDDLTemplate(

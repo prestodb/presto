@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.SMOKE;
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY;
+import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -36,8 +37,6 @@ public class TestTablePartitioningInsertInto
         implements RequirementsProvider
 {
     private static final String TARGET_NATION_NAME = "target_nation_test";
-
-    private static final int NUMBER_OF_LINES_PER_SPLIT = 5;
 
     @Override
     public Requirement getRequirements(Configuration configuration)
@@ -82,6 +81,7 @@ public class TestTablePartitioningInsertInto
         QueryResult queryResult = query(query, UPDATE);
 
         long processedLinesCount = getProcessedLinesCount(query, queryResult);
-        assertThat(processedLinesCount).isEqualTo(expectedProcessedSplits * NUMBER_OF_LINES_PER_SPLIT);
+        int expectedLinesCount = expectedProcessedSplits * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
+        assertThat(processedLinesCount).isEqualTo(expectedLinesCount);
     }
 }
