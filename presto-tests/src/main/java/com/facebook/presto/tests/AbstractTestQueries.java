@@ -7707,4 +7707,21 @@ public abstract class AbstractTestQueries
                         "WHERE (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) OR TRUE",
                 "Unsupported correlated subquery type");
     }
+
+    @Test
+    public void testAssignUniqueId()
+    {
+        String unionLineitem50Times = IntStream.range(0, 50)
+                .mapToObj(i -> "SELECT * FROM lineitem")
+                .collect(joining(" UNION ALL "));
+
+        assertQuery(
+                "SELECT count(*) FROM (" +
+                        "SELECT * FROM (" +
+                        "   SELECT (SELECT count(*) WHERE c = 1) " +
+                        "   FROM (SELECT CASE orderkey WHEN 1 THEN orderkey ELSE 1 END " +
+                        "       FROM (" + unionLineitem50Times + ")) o(c)) result(a) " +
+                        "WHERE a = 1)",
+                "VALUES 3008750");
+    }
 }
