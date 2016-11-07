@@ -1302,6 +1302,15 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testGroupByWildcard()
+        throws Exception
+    {
+        assertQueryFails(
+                "SELECT * FROM (VALUES (1,1)) t(x,y) GROUP BY 1",
+                "Column 't.y' not in GROUP BY clause");
+    }
+
+    @Test
     public void testGroupByCount()
             throws Exception
     {
