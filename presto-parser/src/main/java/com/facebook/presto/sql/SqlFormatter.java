@@ -341,7 +341,8 @@ public final class SqlFormatter
         @Override
         protected Void visitTable(Table node, Integer indent)
         {
-            builder.append(node.getName().toString());
+            builder.append(formatName(node.getName()));
+
             return null;
         }
 
