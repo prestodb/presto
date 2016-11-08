@@ -7,11 +7,11 @@ env:
     - MAVEN_FAST_INSTALL="-DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1"
   matrix:
     - MAVEN_CHECKS=true
-    - TEST_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kafka,!presto-mysql,!presto-postgresql,!presto-redis,!presto-docs,!presto-server,!presto-server-rpm
-    - TEST_MODULES=presto-tests
-    - TEST_MODULES=presto-raptor
-    - TEST_MODULES=presto-accumulo
-    - TEST_MODULES=presto-cassandra,presto-hive,presto-kafka,presto-mysql,presto-postgresql,presto-redis
+    - TEST_SPECIFIC_MODULES=presto-tests
+    - TEST_SPECIFIC_MODULES=presto-raptor
+    - TEST_SPECIFIC_MODULES=presto-accumulo
+    - TEST_SPECIFIC_MODULES=presto-cassandra,presto-hive,presto-kafka,presto-mysql,presto-postgresql,presto-redis
+    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kafka,!presto-mysql,!presto-postgresql,!presto-redis,!presto-docs,!presto-server,!presto-server-rpm
     - PRODUCT_TESTS=true
     - HIVE_TESTS=true
 
@@ -31,12 +31,20 @@ before_install:
 
 install:
   - |
-    if [[ -v PRODUCT_TESTS || -v HIVE_TESTS ]]; then
-      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl $TEST_SPECIFIC_MODULES -am
     fi
   - |
-    if [[ -v TEST_MODULES ]]; then
-      ./mvnw install $MAVEN_FAST_INSTALL -pl $TEST_MODULES -am
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+    fi
+  - |
+    if [[ -v HIVE_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
     fi
 
 script:
@@ -45,8 +53,12 @@ script:
       ./mvnw install -DskipTests -B -T C1
     fi
   - |
-    if [[ -v TEST_MODULES ]]; then
-      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES
+    fi
+  - |
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_OTHER_MODULES
     fi
   - |
     if [[ -v PRODUCT_TESTS ]]; then
