@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -25,6 +27,7 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.testing.Closeables;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -45,7 +48,9 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTIO
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -78,6 +83,32 @@ public class TestServer
     {
         Closeables.closeQuietly(server);
         Closeables.closeQuietly(client);
+    }
+
+    @Test
+    public void testServerStillInitalizing()
+            throws Exception
+    {
+        server.getAccessConnectorManager().resetSystemAccessControl();
+        String query = "show catalogs";
+        URI uri = uriBuilderFrom(server.resolve("/v1/statement")).build();
+
+        Request request = preparePost().setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_CATALOG, "catalog")
+                .setHeader(PRESTO_SCHEMA, "schema")
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator(query, UTF_8))
+                .build();
+
+        JsonResponse<QueryResults> response = client.execute(request, createFullJsonResponseHandler(jsonCodec(QueryResults.class)));
+        ObjectMapper mapper = new ObjectMapperProvider().get();
+        QueryError queryError = mapper.readValue(response.getJson(), QueryError.class);
+
+        assertEquals(queryError.getErrorCode(), SERVER_STARTING_UP.toErrorCode().getCode());
+        assertEquals(queryError.getErrorName(), "SERVER_STARTING_UP");
+        assertEquals(queryError.getErrorType(), "INTERNAL_ERROR");
+        assertEquals(queryError.getMessage(), "Presto server is still initializing");
     }
 
     @Test

@@ -299,6 +299,11 @@ public class TestingPrestoServer
         return queryManager;
     }
 
+    public AccessControlManager getAccessConnectorManager()
+    {
+        return connectorManager.getAccessControlManager();
+    }
+
     public ConnectorId createCatalog(String catalogName, String connectorName)
     {
         return createCatalog(catalogName, connectorName, ImmutableMap.of());
