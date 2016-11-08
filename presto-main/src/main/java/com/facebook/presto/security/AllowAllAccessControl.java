@@ -20,6 +20,7 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.Set;
 
 public class AllowAllAccessControl
         implements AccessControl
@@ -27,6 +28,12 @@ public class AllowAllAccessControl
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
+    }
+
+    @Override
+    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    {
+        return catalogs;
     }
 
     @Override

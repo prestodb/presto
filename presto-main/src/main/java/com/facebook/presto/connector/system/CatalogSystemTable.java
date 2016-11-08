@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -23,13 +26,13 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.transaction.TransactionId;
-import com.facebook.presto.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
 import java.util.Map;
 
+import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -44,12 +47,14 @@ public class CatalogSystemTable
             .column("catalog_name", createUnboundedVarcharType())
             .column("connector_id", createUnboundedVarcharType())
             .build();
-    private final TransactionManager transactionManager;
+    private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public CatalogSystemTable(TransactionManager transactionManager)
+    public CatalogSystemTable(Metadata metadata, AccessControl accessControl)
     {
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -65,11 +70,11 @@ public class CatalogSystemTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
+        Session session = toSession(transactionHandle, connectorSession);
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, ConnectorId> entry : transactionManager.getCatalogNames(transactionId).entrySet()) {
+        for (Map.Entry<String, ConnectorId> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
             table.addRow(entry.getKey(), entry.getValue().toString());
         }
         return table.build().cursor();

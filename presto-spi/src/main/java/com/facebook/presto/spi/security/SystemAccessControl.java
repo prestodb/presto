@@ -17,6 +17,8 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 
 import java.security.Principal;
+import java.util.Collections;
+import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
@@ -52,6 +54,14 @@ public interface SystemAccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
+
+    /**
+     * Filter the list of catalogs to those visible to the identity.
+     */
+    default Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    {
+        return Collections.emptySet();
+    }
 
     /**
      * Check if identity is allowed to create the specified schema in a catalog.

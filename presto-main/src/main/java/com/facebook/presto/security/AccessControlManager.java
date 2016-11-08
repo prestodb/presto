@@ -41,6 +41,7 @@ import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -160,6 +161,15 @@ public class AccessControlManager
         requireNonNull(userName, "userName is null");
 
         authenticationCheck(() -> systemAccessControl.get().checkCanSetUser(principal, userName));
+    }
+
+    @Override
+    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(catalogs, "catalogs is null");
+
+        return systemAccessControl.get().filterCatalogs(identity, catalogs);
     }
 
     @Override
@@ -561,6 +571,12 @@ public class AccessControlManager
         @Override
         public void checkCanSetUser(Principal principal, String userName)
         {
+        }
+
+        @Override
+        public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+        {
+            return catalogs;
         }
 
         @Override

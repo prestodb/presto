@@ -18,8 +18,10 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
+import com.google.common.collect.ImmutableSet;
 
 import java.security.Principal;
+import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
@@ -49,6 +51,12 @@ public class DenyAllAccessControl
     public void checkCanSetUser(Principal principal, String userName)
     {
         denySetUser(principal, userName);
+    }
+
+    @Override
+    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    {
+        return ImmutableSet.of();
     }
 
     @Override

@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.connector.system.jdbc;
 
-import com.facebook.presto.connector.system.GlobalSystemTransactionHandle;
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
@@ -22,11 +24,11 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.transaction.TransactionId;
-import com.facebook.presto.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
+import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
@@ -40,12 +42,14 @@ public class CatalogJdbcTable
             .column("table_cat", createUnboundedVarcharType())
             .build();
 
-    private final TransactionManager transactionManager;
+    private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public CatalogJdbcTable(TransactionManager transactionManager)
+    public CatalogJdbcTable(Metadata metadata, AccessControl accessControl)
     {
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -55,11 +59,11 @@ public class CatalogJdbcTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
+        Session session = toSession(transactionHandle, connectorSession);
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String name : transactionManager.getCatalogNames(transactionId).keySet()) {
+        for (String name : listCatalogs(session, metadata, accessControl).keySet()) {
             table.addRow(name);
         }
         return table.build().cursor();
