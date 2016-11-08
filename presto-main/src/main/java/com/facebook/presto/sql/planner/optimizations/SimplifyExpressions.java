@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
@@ -83,7 +84,9 @@ public class SimplifyExpressions
         requireNonNull(types, "types is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
-        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, sqlParser, session, types, idAllocator), plan);
+        Rewriter rewriter = new Rewriter(metadata, sqlParser, session, types, idAllocator);
+        PlanNode rewrittenPlanNode = SimplePlanRewriter.rewriteWith(rewriter, plan);
+        return UnusedApplyRemover.pruneUnreferencedApplyNodes(rewriter.getRemovedExpressions(), rewrittenPlanNode);
     }
 
     private static class Rewriter
@@ -94,6 +97,7 @@ public class SimplifyExpressions
         private final Session session;
         private final Map<Symbol, Type> types;
         private final PlanNodeIdAllocator idAllocator;
+        private final ImmutableList.Builder<Expression> removedExpressions = ImmutableList.builder();
 
         public Rewriter(Metadata metadata, SqlParser sqlParser, Session session, Map<Symbol, Type> types, PlanNodeIdAllocator idAllocator)
         {
@@ -117,6 +121,14 @@ public class SimplifyExpressions
         {
             PlanNode source = context.rewrite(node.getSource());
             Expression simplified = simplifyExpression(node.getPredicate());
+
+            Set<Symbol> predicateSymbols = DependencyExtractor.extractUnique(node.getPredicate());
+            Set<Symbol> simplifiedSymbols = DependencyExtractor.extractUnique(simplified);
+
+            predicateSymbols.stream()
+                    .filter(symbol -> !simplifiedSymbols.contains(symbol))
+                    .forEach(symbol -> removedExpressions.add(symbol.toSymbolReference()));
+
             if (simplified.equals(TRUE_LITERAL)) {
                 return source;
             }
@@ -155,6 +167,11 @@ public class SimplifyExpressions
             IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, expression, emptyList() /* parameters already replaced */);
             ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return LiteralInterpreter.toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(expression));
+        }
+
+        public List<Expression> getRemovedExpressions()
+        {
+            return removedExpressions.build();
         }
     }
 
