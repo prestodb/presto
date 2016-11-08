@@ -54,6 +54,22 @@ public interface AccessControl
     void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName);
 
     /**
+     * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterSchemas} method must filter all results for unauthorized users,
+     * since there are multiple ways to list schemas.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Filter the list of schemas in a catalog to those visible to the identity.
+     */
+    Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames);
+
+    /**
      * Check if identity is allowed to create the specified table.
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */

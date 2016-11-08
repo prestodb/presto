@@ -194,7 +194,7 @@ public class ConnectorManager
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadataManager));
+                new InformationSchemaConnector(catalogName, nodeManager, metadataManager, accessControlManager));
 
         ConnectorId systemId = createSystemTablesConnectorId(connectorId);
         MaterializedConnector systemConnector = new MaterializedConnector(systemId, new SystemConnector(

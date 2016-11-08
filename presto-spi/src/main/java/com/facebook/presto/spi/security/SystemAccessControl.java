@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 
 public interface SystemAccessControl
 {
@@ -91,6 +92,28 @@ public interface SystemAccessControl
     default void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
     {
         denyRenameSchema(schema.toString(), newSchemaName);
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterSchemas} method must filter all results for unauthorized users,
+     * since there are multiple ways to list schemas.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowSchemas(Identity identity, String catalogName)
+    {
+        denyShowSchemas();
+    }
+
+    /**
+     * Filter the list of schemas in a catalog to those visible to the identity.
+     */
+    default Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
+    {
+        return Collections.emptySet();
     }
 
     /**

@@ -17,6 +17,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Collections;
+import java.util.Set;
+
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -35,6 +38,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 
 public interface ConnectorAccessControl
 {
@@ -66,6 +70,28 @@ public interface ConnectorAccessControl
     default void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, Identity identity, String schemaName, String newSchemaName)
     {
         denyRenameSchema(schemaName, newSchemaName);
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterSchemas} method must handle filter all results for unauthorized users,
+     * since there are multiple way to list schemas.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, Identity identity)
+    {
+        denyShowSchemas();
+    }
+
+    /**
+     * Filter the list of schemas to those visible to the identity.
+     */
+    default Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> schemaNames)
+    {
+        return Collections.emptySet();
     }
 
     /**

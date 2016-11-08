@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -62,6 +63,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
+import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -74,10 +76,12 @@ public class InformationSchemaPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
-    public InformationSchemaPageSourceProvider(Metadata metadata)
+    public InformationSchemaPageSourceProvider(Metadata metadata, AccessControl accessControl)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -230,7 +234,7 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildSchemata(Session session, String catalogName)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_SCHEMATA));
-        for (String schema : metadata.listSchemaNames(session, catalogName)) {
+        for (String schema : listSchemas(session, metadata, accessControl, catalogName)) {
             table.add(catalogName, schema);
         }
         return table.build();

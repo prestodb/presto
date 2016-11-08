@@ -116,7 +116,7 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, "catalog");
+        ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
         accessControlManager.addCatalogAccessControl(connectorId, new DenyConnectorAccessControl());
 
         transaction(transactionManager, accessControlManager)
@@ -137,7 +137,7 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        registerBogusConnector(catalogManager, transactionManager, "connector");
+        registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
         accessControlManager.addCatalogAccessControl(new ConnectorId("connector"), new DenyConnectorAccessControl());
 
         transaction(transactionManager, accessControlManager)
@@ -146,7 +146,7 @@ public class TestAccessControlManager
                 });
     }
 
-    private static ConnectorId registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, String catalogName)
+    private static ConnectorId registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
     {
         ConnectorId connectorId = new ConnectorId(catalogName);
         Connector connector = new TpchConnectorFactory().create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
@@ -159,7 +159,7 @@ public class TestAccessControlManager
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,
                 new SystemConnector(
                         systemId,
