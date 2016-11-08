@@ -8150,4 +8150,37 @@ public abstract class AbstractTestQueries
     {
         assertQueryFails("DESCRIBE OUTPUT my_query", "Prepared statement not found: my_query");
     }
+
+    @Test
+    public void testSubqueriesWithDisjunction()
+            throws Exception
+    {
+        List<QueryTemplate.Parameter> projections = new QueryTemplate.Parameter("projection").of("count(*)", "*", "%condition%");
+        List<QueryTemplate.Parameter> conditions = new QueryTemplate.Parameter("condition").of(
+                "nationkey IN (SELECT 1) OR TRUE",
+                "EXISTS(SELECT 1) OR TRUE");
+
+        QueryTemplate queryTemplate = new QueryTemplate("SELECT %projection% FROM nation WHERE %condition%");
+        for (QueryTemplate.Parameter projection : projections) {
+            for (QueryTemplate.Parameter condition : conditions) {
+                assertQuery(queryTemplate.replace(projection, condition));
+            }
+        }
+
+        queryTemplate = new QueryTemplate("SELECT %projection% FROM nation WHERE (%condition%) AND nationkey <3");
+        for (QueryTemplate.Parameter projection : projections) {
+            for (QueryTemplate.Parameter condition : conditions) {
+                assertQuery(queryTemplate.replace(projection, condition));
+            }
+        }
+
+        assertQuery(
+                "SELECT count(*) FROM nation WHERE (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) OR TRUE",
+                "SELECT 25");
+        assertQueryFails(
+                "SELECT (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) " +
+                        "FROM nation " +
+                        "WHERE (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) OR TRUE",
+                "Unsupported correlated subquery type");
+    }
 }
