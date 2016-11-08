@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -80,6 +81,7 @@ import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -98,7 +100,6 @@ public final class HttpRemoteTask
     private static final Logger log = Logger.get(HttpRemoteTask.class);
     private static final Duration MAX_CLEANUP_RETRY_TIME = new Duration(2, TimeUnit.MINUTES);
     private static final int MIN_RETRIES = 3;
-    private static final double SPLIT_QUEUE_FILL_RATIO = 2.0;
 
     private final TaskId taskId;
 
@@ -111,7 +112,6 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
-    private final int maxPendingSplits;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -127,9 +127,11 @@ public final class HttpRemoteTask
     @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
     @GuardedBy("this")
-    private CompletableFuture<?> whenSplitQueueHasSpace = new CompletableFuture<>();
+    private CompletableFuture<?> whenSplitQueueHasSpace = completedFuture(null);
     @GuardedBy("this")
-    private CompletableFuture<?> unmodifiableWhenSplitQueueHasSpace = new CompletableFuture<>();
+    private CompletableFuture<?> unmodifiableWhenSplitQueueHasSpace = completedFuture(null);
+    @GuardedBy("this")
+    private OptionalInt whenSplitQueueHasSpaceThreshold = OptionalInt.empty();
 
     private final boolean summarizeTaskInfo;
     private final Duration requestTimeout;
@@ -162,7 +164,6 @@ public final class HttpRemoteTask
             Duration minErrorDuration,
             Duration taskStatusRefreshMaxWait,
             Duration taskInfoUpdateInterval,
-            int maxPendingSplits,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
@@ -197,7 +198,6 @@ public final class HttpRemoteTask
             this.taskInfoCodec = taskInfoCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, minErrorDuration, errorScheduledExecutor, "updating task");
-            this.maxPendingSplits = maxPendingSplits;
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.stats = stats;
 
@@ -385,14 +385,24 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized CompletableFuture<?> whenSplitQueueHasSpace()
+    public synchronized CompletableFuture<?> whenSplitQueueHasSpace(int threshold)
     {
+        if (whenSplitQueueHasSpaceThreshold.isPresent()) {
+            checkArgument(threshold == whenSplitQueueHasSpaceThreshold.getAsInt(), "Multiple split queue space notification thresholds not supported");
+        }
+        else {
+            whenSplitQueueHasSpaceThreshold = OptionalInt.of(threshold);
+            updateSplitQueueSpace();
+        }
         return unmodifiableWhenSplitQueueHasSpace;
     }
 
     private synchronized void updateSplitQueueSpace()
     {
-        if (getQueuedPartitionedSplitCount() < Math.ceil(maxPendingSplits / SPLIT_QUEUE_FILL_RATIO)) {
+        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
+            return;
+        }
+        if (getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt()) {
             if (!whenSplitQueueHasSpace.isDone()) {
                 fireSplitQueueHasSpace(whenSplitQueueHasSpace);
                 whenSplitQueueHasSpace = completedFuture(null);

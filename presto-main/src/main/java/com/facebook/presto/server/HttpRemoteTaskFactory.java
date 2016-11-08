@@ -24,7 +24,6 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.remotetask.HttpRemoteTask;
@@ -65,7 +64,6 @@ public class HttpRemoteTaskFactory
     private final Duration minErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
-    private final int maxPendingSplitsPerTask;
     private final ExecutorService coreExecutor;
     private final Executor executor;
     private final ThreadPoolExecutorMBean executorMBean;
@@ -76,7 +74,6 @@ public class HttpRemoteTaskFactory
     @Inject
     public HttpRemoteTaskFactory(QueryManagerConfig config,
             TaskManagerConfig taskConfig,
-            NodeSchedulerConfig schedulerConfig,
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusCodec,
@@ -92,7 +89,6 @@ public class HttpRemoteTaskFactory
         this.minErrorDuration = config.getRemoteTaskMinErrorDuration();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
-        this.maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
@@ -141,7 +137,6 @@ public class HttpRemoteTaskFactory
                 minErrorDuration,
                 taskStatusRefreshMaxWait,
                 taskInfoUpdateInterval,
-                maxPendingSplitsPerTask,
                 summarizeTaskInfo,
                 taskStatusCodec,
                 taskInfoCodec,

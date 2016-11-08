@@ -41,7 +41,7 @@ public interface RemoteTask
 
     void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener);
 
-    CompletableFuture<?> whenSplitQueueHasSpace();
+    CompletableFuture<?> whenSplitQueueHasSpace(int threshold);
 
     void cancel();
 

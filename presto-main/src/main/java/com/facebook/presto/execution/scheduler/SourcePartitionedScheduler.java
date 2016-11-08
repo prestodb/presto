@@ -70,13 +70,6 @@ public class SourcePartitionedScheduler
     @Override
     public synchronized ScheduleResult schedule()
     {
-        // Acquire a future for the next state change before doing calculations.
-        //
-        // This code may need to return a future when the workers are full, and
-        // it is critical that this future is notified of any changes that occur
-        // during this calculation (to avoid starvation).
-        CompletableFuture<?> taskHasSpace = stage.whenTaskSplitQueueHasSpace();
-
         // try to get the next batch if necessary
         if (pendingSplits.isEmpty()) {
             if (batchFuture == null) {
@@ -101,7 +94,8 @@ public class SourcePartitionedScheduler
         }
 
         // assign the splits
-        Multimap<Node, Split> splitAssignment = splitPlacementPolicy.computeAssignments(pendingSplits);
+        SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
+        Multimap<Node, Split> splitAssignment = splitPlacementResult.getAssignments();
         Set<RemoteTask> newTasks = assignSplits(splitAssignment);
 
         // remove assigned splits
@@ -114,7 +108,7 @@ public class SourcePartitionedScheduler
                     .addAll(finalizeTaskCreationIfNecessary())
                     .build();
 
-            return new ScheduleResult(false, newTasks, taskHasSpace, SPLIT_QUEUES_FULL, splitAssignment.values().size());
+            return new ScheduleResult(false, newTasks, splitPlacementResult.getBlocked(), SPLIT_QUEUES_FULL, splitAssignment.values().size());
         }
 
         // all splits assigned - check if the source is finished
