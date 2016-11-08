@@ -19,10 +19,9 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.LazyBlock;
 import com.facebook.presto.spi.block.LazyBlockLoader;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -33,13 +32,17 @@ import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getFieldIndex;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -110,11 +113,7 @@ public class ParquetPageSource
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
             if (getParquetType(column, fileSchema, useParquetColumnNames) == null) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(new BlockBuilderStatus(), MAX_VECTOR_LENGTH);
-                for (int i = 0; i < MAX_VECTOR_LENGTH; i++) {
-                    blockBuilder.appendNull();
-                }
-                constantBlocks[columnIndex] = blockBuilder.build();
+                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_VECTOR_LENGTH);
             }
         }
         types = typesBuilder.build();
@@ -169,33 +168,38 @@ public class ParquetPageSource
 
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Type type = types.get(fieldId);
                 if (constantBlocks[fieldId] != null) {
                     blocks[fieldId] = constantBlocks[fieldId].getRegion(0, batchSize);
                 }
                 else {
+                    Type type = types.get(fieldId);
                     int fieldIndex;
                     if (useParquetColumnNames) {
-                        fieldIndex = fileSchema.getFieldIndex(columnNames.get(fieldId));
+                        fieldIndex = getFieldIndex(fileSchema, columnNames.get(fieldId));
                     }
                     else {
                         fieldIndex = hiveColumnIndexes[fieldId];
                     }
 
-                    // Since we only support primitives in the new reader we just create the path
-                    // from the field name and lookup the column descriptor with that path.
-                    // With complex type support this lookup logic has to be rewritten.
-                    parquet.schema.Type field = fileSchema.getFields().get(fieldIndex);
-                    String[] path = new String[] {field.getName()};
-                    ColumnDescriptor columnDescriptor = null;
-                    for (ColumnDescriptor column : fileSchema.getColumns()) {
-                        if (Arrays.equals(column.getPath(), path)) {
-                            columnDescriptor = column;
-                            break;
+                    if (fieldIndex == -1) {
+                        blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
+                        continue;
+                    }
+
+                    List<String> path = new ArrayList<>();
+                    path.add(fileSchema.getFields().get(fieldIndex).getName());
+                    if (ROW.equals(type.getTypeSignature().getBase())) {
+                        blocks[fieldId] = parquetReader.readStruct(type, path);
+                    }
+                    else {
+                        Optional<RichColumnDescriptor> descriptor = getDescriptor(fileSchema, requestedSchema, path);
+                        if (descriptor.isPresent()) {
+                            blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(descriptor.get(), type));
+                        }
+                        else {
+                            blocks[fieldId] = RunLengthEncodedBlock.create(type, null, batchSize);
                         }
                     }
-                    checkState(columnDescriptor != null, "columnDescriptor is null");
-                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(columnDescriptor, type));
                 }
             }
             return new Page(batchSize, blocks);
@@ -204,7 +208,7 @@ public class ParquetPageSource
             closeWithSuppression(e);
             throw e;
         }
-        catch (RuntimeException e) {
+        catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
         }
@@ -264,7 +268,7 @@ public class ParquetPageSource
             checkState(batchId == expectedBatchId);
 
             try {
-                Block block = parquetReader.readBlock(columnDescriptor, type);
+                Block block = parquetReader.readPrimitive(columnDescriptor, type);
                 lazyBlock.setBlock(block);
             }
             catch (IOException e) {
