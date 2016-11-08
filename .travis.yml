@@ -7,11 +7,11 @@ env:
     - MAVEN_FAST_INSTALL="-DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1"
   matrix:
     - MAVEN_CHECKS=true
-    - TEST_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-hive-cdh4,!presto-hive-cdh5,!presto-hive-hadoop1,!presto-hive-hadoop2,!presto-kafka,!presto-mysql,!presto-postgresql,!presto-redis,!presto-docs,!presto-server,!presto-server-rpm
+    - TEST_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kafka,!presto-mysql,!presto-postgresql,!presto-redis,!presto-docs,!presto-server,!presto-server-rpm
     - TEST_MODULES=presto-tests
     - TEST_MODULES=presto-raptor
     - TEST_MODULES=presto-accumulo
-    - TEST_MODULES=presto-cassandra,presto-hive,presto-hive-cdh4,presto-hive-cdh5,presto-hive-hadoop1,presto-hive-hadoop2,presto-kafka,presto-mysql,presto-postgresql,presto-redis
+    - TEST_MODULES=presto-cassandra,presto-hive,presto-kafka,presto-mysql,presto-postgresql,presto-redis
     - PRODUCT_TESTS=true
     - HIVE_TESTS=true
 
