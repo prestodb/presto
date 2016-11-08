@@ -15,6 +15,7 @@ package com.facebook.presto.spi.security;
 
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
 import java.util.Collections;
@@ -39,6 +40,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denySelectT
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTables;
 
 public interface SystemAccessControl
 {
@@ -144,6 +146,28 @@ public interface SystemAccessControl
     default void checkCanRenameTable(Identity identity, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
         denyRenameTable(table.toString(), newTable.toString());
+    }
+
+    /**
+     * Check if identity is allowed to execute SHOW TABLES in a catalog.
+     *
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterTables} method must filter all results for unauthorized users,
+     * since there are multiple ways to list tables.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowTables(Identity identity, CatalogSchemaName schema)
+    {
+        denyShowTables(schema.toString());
+    }
+
+    /**
+     * Filter the list of tables and views to those visible to the identity.
+     */
+    default Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    {
+        return Collections.emptySet();
     }
 
     /**

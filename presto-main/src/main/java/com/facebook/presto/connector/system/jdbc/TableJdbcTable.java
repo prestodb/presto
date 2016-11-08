@@ -15,7 +15,6 @@ package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
@@ -36,6 +35,8 @@ import static com.facebook.presto.connector.system.jdbc.FilterUtil.filter;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.stringFilter;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.tablePrefix;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
+import static com.facebook.presto.metadata.MetadataListing.listTables;
+import static com.facebook.presto.metadata.MetadataListing.listViews;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
@@ -88,23 +89,23 @@ public class TableJdbcTable
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
-                for (QualifiedObjectName name : metadata.listTables(session, prefix)) {
-                    table.addRow(tableRow(name, "TABLE"));
+                for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
+                    table.addRow(tableRow(catalog, name, "TABLE"));
                 }
             }
 
             if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
-                for (QualifiedObjectName name : metadata.listViews(session, prefix)) {
-                    table.addRow(tableRow(name, "VIEW"));
+                for (SchemaTableName name : listViews(session, metadata, accessControl, prefix)) {
+                    table.addRow(tableRow(catalog, name, "VIEW"));
                 }
             }
         }
         return table.build().cursor();
     }
 
-    private static Object[] tableRow(QualifiedObjectName name, String type)
+    private static Object[] tableRow(String catalog, SchemaTableName name, String type)
     {
-        return new Object[] {name.getCatalogName(), name.getSchemaName(), name.getObjectName(), type,
+        return new Object[] {catalog, name.getSchemaName(), name.getTableName(), type,
                              null, null, null, null, null, null};
     }
 }

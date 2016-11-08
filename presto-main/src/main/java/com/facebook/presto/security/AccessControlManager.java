@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
@@ -285,6 +286,36 @@ public class AccessControlManager
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanRenameTable(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), newTableName.asSchemaTableName()));
         }
+    }
+
+    @Override
+    public void checkCanShowTables(TransactionId transactionId, Identity identity, CatalogSchemaName schema)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(schema, "schema is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanShowTables(identity, schema));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schema.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanShowTables(entry.getTransactionHandle(transactionId), identity, schema.getSchemaName()));
+        }
+    }
+
+    @Override
+    public Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(tableNames, "tableNames is null");
+
+        tableNames =  systemAccessControl.get().filterTables(identity, catalogName, tableNames);
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        if (entry != null) {
+            tableNames = entry.getAccessControl().filterTables(entry.getTransactionHandle(transactionId), identity, tableNames);
+        }
+        return tableNames;
     }
 
     @Override
@@ -653,6 +684,17 @@ public class AccessControlManager
         @Override
         public void checkCanRenameTable(Identity identity, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
         {
+        }
+
+        @Override
+        public void checkCanShowTables(Identity identity, CatalogSchemaName schema)
+        {
+        }
+
+        @Override
+        public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+        {
+            return tableNames;
         }
 
         @Override
