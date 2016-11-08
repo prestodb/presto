@@ -16,6 +16,6 @@
       "group": "global"
     }
   ],
-  "cpuQuotaPeriod": "30s"
+  "cpuQuotaPeriod": "30d"
 }
 
