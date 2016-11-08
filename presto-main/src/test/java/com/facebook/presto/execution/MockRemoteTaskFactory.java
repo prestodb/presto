@@ -316,7 +316,7 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public synchronized CompletableFuture<?> whenSplitQueueHasSpace()
+        public synchronized CompletableFuture<?> whenSplitQueueHasSpace(int threshold)
         {
             return unmodifiableFuture(whenSplitQueueHasSpace);
         }

@@ -37,11 +37,14 @@ import javax.inject.Inject;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
@@ -49,7 +52,9 @@ import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.firstCompletedFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class NodeScheduler
 {
@@ -252,7 +257,7 @@ public class NodeScheduler
         return ImmutableList.copyOf(chosen);
     }
 
-    public static Multimap<Node, Split> selectDistributionNodes(
+    public static SplitPlacementResult selectDistributionNodes(
             NodeMap nodeMap,
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
@@ -264,6 +269,7 @@ public class NodeScheduler
         Multimap<Node, Split> assignments = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
+        Set<Node> blockedNodes = new HashSet<>();
         for (Split split : splits) {
             // node placement is forced by the partitioning
             Node node = partitioning.getNode(split);
@@ -274,7 +280,45 @@ public class NodeScheduler
                 assignments.put(node, split);
                 assignmentStats.addAssignedSplit(node);
             }
+            else {
+                blockedNodes.add(node);
+            }
         }
-        return ImmutableMultimap.copyOf(assignments);
+
+        CompletableFuture<?> blocked = toWhenHasSplitQueueSpaceFuture(blockedNodes, existingTasks, calculateLowWatermark(maxPendingSplitsPerTask));
+        return new SplitPlacementResult(blocked, ImmutableMultimap.copyOf(assignments));
+    }
+
+    public static int calculateLowWatermark(int maxPendingSplitsPerTask)
+    {
+        return (int) Math.ceil(maxPendingSplitsPerTask / 2.0);
+    }
+
+    public static CompletableFuture<?> toWhenHasSplitQueueSpaceFuture(Set<Node> blockedNodes, List<RemoteTask> existingTasks, int spaceThreshold)
+    {
+        if (blockedNodes.isEmpty()) {
+            return completedFuture(null);
+        }
+        Map<String, RemoteTask> nodeToTaskMap = new HashMap<>();
+        for (RemoteTask task : existingTasks) {
+            nodeToTaskMap.put(task.getNodeId(), task);
+        }
+        List<CompletableFuture<?>> blockedFutures = blockedNodes.stream()
+                .map(Node::getNodeIdentifier)
+                .map(nodeToTaskMap::get)
+                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
+                .collect(toImmutableList());
+        return firstCompletedFuture(blockedFutures, true);
+    }
+
+    public static CompletableFuture<?> toWhenHasSplitQueueSpaceFuture(List<RemoteTask> existingTasks, int spaceThreshold)
+    {
+        if (existingTasks.isEmpty()) {
+            return completedFuture(null);
+        }
+        List<CompletableFuture<?>> stateChangeFutures = existingTasks.stream()
+                .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
+                .collect(toImmutableList());
+        return firstCompletedFuture(stateChangeFutures, true);
     }
 }

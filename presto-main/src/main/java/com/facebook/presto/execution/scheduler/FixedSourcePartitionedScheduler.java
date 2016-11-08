@@ -22,7 +22,6 @@ import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 
 import java.util.ArrayDeque;
 import java.util.List;
@@ -132,7 +131,7 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
-        public Multimap<Node, Split> computeAssignments(Set<Split> splits)
+        public SplitPlacementResult computeAssignments(Set<Split> splits)
         {
             return nodeSelector.computeAssignments(splits, remoteTasks.get(), partitioning);
         }

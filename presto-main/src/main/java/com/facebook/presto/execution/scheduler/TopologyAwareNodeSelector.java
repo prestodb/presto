@@ -35,13 +35,16 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static com.facebook.presto.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.randomizedNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectExactNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
+import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
 
@@ -111,7 +114,7 @@ public class TopologyAwareNodeSelector
     }
 
     @Override
-    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
+    public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         NodeMap nodeMap = this.nodeMap.get().get();
         Multimap<Node, Split> assignment = HashMultimap.create();
@@ -119,6 +122,8 @@ public class TopologyAwareNodeSelector
 
         int[] topologicCounters = new int[topologicalSplitCounters.size()];
         Set<NetworkLocation> filledLocations = new HashSet<>();
+        Set<Node> blockedExactNodes = new HashSet<>();
+        boolean splitWaitingForAnyNode = false;
         for (Split split : splits) {
             if (!split.isRemotelyAccessible()) {
                 List<Node> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
@@ -130,6 +135,10 @@ public class TopologyAwareNodeSelector
                 if (chosenNode != null) {
                     assignment.put(chosenNode, split);
                     assignmentStats.addAssignedSplit(chosenNode);
+                }
+                // Exact node set won't matter, if a split is waiting for any node
+                else if (!splitWaitingForAnyNode) {
+                    blockedExactNodes.addAll(candidateNodes);
                 }
                 continue;
             }
@@ -159,8 +168,7 @@ public class TopologyAwareNodeSelector
                         continue;
                     }
                     Set<Node> nodes = nodeMap.getWorkersByNetworkPath().get(location);
-                    double queueFraction = (1.0 + i) / (1.0 + depth);
-                    chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, (int) Math.ceil(queueFraction * maxPendingSplitsPerTask), assignmentStats);
+                    chosenNode = bestNodeSplitCount(new ResettableRandomizedIterator<>(nodes), minCandidates, calculateMaxPendingSplits(i, depth), assignmentStats);
                     if (chosenNode != null) {
                         chosenDepth = i;
                         break;
@@ -173,17 +181,35 @@ public class TopologyAwareNodeSelector
                 assignmentStats.addAssignedSplit(chosenNode);
                 topologicCounters[chosenDepth]++;
             }
+            else {
+                splitWaitingForAnyNode = true;
+            }
         }
         for (int i = 0; i < topologicCounters.length; i++) {
             if (topologicCounters[i] > 0) {
                 topologicalSplitCounters.get(i).update(topologicCounters[i]);
             }
         }
-        return assignment;
+
+        CompletableFuture<?> blocked;
+        int maxPendingForWildcardNetworkAffinity = calculateMaxPendingSplits(0, networkLocationSegmentNames.size());
+        if (splitWaitingForAnyNode) {
+            blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingForWildcardNetworkAffinity));
+        }
+        else {
+            blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingForWildcardNetworkAffinity));
+        }
+        return new SplitPlacementResult(blocked, assignment);
+    }
+
+    private int calculateMaxPendingSplits(int currentDepth, int totalDepth)
+    {
+        double queueFraction = (1.0 + currentDepth) / (1.0 + totalDepth);
+        return (int) Math.ceil(maxPendingSplitsPerTask * queueFraction);
     }
 
     @Override
-    public Multimap<Node, Split> computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
+    public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, NodePartitionMap partitioning)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, partitioning);
     }
