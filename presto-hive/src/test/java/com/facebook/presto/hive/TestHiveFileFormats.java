@@ -105,6 +105,7 @@ public class TestHiveFileFormats
     private static TestingConnectorSession parquetCursorPushdownSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(false).setParquetPredicatePushdownEnabled(true)).getSessionProperties());
     private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(false)).getSessionProperties());
     private static TestingConnectorSession parquetPageSourcePushdown = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(true)).getSessionProperties());
+    private static final List<String> SUPPORTED_PARQUET_STRUCT_COLUMNS = ImmutableList.of("t_struct_bigint", "t_struct_null", "t_struct_non_nulls_after_nulls", "t_nested_struct_non_nulls_after_nulls");
 
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
@@ -279,7 +280,7 @@ public class TestHiveFileFormats
     {
         List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
         testColumns = testColumns.stream()
-                .filter(column -> column.getObjectInspector().getCategory() == Category.PRIMITIVE)
+                .filter(column -> column.getObjectInspector().getCategory() == Category.PRIMITIVE || SUPPORTED_PARQUET_STRUCT_COLUMNS.contains(column.getName()))
                 .collect(toList());
         assertThatFileFormat(PARQUET)
                 .withColumns(testColumns)
