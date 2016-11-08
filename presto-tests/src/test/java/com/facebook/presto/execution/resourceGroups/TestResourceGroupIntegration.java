@@ -13,27 +13,16 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.QueryInfo;
-import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
-import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroupIntegration
 {
@@ -49,7 +38,7 @@ public class TestResourceGroupIntegration
             long startTime = System.nanoTime();
             while (true) {
                 SECONDS.sleep(1);
-                ResourceGroupInfo global = getResourceGroupInfo(queryRunner, new ResourceGroupId("global"));
+                ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(new ResourceGroupId("global"));
                 if (global.getSoftMemoryLimit().toBytes() > 0) {
                     break;
                 }
@@ -58,46 +47,8 @@ public class TestResourceGroupIntegration
         }
     }
 
-    @Test
-    public void testResourceGroupInfo()
-            throws Exception
-    {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of(), ImmutableMap.of("experimental.resource-groups-enabled", "true"))) {
-            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
-            queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_info.json")));
-
-            CompletableFuture<MaterializedResult> future = runAsync(queryRunner, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-            while (true) {
-                List<QueryInfo> queries = queryRunner.getCoordinator().getQueryManager().getAllQueryInfo();
-                if (!queries.isEmpty() && queries.get(0).getState().isDone()) {
-                    break;
-                }
-                if (queries.isEmpty() || !queries.get(0).getState().equals(QueryState.RUNNING)) {
-                    MILLISECONDS.sleep(1);
-                    continue;
-                }
-                ResourceGroupInfo global = getResourceGroupInfo(queryRunner, new ResourceGroupId("global"));
-                assertEquals(global.getQueryIds(), ImmutableSet.of(queries.get(0).getQueryId()));
-            }
-            ResourceGroupInfo global = getResourceGroupInfo(queryRunner, new ResourceGroupId("global"));
-            assertGreaterThan(global.getCpuUsage(), 0L);
-            future.get();
-            assertTrue(future.isDone());
-        }
-    }
-
     private String getResourceFilePath(String fileName)
     {
         return this.getClass().getClassLoader().getResource(fileName).getPath();
-    }
-
-    private static CompletableFuture<MaterializedResult> runAsync(DistributedQueryRunner queryRunner, String query)
-    {
-        return CompletableFuture.supplyAsync(() -> queryRunner.execute(query));
-    }
-
-    private static ResourceGroupInfo getResourceGroupInfo(DistributedQueryRunner queryRunner, ResourceGroupId id)
-    {
-        return queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(id);
     }
 }

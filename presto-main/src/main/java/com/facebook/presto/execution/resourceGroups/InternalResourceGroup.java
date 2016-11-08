@@ -16,7 +16,6 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
@@ -126,9 +125,6 @@ public class InternalResourceGroup
             List<ResourceGroupInfo> infos = subGroups.values().stream()
                     .map(InternalResourceGroup::getInfo)
                     .collect(Collectors.toList());
-            Set<QueryId> queryIds = runningQueries.stream()
-                    .map(QueryExecution::getQueryId)
-                    .collect(Collectors.toSet());
             return new ResourceGroupInfo(
                     id,
                     new DataSize(softMemoryLimitBytes, BYTE),
@@ -136,9 +132,7 @@ public class InternalResourceGroup
                     maxQueuedQueries,
                     runningQueries.size() + descendantRunningQueries,
                     queuedQueries.size() + descendantQueuedQueries,
-                    cpuUsageMillis,
                     new DataSize(cachedMemoryUsageBytes, BYTE),
-                    queryIds,
                     infos);
         }
     }
@@ -162,22 +156,6 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             return queuedQueries.size() + descendantQueuedQueries;
-        }
-    }
-
-    @Managed
-    public long getMemoryUsageBytes()
-    {
-        synchronized (root) {
-            return cachedMemoryUsageBytes;
-        }
-    }
-
-    @Managed
-    public long getCpuUsageMillis()
-    {
-        synchronized (root) {
-            return cpuUsageMillis;
         }
     }
 
