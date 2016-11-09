@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.memory;
+package com.facebook.presto.hive.parquet.memory;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 public class AggregatedMemoryContext
         extends AbstractAggregatedMemoryContext
 {
-    // This class should remain exactly the same as AggregatedMemoryContext in com.facebook.presto.orc.memory and com.facebook.presto.hive.parquet.memory
+    // This class should remain exactly the same as AggregatedMemoryContext in com.facebook.presto.memory
 
     private final AbstractAggregatedMemoryContext parentMemoryContext;
     private long usedBytes;

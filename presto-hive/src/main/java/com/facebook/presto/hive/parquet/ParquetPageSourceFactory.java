@@ -17,6 +17,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
+import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.predicate.ParquetPredicate;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
@@ -155,6 +156,8 @@ public class ParquetPageSourceFactory
             boolean predicatePushdownEnabled,
             TupleDomain<HiveColumnHandle> effectivePredicate)
     {
+        AggregatedMemoryContext systemMemoryContext = new AggregatedMemoryContext();
+
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
@@ -190,7 +193,8 @@ public class ParquetPageSourceFactory
             ParquetReader parquetReader = new ParquetReader(
                     requestedSchema,
                     blocks,
-                    dataSource);
+                    dataSource,
+                    systemMemoryContext);
 
             return new ParquetPageSource(
                     parquetReader,
@@ -202,7 +206,8 @@ public class ParquetPageSourceFactory
                     columns,
                     effectivePredicate,
                     typeManager,
-                    useParquetColumnNames);
+                    useParquetColumnNames,
+                    systemMemoryContext);
         }
         catch (Exception e) {
             try {

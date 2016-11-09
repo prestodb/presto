@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import parquet.column.ColumnDescriptor;
 import parquet.schema.MessageType;
 
@@ -48,7 +48,6 @@ public class ParquetPageSource
         implements ConnectorPageSource
 {
     private static final int MAX_VECTOR_LENGTH = 1024;
-    private static final long GUESSED_MEMORY_USAGE = new DataSize(16, DataSize.Unit.MEGABYTE).toBytes();
 
     private final ParquetReader parquetReader;
     private final ParquetDataSource dataSource;
@@ -67,6 +66,8 @@ public class ParquetPageSource
     private long readTimeNanos;
     private final boolean useParquetColumnNames;
 
+    private final AggregatedMemoryContext systemMemoryContext;
+
     public ParquetPageSource(
             ParquetReader parquetReader,
             ParquetDataSource dataSource,
@@ -77,7 +78,8 @@ public class ParquetPageSource
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
-            boolean useParquetColumnNames)
+            boolean useParquetColumnNames,
+            AggregatedMemoryContext systemMemoryContext)
     {
         checkArgument(totalBytes >= 0, "totalBytes is negative");
         requireNonNull(splitSchema, "splitSchema is null");
@@ -119,6 +121,7 @@ public class ParquetPageSource
         }
         types = typesBuilder.build();
         columnNames = namesBuilder.build();
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
@@ -148,7 +151,7 @@ public class ParquetPageSource
     @Override
     public long getSystemMemoryUsage()
     {
-        return GUESSED_MEMORY_USAGE;
+        return systemMemoryContext.getBytes();
     }
 
     @Override

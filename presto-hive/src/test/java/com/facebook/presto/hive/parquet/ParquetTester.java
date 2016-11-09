@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
 import com.facebook.presto.hive.parquet.reader.ParquetMetadataReader;
 import com.facebook.presto.hive.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.block.Block;
@@ -146,7 +147,6 @@ public class ParquetTester
                                     objectInspector,
                                     writeValues.iterator());
                     assertFileContents(jobConf,
-                                    objectInspector,
                                     tempFile,
                                     readValues,
                                     type);
@@ -156,7 +156,6 @@ public class ParquetTester
     }
 
     private static void assertFileContents(JobConf jobConf,
-            ObjectInspector objectInspector,
             TempFile tempFile,
             Iterable<?> expectedValues,
             Type type)
@@ -172,9 +171,7 @@ public class ParquetTester
         FSDataInputStream inputStream = fileSystem.open(path);
         ParquetDataSource dataSource = new HdfsParquetDataSource(path, size, inputStream);
 
-        ParquetReader parquetReader = new ParquetReader(fileSchema,
-                                                        parquetMetadata.getBlocks(),
-                                                        dataSource);
+        ParquetReader parquetReader = new ParquetReader(fileSchema, parquetMetadata.getBlocks(), dataSource, new AggregatedMemoryContext());
         assertEquals(parquetReader.getPosition(), 0);
 
         int rowsProcessed = 0;

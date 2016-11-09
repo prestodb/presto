@@ -16,6 +16,8 @@ package com.facebook.presto.hive.parquet.reader;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
+import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
+import com.facebook.presto.hive.parquet.memory.LocalMemoryContext;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import parquet.column.ColumnDescriptor;
@@ -35,6 +37,7 @@ import java.util.Map;
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static com.google.common.primitives.Ints.checkedCast;
 import static java.lang.Math.min;
+import static java.util.Objects.requireNonNull;
 
 public class ParquetReader
         implements Closeable
@@ -52,14 +55,20 @@ public class ParquetReader
     private long nextRowInGroup;
     private final Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
+    private AggregatedMemoryContext currentRowGroupMemoryContext;
+    private final AggregatedMemoryContext systemMemoryContext;
+
     public ParquetReader(
             MessageType requestedSchema,
             List<BlockMetaData> blocks,
-            ParquetDataSource dataSource)
+            ParquetDataSource dataSource,
+            AggregatedMemoryContext systemMemoryContext)
     {
-        this.requestedSchema = requestedSchema;
-        this.blocks = blocks;
-        this.dataSource = dataSource;
+        this.requestedSchema = requireNonNull(requestedSchema, "requestedSchema is null");
+        this.blocks = requireNonNull(blocks, "blocks is null");
+        this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
         initializeColumnReaders();
     }
 
@@ -67,6 +76,7 @@ public class ParquetReader
     public void close()
             throws IOException
     {
+        currentRowGroupMemoryContext.close();
         dataSource.close();
     }
 
@@ -94,6 +104,9 @@ public class ParquetReader
 
     private boolean advanceToNextRowGroup()
     {
+        currentRowGroupMemoryContext.close();
+        currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+
         if (currentBlock == blocks.size()) {
             return false;
         }
@@ -116,13 +129,21 @@ public class ParquetReader
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
             int totalSize = checkedCast(metadata.getTotalSize());
-            byte[] buffer = new byte[totalSize];
+            byte[] buffer = allocateBlock(totalSize);
             dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
         return columnReader.readBlock(type);
+    }
+
+    private byte[] allocateBlock(int length)
+    {
+        byte[] buffer = new byte[length];
+        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext();
+        blockMemoryContext.setBytes(buffer.length);
+        return buffer;
     }
 
     private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
