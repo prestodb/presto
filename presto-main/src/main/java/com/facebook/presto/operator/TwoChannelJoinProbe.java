@@ -85,7 +85,7 @@ public class TwoChannelJoinProbe
     }
 
     @Override
-    public int getChannelCount()
+    public int getOutputChannelCount()
     {
         return 2;
     }

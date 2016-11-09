@@ -39,7 +39,9 @@ public class LookupJoinOperatorFactory
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final List<Type> probeTypes;
+    private final List<Type> probeOutputTypes;
     private final List<Type> buildTypes;
+    private final List<Type> buildOutputTypes;
     private final JoinType joinType;
     private final LookupSourceFactory lookupSourceFactory;
     private final JoinProbeFactory joinProbeFactory;
@@ -51,6 +53,7 @@ public class LookupJoinOperatorFactory
             PlanNodeId planNodeId,
             LookupSourceFactory lookupSourceFactory,
             List<Type> probeTypes,
+            List<Type> probeOutputTypes,
             JoinType joinType,
             JoinProbeFactory joinProbeFactory)
     {
@@ -58,7 +61,9 @@ public class LookupJoinOperatorFactory
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
+        this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
         this.buildTypes = ImmutableList.copyOf(lookupSourceFactory.getTypes());
+        this.buildOutputTypes = ImmutableList.copyOf(lookupSourceFactory.getOutputTypes());
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
@@ -84,7 +89,7 @@ public class LookupJoinOperatorFactory
                 // lookup source may not be finished yet, so add a listener, to free the memory
                 lookupSourceFactory.createLookupSource().addListener(lookupSourceFactory::destroy, directExecutor());
             };
-            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(operatorId, planNodeId, outerPositionsFuture, probeTypes, buildTypes, onOperatorClose));
+            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(operatorId, planNodeId, outerPositionsFuture, probeOutputTypes, buildOutputTypes, onOperatorClose));
         }
     }
 
@@ -94,7 +99,9 @@ public class LookupJoinOperatorFactory
         operatorId = other.operatorId;
         planNodeId = other.planNodeId;
         probeTypes = other.probeTypes;
+        probeOutputTypes = other.probeOutputTypes;
         buildTypes = other.buildTypes;
+        buildOutputTypes = other.buildOutputTypes;
         joinType = other.joinType;
         lookupSourceFactory = other.lookupSourceFactory;
         joinProbeFactory = other.joinProbeFactory;
@@ -113,8 +120,8 @@ public class LookupJoinOperatorFactory
     public List<Type> getTypes()
     {
         return ImmutableList.<Type>builder()
-                .addAll(probeTypes)
-                .addAll(buildTypes)
+                .addAll(probeOutputTypes)
+                .addAll(buildOutputTypes)
                 .build();
     }
 

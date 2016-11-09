@@ -37,12 +37,14 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -117,7 +119,13 @@ public class TestJoinProbeCompiler
                 .get();
 
         JoinProbeCompiler joinProbeCompiler = new JoinProbeCompiler();
-        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(types, Ints.asList(0), hashChannel);
+        JoinProbeFactory probeFactory = joinProbeCompiler.internalCompileJoinProbe(
+                types,
+                IntStream.range(0, types.size())
+                        .boxed()
+                        .collect(toImmutableList()),
+                Ints.asList(0),
+                hashChannel);
 
         Page page = SequencePageBuilder.createSequencePage(types, 10, 10);
         if (hashEnabled) {
@@ -126,7 +134,7 @@ public class TestJoinProbeCompiler
         JoinProbe joinProbe = probeFactory.createJoinProbe(lookupSource, page);
 
         // verify channel count
-        assertEquals(joinProbe.getChannelCount(), types.size());
+        assertEquals(joinProbe.getOutputChannelCount(), types.size());
 
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < page.getPositionCount(); position++) {
