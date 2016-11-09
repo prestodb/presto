@@ -732,6 +732,57 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateInvalidBucketedTable()
+            throws Exception
+    {
+        testCreateInvalidBucketedTable(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testCreateInvalidBucketedTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_create_invalid_bucketed_table";
+
+        try {
+            computeActual("" +
+                    "CREATE TABLE " + tableName + " (" +
+                    "  a BIGINT," +
+                    "  b DOUBLE," +
+                    "  p VARCHAR" +
+                    ") WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "partitioned_by = ARRAY[ 'p' ], " +
+                    "bucketed_by = ARRAY[ 'a', 'c' ], " +
+                    "bucket_count = 11 " +
+                    ")");
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Bucketing columns [c] not present in schema");
+        }
+
+        try {
+            computeActual("" +
+                    "CREATE TABLE " + tableName + " " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                    "bucketed_by = ARRAY[ 'custkey', 'custkey3' ], " +
+                    "bucket_count = 11 " +
+                    ") " +
+                    "AS " +
+                    "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
+                    "FROM tpch.tiny.orders");
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "INSERT must write all distribution columns: [custkey, custkey3]");
+        }
+
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testInsertPartitionedBucketedTableFewRows()
             throws Exception
     {

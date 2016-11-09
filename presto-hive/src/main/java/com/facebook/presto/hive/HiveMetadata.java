@@ -1202,6 +1202,21 @@ public class HiveMetadata
         throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serde));
     }
 
+    private static void validateBucketColumns(ConnectorTableMetadata tableMetadata)
+    {
+        Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        if (!bucketProperty.isPresent()) {
+            return;
+        }
+        Set<String> allColumns = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toSet());
+        List<String> bucketedBy = bucketProperty.get().getBucketedBy();
+        if (!allColumns.containsAll(bucketedBy)) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), ImmutableSet.copyOf(allColumns))));
+        }
+    }
+
     private static void validatePartitionColumns(ConnectorTableMetadata tableMetadata)
     {
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
@@ -1226,6 +1241,7 @@ public class HiveMetadata
     private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
     {
         validatePartitionColumns(tableMetadata);
+        validateBucketColumns(tableMetadata);
 
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         int ordinal = 0;
