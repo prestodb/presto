@@ -59,6 +59,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
@@ -571,6 +572,7 @@ public class TestHiveFileFormats
                 new Configuration(),
                 SESSION,
                 split.getPath(),
+                OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),
                 splitProperties,
@@ -615,6 +617,7 @@ public class TestHiveFileFormats
                 new Configuration(),
                 session,
                 split.getPath(),
+                OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),
                 splitProperties,

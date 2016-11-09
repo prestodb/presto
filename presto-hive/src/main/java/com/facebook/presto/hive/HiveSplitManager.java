@@ -151,7 +151,7 @@ public class HiveSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
         SchemaTableName tableName = partition.getTableName();
-        Optional<HiveBucketing.HiveBucket> bucket = partition.getBucket();
+        List<HiveBucketing.HiveBucket> buckets = partition.getBuckets();
         Optional<HiveBucketHandle> bucketHandle = layout.getBucketHandle();
 
         // sort partitions
@@ -169,7 +169,7 @@ public class HiveSplitManager
                 table.get(),
                 hivePartitions,
                 bucketHandle,
-                bucket,
+                buckets,
                 session,
                 hdfsEnvironment,
                 namenodeStats,

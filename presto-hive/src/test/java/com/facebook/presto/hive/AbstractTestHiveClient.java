@@ -414,7 +414,7 @@ public abstract class AbstractTestHiveClient
         invalidTableHandle = new HiveTableHandle(invalidClientId, database, INVALID_TABLE);
         invalidTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId,
                 ImmutableList.of(),
-                ImmutableList.of(new HivePartition(invalidTable, TupleDomain.all(), "unknown", ImmutableMap.of(), Optional.empty())),
+                ImmutableList.of(new HivePartition(invalidTable, TupleDomain.all(), "unknown", ImmutableMap.of(), ImmutableList.of())),
                 TupleDomain.all(),
                 Optional.empty());
         emptyTableLayoutHandle = new HiveTableLayoutHandle(invalidClientId, ImmutableList.of(), ImmutableList.of(), TupleDomain.none(), Optional.empty());
@@ -435,7 +435,7 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("textfile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 1L))
                                 .build(),
-                        Optional.empty()))
+                        ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
@@ -444,7 +444,7 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("sequencefile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 2L))
                                 .build(),
-                        Optional.empty()))
+                        ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rctext/dummy=3",
@@ -453,7 +453,7 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rctext")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 3L))
                                 .build(),
-                        Optional.empty()))
+                        ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
                         TupleDomain.<HiveColumnHandle>all(),
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
@@ -462,7 +462,7 @@ public abstract class AbstractTestHiveClient
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rcbinary")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 4L))
                                 .build(),
-                        Optional.empty()))
+                        ImmutableList.of()))
                 .build();
         partitionCount = partitions.size();
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29"))));
@@ -944,7 +944,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
             assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
-            assertEquals(actualPartition.getBucket(), expectedPartition.getBucket());
+            assertEquals(actualPartition.getBuckets(), expectedPartition.getBuckets());
             assertEquals(actualPartition.getTupleDomain(), expectedPartition.getTupleDomain());
         }
     }

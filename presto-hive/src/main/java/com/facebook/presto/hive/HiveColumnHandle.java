@@ -24,6 +24,7 @@ import java.util.Objects;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -39,6 +40,11 @@ public class HiveColumnHandle
     public static final String PATH_COLUMN_NAME = "$path";
     public static final HiveType PATH_HIVE_TYPE = HIVE_STRING;
     public static final TypeSignature PATH_TYPE_SIGNATURE = PATH_HIVE_TYPE.getTypeSignature();
+
+    public static final int BUCKET_NUMBER_COLUMN_INDEX = -12;
+    public static final String BUCKET_NUMBER_COLUMN_NAME = "$bucket_number";
+    public static final HiveType BUCKET_NUMBER_HIVE_TYPE = HIVE_INT;
+    public static final TypeSignature BUCKET_NUMBER_TYPE_SIGNATURE = BUCKET_NUMBER_HIVE_TYPE.getTypeSignature();
 
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
@@ -181,8 +187,18 @@ public class HiveColumnHandle
         return new HiveColumnHandle(connectorId, PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN);
     }
 
+    public static HiveColumnHandle bucketNumberColumnHandle(String connectorId)
+    {
+        return new HiveColumnHandle(connectorId, BUCKET_NUMBER_COLUMN_NAME, BUCKET_NUMBER_HIVE_TYPE, BUCKET_NUMBER_TYPE_SIGNATURE, BUCKET_NUMBER_COLUMN_INDEX, HIDDEN);
+    }
+
     public static boolean isPathColumnHandle(HiveColumnHandle column)
     {
         return column.getHiveColumnIndex() == PATH_COLUMN_INDEX;
+    }
+
+    public static boolean isBucketNumberColumnHandle(HiveColumnHandle column)
+    {
+        return column.getHiveColumnIndex() == BUCKET_NUMBER_COLUMN_INDEX;
     }
 }

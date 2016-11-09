@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -48,7 +47,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
@@ -112,9 +113,9 @@ public class TestHiveIntegrationSmokeTest
         this.typeManager = new TypeRegistry();
     }
 
-    protected List<?> getPartitions(ConnectorTableLayoutHandle tableLayoutHandle)
+    protected List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
     {
-        return ((HiveTableLayoutHandle) tableLayoutHandle).getPartitions().get();
+        return tableLayoutHandle.getPartitions().get();
     }
 
     @Test
@@ -1299,7 +1300,7 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
-    private List<?> getPartitions(String tableName)
+    private Object getHiveTableProperty(String tableName, Function<HiveTableLayoutHandle, Object> propertyGetter)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
@@ -1312,8 +1313,18 @@ public class TestHiveIntegrationSmokeTest
 
                     List<TableLayoutResult> layouts = metadata.getLayouts(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
                     TableLayout layout = getOnlyElement(layouts).getLayout();
-                    return getPartitions(layout.getHandle().getConnectorHandle());
+                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle());
                 });
+    }
+
+    private List<?> getPartitions(String tableName)
+    {
+        return (List<?>) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> getPartitions(table));
+    }
+
+    private int getBucketCount(String tableName)
+    {
+        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getBucketCount());
     }
 
     @Test
@@ -1626,6 +1637,60 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE test_path");
         assertFalse(queryRunner.tableExists(session, "test_path"));
+    }
+
+    @Test
+    public void testBucketNumberHiddenColumn()
+            throws Exception
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_bucket_number " +
+                "WITH (" +
+                "bucketed_by = ARRAY['col0']," +
+                "bucket_count = 2" +
+                ") AS " +
+                "SELECT * FROM (VALUES " +
+                "(0, 11), (1, 12), (2, 13), " +
+                "(3, 14), (4, 15), (5, 16), " +
+                "(6, 17), (7, 18), (8, 19)" +
+                " ) t (col0, col1) ";
+        assertUpdate(createTable, 9);
+        assertTrue(queryRunner.tableExists(getSession(), "test_bucket_number"));
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_bucket_number");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("col0"));
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 2);
+
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_NUMBER_COLUMN_NAME);
+        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        assertEquals(columnMetadatas.size(), columnNames.size());
+        for (int i = 0; i < columnMetadatas.size(); i++) {
+            ColumnMetadata columnMetadata = columnMetadatas.get(i);
+            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            if (columnMetadata.getName().equals(BUCKET_NUMBER_COLUMN_NAME)) {
+                // $bucket_number should be hidden column
+                assertTrue(columnMetadata.isHidden());
+            }
+        }
+        assertEquals(getBucketCount("test_bucket_number"), 2);
+
+        MaterializedResult results = computeActual(format("SELECT *, \"%1$s\" FROM test_bucket_number WHERE \"%1$s\" = 1",
+                BUCKET_NUMBER_COLUMN_NAME));
+        for (int i = 0; i < results.getRowCount(); i++) {
+            MaterializedRow row = results.getMaterializedRows().get(i);
+            int col0 = (int) row.getField(0);
+            int col1 = (int) row.getField(1);
+            int bucket = (int) row.getField(2);
+
+            assertEquals(col1, col0 + 11);
+            assertTrue(col1 % 2 == 0);
+
+            // Because Hive's hash function for integer n is h(n) = n.
+            assertEquals(bucket, col0 % 2);
+        }
+        assertEquals(results.getRowCount(), 4);
+
+        assertUpdate("DROP TABLE test_bucket_number");
+        assertFalse(queryRunner.tableExists(getSession(), "test_bucket_number"));
     }
 
     @Test

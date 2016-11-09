@@ -79,6 +79,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -391,6 +392,7 @@ public class TestOrcPageSourceMemoryTracking
                     new Configuration(),
                     SESSION,
                     fileSplit.getPath(),
+                    OptionalInt.empty(),
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     schema,
