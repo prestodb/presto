@@ -43,7 +43,8 @@ public class TestBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
-    private final BinarySpillerFactory factory = new BinarySpillerFactory(blockEncodingSerde, new FeaturesConfig());
+    private final SpillerStats spillerStats = new SpillerStats();
+    private final BinarySpillerFactory factory = new BinarySpillerFactory(blockEncodingSerde, spillerStats, new FeaturesConfig());
 
     @Test
     public void testFileSpiller()
@@ -96,13 +97,13 @@ public class TestBinaryFileSpiller
     private void testSpiller(List<Type> types, Spiller spiller, List<Page>... spills)
             throws ExecutionException, InterruptedException
     {
-        long spilledBytesBefore = factory.getTotalSpilledBytes();
+        long spilledBytesBefore = spillerStats.getTotalSpilledBytes();
         long spilledBytes = 0;
         for (List<Page> spill : spills) {
             spilledBytes += spill.stream().mapToLong(Page::getSizeInBytes).sum();
             spiller.spill(spill.iterator()).get();
         }
-        assertEquals(factory.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
+        assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
         assertEquals(actualSpills.size(), spills.length);

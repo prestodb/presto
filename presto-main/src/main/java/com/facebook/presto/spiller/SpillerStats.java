@@ -17,15 +17,18 @@ import org.weakref.jmx.Managed;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public abstract class SpillerFactoryWithStats
-        implements SpillerFactory
+public class SpillerStats
 {
     protected final AtomicLong totalSpilledBytes = new AtomicLong();
 
-    @Override
     @Managed
     public long getTotalSpilledBytes()
     {
         return totalSpilledBytes.get();
+    }
+
+    public void addToTotalSpilledBytes(long delta)
+    {
+        totalSpilledBytes.addAndGet(delta);
     }
 }

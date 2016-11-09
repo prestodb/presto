@@ -97,6 +97,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.BinarySpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -356,7 +357,8 @@ public class LocalQueryRunner
                 .put(Rollback.class, new RollbackTask())
                 .build();
 
-        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde, featuresConfig);
+        SpillerStats spillerStats = new SpillerStats();
+        this.spillerFactory = new BinarySpillerFactory(blockEncodingSerde, spillerStats, featuresConfig);
     }
 
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
