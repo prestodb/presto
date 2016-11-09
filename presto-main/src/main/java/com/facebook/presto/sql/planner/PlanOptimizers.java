@@ -132,7 +132,8 @@ public class PlanOptimizers
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
-        builder.add(new PartialAggregationPushDown(metadata));
+        builder.add(new PartialAggregationPushDown(metadata.getFunctionRegistry()));
+        builder.add(new PruneIdentityProjections());
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
