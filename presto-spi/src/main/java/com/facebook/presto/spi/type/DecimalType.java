@@ -31,7 +31,7 @@ public abstract class DecimalType
     public static final int DEFAULT_SCALE = 0;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
 
-    public static DecimalType createDecimalType(int precision, int scale)
+    public static DecimalType decimal(int precision, int scale)
     {
         if (precision <= MAX_SHORT_PRECISION) {
             return new ShortDecimalType(precision, scale);
@@ -41,11 +41,29 @@ public abstract class DecimalType
         }
     }
 
+    public static DecimalType decimal(int precision)
+    {
+        return createDecimalType(precision, DEFAULT_SCALE);
+    }
+
+    public static DecimalType decimal()
+    {
+        return createDecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
+    }
+
+    @Deprecated
+    public static DecimalType createDecimalType(int precision, int scale)
+    {
+        return decimal(precision, scale);
+    }
+
+    @Deprecated
     public static DecimalType createDecimalType(int precision)
     {
         return createDecimalType(precision, DEFAULT_SCALE);
     }
 
+    @Deprecated
     public static DecimalType createDecimalType()
     {
         return createDecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
