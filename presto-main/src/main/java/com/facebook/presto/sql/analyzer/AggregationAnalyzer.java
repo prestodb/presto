@@ -498,6 +498,13 @@ class AggregationAnalyzer
         }
 
         @Override
+        public Boolean visitRow(Row node, final Void context)
+        {
+            return node.getItems().stream()
+                    .allMatch(item -> process(item, context));
+        }
+
+        @Override
         public Boolean process(Node node, @Nullable Void context)
         {
             if (expressions.stream().anyMatch(node::equals)) {
