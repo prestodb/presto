@@ -16,6 +16,8 @@ package com.facebook.presto.hive.parquet.reader;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
+import com.facebook.presto.hive.parquet.memory.AggregatedMemoryContext;
+import com.facebook.presto.hive.parquet.memory.LocalMemoryContext;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.InterleavedBlock;
@@ -49,6 +51,7 @@ import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class ParquetReader
         implements Closeable
@@ -74,17 +77,23 @@ public class ParquetReader
     private int batchSize;
     private final Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
+    private AggregatedMemoryContext currentRowGroupMemoryContext;
+    private final AggregatedMemoryContext systemMemoryContext;
+
     public ParquetReader(MessageType fileSchema,
             MessageType requestedSchema,
             List<BlockMetaData> blocks,
             ParquetDataSource dataSource,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            AggregatedMemoryContext systemMemoryContext)
     {
         this.fileSchema = fileSchema;
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
         this.typeManager = typeManager;
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
         initializeColumnReaders();
     }
 
@@ -92,6 +101,7 @@ public class ParquetReader
     public void close()
             throws IOException
     {
+        currentRowGroupMemoryContext.close();
         dataSource.close();
     }
 
@@ -121,6 +131,9 @@ public class ParquetReader
 
     private boolean advanceToNextRowGroup()
     {
+        currentRowGroupMemoryContext.close();
+        currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
+
         if (currentBlock == blocks.size()) {
             return false;
         }
@@ -217,13 +230,21 @@ public class ParquetReader
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
             int totalSize = toIntExact(metadata.getTotalSize());
-            byte[] buffer = new byte[totalSize];
+            byte[] buffer = allocateBlock(totalSize);
             dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
         return columnReader.readPrimitive(type, offsets);
+    }
+
+    private byte[] allocateBlock(int length)
+    {
+        byte[] buffer = new byte[length];
+        LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext();
+        blockMemoryContext.setBytes(buffer.length);
+        return buffer;
     }
 
     private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
