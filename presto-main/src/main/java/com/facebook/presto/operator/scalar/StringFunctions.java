@@ -279,7 +279,7 @@ public final class StringFunctions
     @SqlType("array(varchar(x))")
     public static Block split(@SqlType("varchar(x)") Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
     {
-        return split(string, delimiter, string.length() + 1);
+        return split(string, delimiter, Integer.MAX_VALUE);
     }
 
     @ScalarFunction
@@ -289,33 +289,44 @@ public final class StringFunctions
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
-        checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
         BlockBuilder parts = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 1, string.length());
-        // If limit is one, the last and only element is the complete string
-        if (limit == 1) {
-            VARCHAR.writeSlice(parts, string);
-            return parts.build();
-        }
 
+        // Split string into parts
         int index = 0;
-        while (index < string.length()) {
-            int splitIndex = string.indexOf(delimiter, index);
-            // Found split?
-            if (splitIndex < 0) {
-                break;
+        int partCount = 0;
+        if (delimiter.length() == 0) {
+            // Special case for empty delimiter
+            // Start result array with empty string '' unless limit is 1 (special case)
+            if (limit > 1) {
+                VARCHAR.writeString(parts, "");
+                ++partCount;
             }
-            // Add the part from current index to found split
-            VARCHAR.writeSlice(parts, string, index, splitIndex - index);
-            // Continue searching after delimiter
-            index = splitIndex + delimiter.length();
-            // Reached limit-1 parts so we can stop
-            if (parts.getPositionCount() == limit - 1) {
-                break;
+            // Add single-character parts until limit or end of string
+            while ((partCount < limit - 1) && (index < string.length())) {
+                final int cpLen = lengthOfCodePoint(string, index);
+                VARCHAR.writeSlice(parts, string, index, cpLen);
+                index += cpLen;
+                ++partCount;
             }
         }
-        // Rest of string
-        VARCHAR.writeSlice(parts, string, index, string.length() - index);
+        else {
+            // General case, use indexOf to find delimiters in string
+            while ((partCount < limit - 1) && (index < string.length())) {
+                final int splitIndex = string.indexOf(delimiter, index);
+                // Found split?
+                if (splitIndex < 0) {
+                    break;
+                }
+                // Add the part from current index to delimiter
+                VARCHAR.writeSlice(parts, string, index, splitIndex - index);
+                // Continue searching after delimiter
+                index = splitIndex + delimiter.length();
+                ++partCount;
+            }
+        }
 
+        // Rest of string, the empty string '' if tail of string matched the delimiter
+        VARCHAR.writeSlice(parts, string, index, string.length() - index);
         return parts.build();
     }
 
