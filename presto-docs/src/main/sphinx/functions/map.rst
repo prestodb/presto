@@ -24,7 +24,7 @@ Map Functions
 
 .. function:: map(array<K>, array<V>) -> map<K,V>
 
-    Returns a map created using the given key/value arrays. ::
+    Returns a map created using the given key/value arrays. :: none
 
         SELECT map(ARRAY[1,3], ARRAY[2,4]); -- {1 -> 2, 3 -> 4}
 
