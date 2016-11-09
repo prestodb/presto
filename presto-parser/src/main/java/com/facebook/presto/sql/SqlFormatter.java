@@ -91,6 +91,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionFormatter.formatGroupBy;
@@ -327,7 +328,11 @@ public final class SqlFormatter
         @Override
         protected Void visitTable(Table node, Integer indent)
         {
-            builder.append(formatName(node.getName().toString()));
+            builder.append(node.getName().getOriginalParts()
+                    .stream()
+                    .map(Formatter::formatName)
+                    .collect(Collectors.joining(".")));
+
             return null;
         }
 
