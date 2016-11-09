@@ -202,9 +202,19 @@ public class TopologyAwareNodeSelector
         return new SplitPlacementResult(blocked, assignment);
     }
 
-    private int calculateMaxPendingSplits(int currentDepth, int totalDepth)
+    /**
+     * Computes how much of the queue can be filled by splits with the network topology distance to a node given by
+     * splitAffinity. A split with zero affinity can only fill half the queue, whereas one that matches
+     * exactly can fill the entire queue.
+     */
+    private int calculateMaxPendingSplits(int splitAffinity, int totalDepth)
     {
-        double queueFraction = (1.0 + currentDepth) / (1.0 + totalDepth);
+        if (totalDepth == 0) {
+            return maxPendingSplitsPerTask;
+        }
+        // Use half the queue for any split
+        // Reserve the other half for splits that have some amount of network affinity
+        double queueFraction = 0.5 * (1.0 + splitAffinity / (double) totalDepth);
         return (int) Math.ceil(maxPendingSplitsPerTask * queueFraction);
     }
 

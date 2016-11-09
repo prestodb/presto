@@ -140,10 +140,10 @@ public class TestNodeScheduler
         // contents of taskMap indicate the node-task map for the current stage
         Map<Node, RemoteTask> taskMap = new HashMap<>();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
-                .setMaxSplitsPerNode(20)
+                .setMaxSplitsPerNode(25)
                 .setIncludeCoordinator(false)
                 .setNetworkTopology("test")
-                .setMaxPendingSplitsPerTask(15);
+                .setMaxPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();
         NetworkLocationCache locationCache = new NetworkLocationCache(topology)
@@ -165,7 +165,7 @@ public class TestNodeScheduler
 
         // Fill up the nodes with non-local data
         ImmutableSet.Builder<Split> nonRackLocalBuilder = ImmutableSet.builder();
-        for (int i = 0; i < 26 * 3; i++) {
+        for (int i = 0; i < (25 + 11) * 3; i++) {
             nonRackLocalBuilder.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote(HostAddress.fromParts("data.other_rack", 1))));
         }
         Set<Split> nonRackLocalSplits = nonRackLocalBuilder.build();
@@ -176,7 +176,7 @@ public class TestNodeScheduler
             TaskId taskId = new TaskId("test", 1, task);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
-            remoteTask.startSplits(20);
+            remoteTask.startSplits(25);
             nodeTaskMap.addTask(node, remoteTask);
             taskMap.put(node, remoteTask);
         }
