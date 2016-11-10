@@ -383,6 +383,25 @@ Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
 
+Create an external Hive table named ``request_logs`` that points at
+existing data in S3::
+
+    CREATE TABLE hive.web.request_logs (
+      request_time timestamp,
+      url varchar,
+      ip varchar,
+      user_agent varchar
+    )
+    WITH (
+      format = 'TEXTFILE',
+      external_location = 's3://my-bucket/data/logs/'
+    )
+
+Drop the external table ``request_logs``. This only drops the metadata
+for the table. The referenced data directory is not deleted::
+
+    DROP hive.web.request_logs
+
 Drop a schema::
 
     DROP SCHEMA hive.web
