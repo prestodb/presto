@@ -333,12 +333,21 @@ with the following parameters:
     - Working directory: `presto-product-tests/conf/presto`
     - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=UTC`
 
-5. Start the Presto server with the newly created run configuration.
+5. MAKE SURE PRESTO CONFIGURATION IS ALIGNED WITH THE ONE IN `presto-product-tests/conf/presto`!
 
-6. In IntelliJ, right click on a test method name or test class to run
+    If you use custom configuration, make sure to configure the Hive catalog such that it uses a socks proxy running inside the container.
+    To do so, please make sure your Hive properties file under `etc/catalog/` has the below entry:
+    ```
+    hive.metastore.thrift.client.socks-proxy=hadoop-master:1180
+    ```
+    Also, `hadoop-master` must point to a correct IP (as described in step 3 of this section).
+
+6. Start the Presto server with the newly created run configuration.
+
+7. In IntelliJ, right click on a test method name or test class to run
 or debug the respective test(s).
 
-7. Remember to stop the Hadoop container once debugging is done with the
+8. Remember to stop the Hadoop container once debugging is done with the
 following command:
 
     ```
@@ -352,7 +361,7 @@ Some of the product tests are implemented in a
 manner. Such tests can not be run directly from IntelliJ and the following
 steps explain how to debug convention based tests:
 
-1. Follow steps [1-5] from the [Debugging Java based tests](#debugging-java-based-tests)
+1. Follow steps [1-6] from the [Debugging Java based tests](#debugging-java-based-tests)
 section.
 
 2. Run a convention based test with the following JVM debug flags:
@@ -434,3 +443,15 @@ You can override the default socks proxy port (1180) used by dockerized Hive dep
 `HIVE_PROXY_PORT` environment variable, e.g. `export HIVE_PROXY_PORT=1180`. This will run all of the dockerized tests using the custom port for the socks proxy.
 When you change the default socks proxy port (1180) and want to use Hive provided by product tests from outside docker (e.g. access it from Presto running in your IDE), you have to modify the property `hive.metastore.thrift.client.socks-proxy=hadoop-master:1180` in your `hive.properties` file accordingly.
 Presto inside docker (used while starting tests using `run_on_docker.sh`) will still use default port (1180) though.
+
+### Malformed reply from SOCKS server
+
+If you see an error similar to
+```
+Failed on local exception: java.net.SocketException: Malformed reply from SOCKS server; Host Details : local host is [...]
+```
+Make sure your `/etc/hosts` points to proper IP address (see [Debugging Java based tests](#debugging-java-based-tests), step 3).
+Also it's worth confirming that your Hive properties file accounts for the socks proxy used in Hive container (steps 4-5 of [Debugging Java based tests](#debugging-java-based-tests)).
+
+If `/etc/hosts` entries have changed since the time when Docker containers were provisioned it's worth removing them and re-provisioning.
+To do so, use `docker rm` on each container used in product tests.
