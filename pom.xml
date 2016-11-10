@@ -116,7 +116,8 @@
         <module>presto-testing-server-launcher</module>
         <module>presto-plugin-toolkit</module>
         <module>presto-resource-group-managers</module>
-        <module>presto-base-plugin</module>
+        <module>presto-base-plugin-nosql</module>
+        <module>presto-dynamo</module>
     </modules>
 
     <dependencyManagement>
