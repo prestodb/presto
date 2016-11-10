@@ -183,7 +183,7 @@ public class TestRowOperators
             fail("hyperloglog is not comparable");
         }
         catch (SemanticException e) {
-            if (!e.getMessage().matches("\\Qline 1:81: '=' cannot be applied to row(COL0 HyperLogLog), row(COL0 HyperLogLog)\\E")) {
+            if (!e.getMessage().matches("\\Qline 1:81: '=' cannot be applied to row(col0 HyperLogLog), row(col0 HyperLogLog)\\E")) {
                 throw e;
             }
             //Expected
