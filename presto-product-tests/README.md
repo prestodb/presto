@@ -35,7 +35,16 @@ broken.
     pip install docker-compose
     ```
 
-### OS X (10.8 "Mountain Lion" or newer)
+### OS X using Docker for Mac (macOS 10.10.3 Yosemite or newer) [PREFERED WAY]
+
+* Docker for Mac has to be installed.
+For details follow the link: https://docs.docker.com/engine/installation/mac/#/docker-for-mac
+
+* Add entries in /etc/hosts for all services running in docker containers:
+`hadoop-master`, `mysql`, `postgres`, `presto-master`.
+They should point to your external IP address (shown by `ifconfig` on your Mac (not inside docker)).
+
+### OS X using Docker Toolbox (10.8 "Mountain Lion" or newer) [NOT RECOMMENDED]
 
 * [`VirtualBox >= 5.0`](https://www.virtualbox.org/wiki/Downloads)
 
@@ -56,7 +65,7 @@ Terminal" icon located in ~/Applications/Docker. Note that all commands listed
 in subsequent parts of this tutorial must be run within such a pre-configured
 shell.
 
-#### Setting up a Linux VM for Docker
+#### Setting up a Linux VM for Docker Toolbox
 
 The `docker-toolbox` installation creates a VirtualBox VM called `default`.
 To run product-tests on the `default` VM, it must be re-configured to use
@@ -304,13 +313,18 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
 
     Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
 
-    - On OS X add the following mapping: `<docker machine ip> hadoop-master mysql postgres`.
-    Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
-    the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
+    - On OS X:
+        - Docker for Mac:
+        Add the following mapping to `/etc/hosts`: `<IP-of-your-Mac> hadoop-master mysql postgres`.
 
-        ```
-        docker-machine ip <machine>
-        ```
+        - Docker Toolbox:
+        Add the following mapping to `/etc/hosts`: `<docker machine ip> hadoop-master mysql postgres`.
+        Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
+        the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
+
+            ```
+            docker-machine ip <machine>
+            ```
     
 4. [Create a run configuration in IntelliJ](https://www.jetbrains.com/help/idea/2016.1/creating-and-editing-run-debug-configurations.html)
 with the following parameters:
