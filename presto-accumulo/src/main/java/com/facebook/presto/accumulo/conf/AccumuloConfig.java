@@ -35,6 +35,7 @@ public class AccumuloConfig
     public static final String CARDINALITY_CACHE_SIZE = "accumulo.cardinality.cache.size";
     public static final String CARDINALITY_CACHE_EXPIRE_DURATION = "accumulo.cardinality.cache.expire.duration";
     public static final String RECORD_CURSOR_BUFFER_SIZE = "accumulo.record.cursor.buffer.size";
+    public static final String MAX_INDEX_LOOKUP_CARDINALITY = "accumulo.max.index.lookup.cardinality";
 
     private String instance;
     private String zooKeepers;
@@ -44,6 +45,7 @@ public class AccumuloConfig
     private int cardinalityCacheSize = 100_000;
     private Duration cardinalityCacheExpiration = new Duration(5, TimeUnit.MINUTES);
     private int recordCursorBufferSize = 1_000_000;
+    private int maxIndexLookupCardinality = 20_000_000;
 
     @NotNull
     public String getInstance()
@@ -152,5 +154,18 @@ public class AccumuloConfig
     public void setRecordCursorBufferSize(int recordCursorBufferSize)
     {
         this.recordCursorBufferSize = recordCursorBufferSize;
+    }
+
+    @NotNull
+    public int getMaxIndexLookupCardinality()
+    {
+        return maxIndexLookupCardinality;
+    }
+
+    @Config(MAX_INDEX_LOOKUP_CARDINALITY)
+    @ConfigDescription("Sets an upper bound on the index lookup. Columns with a cardinality above this number will be excluded from the lookup.")
+    public void setMaxIndexLookupCardinality(int maxIndexLookupCardinality)
+    {
+        this.maxIndexLookupCardinality = maxIndexLookupCardinality;
     }
 }

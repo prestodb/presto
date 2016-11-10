@@ -111,7 +111,7 @@ public class AccumuloClient
         this.auths = connector.securityOperations().getUserAuthorizations(username);
 
         // Create the index lookup utility
-        this.indexLookup = new IndexLookup(connector, config.getCardinalityCacheSize(), config.getCardinalityCacheExpiration());
+        this.indexLookup = new IndexLookup(connector, config.getCardinalityCacheSize(), config.getCardinalityCacheExpiration(), config.getMaxIndexLookupCardinality());
     }
 
     public AccumuloTable createTable(ConnectorTableMetadata meta)
