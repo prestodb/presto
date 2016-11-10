@@ -31,6 +31,7 @@ public class ResourceGroupSpecBuilder
     private final long id;
     private final ResourceGroupNameTemplate nameTemplate;
     private final String softMemoryLimit;
+    private final String hardMemoryLimit;
     private final int maxQueued;
     private final int maxRunning;
     private final Optional<String> schedulingPolicy;
@@ -47,6 +48,7 @@ public class ResourceGroupSpecBuilder
             long id,
             ResourceGroupNameTemplate nameTemplate,
             String softMemoryLimit,
+            String hardMemoryLimit,
             int maxQueued,
             int maxRunning,
             Optional<String> schedulingPolicy,
@@ -62,6 +64,7 @@ public class ResourceGroupSpecBuilder
         this.id = id;
         this.nameTemplate = nameTemplate;
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
+        this.hardMemoryLimit = requireNonNull(hardMemoryLimit, "hardMemoryLimit is null");
         this.maxQueued = maxQueued;
         this.maxRunning = maxRunning;
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null");
@@ -109,6 +112,7 @@ public class ResourceGroupSpecBuilder
         return new ResourceGroupSpec(
                 nameTemplate,
                 softMemoryLimit,
+                hardMemoryLimit,
                 maxQueued,
                 maxRunning,
                 schedulingPolicy,
@@ -131,6 +135,7 @@ public class ResourceGroupSpecBuilder
             long id = resultSet.getLong("resource_group_id");
             ResourceGroupNameTemplate nameTemplate = new ResourceGroupNameTemplate(resultSet.getString("name"));
             String softMemoryLimit = resultSet.getString("soft_memory_limit");
+            String hardMemoryLimit = resultSet.getString("hard_memory_limit");
             int maxQueued = resultSet.getInt("max_queued");
             int maxRunning = resultSet.getInt("max_running");
             Optional<String> schedulingPolicy = Optional.ofNullable(resultSet.getString("scheduling_policy"));
@@ -154,6 +159,7 @@ public class ResourceGroupSpecBuilder
                     id,
                     nameTemplate,
                     softMemoryLimit,
+                    hardMemoryLimit,
                     maxQueued,
                     maxRunning,
                     schedulingPolicy,

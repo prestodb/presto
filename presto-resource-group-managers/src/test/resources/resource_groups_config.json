@@ -3,6 +3,7 @@
     {
       "name": "global",
       "softMemoryLimit": "1MB",
+      "hardMemoryLimit": "1GB",
       "maxRunning": 100,
       "maxQueued": 1000,
       "softCpuLimit": "1h",
@@ -15,6 +16,7 @@
         {
           "name": "sub",
           "softMemoryLimit": "2MB",
+          "hardMemoryLimit": "1GB",
           "maxRunning": 3,
           "maxQueued": 4,
           "schedulingWeight": 5,

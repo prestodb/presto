@@ -29,12 +29,13 @@ public interface H2ResourceGroupsDao
     void updateResourceGroupsGlobalProperties(@Bind("name") String name);
 
     @SqlUpdate("INSERT INTO resource_groups\n" +
-            "(resource_group_id, name, soft_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_timeout, running_timeout, parent)\n" +
-            "VALUES (:resource_group_id, :name, :soft_memory_limit, :max_queued, :max_running, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_timeout, :running_timeout, :parent)")
+            "(resource_group_id, name, soft_memory_limit, hard_memory_limit, max_queued, max_running, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, queued_timeout, running_timeout, parent)\n" +
+            "VALUES (:resource_group_id, :name, :soft_memory_limit, :hard_memory_limit, :max_queued, :max_running, :scheduling_policy, :scheduling_weight, :jmx_export, :soft_cpu_limit, :hard_cpu_limit, :queued_timeout, :running_timeout, :parent)")
     void insertResourceGroup(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String name,
             @Bind("soft_memory_limit") String softMemoryLimit,
+            @Bind("hard_memory_limit") String hardMemoryLimit,
             @Bind("max_queued") int maxQueued,
             @Bind("max_running") int maxRunning,
             @Bind("scheduling_policy") String schedulingPolicy,
@@ -51,6 +52,7 @@ public interface H2ResourceGroupsDao
             " resource_group_id = :resource_group_id\n" +
             ", name = :name\n" +
             ", soft_memory_limit = :soft_memory_limit\n" +
+            ", hard_memory_limit = :hard_memory_limit\n" +
             ", max_queued = :max_queued\n" +
             ", max_running = :max_running\n" +
             ", scheduling_policy = :scheduling_policy\n" +
@@ -66,6 +68,7 @@ public interface H2ResourceGroupsDao
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("name") String resourceGroup,
             @Bind("soft_memory_limit") String softMemoryLimit,
+            @Bind("hard_memory_limit") String hardMemoryLimit,
             @Bind("max_queued") int maxQueued,
             @Bind("max_running") int maxRunning,
             @Bind("scheduling_policy") String schedulingPolicy,

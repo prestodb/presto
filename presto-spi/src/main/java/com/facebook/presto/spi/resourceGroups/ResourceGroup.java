@@ -28,6 +28,14 @@ public interface ResourceGroup
      */
     void setSoftMemoryLimit(DataSize limit);
 
+    DataSize getHardMemoryLimit();
+
+    /**
+     * Threshold where queries will be killed until resource group is
+     * within the limit
+     */
+    void setHardMemoryLimit(DataSize limit);
+
     Duration getSoftCpuLimit();
 
     /**

@@ -3,6 +3,7 @@
     {
       "name": "global",
       "softMemoryLimit": "50%",
+      "hardMemoryLimit": "90%",
       "maxRunning": 100,
       "maxQueued": 1000,
       "subGroups": [

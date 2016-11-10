@@ -25,7 +25,8 @@ public class TestingResourceGroup
         implements ResourceGroup
 {
     private final ResourceGroupId id;
-    private DataSize memoryLimit;
+    private DataSize softMemoryLimit;
+    private DataSize hardMemoryLimit;
     private Duration softCpuLimit;
     private Duration hardCpuLimit;
     private long quotaGenerationRate;
@@ -51,13 +52,25 @@ public class TestingResourceGroup
     @Override
     public DataSize getSoftMemoryLimit()
     {
-        return memoryLimit;
+        return softMemoryLimit;
     }
 
     @Override
     public void setSoftMemoryLimit(DataSize limit)
     {
-        memoryLimit = limit;
+        softMemoryLimit = limit;
+    }
+
+    @Override
+    public DataSize getHardMemoryLimit()
+    {
+        return hardMemoryLimit;
+    }
+
+    @Override
+    public void setHardMemoryLimit(DataSize limit)
+    {
+        hardMemoryLimit = limit;
     }
 
     @Override

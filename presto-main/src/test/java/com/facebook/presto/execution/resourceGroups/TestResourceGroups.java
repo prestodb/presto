@@ -42,6 +42,7 @@ import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
@@ -164,7 +165,7 @@ public class TestResourceGroups
     }
 
     @Test(timeOut = 10_000)
-    public void testMemoryLimit()
+    public void testSoftMemoryLimit()
     {
         RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> { }, directExecutor());
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
@@ -181,7 +182,6 @@ public class TestResourceGroups
         MockQueryExecution query3 = new MockQueryExecution(0);
         root.run(query3);
         assertEquals(query3.getState(), QUEUED);
-
         query1.complete();
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
@@ -216,6 +216,36 @@ public class TestResourceGroups
         root.processQueuedQueries();
         assertEquals(query2.getState(), RUNNING);
         assertEquals(query3.getState(), RUNNING);
+    }
+
+    @Test(timeOut = 10_000)
+    public void testHardMemoryLimit()
+            throws Exception
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> { }, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(4, BYTE));
+        root.setMaxQueuedQueries(4);
+        root.setMaxRunningQueries(3);
+        MockQueryExecution query1 = new MockQueryExecution(1);
+        root.run(query1);
+        root.processQueuedQueries();
+        assertEquals(query1.getState(), RUNNING);
+        MockQueryExecution query2 = new MockQueryExecution(1);
+        root.run(query2);
+        root.processQueuedQueries();
+        assertEquals(query2.getState(), RUNNING);
+        MockQueryExecution query3 = new MockQueryExecution(3);
+        root.run(query3);
+        root.processQueuedQueries();
+        assertEquals(query3.getState(), RUNNING);
+        root.setSoftMemoryLimit(new DataSize(2, BYTE));
+        root.setHardMemoryLimit(new DataSize(2, BYTE));
+        while (query3.getState() != FAILED) {
+            root.processQueuedQueries();
+            MILLISECONDS.sleep(500);
+        }
+        assertEquals(query1.getState(), RUNNING);
+        assertEquals(query2.getState(), RUNNING);
     }
 
     @Test(timeOut = 10_000)

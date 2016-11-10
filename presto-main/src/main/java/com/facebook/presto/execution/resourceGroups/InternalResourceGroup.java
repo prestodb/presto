@@ -28,6 +28,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -38,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
@@ -55,6 +57,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
  * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
@@ -85,6 +88,8 @@ public class InternalResourceGroup
     private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
     private long softMemoryLimitBytes;
+    @GuardedBy("root")
+    private long hardMemoryLimitBytes = Long.MAX_VALUE;
     @GuardedBy("root")
     private int maxRunningQueries;
     @GuardedBy("root")
@@ -205,6 +210,9 @@ public class InternalResourceGroup
     public void setSoftMemoryLimit(DataSize limit)
     {
         synchronized (root) {
+            if (limit.toBytes() > hardMemoryLimitBytes) {
+                setHardMemoryLimit(limit);
+            }
             boolean oldCanRun = canRunMore();
             this.softMemoryLimitBytes = limit.toBytes();
             if (canRunMore() != oldCanRun) {
@@ -213,6 +221,28 @@ public class InternalResourceGroup
         }
     }
 
+    @Override
+    public DataSize getHardMemoryLimit()
+    {
+        synchronized (root) {
+            return new DataSize(hardMemoryLimitBytes, BYTE);
+        }
+    }
+
+    @Override
+    public void setHardMemoryLimit(DataSize limit)
+    {
+        synchronized (root) {
+            if (limit.toBytes() < softMemoryLimitBytes) {
+                setSoftMemoryLimit(limit);
+            }
+            boolean oldCanRun = canRunMore();
+            this.hardMemoryLimitBytes = limit.toBytes();
+            if (canRunMore() != oldCanRun) {
+                updateEligiblility();
+            }
+        }
+    }
     @Override
     public Duration getSoftCpuLimit()
     {
@@ -619,6 +649,44 @@ public class InternalResourceGroup
         }
     }
 
+    protected void enforceHardMemoryLimit()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to enforce hard memory limit");
+        synchronized (root) {
+            if (subGroups.isEmpty()) {
+                if (cachedMemoryUsageBytes > hardMemoryLimitBytes) {
+                    AtomicLong memoryReclaimed = new AtomicLong();
+                    // Kill queries which exceed the hard memory limit
+                    ImmutableList.copyOf(runningQueries).stream()
+                            .filter(queryExecution -> queryExecution.getTotalMemoryReservation() > hardMemoryLimitBytes)
+                            .forEach(queryExecution -> {
+                                memoryReclaimed.addAndGet(queryExecution.getTotalMemoryReservation());
+                                queryExecution.cancelQuery();
+                            });
+                    // Kill queries in order of priority, then newest to oldest until hard memory limit is not exceeded
+                    if (cachedMemoryUsageBytes - memoryReclaimed.get() > hardMemoryLimitBytes) {
+                        for (Iterator<QueryExecution> queryIterator = runningQueries.stream().sorted(
+                                Comparator.comparing((QueryExecution entry) -> getQueryPriority(entry.getSession()))
+                                        .thenComparing(entry -> entry.getQueryInfo().getQueryStats().getElapsedTime())
+                        ).iterator();
+                                cachedMemoryUsageBytes - memoryReclaimed.get() > hardMemoryLimitBytes && queryIterator.hasNext(); ) {
+                            QueryExecution query = queryIterator.next();
+                            memoryReclaimed.addAndGet(query.getTotalMemoryReservation());
+                            query.cancelQuery();
+                        }
+                    }
+                    cachedMemoryUsageBytes -= memoryReclaimed.get();
+                }
+            }
+            else {
+                for (Iterator<InternalResourceGroup> iterator = dirtySubGroups.iterator(); iterator.hasNext(); ) {
+                    InternalResourceGroup subGroup = iterator.next();
+                    subGroup.enforceHardMemoryLimit();
+                }
+            }
+        }
+    }
+
     protected void internalGenerateCpuQuota(long elapsedSeconds)
     {
         checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
@@ -683,22 +751,17 @@ public class InternalResourceGroup
             long queuedTimeoutMillis = queuedTimeout.toMillis();
             //log.info("Group %s: %d, %d", id, queuedTimeoutMillis, runningTimeoutMillis);
             for (QueryExecution query : ImmutableList.copyOf(activeQueries)) {
-                Duration elapsedTime = query.getQueryInfo().getQueryStats().getElapsedTime();
-                if (elapsedTime == null) {
-                    continue;
-                }
-                long elapsedTimeMillis = elapsedTime.toMillis();
                 if (runningQueries.contains(query)) {
-                    Duration queuedTime = query.getQueryInfo().getQueryStats().getQueuedTime();
-                    if (queuedTime == null) {
-                        continue;
-                    }
-                    long queuedTimeMillis = queuedTime.toMillis();
-                    if (elapsedTimeMillis - queuedTimeMillis > runningTimeoutMillis) {
+                    if (Optional.ofNullable(query.getQueryInfo().getQueryStats().getExecutionTime())
+                            .orElse(new Duration(0, NANOSECONDS)).toMillis() > runningTimeoutMillis) {
+                        cachedMemoryUsageBytes -= query.getTotalMemoryReservation();
                         query.cancelQuery();
                     }
-                }
-                else if (elapsedTimeMillis > queuedTimeoutMillis) {
+                } // Queued time may be null when a query is queued, subtract execution time from elapsed time instead
+                else if (Optional.ofNullable(query.getQueryInfo().getQueryStats().getElapsedTime())
+                        .orElse(new Duration(0, NANOSECONDS)).toMillis() -
+                        Optional.ofNullable(query.getQueryInfo().getQueryStats().getExecutionTime())
+                                .orElse(new Duration(0, NANOSECONDS)).toMillis() > queuedTimeoutMillis) {
                     query.cancelQuery();
                 }
             }
@@ -817,6 +880,7 @@ public class InternalResourceGroup
         {
             internalRefreshStats();
             enforceTimeouts();
+            enforceHardMemoryLimit();
             while (internalStartNext()) {
                 // start all the queries we can
             }

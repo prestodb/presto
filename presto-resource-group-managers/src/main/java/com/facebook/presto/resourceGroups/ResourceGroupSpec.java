@@ -38,7 +38,9 @@ public class ResourceGroupSpec
 
     private final ResourceGroupNameTemplate name;
     private final Optional<DataSize> softMemoryLimit;
+    private final Optional<DataSize> hardMemoryLimit;
     private final Optional<Double> softMemoryLimitFraction;
+    private final Optional<Double> hardMemoryLimitFraction;
     private final int maxQueued;
     private final int maxRunning;
     private final Optional<SchedulingPolicy> schedulingPolicy;
@@ -54,6 +56,7 @@ public class ResourceGroupSpec
     public ResourceGroupSpec(
             @JsonProperty("name") ResourceGroupNameTemplate name,
             @JsonProperty("softMemoryLimit") String softMemoryLimit,
+            @JsonProperty("hardMemoryLimit") String hardMemoryLimit,
             @JsonProperty("maxQueued") int maxQueued,
             @JsonProperty("maxRunning") int maxRunning,
             @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
@@ -91,6 +94,18 @@ public class ResourceGroupSpec
         }
         this.softMemoryLimit = absoluteSize;
         this.softMemoryLimitFraction = fraction;
+        requireNonNull(hardMemoryLimit, "hardMemoryLimit is null");
+        matcher = PERCENT_PATTERN.matcher(hardMemoryLimit);
+        if (matcher.matches()) {
+            absoluteSize = Optional.empty();
+            fraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
+        }
+        else {
+            absoluteSize = Optional.of(DataSize.valueOf(hardMemoryLimit));
+            fraction = Optional.empty();
+        }
+        this.hardMemoryLimit = absoluteSize;
+        this.hardMemoryLimitFraction = fraction;
         this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null").orElse(ImmutableList.of()));
         Set<ResourceGroupNameTemplate> names = new HashSet<>();
         for (ResourceGroupSpec subGroup : this.subGroups) {
@@ -107,6 +122,16 @@ public class ResourceGroupSpec
     public Optional<Double> getSoftMemoryLimitFraction()
     {
         return softMemoryLimitFraction;
+    }
+
+    public Optional<DataSize> getHardMemoryLimit()
+    {
+        return hardMemoryLimit;
+    }
+
+    public Optional<Double> getHardMemoryLimitFraction()
+    {
+        return hardMemoryLimitFraction;
     }
 
     public int getMaxQueued()
@@ -176,6 +201,7 @@ public class ResourceGroupSpec
         ResourceGroupSpec that = (ResourceGroupSpec) other;
         return (name.equals(that.name) &&
                 softMemoryLimit.equals(that.softMemoryLimit) &&
+                hardMemoryLimit.equals(that.hardMemoryLimit) &&
                 maxQueued == that.maxQueued &&
                 maxRunning == that.maxRunning &&
                 schedulingPolicy.equals(that.schedulingPolicy) &&
@@ -196,6 +222,7 @@ public class ResourceGroupSpec
         }
         return (name.equals(other.name) &&
                 softMemoryLimit.equals(other.softMemoryLimit) &&
+                hardMemoryLimit.equals(other.hardMemoryLimit) &&
                 maxQueued == other.maxQueued &&
                 maxRunning == other.maxRunning &&
                 schedulingPolicy.equals(other.schedulingPolicy) &&
@@ -213,6 +240,7 @@ public class ResourceGroupSpec
         return Objects.hash(
                 name,
                 softMemoryLimit,
+                hardMemoryLimit,
                 maxQueued,
                 maxRunning,
                 schedulingPolicy,
@@ -231,6 +259,7 @@ public class ResourceGroupSpec
         return toStringHelper(this)
                 .add("name", name)
                 .add("softMemoryLimit", softMemoryLimit)
+                .add("hardMemoryLimit", hardMemoryLimit)
                 .add("maxQueued", maxQueued)
                 .add("maxRunning", maxRunning)
                 .add("schedulingPolicy", schedulingPolicy)
