@@ -55,7 +55,7 @@ public class CoefficientBasedCostCalculator
         implements CostCalculator
 {
     private static final Double FILTER_COEFFICIENT = 0.5;
-    private static final Double JOIN_MATCHING_COEEFICIENT = 2.0;
+    private static final Double JOIN_MATCHING_COEFFICIENT = 2.0;
 
     // todo some computation for outputSizeInBytes
 
@@ -127,7 +127,7 @@ public class CoefficientBasedCostCalculator
 
             PlanNodeCost.Builder joinCost = PlanNodeCost.builder();
             if (!leftCost.getOutputRowCount().isValueUnknown() && !rightCost.getOutputRowCount().isValueUnknown()) {
-                double joinOutputRowCount = Math.min(leftCost.getOutputRowCount().getValue(), rightCost.getOutputRowCount().getValue()) * JOIN_MATCHING_COEEFICIENT;
+                double joinOutputRowCount = Math.min(leftCost.getOutputRowCount().getValue(), rightCost.getOutputRowCount().getValue()) * JOIN_MATCHING_COEFFICIENT;
                 joinCost.setOutputRowCount(new Estimate(joinOutputRowCount));
             }
 
@@ -222,7 +222,7 @@ public class CoefficientBasedCostCalculator
         {
             visitChildren(node, context);
             PlanNodeCost sourceStatitics = context.get(node.getSource());
-            PlanNodeCost semiJoinCost = sourceStatitics.mapOutputRowCount(rowCount -> rowCount * JOIN_MATCHING_COEEFICIENT);
+            PlanNodeCost semiJoinCost = sourceStatitics.mapOutputRowCount(rowCount -> rowCount * JOIN_MATCHING_COEFFICIENT);
             context.put(node, semiJoinCost);
             return null;
         }
