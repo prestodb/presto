@@ -45,7 +45,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specif
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 
-public class TestMergeWindows extends BasePlanTest
+public class TestMergeWindows
+        extends BasePlanTest
 {
     private static final String SUPPKEY_ALIAS = "SUPPKEY";
     private static final String ORDERKEY_ALIAS = "ORDERKEY";

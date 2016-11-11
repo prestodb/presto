@@ -52,7 +52,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
-public class TestLogicalPlanner extends BasePlanTest
+public class TestLogicalPlanner
+        extends BasePlanTest
 {
     @Test
     public void testJoin()
