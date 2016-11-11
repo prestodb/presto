@@ -76,7 +76,8 @@ class FunctionCallProvider
         return new FunctionCall(name, symbolReferences);
     }
 
-    private class ExpectedWindowFunctionCall extends FunctionCall
+    private class ExpectedWindowFunctionCall
+            extends FunctionCall
     {
         private ExpectedWindowFunctionCall(List<Expression> args)
         {
