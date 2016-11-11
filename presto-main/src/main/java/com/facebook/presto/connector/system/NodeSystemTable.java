@@ -25,11 +25,21 @@ import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.type.ArrayType;
+import com.google.common.base.Splitter;
+import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.ServiceSelector;
+import io.airlift.discovery.client.ServiceType;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -38,13 +48,17 @@ import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static java.util.Objects.requireNonNull;
 
 public class NodeSystemTable
         implements SystemTable
 {
     public static final SchemaTableName NODES_TABLE_NAME = new SchemaTableName("runtime", "nodes");
+    private static final ArrayType CATALOGS_TYPE = new ArrayType(VARCHAR);
+    private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     public static final ConnectorTableMetadata NODES_TABLE = tableMetadataBuilder(NODES_TABLE_NAME)
             .column("node_id", createUnboundedVarcharType())
@@ -52,14 +66,17 @@ public class NodeSystemTable
             .column("node_version", createUnboundedVarcharType())
             .column("coordinator", BOOLEAN)
             .column("state", createUnboundedVarcharType())
+            .column("catalogs", CATALOGS_TYPE)
             .build();
 
     private final InternalNodeManager nodeManager;
+    private final ServiceSelector serviceSelector;
 
     @Inject
-    public NodeSystemTable(InternalNodeManager nodeManager)
+    public NodeSystemTable(InternalNodeManager nodeManager, @ServiceType("presto") ServiceSelector serviceSelector)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
     }
 
     @Override
@@ -79,16 +96,44 @@ public class NodeSystemTable
     {
         Builder table = InMemoryRecordSet.builder(NODES_TABLE);
         AllNodes allNodes = nodeManager.getAllNodes();
-        addRows(table, allNodes.getActiveNodes(), ACTIVE);
-        addRows(table, allNodes.getInactiveNodes(), INACTIVE);
-        addRows(table, allNodes.getShuttingDownNodes(), SHUTTING_DOWN);
+        HashMap<String, Block> catalogs = createCatalogMap();
+        addRows(table, allNodes.getActiveNodes(), ACTIVE, catalogs);
+        addRows(table, allNodes.getInactiveNodes(), INACTIVE, catalogs);
+        addRows(table, allNodes.getShuttingDownNodes(), SHUTTING_DOWN, catalogs);
         return table.build().cursor();
     }
 
-    private void addRows(Builder table, Set<Node> nodes, NodeState state)
+    private HashMap<String, Block> createCatalogMap()
+    {
+        HashMap<String, Block> catalogMap = new HashMap();
+        for (ServiceDescriptor serviceDescriptor : serviceSelector.selectAllServices()) {
+            Map<String, String> properties = serviceDescriptor.getProperties();
+            if (properties != null && properties.get("connectorIds") != null) {
+                Iterable<String> catalogs = COMMA_SPLITTER.split(properties.get("connectorIds"));
+                catalogMap.put(serviceDescriptor.getNodeId(), createCatalogArray(catalogs));
+            }
+        }
+        return catalogMap;
+    }
+
+    private static Block createCatalogArray(Iterable<String> catalogs)
+    {
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
+        for (String catalog : catalogs) {
+            appendToBlockBuilder(VARCHAR, catalog, blockBuilder);
+        }
+        return blockBuilder.build();
+    }
+
+    private void addRows(Builder table, Set<Node> nodes, NodeState state, HashMap<String, Block> catalogs)
     {
         for (Node node : nodes) {
-            table.addRow(node.getNodeIdentifier(), node.getHttpUri().toString(), getNodeVersion(node), isCoordinator(node), state.toString().toLowerCase());
+            table.addRow(node.getNodeIdentifier(),
+                    node.getHttpUri().toString(),
+                    getNodeVersion(node),
+                    isCoordinator(node),
+                    state.toString().toLowerCase(),
+                    catalogs.get(node.getNodeIdentifier()));
         }
     }
 

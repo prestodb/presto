@@ -149,6 +149,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
@@ -212,6 +215,7 @@ public class LocalQueryRunner
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
     private final SpillerFactory spillerFactory;
+    private final ServiceSelector serviceSelector;
 
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
@@ -296,8 +300,10 @@ public class LocalQueryRunner
                 pageIndexerFactory,
                 transactionManager);
 
+        this.serviceSelector = new MockServiceSelector();
+
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
-                new NodeSystemTable(nodeManager),
+                new NodeSystemTable(nodeManager, serviceSelector),
                 new CatalogSystemTable(transactionManager),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
@@ -820,6 +826,33 @@ public class LocalQueryRunner
         public boolean isDeterministic()
         {
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class MockServiceSelector implements ServiceSelector
+    {
+        @Override
+        public String getType()
+        {
+            return null;
+        }
+
+        @Override
+        public String getPool()
+        {
+            return null;
+        }
+
+        @Override
+        public List<ServiceDescriptor> selectAllServices()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public ListenableFuture<List<ServiceDescriptor>> refresh()
+        {
+            return null;
         }
     }
 }
