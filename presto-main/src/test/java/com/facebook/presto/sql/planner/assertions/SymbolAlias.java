@@ -13,33 +13,28 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.sql.planner.Symbol;
+
 import static java.util.Objects.requireNonNull;
 
-final class PlanMatchingContext
+class SymbolAlias
+        implements PlanTestSymbol
 {
-    private final ExpressionAliases expressionAliases;
-    private final PlanMatchPattern pattern;
+    private final String alias;
 
-    PlanMatchingContext(PlanMatchPattern pattern)
+    SymbolAlias(String alias)
     {
-        this(new ExpressionAliases(), pattern);
+        this.alias = requireNonNull(alias, "alias is null");
     }
 
-    PlanMatchingContext(ExpressionAliases expressionAliases, PlanMatchPattern pattern)
+    public Symbol toSymbol(SymbolAliases aliases)
     {
-        requireNonNull(expressionAliases, "expressionAliases is null");
-        requireNonNull(pattern, "pattern is null");
-        this.expressionAliases = new ExpressionAliases(expressionAliases);
-        this.pattern = pattern;
+        return Symbol.from(aliases.get(alias));
     }
 
-    PlanMatchPattern getPattern()
+    @Override
+    public String toString()
     {
-        return pattern;
-    }
-
-    ExpressionAliases getExpressionAliases()
-    {
-        return expressionAliases;
+        return alias;
     }
 }
