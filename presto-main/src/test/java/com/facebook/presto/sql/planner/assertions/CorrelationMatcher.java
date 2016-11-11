@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class CorrelationMatcher
@@ -29,28 +30,35 @@ public class CorrelationMatcher
 {
     private final List<String> correlation;
 
-    public CorrelationMatcher(List<String> correlation)
+    CorrelationMatcher(List<String> correlation)
     {
         this.correlation = requireNonNull(correlation, "correlation is null");
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean downMatches(PlanNode node)
     {
-        if (node instanceof ApplyNode) {
-            ApplyNode applyNode = (ApplyNode) node;
+        return node instanceof ApplyNode;
+    }
 
-            if (correlation.size() != applyNode.getCorrelation().size()) {
+    @Override
+    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    {
+        checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
+
+        ApplyNode applyNode = (ApplyNode) node;
+
+        if (correlation.size() != applyNode.getCorrelation().size()) {
+            return false;
+        }
+
+        int i = 0;
+        for (String alias : correlation) {
+            if (!expressionAliases.get(alias).equals(applyNode.getCorrelation().get(i++).toSymbolReference())) {
                 return false;
             }
-
-            int i = 0;
-            for (String alias : correlation) {
-                expressionAliases.put(alias, applyNode.getCorrelation().get(i++).toSymbolReference());
-            }
-            return true;
         }
-        return false;
+        return true;
     }
 
     @Override

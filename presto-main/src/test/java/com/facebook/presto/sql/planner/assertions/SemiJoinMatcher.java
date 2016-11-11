@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 final class SemiJoinMatcher
@@ -36,16 +37,24 @@ final class SemiJoinMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean downMatches(PlanNode node)
     {
-        if (node instanceof SemiJoinNode) {
-            SemiJoinNode semiJoinNode = (SemiJoinNode) node;
-            expressionAliases.put(sourceSymbolAlias, semiJoinNode.getSourceJoinSymbol().toSymbolReference());
-            expressionAliases.put(filteringSymbolAlias, semiJoinNode.getFilteringSourceJoinSymbol().toSymbolReference());
-            expressionAliases.put(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
-            return true;
+        return node instanceof SemiJoinNode;
+    }
+
+    @Override
+    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    {
+        checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
+
+        SemiJoinNode semiJoinNode = (SemiJoinNode) node;
+        if (!(expressionAliases.get(sourceSymbolAlias).equals(semiJoinNode.getSourceJoinSymbol().toSymbolReference()) &&
+                expressionAliases.get(filteringSymbolAlias).equals(semiJoinNode.getFilteringSourceJoinSymbol().toSymbolReference()))) {
+            return false;
         }
-        return false;
+
+        expressionAliases.put(outputAlias, semiJoinNode.getSemiJoinOutput().toSymbolReference());
+        return true;
     }
 
     @Override

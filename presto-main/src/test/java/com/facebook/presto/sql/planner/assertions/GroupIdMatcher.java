@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 
 public class GroupIdMatcher
     implements Matcher
@@ -37,11 +38,15 @@ public class GroupIdMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean downMatches(PlanNode node)
     {
-        if (!(node instanceof GroupIdNode)) {
-            return false;
-        }
+        return node instanceof GroupIdNode;
+    }
+
+    @Override
+    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    {
+        checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
         GroupIdNode groudIdNode = (GroupIdNode) node;
         List<List<Symbol>> actualGroups = groudIdNode.getGroupingSets();
