@@ -11,49 +11,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
-final class FilterMatcher
-        implements Matcher
+public class OutputMatcher
+    implements Matcher
 {
-    private final Expression predicate;
+    private final List<String> aliases;
 
-    FilterMatcher(Expression predicate)
+    OutputMatcher(List<String> aliases)
     {
-        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
     }
 
     @Override
     public boolean downMatches(PlanNode node)
     {
-        return node instanceof FilterNode;
+        return true;
     }
 
     @Override
     public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
-        checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
-
-        FilterNode filterNode = (FilterNode) node;
-        return new ExpressionVerifier(expressionAliases).process(filterNode.getPredicate(), predicate);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("predicate", predicate)
-                .toString();
+        int i = 0;
+        for (String alias : aliases) {
+            Expression expression = expressionAliases.get(alias);
+            boolean found = false;
+            while (i < node.getOutputSymbols().size()) {
+                Symbol outputSymbol = node.getOutputSymbols().get(i++);
+                if (expression.equals(outputSymbol.toSymbolReference())) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        return true;
     }
 }

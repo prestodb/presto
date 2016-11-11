@@ -15,57 +15,142 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Multimap;
+import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ExpressionAliases
 {
-    private final Multimap<String, Expression> map;
+    private final Map<String, SymbolReference> map;
 
     public ExpressionAliases()
     {
-        this.map = ArrayListMultimap.create();
+        this.map = new HashMap<>();
     }
 
     public ExpressionAliases(ExpressionAliases expressionAliases)
     {
         requireNonNull(expressionAliases, "symbolAliases are null");
-        this.map = ArrayListMultimap.create(expressionAliases.map);
+        this.map = new HashMap<>(expressionAliases.map);
     }
 
-    public void put(String alias, Expression expression)
+    public void put(String alias, SymbolReference symbolReference)
     {
-        alias = alias(alias);
-        if (map.containsKey(alias)) {
-            checkState(map.get(alias).contains(expression), "Alias '%s' points to different expression '%s' and '%s'", alias, expression, map.get(alias));
+        requireNonNull(symbolReference, "symbolReference is null");
+        alias = toKey(alias);
+        checkState(!map.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, map.get(alias), symbolReference);
+        checkState(!map.values().contains(symbolReference), "Expression '%s' is already bound in %s. Tried to rebind as '%s'.", symbolReference, map, alias);
+        map.put(alias, symbolReference);
+    }
+
+    public void putSourceAliases(ExpressionAliases sourceAliases)
+    {
+        for (Map.Entry<String, SymbolReference> alias : sourceAliases.map.entrySet()) {
+            put(alias.getKey(), alias.getValue());
         }
-        else {
-            checkState(!map.values().contains(expression), "Expression '%s' is already pointed by different alias than '%s', check mapping for '%s'", expression, alias, map);
-            map.put(alias, expression);
-        }
     }
 
-    private String alias(String alias)
+    public SymbolReference get(String alias)
     {
-        return alias.toLowerCase().replace("(", "").replace(")", "").replace("\"", "");
+        alias = toKey(alias);
+        SymbolReference result = map.get(alias);
+        /*
+         * It's still kind of an open question if the right combination of anyTree() and
+         * a sufficiently complex and/or ambiguous plan might make throwing here a
+         * theoretically incorrect thing to do.
+         *
+         * If you run into a case that you think justifies changing this, please consider
+         * that it's already pretty hard to determine if a failure is because the test
+         * is written incorrectly or because the actual plan really doesn't match a
+         * correctly written test. Having this throw makes it a lot easier to track down
+         * missing aliases in incorrect plans.
+         */
+        checkState(result != null, format("missing expression for alias %s", alias));
+        return result;
     }
 
-    public void updateAssignments(Map<Symbol, Expression> assignments)
+    private String toKey(String alias)
     {
-        ImmutableMultimap.Builder<String, Expression> mapUpdate = ImmutableMultimap.builder();
+        // Required because the SqlParser lower cases SymbolReferences in the expressions we parse with it.
+        return alias.toLowerCase();
+    }
+
+    private Map<String, SymbolReference> getUpdatedAssignments(Map<Symbol, Expression> assignments)
+    {
+        ImmutableMap.Builder<String, SymbolReference> mapUpdate = ImmutableMap.builder();
         for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-            for (String alias : map.keys()) {
-                if (map.get(alias).contains(assignment.getKey().toSymbolReference())) {
-                    mapUpdate.put(alias, assignment.getValue());
+            for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
+                if (assignment.getValue().equals(existingAlias.getValue())) {
+                    // Simple symbol rename
+                    mapUpdate.put(existingAlias.getKey(), assignment.getKey().toSymbolReference());
+                }
+                else if (assignment.getKey().toSymbolReference().equals(existingAlias.getValue())) {
+                    /*
+                     * Special case for nodes that can alias symbols in the node's assignment map.
+                     * In this case, we've already added the alias in the map, but we won't include it
+                     * as a simple rename as covered above. Add the existing alias to the result if
+                     * the LHS of the assignment matches the symbol reference of the existing alias.
+                     *
+                     * This comes up when we alias expressions in project nodes for use further up the tree.
+                     * At the beginning for the function, map contains { NEW_ALIAS: SymbolReference("expr_2" }
+                     * and the assignments map contains { expr_2 := <some expression> }.
+                     */
+                    mapUpdate.put(existingAlias.getKey(), existingAlias.getValue());
                 }
             }
         }
-        map.putAll(mapUpdate.build());
+        return mapUpdate.build();
+    }
+
+    /*
+     * Update assigments in ExpressionAliases.map based on assignments given that
+     * assignments is a map of newSymbol := oldSymbolReference. RETAIN aliases for
+     * SymbolReferences that aren't in assignments.values()
+     *
+     * Example:
+     * ExpressionAliases.map = { "ALIAS": SymbolReference("foo") }
+     * updateAssignments({"bar": SymbolReference("foo")})
+     * results in
+     * ExpressionAliases.map = { "ALIAS": SymbolReference("bar") }
+     */
+    public void updateAssignments(Map<Symbol, Expression> assignments)
+    {
+        Map<String, SymbolReference> additions = getUpdatedAssignments(assignments);
+        map.putAll(additions);
+    }
+
+    /*
+     * Update assigments in ExpressionAliases.map based on assignments given that
+     * assignments is a map of newSymbol := oldSymbolReference. DISCARD aliases for
+     * SymbolReferences that aren't in assignments.values()
+     *
+     * When you pass through a project node, all of the aliases need to be updated, and
+     * aliases for symbols that aren't projected need to be removed.
+     *
+     * Example:
+     * PlanMatchPattern.tableScan("nation", ImmutableMap.of("NK", "nationkey", "RK", "regionkey")
+     * applied to
+     * TableScanNode { col1 := ColumnHandle(nation, nationkey), col2 := ColumnHandle(nation, regionkey) }
+     * gives ExpressionAliases.map
+     * { "NK": SymbolReference("col1"), "RK": SymbolReference("col2") }
+     *
+     * ... Visit some other nodes, one of which presumably consumes col1, and none of which add any new aliases ...
+     *
+     * If we then visit a project node
+     * Project { value3 := col2 }
+     * ExpressionAliases.map should be
+     * { "RK": SymbolReference("value3") }
+     */
+    public void replaceAssignments(Map<Symbol, Expression> assignments)
+    {
+        Map<String, SymbolReference> newAssignments = getUpdatedAssignments(assignments);
+        map.clear();
+        map.putAll(newAssignments);
     }
 }

@@ -41,7 +41,7 @@ final class PlanMatchingState
     PlanMatchingContext createContext(int matcherId)
     {
         checkArgument(matcherId < patterns.size(), "mactcherId out of scope");
-        return new PlanMatchingContext(expressionAliases, patterns.get(matcherId));
+        return new PlanMatchingContext(new ExpressionAliases(), patterns.get(matcherId));
     }
 
     List<PlanMatchPattern> getPatterns()
