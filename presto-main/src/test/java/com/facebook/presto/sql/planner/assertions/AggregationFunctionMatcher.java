@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class AggregationFunctionMatcher
         implements RvalueMatcher
 {
-    ExpectedValueProvider<FunctionCall> callMaker;
+    private final ExpectedValueProvider<FunctionCall> callMaker;
 
     public AggregationFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker)
     {

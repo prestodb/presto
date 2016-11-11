@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class WindowFunctionMatcher
         implements RvalueMatcher
 {
-    ExpectedValueProvider<FunctionCall> callMaker;
+    private final ExpectedValueProvider<FunctionCall> callMaker;
 
     public WindowFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker)
     {

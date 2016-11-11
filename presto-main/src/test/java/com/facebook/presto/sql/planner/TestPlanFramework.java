@@ -35,7 +35,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
-public class TestPlanFramework extends BasePlanTest
+public class TestPlanFramework
+        extends BasePlanTest
 {
     @Test
     public void testOutput()

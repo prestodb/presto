@@ -16,7 +16,8 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.SymbolReference;
 
-class AnySymbol extends Symbol
+class AnySymbol
+        extends Symbol
         implements PlanTestSymbol
 {
     AnySymbol()
