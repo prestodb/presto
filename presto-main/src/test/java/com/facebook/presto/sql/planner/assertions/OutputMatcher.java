@@ -15,32 +15,52 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-final class NotPlanNodeMatcher implements Matcher
+public class OutputMatcher
+    implements Matcher
 {
-    private final Class<? extends PlanNode> excludedNodeClass;
+    private final List<String> aliases;
 
-    NotPlanNodeMatcher(Class<? extends PlanNode> excludedNodeClass)
+    OutputMatcher(List<String> aliases)
     {
-        this.excludedNodeClass = requireNonNull(excludedNodeClass, "functionCalls is null");
+        this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
     }
 
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return (!node.getClass().equals(excludedNodeClass));
+        return true;
     }
 
     @Override
     public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
+        int i = 0;
+        for (String alias : aliases) {
+            Expression expression = symbolAliases.get(alias);
+            boolean found = false;
+            while (i < node.getOutputSymbols().size()) {
+                Symbol outputSymbol = node.getOutputSymbols().get(i++);
+                if (expression.equals(outputSymbol.toSymbolReference())) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return NO_MATCH;
+            }
+        }
         return match();
     }
 
@@ -48,7 +68,7 @@ final class NotPlanNodeMatcher implements Matcher
     public String toString()
     {
         return toStringHelper(this)
-                .add("excludedNodeClass", excludedNodeClass)
+                .add("outputs", aliases)
                 .toString();
     }
 }
