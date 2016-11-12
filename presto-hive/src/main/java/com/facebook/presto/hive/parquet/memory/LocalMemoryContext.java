@@ -11,57 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.memory;
+package com.facebook.presto.hive.parquet.memory;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class AggregatedMemoryContext
-        extends AbstractAggregatedMemoryContext
+public class LocalMemoryContext
 {
-    // This class should remain exactly the same as AggregatedMemoryContext in com.facebook.presto.orc.memory and com.facebook.presto.hive.parquet.memory
-
     private final AbstractAggregatedMemoryContext parentMemoryContext;
     private long usedBytes;
-    private boolean closed;
 
-    public AggregatedMemoryContext()
-    {
-        this.parentMemoryContext = null;
-    }
-
-    public AggregatedMemoryContext(AbstractAggregatedMemoryContext parentMemoryContext)
+    public LocalMemoryContext(AbstractAggregatedMemoryContext parentMemoryContext)
     {
         this.parentMemoryContext = requireNonNull(parentMemoryContext, "parentMemoryContext is null");
     }
 
     public long getBytes()
     {
-        checkState(!closed);
         return usedBytes;
     }
 
-    @Override
-    protected void updateBytes(long bytes)
+    public void setBytes(long bytes)
     {
-        checkState(!closed);
-        if (parentMemoryContext != null) {
-            parentMemoryContext.updateBytes(bytes);
-        }
-        usedBytes += bytes;
-    }
-
-    public void close()
-    {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        if (parentMemoryContext != null) {
-            parentMemoryContext.updateBytes(-usedBytes);
-        }
-        usedBytes = 0;
+        long oldLocalUsedBytes = this.usedBytes;
+        this.usedBytes = bytes;
+        parentMemoryContext.updateBytes(this.usedBytes - oldLocalUsedBytes);
     }
 
     @Override
@@ -69,7 +43,6 @@ public class AggregatedMemoryContext
     {
         return toStringHelper(this)
                 .add("usedBytes", usedBytes)
-                .add("closed", closed)
                 .toString();
     }
 }
