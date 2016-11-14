@@ -20,7 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class Prepare
-        extends DataDefinitionStatement
+        extends Statement
 {
     private final String name;
     private final Statement statement;

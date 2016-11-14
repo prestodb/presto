@@ -40,14 +40,18 @@ import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.sql.tree.DataDefinitionStatement;
+import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
@@ -55,6 +59,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -65,11 +70,17 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -368,33 +379,99 @@ class StatementAnalyzer
     }
 
     @Override
-    protected Scope visitDataDefinitionStatement(DataDefinitionStatement node, Scope scope)
+    protected Scope visitSetSession(SetSession node, Scope scope)
     {
         return createScope(node, scope, emptyList());
     }
 
     @Override
-    protected Scope visitSetSession(SetSession node, Scope scope)
+    protected Scope visitResetSession(ResetSession node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitAddColumn(AddColumn node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitCreateTable(CreateTable node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropTable(DropTable node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameTable(RenameTable node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameColumn(RenameColumn node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropView(DropView node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitStartTransaction(StartTransaction node, Scope scope)
     {
-        return visitDataDefinitionStatement(node, scope);
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCommit(Commit node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRollback(Rollback node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitPrepare(Prepare node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDeallocate(Deallocate node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitGrant(Grant node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRevoke(Revoke node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCall(Call node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
     }
 
     private static void validateColumns(Statement node, RelationType descriptor)

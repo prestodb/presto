@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class Revoke
-        extends DataDefinitionStatement
+        extends Statement
 {
     private final boolean grantOptionFor;
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES

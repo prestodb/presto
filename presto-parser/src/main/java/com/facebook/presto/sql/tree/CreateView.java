@@ -20,7 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class CreateView
-        extends DataDefinitionStatement
+        extends Statement
 {
     private final QualifiedName name;
     private final Query query;
