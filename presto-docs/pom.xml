@@ -45,7 +45,7 @@
 
         <plugins>
             <plugin>
-                <groupId>kr.motd.maven</groupId>
+                <groupId>io.airlift.maven.plugins</groupId>
                 <artifactId>sphinx-maven-plugin</artifactId>
                 <configuration>
                     <fork>true</fork>
