@@ -1,5 +1,6 @@
 package com.facebook.presto.baseplugin;
 
+import com.facebook.presto.spi.NodeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -11,6 +12,7 @@ import static java.util.Objects.requireNonNull;
  * Created by amehta on 6/13/16.
  */
 public class BaseModule implements Module {
+    private final NodeManager nodeManager;
     private final BaseConnectorInfo baseConnectorInfo;
     private final Class<? extends BaseConfig> baseConfigClass;
     private final Class<? extends BaseConnector> baseConnectorClass;
@@ -21,6 +23,7 @@ public class BaseModule implements Module {
     private final Class<? extends BaseProvider> baseProviderClass;
 
     public BaseModule(
+            NodeManager nodeManager,
             BaseConnectorInfo baseConnectorInfo,
             Class<? extends BaseConfig> baseConfigClass,
             Class<? extends BaseConnector> baseConnectorClass,
@@ -30,6 +33,7 @@ public class BaseModule implements Module {
             Class<? extends BaseHandleResolver> baseHandleResolverClass,
             Class<? extends BaseProvider> baseProviderClass
     ) {
+        this.nodeManager = requireNonNull(nodeManager);
         this.baseConnectorInfo = requireNonNull(baseConnectorInfo, "baseConnectorInfo is null");
         this.baseConfigClass = requireNonNull(baseConfigClass, "baseConfig is null");
         this.baseConnectorClass = requireNonNull(baseConnectorClass, "baseConnector is null");
@@ -46,6 +50,7 @@ public class BaseModule implements Module {
         configBinder(binder).bindConfig(baseConfigClass);
 
         binder.bind(BaseConnectorInfo.class).toInstance(baseConnectorInfo);
+        binder.bind(NodeManager.class).toInstance(nodeManager);
 
         if(baseConnectorClass != BaseConnector.class) {
             binder.bind(BaseConnector.class).to(baseConnectorClass).in(Scopes.SINGLETON);

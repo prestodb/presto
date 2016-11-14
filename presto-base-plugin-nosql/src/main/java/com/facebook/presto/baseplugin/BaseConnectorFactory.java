@@ -1,7 +1,6 @@
 package com.facebook.presto.baseplugin;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
@@ -17,7 +16,6 @@ import static java.util.Objects.requireNonNull;
  * Created by amehta on 6/13/16.
  */
 public class BaseConnectorFactory implements ConnectorFactory{
-    private final NodeManager nodeManager;
     private final String name;
 
     private final Class<? extends BaseConfig> baseConfigClass;
@@ -29,7 +27,6 @@ public class BaseConnectorFactory implements ConnectorFactory{
     private final Class<? extends BaseProvider> baseProviderClass;
 
     public BaseConnectorFactory(
-            NodeManager nodeManager,
             String name,
             Class<? extends BaseConfig> baseConfigClass,
             Class<? extends BaseConnector> baseConnectorClass,
@@ -39,7 +36,6 @@ public class BaseConnectorFactory implements ConnectorFactory{
             Class<? extends BaseHandleResolver> baseHandleResolverClass,
             Class<? extends BaseProvider> baseProviderClass
     ) {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.name = requireNonNull(name, "connectorFactory name is null");
 
         this.baseConfigClass = requireNonNull(baseConfigClass, "baseConfig is null");
@@ -70,8 +66,8 @@ public class BaseConnectorFactory implements ConnectorFactory{
 
         try {
             Bootstrap app = new Bootstrap(
-                    binder -> binder.bind(NodeManager.class).toInstance(nodeManager),
                     new BaseModule(
+                            connectorContext.getNodeManager(),
                             new BaseConnectorInfo(connectorId),
                             baseConfigClass,
                             baseConnectorClass,

@@ -1,19 +1,13 @@
 package com.facebook.presto.baseplugin;
 
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
-
-import javax.inject.Inject;
-import java.util.List;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Created by amehta on 6/13/16.
  */
-public abstract class BasePlugin {
-    private NodeManager nodeManager;
+public abstract class BasePlugin implements Plugin {
     private String name;
 
     private Class<? extends BaseConfig> baseConfigClass;
@@ -71,26 +65,16 @@ public abstract class BasePlugin {
         this.baseProviderClass = baseProviderClass;
     }
 
-    @Inject
-    public void setNodeManager(NodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-    }
-
-    public <T> List<T> getServices(Class<T> type) {
-        if (type == ConnectorFactory.class) {
-            requireNonNull(nodeManager, "nodeManager is null");
-            return ImmutableList.of(type.cast(new BaseConnectorFactory(
-                    nodeManager, 
-                    name, 
-                    baseConfigClass,
-                    baseConnectorClass,
-                    baseMetadataClass,
-                    baseSplitManagerClass,
-                    baseRecordSetProviderClass,
-                    baseHandleResolverClass,
-                    baseProviderClass)));
-        }
-        return ImmutableList.of();
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories() {
+        return ImmutableList.of(new BaseConnectorFactory(
+                name,
+                baseConfigClass,
+                baseConnectorClass,
+                baseMetadataClass,
+                baseSplitManagerClass,
+                baseRecordSetProviderClass,
+                baseHandleResolverClass,
+                baseProviderClass));
     }
 }

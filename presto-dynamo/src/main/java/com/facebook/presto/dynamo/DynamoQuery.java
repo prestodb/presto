@@ -20,6 +20,8 @@ public class DynamoQuery extends BaseQuery {
     public DynamoQuery(BaseSplit baseSplit, ConnectorSession connectorSession, List<? extends ColumnHandle> desiredColumns) {
         super(baseSplit, connectorSession, desiredColumns);
         this.offset = Optional.empty();
+        //set this empty until limit pushdown enabled
+        this.limit = Optional.empty();
     }
 
     public Optional<Integer> getLimit() {

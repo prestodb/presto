@@ -28,7 +28,8 @@ public abstract class BaseConfig {
     }
 
     protected <T> T getProperty(String propertyName, Class<T> clazz, Optional<ConnectorSession> session){
-        return session.isPresent() ? BaseUtils.getPropertyFromSessionConfig(propertyName, clazz, session.get(), this) : BaseUtils.getPropertyFromMap(propertyName, clazz, properties);
+        //return session.isPresent() ? BaseUtils.getPropertyFromSessionConfig(propertyName, clazz, session.get(), this) : BaseUtils.getPropertyFromMap(propertyName, clazz, properties);
+        return BaseUtils.getPropertyFromMap(propertyName, clazz, properties);
     }
 
     @Config("basePlugin.cacheEnabled")
