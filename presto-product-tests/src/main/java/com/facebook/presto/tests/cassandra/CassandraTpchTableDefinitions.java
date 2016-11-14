@@ -23,6 +23,7 @@ import java.sql.JDBCType;
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static com.facebook.presto.tests.cassandra.TestConstants.KEY_SPACE;
 import static java.sql.JDBCType.BIGINT;
+import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.VARCHAR;
 
 public class CassandraTpchTableDefinitions
@@ -44,5 +45,21 @@ public class CassandraTpchTableDefinitions
                     "   n_comment       VARCHAR," +
                     "   primary key(n_nationkey))")
             .setDataSource(new CassandraTpchDataSource(TpchTable.NATION, ImmutableList.of(0, 2, 3, 1), NATION_TYPES, 1.0))
+            .build();
+
+    public static final ImmutableList<JDBCType> SUPPLIER_TYPES = ImmutableList.of(BIGINT, VARCHAR, VARCHAR, BIGINT, VARCHAR, DOUBLE, VARCHAR);
+    public static final CassandraTableDefinition CASSANDRA_SUPPLIER = CassandraTableDefinition.cassandraBuilder("supplier")
+            .withDatabase(CONNECTOR_NAME)
+            .withSchema(KEY_SPACE)
+            .setCreateTableDDLTemplate("CREATE TABLE %NAME%(" +
+                            "   s_suppkey     BIGINT," +
+                            "   s_name        VARCHAR," +
+                            "   s_address     VARCHAR," +
+                            "   s_nationkey   BIGINT," +
+                            "   s_phone       VARCHAR," +
+                            "   s_acctbal     DOUBLE," +
+                            "   s_comment     VARCHAR," +
+                            "   primary key(s_suppkey))")
+            .setDataSource(new CassandraTpchDataSource(TpchTable.SUPPLIER, ImmutableList.of(0, 4, 2, 5, 6, 1, 3), SUPPLIER_TYPES, 1.0))
             .build();
 }
