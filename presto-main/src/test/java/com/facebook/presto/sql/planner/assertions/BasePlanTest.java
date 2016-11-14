@@ -13,11 +13,20 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
+import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
+
+import java.util.List;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
@@ -58,16 +67,19 @@ public class BasePlanTest
         });
     }
 
-    protected void assertNotPlan(String sql, PlanMatchPattern pattern)
+    protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        assertNotPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
-    }
-
-    protected void assertNotPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
-    {
+        LocalQueryRunner queryRunner = getQueryRunner();
+        FeaturesConfig featuresConfig = new FeaturesConfig()
+                .setDistributedIndexJoinsEnabled(false)
+                .setOptimizeHashGeneration(true);
+        List<PlanOptimizer> optimizers = ImmutableList.of(
+                new UnaliasSymbolReferences(),
+                new PruneUnreferencedOutputs(),
+                new PruneIdentityProjections());
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage);
-            PlanAssert.assertNotPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
     }
