@@ -23,6 +23,7 @@ import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +39,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -218,5 +220,22 @@ public class FunctionsParserHelper
         return Stream.of(inputFunction.getAnnotationsByType(Constraint.class))
                 .map(annotation -> new LongVariableConstraint(annotation.variable(), annotation.expression()))
                 .collect(toImmutableList());
+    }
+
+    public static Map<String, Class<?>> getDeclaredSpecializedTypeParameters(Method method, Set<TypeParameter> typeParameters)
+    {
+        Map<String, Class<?>> specializedTypeParameters = new HashMap<>();
+        TypeParameterSpecialization[] typeParameterSpecializations = method.getAnnotationsByType(TypeParameterSpecialization.class);
+        ImmutableSet<String> typeParameterNames = typeParameters.stream()
+                .map(TypeParameter::value)
+                .collect(toImmutableSet());
+        for (TypeParameterSpecialization specialization : typeParameterSpecializations) {
+            checkArgument(typeParameterNames.contains(specialization.name()), "%s does not match any declared type parameters (%s) [%s]", specialization.name(), typeParameters, method);
+            Class<?> existingSpecialization = specializedTypeParameters.get(specialization.name());
+            checkArgument(existingSpecialization == null || existingSpecialization.equals(specialization.nativeContainerType()),
+                    "%s has conflicting specializations %s and %s [%s]", specialization.name(), existingSpecialization, specialization.nativeContainerType(), method);
+            specializedTypeParameters.put(specialization.name(), specialization.nativeContainerType());
+        }
+        return specializedTypeParameters;
     }
 }
