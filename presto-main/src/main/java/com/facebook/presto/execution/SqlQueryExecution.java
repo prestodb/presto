@@ -344,7 +344,7 @@ public final class SqlQueryExecution
 
     private QueryPlan createQueryPlan(Plan plan)
     {
-        return new QueryPlan(plan, costCalculator.calculateCostForPlan(getSession(), plan.getRoot()));
+        return new QueryPlan(plan, costCalculator.calculateCostForPlan(getSession(), plan.getTypes(), plan.getRoot()));
     }
 
     private void planDistribution(PlanRoot plan)
