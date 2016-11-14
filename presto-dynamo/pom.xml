@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.157-SNAPSHOT</version>
+        <version>0.156</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -14,7 +14,7 @@
     <packaging>presto-plugin</packaging>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.main.basedir>${project.basedir}</air.main.basedir>
         <aws.version>1.9.40</aws.version>
 
         <air.check.skip-extended>true</air.check.skip-extended>
