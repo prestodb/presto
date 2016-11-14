@@ -70,7 +70,7 @@ public class CoefficientBasedCostCalculator
     }
 
     @Override
-    public Map<PlanNode, PlanNodeCost> calculateCostForPlan(Session session, PlanNode planNode)
+    public Map<PlanNode, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode)
     {
         Visitor visitor = new Visitor(session, types);
         HashMap<PlanNode, PlanNodeCost> costMap = new HashMap<>();
