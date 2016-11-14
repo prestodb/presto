@@ -13,6 +13,20 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+/**
+ * An implementation of ExpectedValueProvider<T> should hold the values and
+ * SymbolAliases needed to call T's constructor, and call
+ * SymbolAlias.toSymbol() to get actual Symbols to pass to T's constructor.
+ * Doing this ensures that changes to T's .equals() method that requires a
+ * change to T's constructor result in a compilation error.
+ *
+ * In particular, if adding a new field to T's .equals() method requires
+ * passing a value for that field to T's constuctor, using an
+ * ExpectedValueProvider that calls T's constructor will ensure that there is
+ * a compilation error to be fixed. By contrast, implementing the comparison logic
+ * in the test code and using SymbolAliases directly will likely cause tests to
+ * pass erroneously without any notification.
+ */
 public interface ExpectedValueProvider<T>
 {
     T getExpectedValue(ExpressionAliases aliases);
