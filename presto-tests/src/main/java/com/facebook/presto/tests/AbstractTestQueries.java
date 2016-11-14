@@ -7659,10 +7659,36 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testDescribeOutputRowCountQuery()
+    public void testDescribeOutputNonSelect()
+    {
+        assertDescribeOutputRowCount("CREATE TABLE foo AS SELECT * FROM nation");
+        assertDescribeOutputRowCount("DELETE FROM orders");
+
+        assertDescribeOutputEmpty("CALL foo()");
+        assertDescribeOutputEmpty("SET SESSION optimize_hash_generation=false");
+        assertDescribeOutputEmpty("RESET SESSION optimize_hash_generation");
+        assertDescribeOutputEmpty("START TRANSACTION");
+        assertDescribeOutputEmpty("COMMIT");
+        assertDescribeOutputEmpty("ROLLBACK");
+        assertDescribeOutputEmpty("GRANT INSERT ON foo TO bar");
+        assertDescribeOutputEmpty("REVOKE INSERT ON foo FROM bar");
+        assertDescribeOutputEmpty("CREATE SCHEMA foo");
+        assertDescribeOutputEmpty("ALTER SCHEMA foo RENAME TO bar");
+        assertDescribeOutputEmpty("DROP SCHEMA foo");
+        assertDescribeOutputEmpty("CREATE TABLE foo (x bigint)");
+        assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
+        assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
+        assertDescribeOutputEmpty("DROP TABLE foo");
+        assertDescribeOutputEmpty("DROP VIEW foo");
+        assertDescribeOutputEmpty("PREPARE test FROM SELECT * FROM orders");
+        assertDescribeOutputEmpty("EXECUTE test");
+        assertDescribeOutputEmpty("DEALLOCATE PREPARE test");
+    }
+
+    private void assertDescribeOutputRowCount(@Language("SQL") String sql)
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "CREATE TABLE foo AS SELECT * FROM nation")
+                .addPreparedStatement("my_query", sql)
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
@@ -7672,11 +7698,10 @@ public abstract class AbstractTestQueries
         assertEqualsIgnoreOrder(actual, expected);
     }
 
-    @Test
-    public void testDescribeOutputDataDefinitionQuery()
+    private void assertDescribeOutputEmpty(@Language("SQL") String sql)
     {
         Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query", "SET SESSION optimize_hash_generation=false")
+                .addPreparedStatement("my_query", sql)
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");

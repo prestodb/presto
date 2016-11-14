@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
@@ -50,9 +51,11 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
@@ -77,6 +80,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
@@ -397,6 +401,24 @@ class StatementAnalyzer
     }
 
     @Override
+    protected Scope visitCreateSchema(CreateSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropSchema(DropSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameSchema(RenameSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
     protected Scope visitCreateTable(CreateTable node, Scope scope)
     {
         return createScope(node, scope, emptyList());
@@ -452,6 +474,12 @@ class StatementAnalyzer
 
     @Override
     protected Scope visitDeallocate(Deallocate node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitExecute(Execute node, Scope scope)
     {
         return createScope(node, scope, emptyList());
     }
