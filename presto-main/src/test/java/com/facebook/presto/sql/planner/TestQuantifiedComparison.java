@@ -53,7 +53,7 @@ public class TestQuantifiedComparison
     public void testQuantifiedComparisonEqualsAny()
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ANY (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
-        assertUnitPlan(query, anyTree(
+        assertMinimallyOptimizedPlan(query, anyTree(
                 filter("X IN (Y)",
                         apply(ImmutableList.of(),
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")),
@@ -70,7 +70,7 @@ public class TestQuantifiedComparison
     public void testQuantifiedComparisonNotEqualsAll()
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> ALL (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
-        assertUnitPlan(query, anyTree(
+        assertMinimallyOptimizedPlan(query, anyTree(
                 filter("NOT (X IN (Y))",
                         apply(ImmutableList.of(),
                                 tableScan("orders", ImmutableMap.of("X", "orderkey")),
@@ -116,7 +116,7 @@ public class TestQuantifiedComparison
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ALL (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
 
-        assertUnitPlan(query,
+        assertMinimallyOptimizedPlan(query,
                 anyTree(
                         project(
                                 filter("MIN = MAX AND X = MIN",
@@ -144,7 +144,7 @@ public class TestQuantifiedComparison
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> SOME (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
 
-        assertUnitPlan(query,
+        assertMinimallyOptimizedPlan(query,
                 anyTree(
                         project(
                                 filter("NOT (MIN = MAX AND X = MIN)",
@@ -166,7 +166,7 @@ public class TestQuantifiedComparison
 
     private void assertOrderedQuantifiedComparison(String query, String filter, String columnMapping, String function, String functionAlias)
     {
-        assertUnitPlan(query, anyTree(
+        assertMinimallyOptimizedPlan(query, anyTree(
                 project(
                         filter(filter,
                                 apply(ImmutableList.of(),
@@ -187,22 +187,5 @@ public class TestQuantifiedComparison
                                                         ImmutableMap.of(
                                                                 functionAlias, functionCall(function, ImmutableList.of("FIELD"))),
                                                         values(ImmutableMap.of("FIELD", 0)))))))));
-    }
-
-    private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
-    {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
-        List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(),
-                new PruneIdentityProjections(),
-                new PruneUnreferencedOutputs());
-        queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
-            return null;
-        });
     }
 }
