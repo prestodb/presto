@@ -90,15 +90,9 @@ public final class DatabaseUtil
             task.run();
         }
         catch (RuntimeException e) {
-            for (Throwable throwable : Throwables.getCausalChain(e)) {
-                if (throwable instanceof SQLException) {
-                    String state = ((SQLException) throwable).getSQLState();
-                    if (state != null && state.startsWith("23")) {
-                        return;
-                    }
-                }
+            if (!sqlCodeStartsWith(e, "23")) {
+                throw e;
             }
-            throw e;
         }
     }
 
@@ -133,5 +127,23 @@ public final class DatabaseUtil
         else {
             statement.setNull(index, INTEGER);
         }
+    }
+
+    public static boolean isSyntaxOrAccessError(Exception e)
+    {
+        return sqlCodeStartsWith(e, "42");
+    }
+
+    private static boolean sqlCodeStartsWith(Exception e, String code)
+    {
+        for (Throwable throwable : Throwables.getCausalChain(e)) {
+            if (throwable instanceof SQLException) {
+                String state = ((SQLException) throwable).getSQLState();
+                if (state != null && state.startsWith(code)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

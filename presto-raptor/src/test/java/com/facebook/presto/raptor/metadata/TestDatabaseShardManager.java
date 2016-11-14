@@ -46,6 +46,9 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.Collection;
@@ -60,6 +63,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
+import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -79,6 +83,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
@@ -633,6 +638,37 @@ public class TestDatabaseShardManager
         shardAssertion(tableId).equal(c1, BIGINT, 3L).expected(shards);
     }
 
+    @Test
+    public void testAddNewColumn()
+            throws Exception
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        int before = columnCount(tableId);
+
+        ColumnInfo newColumn = new ColumnInfo(2, BIGINT);
+        shardManager.addColumn(tableId, newColumn);
+        int after = columnCount(tableId);
+        // should be 2 more: min and max columns
+        assertEquals(after, before + 2);
+    }
+
+    @Test
+    public void testAddDuplicateColumn()
+            throws Exception
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
+        int before = columnCount(tableId);
+
+        shardManager.addColumn(tableId, columns.get(0));
+        int after = columnCount(tableId);
+        // no error, no columns added
+        assertEquals(after, before);
+    }
+
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
     {
         try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, predicate)) {
@@ -746,5 +782,15 @@ public class TestDatabaseShardManager
     private static Node createTestingNode()
     {
         return new PrestoNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
+    }
+
+    private int columnCount(long tableId)
+            throws SQLException
+    {
+        try (Statement statement = dummyHandle.getConnection().createStatement()) {
+            try (ResultSet rs = statement.executeQuery(format("SELECT * FROM %s LIMIT 0", shardIndexTable(tableId)))) {
+                return rs.getMetaData().getColumnCount();
+            }
+        }
     }
 }
