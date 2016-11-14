@@ -49,7 +49,7 @@ public class JoinReorderingOptimizer
         requireNonNull(types, "types is null");
 
         if (SystemSessionProperties.isJoinReorderingEnabled(session)) {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan);
+            return SimplePlanRewriter.rewriteWith(new Rewriter(session, symbolAllocator.getTypes()), plan);
         }
         else {
             return plan;
@@ -60,10 +60,12 @@ public class JoinReorderingOptimizer
             extends SimplePlanRewriter<Void>
     {
         private final Session session;
+        private final Map<Symbol, Type> types;
 
-        public Rewriter(Session session)
+        public Rewriter(Session session, Map<Symbol, Type> types)
         {
             this.session = session;
+            this.types = types;
         }
 
         @Override
@@ -72,8 +74,8 @@ public class JoinReorderingOptimizer
             PlanNode leftRewritten = context.defaultRewrite(node.getLeft());
             PlanNode rightRewritten = context.defaultRewrite(node.getRight());
 
-            PlanNodeCost leftCost = costCalculator.calculateCostForNode(session, leftRewritten);
-            PlanNodeCost rightCost = costCalculator.calculateCostForNode(session, rightRewritten);
+            PlanNodeCost leftCost = costCalculator.calculateCostForNode(session, types, leftRewritten);
+            PlanNodeCost rightCost = costCalculator.calculateCostForNode(session, types, rightRewritten);
 
             boolean leftSizeKnown = !leftCost.getOutputSizeInBytes().isValueUnknown();
             boolean rightSizeKnown = !rightCost.getOutputSizeInBytes().isValueUnknown();
