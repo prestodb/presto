@@ -19,6 +19,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -67,7 +69,7 @@ public class CoefficientBasedCostCalculator
     }
 
     @Override
-    public Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, PlanNode planNode)
+    public Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode)
     {
         Visitor visitor = new Visitor(session);
         planNode.accept(visitor, null);

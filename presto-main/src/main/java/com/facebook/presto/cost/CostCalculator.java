@@ -14,6 +14,8 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 
@@ -27,10 +29,10 @@ import java.util.Map;
  */
 public interface CostCalculator
 {
-    Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, PlanNode planNode);
+    Map<PlanNodeId, PlanNodeCost> calculateCostForPlan(Session session, Map<Symbol, Type> types, PlanNode planNode);
 
-    default PlanNodeCost calculateCostForNode(Session session, PlanNode planNode)
+    default PlanNodeCost calculateCostForNode(Session session, Map<Symbol, Type> types, PlanNode planNode)
     {
-        return calculateCostForPlan(session, planNode).get(planNode.getId());
+        return calculateCostForPlan(session, types, planNode).get(planNode.getId());
     }
 }
