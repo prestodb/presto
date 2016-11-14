@@ -13,23 +13,12 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.assertions.PlanAssert;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
-import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
-import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
-import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
