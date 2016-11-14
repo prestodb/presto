@@ -125,8 +125,8 @@ final class PlanMatchingVisitor
                  * shouldn't be visible in the context of other sources.
                  */
                 PlanMatchingContext sourceContext = state.createContext(i++);
-                sourcesMatch = sourcesMatch && source.accept(this, sourceContext);
-                if (!sourcesMatch) {
+                if (!source.accept(this, sourceContext)) {
+                    sourcesMatch = false;
                     break;
                 }
 

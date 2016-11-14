@@ -126,7 +126,7 @@ public final class ExpressionAliases
     }
 
     /*
-     * Update assigments in ExpressionAliases.map based on assignments given that
+     * Update assignments in ExpressionAliases.map based on assignments given that
      * assignments is a map of newSymbol := oldSymbolReference. DISCARD aliases for
      * SymbolReferences that aren't in assignments.values()
      *

@@ -174,7 +174,7 @@ public final class PlanMatchPattern
         return node(ProjectNode.class, source);
     }
 
-    public static PlanMatchPattern project(Map<String, ExpressionAssignment> assignments, PlanMatchPattern source)
+    public static PlanMatchPattern project(Map<String, ExpressionMatcher> assignments, PlanMatchPattern source)
     {
         PlanMatchPattern result = project(source);
         assignments.entrySet().forEach(
@@ -239,14 +239,14 @@ public final class PlanMatchPattern
         if (anyTree) {
             int sourcesCount = node.getSources().size();
             if (sourcesCount > 1) {
-                states.add(new PlanMatchingState(nCopies(sourcesCount, this), expressionAliases));
+                states.add(new PlanMatchingState(nCopies(sourcesCount, this)));
             }
             else {
-                states.add(new PlanMatchingState(ImmutableList.of(this), expressionAliases));
+                states.add(new PlanMatchingState(ImmutableList.of(this)));
             }
         }
         if (node.getSources().size() == sourcePatterns.size() && matchers.stream().allMatch(it -> it.downMatches(node))) {
-            states.add(new PlanMatchingState(sourcePatterns, expressionAliases));
+            states.add(new PlanMatchingState(sourcePatterns));
         }
         return states.build();
     }
@@ -278,9 +278,9 @@ public final class PlanMatchPattern
         return new ColumnReference(tableName, columnName);
     }
 
-    public static ExpressionAssignment expression(String expression)
+    public static ExpressionMatcher expression(String expression)
     {
-        return new ExpressionAssignment(expression);
+        return new ExpressionMatcher(expression);
     }
 
     public PlanMatchPattern withOutputs(List<String> aliases)

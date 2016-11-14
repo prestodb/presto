@@ -23,13 +23,10 @@ import static java.util.Objects.requireNonNull;
 final class PlanMatchingState
 {
     private final List<PlanMatchPattern> patterns;
-    private final ExpressionAliases expressionAliases;
 
-    PlanMatchingState(List<PlanMatchPattern> patterns, ExpressionAliases expressionAliases)
+    PlanMatchingState(List<PlanMatchPattern> patterns)
     {
-        requireNonNull(expressionAliases, "expressionAliases is null");
         requireNonNull(patterns, "matchers is null");
-        this.expressionAliases = new ExpressionAliases(expressionAliases);
         this.patterns = ImmutableList.copyOf(patterns);
     }
 

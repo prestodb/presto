@@ -27,6 +27,7 @@ class AnySymbolReference
     public int hashCode()
     {
         /*
+         * See AnySymbol.hashCode() for an explanation of why this is the way it is.
          * If you find a use case for putting AnySymbolReference in a hash table,
          * feel free to implement this.
          */

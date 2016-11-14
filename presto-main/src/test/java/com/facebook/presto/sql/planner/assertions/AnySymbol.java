@@ -41,6 +41,23 @@ class AnySymbol
     public int hashCode()
     {
         /*
+         * It is impossible to implement hashCode in a way that is honors the general equals()/hashCode() contract:
+         *
+         * 0) If two objects are equal according to the equals(Object) method, then calling the hashCode method on each of the two objects must produce the same integer result.
+         * 1) AnySymbol.equals() returns true when the other Object passed to it is of type Symbol.
+         * 2) Assume there is an instance of Symbol s1, such that s1.hashCode() returns h1
+         * 3) Assume there is an instance of Symbol s2, such that s2.hashCode() returns h2, where h1 != h2
+         * 4) Assume there is an instance of AnySymbol, a1
+         * 5) By 1, a1.equals(s1) returns true
+         * 6) By 1, a1.equals(s1) returns true
+         * 7) By 0, 2, a1.hashCode() must return h1
+         * 8) By 0, 3, a2.hashCode() must return h2
+         * 9) We have arrived at a contradiction -> AnySymbol cannot implement hashCode() in a way that honors the general equals/hashCode contract.
+         *
+         * In general, overriding hashCode() is unlikely to be useful. Because hashCode() can't be made to work in a way that's consistent with Symbol's hashCode() method, you
+         * can't put AnySymbol instances in e.g. a HashSet and do a meaningful comparison to a HashSet of Symbol instances if the implementation of HashSet.equals() relies on the
+         * general equals()/hashCode() contract holding.
+         *
          * If you find a use case for putting AnySymbol in a hash table, feel free to
          * implement this.
          */

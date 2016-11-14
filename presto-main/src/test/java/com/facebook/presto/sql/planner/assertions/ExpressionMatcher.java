@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -30,14 +31,13 @@ import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSym
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class ExpressionAssignment
+public class ExpressionMatcher
     implements RvalueMatcher
 {
-    private final SqlParser parser = new SqlParser();
     private final String sql;
     private final Expression expression;
 
-    public ExpressionAssignment(String expression)
+    public ExpressionMatcher(String expression)
     {
         this.sql = requireNonNull(expression);
         this.expression = expression(requireNonNull(expression));
@@ -45,6 +45,7 @@ public class ExpressionAssignment
 
     private Expression expression(String sql)
     {
+        SqlParser parser = new SqlParser();
         return rewriteQualifiedNamesToSymbolReferences(parser.createExpression(sql));
     }
 
@@ -68,7 +69,7 @@ public class ExpressionAssignment
             }
         }
 
-        ImmutableList<Expression> matches = matchesBuilder.build();
+        List<Expression> matches = matchesBuilder.build();
         checkState(matches.size() < 2, "Ambiguous expression %s matches multiple assignments", expression,
                 (matches.stream().map(Expression::toString).collect(Collectors.joining(", "))));
         return result;
