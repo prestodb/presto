@@ -25,13 +25,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.primitives.Ints;
-import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -60,6 +60,7 @@ public class ListStreamReader
     private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
     @Nullable
     private LongStream lengthStream;
+    private int[] lengthVector = new int[0];
 
     private boolean rowGroupOpen;
 
@@ -99,13 +100,15 @@ public class ListStreamReader
             }
         }
 
-        int[] offsets = new int[nextBatchSize];
+        if (lengthVector.length < nextBatchSize) {
+            lengthVector = new int[nextBatchSize];
+        }
         boolean[] nullVector = new boolean[nextBatchSize];
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsets);
+            lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
@@ -113,11 +116,14 @@ public class ListStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, offsets, nullVector);
+                Arrays.fill(lengthVector, 0, nextBatchSize, 0);
+                lengthStream.nextIntVector(nextBatchSize, lengthVector, nullVector);
             }
         }
+        int[] offsets = new int[nextBatchSize + 1];
         for (int i = 1; i < offsets.length; i++) {
-            offsets[i] += offsets[i - 1];
+            int length = lengthVector[i - 1];
+            offsets[i] = offsets[i - 1] + length;
         }
 
         Type elementType = type.getTypeParameters().get(0);
@@ -131,7 +137,7 @@ public class ListStreamReader
         else {
             elements = elementType.createBlockBuilder(new BlockBuilderStatus(), 0).build();
         }
-        ArrayBlock arrayBlock = new ArrayBlock(elements, Slices.wrappedIntArray(offsets), 0, Slices.wrappedBooleanArray(nullVector));
+        ArrayBlock arrayBlock = new ArrayBlock(nextBatchSize, nullVector, offsets, elements);
 
         readOffset = 0;
         nextBatchSize = 0;

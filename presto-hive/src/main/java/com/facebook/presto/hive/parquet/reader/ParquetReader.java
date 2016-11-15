@@ -43,8 +43,6 @@ import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.primitives.Ints.checkedCast;
-import static io.airlift.slice.Slices.allocate;
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.Math.min;
 
 public class ParquetReader
@@ -153,11 +151,11 @@ public class ParquetReader
         }
 
         InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
-        int[] offsets = new int[batchSize];
-        for (int i = 0; i < batchSize; i++) {
-            offsets[i] = (i + 1) * parameters.size();
+        int[] offsets = new int[batchSize + 1];
+        for (int i = 1; i < offsets.length; i++) {
+            offsets[i] = i * parameters.size();
         }
-        return new ArrayBlock(interleavedBlock, wrappedIntArray(offsets), 0, allocate(batchSize));
+        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, interleavedBlock);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)
