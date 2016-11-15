@@ -137,6 +137,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_CANNOT_BE_RECURSIVE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
@@ -494,6 +495,9 @@ class StatementAnalyzer
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView && ((CreateView) statement).isReplace() && ((CreateView) statement).getName().equals(table.getName())) {
                 throw new SemanticException(VIEW_CANNOT_BE_RECURSIVE, table, "Statement would create a recursive view.");
+            }
+            else if (analysis.hasTableInView(table)) {
+                throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
             }
             ViewDefinition view = optionalView.get();
 

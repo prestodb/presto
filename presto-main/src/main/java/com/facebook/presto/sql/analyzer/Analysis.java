@@ -103,7 +103,7 @@ public class Analysis
     private final boolean isDescribe;
 
     // for recursive view detection
-    private final HashSet<Table> tablesForView = new HashSet<>();
+    private final Set<Table> tablesForView = new HashSet<>();
 
     public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -500,12 +500,14 @@ public class Analysis
         namedQueries.put(tableReference, query);
     }
 
-    public void registerTableForView(Table tableReference) {
+    public void registerTableForView(Table tableReference)
+    {
         requireNonNull(tableReference, "table is null");
         tablesForView.add(tableReference);
     }
 
-    public boolean hasTableInView(Table tableReference) {
+    public boolean hasTableInView(Table tableReference)
+    {
         return tablesForView.contains(tableReference);
     }
 
