@@ -101,7 +101,7 @@ public class OperatorContext
     @GuardedBy("this")
     private long revocableMemoryReservation = 0;
     private final OperatorSystemMemoryContext systemMemoryContext;
-    private final SpillContext spillContext;
+    private final OperatorSpillContext spillContext;
 
     private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
@@ -491,6 +491,8 @@ public class OperatorContext
                 succinctBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
+                succinctBytes(spillContext.getSpilledBytes()),
+
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
                 finishCalls.get(),
@@ -614,6 +616,7 @@ public class OperatorContext
     {
         private final DriverContext driverContext;
         private final AtomicLong reservedBytes = new AtomicLong();
+        private long spilledBytes;
 
         public OperatorSpillContext(DriverContext driverContext)
         {
@@ -626,6 +629,7 @@ public class OperatorContext
             if (bytes >= 0) {
                 reservedBytes.addAndGet(bytes);
                 driverContext.reserveSpill(bytes);
+                spilledBytes += bytes;
             }
             else {
                 reservedBytes.accumulateAndGet(-bytes, this::decrementSpilledReservation);
@@ -652,7 +656,13 @@ public class OperatorContext
         {
             return toStringHelper(this)
                     .add("usedBytes", reservedBytes.get())
+                    .add("spilledBytes", spilledBytes)
                     .toString();
+        }
+
+        public long getSpilledBytes()
+        {
+            return spilledBytes;
         }
     }
 }

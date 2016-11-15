@@ -75,6 +75,8 @@ public class PipelineStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize spilledDataSize;
+
     private final List<OperatorStats> operatorSummaries;
     private final List<DriverStats> drivers;
 
@@ -119,6 +121,8 @@ public class PipelineStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
             @JsonProperty("drivers") List<DriverStats> drivers)
@@ -172,6 +176,8 @@ public class PipelineStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
         this.drivers = ImmutableList.copyOf(requireNonNull(drivers, "drivers is null"));
@@ -361,6 +367,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
+    }
+
+    @JsonProperty
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
@@ -405,6 +417,7 @@ public class PipelineStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
+                spilledDataSize,
                 operatorSummaries.stream()
                         .map(OperatorStats::summarize)
                         .collect(Collectors.toList()),

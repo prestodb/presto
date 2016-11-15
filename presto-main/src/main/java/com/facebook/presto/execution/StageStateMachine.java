@@ -239,6 +239,8 @@ public class StageStateMachine
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        long spilledBytes = 0;
+
         Map<String, OperatorStats> operatorToStats = new HashMap<>();
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
@@ -278,6 +280,8 @@ public class StageStateMachine
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+
+            spilledBytes += taskStats.getSpilledDataSize().toBytes();
 
             for (PipelineStats pipeline : taskStats.getPipelines()) {
                 for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
@@ -320,6 +324,7 @@ public class StageStateMachine
                 succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 outputPositions,
+                succinctBytes(spilledBytes),
                 ImmutableList.copyOf(operatorToStats.values()));
 
         ExecutionFailureInfo failureInfo = null;

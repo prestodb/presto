@@ -54,6 +54,8 @@ public class TestOperatorStats
             new DataSize(13, BYTE),
             14,
 
+            new DataSize(23, BYTE),
+
             new Duration(15, NANOSECONDS),
 
             16,
@@ -89,6 +91,8 @@ public class TestOperatorStats
             new Duration(12, NANOSECONDS),
             new DataSize(13, BYTE),
             14,
+
+            new DataSize(23, BYTE),
 
             new Duration(15, NANOSECONDS),
 
@@ -147,6 +151,8 @@ public class TestOperatorStats
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(22, BYTE));
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
+
+        assertEquals(actual.getSpilledDataSize(), new DataSize(23, BYTE));
     }
 
     @Test
@@ -183,6 +189,7 @@ public class TestOperatorStats
         assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 21, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
         assertEquals(actual.getInfo(), null);
+        assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 23, BYTE));
     }
 
     @Test
@@ -220,5 +227,7 @@ public class TestOperatorStats
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 22, BYTE));
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
         assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
+
+        assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 23, BYTE));
     }
 }

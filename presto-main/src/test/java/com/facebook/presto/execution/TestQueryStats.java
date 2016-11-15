@@ -71,6 +71,7 @@ public class TestQueryStats
 
             new DataSize(28, BYTE),
             29,
+            new DataSize(30, BYTE),
             ImmutableList.of());
 
     @Test
@@ -127,5 +128,7 @@ public class TestQueryStats
 
         assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
         assertEquals(actual.getOutputPositions(), 29);
+
+        assertEquals(actual.getSpilledDataSize(), new DataSize(30, BYTE));
     }
 }

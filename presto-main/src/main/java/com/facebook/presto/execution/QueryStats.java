@@ -82,6 +82,8 @@ public class QueryStats
 
     private final List<OperatorStats> operatorSummaries;
 
+    private final DataSize spilledDataSize;
+
     @VisibleForTesting
     public QueryStats()
     {
@@ -119,6 +121,7 @@ public class QueryStats
         this.processedInputPositions = 0;
         this.outputDataSize = null;
         this.outputPositions = 0;
+        this.spilledDataSize = null;
         this.operatorSummaries = null;
     }
 
@@ -166,6 +169,8 @@ public class QueryStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
@@ -221,6 +226,9 @@ public class QueryStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
 
@@ -436,6 +444,12 @@ public class QueryStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty

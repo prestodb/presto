@@ -66,6 +66,7 @@ public class TestStageStats
             new DataSize(23, BYTE),
             new DataSize(24, BYTE),
             25,
+            new DataSize(26, BYTE),
             ImmutableList.of());
 
     @Test
@@ -115,6 +116,8 @@ public class TestStageStats
         assertEquals(actual.getBufferedDataSize(), new DataSize(23, BYTE));
         assertEquals(actual.getOutputDataSize(), new DataSize(24, BYTE));
         assertEquals(actual.getOutputPositions(), 25);
+
+        assertEquals(actual.getSpilledDataSize(), new DataSize(26, BYTE));
     }
 
     private static DistributionSnapshot getTestDistribution(int count)

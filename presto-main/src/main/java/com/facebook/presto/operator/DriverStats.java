@@ -64,6 +64,8 @@ public class DriverStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize spilledDataSize;
+
     private final List<OperatorStats> operatorStats;
 
     public DriverStats()
@@ -95,6 +97,8 @@ public class DriverStats
 
         this.outputDataSize = new DataSize(0, BYTE);
         this.outputPositions = 0;
+
+        this.spilledDataSize = new DataSize(0, BYTE);
 
         this.operatorStats = ImmutableList.of();
     }
@@ -129,6 +133,8 @@ public class DriverStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
+
             @JsonProperty("operatorStats") List<OperatorStats> operatorStats)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");
@@ -161,6 +167,8 @@ public class DriverStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         Preconditions.checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.operatorStats = ImmutableList.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
     }
@@ -297,6 +305,12 @@ public class DriverStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty
