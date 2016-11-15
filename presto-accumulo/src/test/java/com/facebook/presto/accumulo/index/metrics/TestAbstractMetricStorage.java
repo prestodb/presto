@@ -461,7 +461,8 @@ public abstract class TestAbstractMetricStorage
                         new Range(
                                 new Text(serializer.encode(TIMESTAMP_TYPE.get(), START_TIMESTAMP)),
                                 true,
-                                new Text(serializer.encode(TIMESTAMP_TYPE.get(), END_TIMESTAMP)), false));
+                                new Text(serializer.encode(TIMESTAMP_TYPE.get(), END_TIMESTAMP)),
+                                false));
 
         storage.create(table);
 

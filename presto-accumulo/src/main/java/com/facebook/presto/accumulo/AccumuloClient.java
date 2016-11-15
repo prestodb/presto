@@ -640,6 +640,7 @@ public class AccumuloClient
      * @param rowIdDomain Domain for the row ID
      * @param constraints Column constraints for the query
      * @param serializer Instance of a row serializer
+     * @param metricsStorage Metrics storage instance for the table
      * @param truncateTimestamps True if timestamp type metrics are truncated
      * @return List of TabletSplitMetadata objects for Presto
      */

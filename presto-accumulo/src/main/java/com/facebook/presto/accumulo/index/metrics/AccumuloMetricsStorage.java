@@ -52,7 +52,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -66,6 +65,7 @@ import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class AccumuloMetricsStorage
         extends MetricsStorage
@@ -300,7 +300,7 @@ public class AccumuloMetricsStorage
         {
             super(storage);
             this.connector = requireNonNull(connector, "connector is null");
-            this.executorService = MoreExecutors.getExitingExecutorService(new ThreadPoolExecutor(0, 5, 60L, TimeUnit.SECONDS, new SynchronousQueue<>()));
+            this.executorService = MoreExecutors.getExitingExecutorService(new ThreadPoolExecutor(0, 5, 60L, SECONDS, new SynchronousQueue<>()));
         }
 
         @Override

@@ -55,13 +55,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexSmallCardRowThreshold;
+import static com.facebook.presto.accumulo.conf.AccumuloSessionProperties.getIndexSmallCardThreshold;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Class to assist the Presto connector, and maybe external applications,
@@ -86,7 +89,7 @@ public class IndexLookup
         AtomicLong threadCount = new AtomicLong(0);
         this.executor = MoreExecutors.getExitingExecutorService(
                 new ThreadPoolExecutor(1, 4 * Runtime.getRuntime().availableProcessors(), 60L,
-                        TimeUnit.SECONDS, new SynchronousQueue<>(), runnable ->
+                        SECONDS, new SynchronousQueue<>(), runnable ->
                         new Thread(runnable, "index-range-scan-thread-" + threadCount.getAndIncrement())
                 ));
 
@@ -217,7 +220,7 @@ public class IndexLookup
                     constraintRanges,
                     auths,
                     0,
-                    new Duration(0, TimeUnit.MILLISECONDS),
+                    new Duration(0, MILLISECONDS),
                     metricsStorage,
                     truncateTimestamps);
         }
@@ -316,8 +319,9 @@ public class IndexLookup
      */
     private static long getSmallestCardinalityThreshold(ConnectorSession session, long numRows)
     {
-        return Math.min((long) (numRows * AccumuloSessionProperties.getIndexSmallCardThreshold(session)),
-                AccumuloSessionProperties.getIndexSmallCardRowThreshold(session));
+        return Math.min(
+                (long) (numRows * getIndexSmallCardThreshold(session)),
+                getIndexSmallCardRowThreshold(session));
     }
 
     private List<Range> getIndexRanges(String indexTable, Multimap<AccumuloColumnConstraint, Range> constraintRanges, Collection<Range> rowIDRanges, Authorizations auths)
@@ -328,31 +332,36 @@ public class IndexLookup
         List<Callable<Set<Range>>> tasks = new ArrayList<>();
         for (Entry<AccumuloColumnConstraint, Collection<Range>> e : constraintRanges.asMap().entrySet()) {
             Callable<Set<Range>> task = () -> {
-                // Create a batch scanner against the index table, setting the ranges
-                BatchScanner scanner = connector.createBatchScanner(indexTable, auths, 10);
-                scanner.setRanges(e.getValue());
+                BatchScanner scanner = null;
+                try {
+                    // Create a batch scanner against the index table, setting the ranges
+                    scanner = connector.createBatchScanner(indexTable, auths, 10);
+                    scanner.setRanges(e.getValue());
 
-                // Fetch the column family for this specific column
-                Text cf = new Text(Indexer.getIndexColumnFamily(e.getKey().getFamily().getBytes(),
-                        e.getKey().getQualifier().getBytes()).array());
-                scanner.fetchColumnFamily(cf);
+                    // Fetch the column family for this specific column
+                    Text cf = new Text(Indexer.getIndexColumnFamily(e.getKey().getFamily().getBytes(), e.getKey().getQualifier().getBytes()).array());
+                    scanner.fetchColumnFamily(cf);
 
-                // For each entry in the scanner
-                Text tmpQualifier = new Text();
-                Set<Range> columnRanges = new HashSet<>();
-                for (Entry<Key, Value> entry : scanner) {
-                    entry.getKey().getColumnQualifier(tmpQualifier);
+                    // For each entry in the scanner
+                    Text tmpQualifier = new Text();
+                    Set<Range> columnRanges = new HashSet<>();
+                    for (Entry<Key, Value> entry : scanner) {
+                        entry.getKey().getColumnQualifier(tmpQualifier);
 
-                    // Add to our column ranges if it is in one of the row ID ranges
-                    if (inRange(tmpQualifier, rowIDRanges)) {
-                        columnRanges.add(new Range(tmpQualifier));
+                        // Add to our column ranges if it is in one of the row ID ranges
+                        if (inRange(tmpQualifier, rowIDRanges)) {
+                            columnRanges.add(new Range(tmpQualifier));
+                        }
+                    }
+
+                    LOG.info("Retrieved %d ranges for index column %s", columnRanges.size(), e.getKey().getName());
+                    return columnRanges;
+                }
+                finally {
+                    if (scanner != null) {
+                        scanner.close();
                     }
                 }
-
-                LOG.info("Retrieved %d ranges for index column %s", columnRanges.size(), e.getKey().getName());
-                // Close the scanner
-                scanner.close();
-                return columnRanges;
             };
             tasks.add(task);
         }

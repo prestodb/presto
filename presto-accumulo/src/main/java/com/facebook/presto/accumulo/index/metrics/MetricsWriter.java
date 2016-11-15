@@ -168,11 +168,9 @@ public abstract class MetricsWriter
          */
         public CardinalityKey(ByteBuffer value, ByteBuffer column, ColumnVisibility visibility)
         {
-            requireNonNull(value, "value is null");
-            requireNonNull(column, "column is null");
+            this.value = requireNonNull(value, "value is null");
+            this.column = requireNonNull(column, "column is null");
             requireNonNull(visibility, "visibility is null");
-            this.value = value;
-            this.column = column;
             this.visibility = visibility.getExpression() != null ? visibility : EMPTY_VISIBILITY;
         }
 
@@ -225,7 +223,7 @@ public abstract class MetricsWriter
         public TimestampTruncateKey(TimestampPrecision level, ByteBuffer value, ByteBuffer column, ColumnVisibility visibility)
         {
             super(value, column, visibility);
-            this.level = requireNonNull(level);
+            this.level = requireNonNull(level, "level is null");
         }
 
         @Override

@@ -39,6 +39,7 @@ public class MetricCacheKey
     /**
      * Creates a new instance of a MetricCacheKey
      *
+     * @param storage Metrics storage instance
      * @param schema Schema name
      * @param table Table name
      * @param family Column family
@@ -62,7 +63,7 @@ public class MetricCacheKey
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, table, family, qualifier, truncateTimestamps, auths, range);
+        return Objects.hash(storage, schema, table, family, qualifier, truncateTimestamps, auths, range);
     }
 
     @Override
@@ -82,13 +83,15 @@ public class MetricCacheKey
                 && Objects.equals(this.family, other.family)
                 && Objects.equals(this.truncateTimestamps, other.truncateTimestamps)
                 && Objects.equals(this.auths, other.auths)
-                && Objects.equals(this.qualifier, other.qualifier);
+                && Objects.equals(this.qualifier, other.qualifier)
+                && Objects.equals(this.storage, other.storage);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
+                .add("storage", storage.getClass())
                 .add("schema", schema)
                 .add("table", table)
                 .add("family", family)

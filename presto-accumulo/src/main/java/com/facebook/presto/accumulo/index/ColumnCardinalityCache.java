@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * This class is an indexing utility to cache the cardinality of a column value for every table.
@@ -87,9 +88,7 @@ public class ColumnCardinalityCache
                 ));
 
         LOG.debug("Created new cache size %d expiry %s", size, expireDuration);
-        CacheBuilder cacheBuilder = CacheBuilder.newBuilder()
-                .maximumSize(size)
-                .expireAfterWrite(expireDuration.toMillis(), TimeUnit.MILLISECONDS);
+        CacheBuilder cacheBuilder = CacheBuilder.newBuilder().maximumSize(size).expireAfterWrite(expireDuration.toMillis(), MILLISECONDS);
 
         if (LOG.isDebugEnabled()) {
             cacheBuilder.recordStats();
@@ -114,7 +113,15 @@ public class ColumnCardinalityCache
      * @throws TableNotFoundException If the metrics table does not exist
      * @throws ExecutionException If another error occurs; I really don't even know anymore.
      */
-    public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, Authorizations auths, long earlyReturnThreshold, Duration pollingDuration, MetricsStorage metricsStorage, boolean truncateTimestamps)
+    public Multimap<Long, AccumuloColumnConstraint> getCardinalities(
+            String schema,
+            String table,
+            Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs,
+            Authorizations auths,
+            long earlyReturnThreshold,
+            Duration pollingDuration,
+            MetricsStorage metricsStorage,
+            boolean truncateTimestamps)
             throws ExecutionException, TableNotFoundException
     {
         requireNonNull(schema, "schema is null");
@@ -215,8 +222,7 @@ public class ColumnCardinalityCache
                 .map(range -> new MetricCacheKey(metricsStorage, schema, table, family, qualifier, timestampsTruncated, auths, range))
                 .collect(Collectors.toList());
 
-        LOG.debug("Column values contain %s exact ranges of %s", exactRanges.size(),
-                columnRanges.size());
+        LOG.debug("Column values contain %s exact ranges of %s", exactRanges.size(),                columnRanges.size());
 
         // Sum the cardinalities for the exact-value Ranges
         // This is where the reach-out to Accumulo occurs for all Ranges that have not
