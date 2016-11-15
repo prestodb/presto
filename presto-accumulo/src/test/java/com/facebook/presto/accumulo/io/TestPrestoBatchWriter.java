@@ -307,7 +307,7 @@ public class TestPrestoBatchWriter
 
         PrestoBatchWriter prestoBatchWriter = new PrestoBatchWriter(connector, connector.securityOperations().getUserAuthorizations("root"), table);
         prestoBatchWriter.addRows(ImmutableList.of(r1, r2, r3));
-        prestoBatchWriter.flush();
+        prestoBatchWriter.close();
 
         Scanner scan = connector.createScanner(table.getFullTableName(), new Authorizations("private", "moreprivate"));
         Iterator<Entry<Key, Value>> iter = scan.iterator();

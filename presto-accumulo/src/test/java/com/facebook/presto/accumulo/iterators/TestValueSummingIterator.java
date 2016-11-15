@@ -15,7 +15,6 @@ package com.facebook.presto.accumulo.iterators;
 
 import com.facebook.presto.accumulo.AccumuloQueryRunner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.BatchWriterConfig;
@@ -39,7 +38,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -84,11 +82,12 @@ public class TestValueSummingIterator
 
         long sum = 0;
         for (Map.Entry<Key, Value> entry : scanner) {
-            System.out.println(entry);
             sum += STRING_ENCODER.decode(entry.getValue().get());
         }
 
         assertEquals(sum, expectedSum);
+
+        scanner.close();
     }
 
     @Test
@@ -115,11 +114,12 @@ public class TestValueSummingIterator
 
         long sum = 0;
         for (Map.Entry<Key, Value> entry : scanner) {
-            System.out.println(entry);
             sum += STRING_ENCODER.decode(entry.getValue().get());
         }
 
         assertEquals(sum, expectedSum);
+
+        scanner.close();
     }
 
     @Test
@@ -311,11 +311,12 @@ public class TestValueSummingIterator
 
         long sum = 0;
         for (Map.Entry<Key, Value> entry : scanner) {
-            System.out.println(entry);
             sum += encoder.decode(entry.getValue().get());
         }
 
         assertEquals(sum, expectedSum);
+
+        scanner.close();
     }
 
     private void testSumBatch(Encoder<Long> encoder, Type type)
@@ -383,11 +384,12 @@ public class TestValueSummingIterator
 
         long sum = 0;
         for (Map.Entry<Key, Value> entry : scanner) {
-            System.out.println(entry);
             sum += encoder.decode(entry.getValue().get());
         }
-        Logger.get(getClass()).info(format("%s %s", sum, expectedSum));
+
         assertEquals(sum, expectedSum);
+
+        scanner.close();
     }
 
     @Test(expectedExceptions = RuntimeException.class)
@@ -399,6 +401,7 @@ public class TestValueSummingIterator
         IteratorSetting setting = new IteratorSetting(Integer.MAX_VALUE, ValueSummingIterator.class);
         scanner.addScanIterator(setting);
         scanner.iterator().next();
+        scanner.close();
     }
 
     private static byte[] b(String s)
