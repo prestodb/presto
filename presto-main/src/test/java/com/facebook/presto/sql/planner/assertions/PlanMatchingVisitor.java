@@ -25,12 +25,14 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingVisitor
-        extends PlanVisitor<PlanMatchingContext, Boolean>
+        extends PlanVisitor<PlanMatchPattern, DetailMatchResult>
 {
     private final Metadata metadata;
     private final Session session;
@@ -42,7 +44,7 @@ final class PlanMatchingVisitor
     }
 
     @Override
-    public Boolean visitExchange(ExchangeNode node, PlanMatchingContext context)
+    public DetailMatchResult visitExchange(ExchangeNode node, PlanMatchPattern pattern)
     {
         checkState(node.getType() == ExchangeNode.Type.GATHER, "Only GATHER is supported");
         List<List<Symbol>> allInputs = node.getInputs();
@@ -51,47 +53,76 @@ final class PlanMatchingVisitor
         List<Symbol> inputs = allInputs.get(0);
         List<Symbol> outputs = node.getOutputSymbols();
 
-        boolean result = super.visitExchange(node, context);
+        DetailMatchResult result = super.visitExchange(node, pattern);
 
-        if (result) {
-            ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
-            for (int i = 0; i < inputs.size(); ++i) {
-                assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
-            }
-
-            context.getSymbolAliases().updateAssignments(assignments.build());
+        if (!result.getMatches()) {
+            return result;
         }
-        return result;
+
+        ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+        for (int i = 0; i < inputs.size(); ++i) {
+            assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
+        }
+
+        return match(result.getNewAliases().updateAssignments(assignments.build()));
     }
 
     @Override
-    public Boolean visitProject(ProjectNode node, PlanMatchingContext context)
+    public DetailMatchResult visitProject(ProjectNode node, PlanMatchPattern pattern)
     {
-        boolean result = super.visitProject(node, context);
-        if (result) {
-            context.getSymbolAliases().replaceAssignments(node.getAssignments());
+        DetailMatchResult result = super.visitProject(node, pattern);
+
+        if (!result.getMatches()) {
+            return result;
         }
-        return result;
+
+        return match(result.getNewAliases().replaceAssignments(node.getAssignments()));
     }
 
     @Override
-    protected Boolean visitPlan(PlanNode node, PlanMatchingContext context)
+    protected DetailMatchResult visitPlan(PlanNode node, PlanMatchPattern pattern)
     {
-        List<PlanMatchingState> states = context.getPattern().downMatches(node);
+        List<PlanMatchingState> states = pattern.downMatches(node);
 
         // No shape match; don't need to check the internals of any of the nodes.
         if (states.isEmpty()) {
-            return false;
+            return NO_MATCH;
         }
 
         // Leaf node in the plan.
         if (node.getSources().isEmpty()) {
-            int terminatedUpMatchCount = 0;
-            for (PlanMatchingState state : states) {
-                // Don't consider un-terminated PlanMatchingStates.
-                if (!state.isTerminated()) {
-                    continue;
-                }
+            return matchLeaf(node, pattern, states);
+        }
+
+        DetailMatchResult result = NO_MATCH;
+        for (PlanMatchingState state : states) {
+            // Traverse down the tree, checking to see if the sources match the source patterns in state.
+            DetailMatchResult sourcesMatch = matchSources(node, state);
+
+            if (!sourcesMatch.getMatches()) {
+                continue;
+            }
+
+            // Try upMatching this node with the the aliases gathered from the source nodes.
+            SymbolAliases allSourceAliases = sourcesMatch.getNewAliases();
+            DetailMatchResult matchResult = pattern.upMatches(node, session, metadata, allSourceAliases);
+            if (matchResult.getMatches()) {
+                checkState(result == NO_MATCH, format("Ambiguous match on node %s", node));
+                result = match(allSourceAliases.withAliases(matchResult.getNewAliases()));
+            }
+        }
+        return result;
+    }
+
+    private DetailMatchResult matchLeaf(PlanNode node, PlanMatchPattern pattern, List<PlanMatchingState> states)
+    {
+        DetailMatchResult result = NO_MATCH;
+
+        for (PlanMatchingState state : states) {
+            // Don't consider un-terminated PlanMatchingStates.
+            if (!state.isTerminated()) {
+                continue;
+            }
 
                 /*
                  * We have to call upMatches for two reasons:
@@ -99,57 +130,37 @@ final class PlanMatchingVisitor
                  * 2) Collect the aliases from the source nodes so we can add them to
                  *    SymbolAliases. They'll be needed further up.
                  */
-                Matcher.DetailMatchResult matchResult = context.getPattern().upMatches(node, session, metadata, context.getSymbolAliases());
-                if (matchResult.getMatches()) {
-                    context.getSymbolAliases().putSourceAliases(matchResult.getNewAliases());
-                    ++terminatedUpMatchCount;
-                }
+            DetailMatchResult matchResult = pattern.upMatches(node, session, metadata, new SymbolAliases());
+            if (matchResult.getMatches()) {
+                checkState(result == NO_MATCH, format("Ambiguous match on leaf node %s", node));
+                result = matchResult;
             }
-
-            checkState(terminatedUpMatchCount < 2, format("Ambiguous shape match on leaf node %s", node));
-            return terminatedUpMatchCount == 1;
         }
 
-        int upMatchCount = 0;
-        for (PlanMatchingState state : states) {
-            checkState(node.getSources().size() == state.getPatterns().size(), "Matchers count does not match count of sources");
-            int i = 0;
-            boolean sourcesMatch = true;
+        return result;
+    }
 
-            /*
-             * For every state, start with a clean set of aliases. Aliases from a different state
-             * are not in scope.
-             */
-            SymbolAliases stateAliases = new SymbolAliases();
-            for (PlanNode source : node.getSources()) {
+    private DetailMatchResult matchSources(PlanNode node, PlanMatchingState state)
+    {
+        List<PlanMatchPattern> sourcePatterns = state.getPatterns();
+        checkState(node.getSources().size() == sourcePatterns.size(), "Matchers count does not match count of sources");
+
+        int i = 0;
+        SymbolAliases.Builder allSourceAliases = SymbolAliases.builder();
+        for (PlanNode source : node.getSources()) {
                 /*
                  * Create a context for each source individually. Aliases from one source
                  * shouldn't be visible in the context of other sources.
                  */
-                PlanMatchingContext sourceContext = state.createContext(i++);
-                if (!source.accept(this, sourceContext)) {
-                    sourcesMatch = false;
-                    break;
-                }
-
-                // Add the per-source aliases to the per-state aliases.
-                stateAliases.putSourceAliases(sourceContext.getSymbolAliases());
+            DetailMatchResult matchResult = source.accept(this, sourcePatterns.get(i++));
+            if (!matchResult.getMatches()) {
+                return NO_MATCH;
             }
 
-            /*
-             * Try upMatching this node with the union of the aliases gathered from the
-             * source nodes.
-             */
-            if (sourcesMatch) {
-                Matcher.DetailMatchResult matchResult = context.getPattern().upMatches(node, session, metadata, stateAliases);
-                if (matchResult.getMatches()) {
-                    context.getSymbolAliases().putSourceAliases(matchResult.getNewAliases());
-                    context.getSymbolAliases().putSourceAliases(stateAliases);
-                    ++upMatchCount;
-                }
-            }
+            // Add the per-source aliases to the per-state aliases.
+            allSourceAliases.putAll(matchResult.getNewAliases());
         }
-        checkState(upMatchCount < 2, format("Ambiguous detail match on node %s", node));
-        return upMatchCount == 1;
+
+        return match(allSourceAliases.build());
     }
 }

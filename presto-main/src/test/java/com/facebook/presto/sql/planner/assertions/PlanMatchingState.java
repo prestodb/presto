@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingState
@@ -33,12 +32,6 @@ final class PlanMatchingState
     boolean isTerminated()
     {
         return patterns.isEmpty() || patterns.stream().allMatch(PlanMatchPattern::isTerminated);
-    }
-
-    PlanMatchingContext createContext(int matcherId)
-    {
-        checkArgument(matcherId < patterns.size(), "mactcherId out of scope");
-        return new PlanMatchingContext(new SymbolAliases(), patterns.get(matcherId));
     }
 
     List<PlanMatchPattern> getPatterns()

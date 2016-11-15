@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -32,15 +31,12 @@ public final class SymbolAliases
 
     public SymbolAliases()
     {
-        this.map = new HashMap<>();
+        this.map = ImmutableMap.of();
     }
 
-    public SymbolAliases(Map<String, SymbolReference> aliases)
+    private SymbolAliases(Map<String, SymbolReference> aliases)
     {
-        this.map = aliases
-                .entrySet()
-                .stream()
-                .collect(Collectors.toMap(entry -> toKey(entry.getKey()), Map.Entry::getValue));
+        this.map = ImmutableMap.copyOf(aliases);
     }
 
     public SymbolAliases(SymbolAliases symbolAliases)
@@ -49,20 +45,20 @@ public final class SymbolAliases
         this.map = new HashMap<>(symbolAliases.map);
     }
 
-    public void put(String alias, SymbolReference symbolReference)
+    public static Builder builder()
     {
-        requireNonNull(symbolReference, "symbolReference is null");
-        alias = toKey(alias);
-        checkState(!map.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, map.get(alias), symbolReference);
-        checkState(!map.values().contains(symbolReference), "Expression '%s' is already bound in %s. Tried to rebind as '%s'.", symbolReference, map, alias);
-        map.put(alias, symbolReference);
+        return new Builder();
     }
 
-    public void putSourceAliases(SymbolAliases sourceAliases)
+    public SymbolAliases withAliases(SymbolAliases sourceAliases)
     {
+        Builder builder = new Builder(this);
+
         for (Map.Entry<String, SymbolReference> alias : sourceAliases.map.entrySet()) {
-            put(alias.getKey(), alias.getValue());
+            builder.put(alias.getKey(), alias.getValue());
         }
+
+        return builder.build();
     }
 
     public SymbolReference get(String alias)
@@ -84,7 +80,7 @@ public final class SymbolAliases
         return result;
     }
 
-    private String toKey(String alias)
+    private static String toKey(String alias)
     {
         // Required because the SqlParser lower cases SymbolReferences in the expressions we parse with it.
         return alias.toLowerCase();
@@ -128,10 +124,17 @@ public final class SymbolAliases
      * results in
      * SymbolAliases.map = { "ALIAS": SymbolReference("bar") }
      */
-    public void updateAssignments(Map<Symbol, Expression> assignments)
+    public SymbolAliases updateAssignments(Map<Symbol, Expression> assignments)
     {
+        /*
         Map<String, SymbolReference> additions = getUpdatedAssignments(assignments);
         map.putAll(additions);
+        */
+
+        return builder()
+                .putAll(this)
+                .putUnchecked(getUpdatedAssignments(assignments))
+                .build();
     }
 
     /*
@@ -156,10 +159,59 @@ public final class SymbolAliases
      * SymbolAliases.map should be
      * { "RK": SymbolReference("value3") }
      */
-    public void replaceAssignments(Map<Symbol, Expression> assignments)
+    public SymbolAliases replaceAssignments(Map<Symbol, Expression> assignments)
     {
-        Map<String, SymbolReference> newAssignments = getUpdatedAssignments(assignments);
-        map.clear();
-        map.putAll(newAssignments);
+        return new SymbolAliases(getUpdatedAssignments(assignments));
+    }
+
+    public static class Builder
+    {
+        Map<String, SymbolReference> tmp;
+
+        private Builder()
+        {
+            tmp = new HashMap<>();
+        }
+
+        private Builder(SymbolAliases initialAliases)
+        {
+            tmp = new HashMap<>(initialAliases.map);
+        }
+
+        public Builder put(String alias, SymbolReference symbolReference)
+        {
+            requireNonNull(alias, "alias is null");
+            requireNonNull(symbolReference, "symbolReference is null");
+
+            alias = toKey(alias);
+            checkState(!tmp.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, tmp.get(alias), symbolReference);
+            checkState(!tmp.values().contains(symbolReference), "Expression '%s' is already bound in %s. Tried to rebind as '%s'.", symbolReference, tmp, alias);
+            tmp.put(alias, symbolReference);
+            return this;
+        }
+
+        public Builder putAll(Map<String, SymbolReference> aliases)
+        {
+            aliases.entrySet()
+                    .forEach(entry -> put(entry.getKey(), entry.getValue()));
+            return this;
+        }
+
+        private Builder putUnchecked(Map<String, SymbolReference> aliases)
+        {
+            aliases.entrySet()
+                    .forEach(entry -> tmp.put(entry.getKey(), entry.getValue()));
+            return this;
+        }
+
+        public Builder putAll(SymbolAliases aliases)
+        {
+            return putAll(aliases.map);
+        }
+
+        public SymbolAliases build()
+        {
+            return new SymbolAliases(tmp);
+        }
     }
 }
