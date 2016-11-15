@@ -12,33 +12,6 @@ Overview
 The Accumulo connector supports reading and writing data from Apache Accumulo.
 Please read this page thoroughly to understand the capabilities and features of the connector.
 
-Table of Contents
-~~~~~~~~~~~~~~~~~
-#. `Dependencies <#dependencies>`__
-#. `Installing the Iterator Dependency <#installing-the-iterator-dependency>`__
-#. `Connector Configuration <#connector-configuration>`__
-#. `Unsupported Features <#unsupported-features>`__
-#. `Usage <#usage>`__
-#. `Indexing Columns <#indexing-columns>`__
-#. `Loading Data <#loading-data>`__
-#. `External Tables <#external-tables>`__
-#. `Table Properties <#table-properties>`__
-#. `Session Properties <#session-properties>`__
-#. `Adding Columns <#adding-columns>`__
-#. `Serializers <#serializers>`__
-#. `Metadata Management <#metadata-management>`__
-#. `Converting Table from Internal to External <#converting-table-from-internal-to-external>`__
-#. `Metrics Storage <#metrics-storage>`__
-#. `Timestamp Optimization <#timestamp-optimization>`__
-
-Dependencies
-~~~~~~~~~~~~
--  Java 1.8 (required for connector)
--  Java 1.7 (``accumulo.jdk.version == 1.7 ? required : !required``)
--  Maven
--  Accumulo
--  *presto-accumulo-iterators*, from `https://github.com/bloomberg/presto-accumulo <https://github.com/bloomberg/presto-accumulo>`_
-
 Installing the Iterator Dependency
 ----------------------------------
 
@@ -78,9 +51,9 @@ replacing the ``accumulo.xxx`` properties as required:
 Configuration Variables
 -----------------------
 
-================================================ ====================== ========== =====================================================================================
+================================================ ====================== ========== ===================================================================================================
 Property Name                                    Default Value          Required   Description
-================================================ ====================== ========== =====================================================================================
+================================================ ====================== ========== ===================================================================================================
 ``accumulo.instance``                            (none)                 Yes        Name of the Accumulo instance
 ``accumulo.zookeepers``                          (none)                 Yes        ZooKeeper connect string
 ``accumulo.username``                            (none)                 Yes        Accumulo user for Presto
@@ -88,7 +61,9 @@ Property Name                                    Default Value          Required
 ``accumulo.zookeeper.metadata.root``             ``/presto-accumulo``   No         Root znode for storing metadata. Only relevant if using default Metadata Manager
 ``accumulo.cardinality.cache.size``              ``100000``             No         Sets the size of the index cardinality cache
 ``accumulo.cardinality.cache.expire.duration``   ``5m``                 No         Sets the expiration duration of the cardinality cache.
-================================================ ====================== ========== =====================================================================================
+``accumulo.record.cursor.buffer.size``           ``1000000``            No         Sets the size of the buffer between the BatchScanner and the record cursor to re-order entries
+``accumulo.max.index.lookup.cardinality``        ``20000000``           No         Sets the maximum number of index row IDs that the connector will fetch from Accumulo
+================================================ ====================== ========== ===================================================================================================
 
 Unsupported Features
 --------------------
@@ -538,9 +513,11 @@ Adding a new column to an existing table cannot be done today via
 metadata required for the columns to work; the column family, qualifier,
 and if the column is indexed.
 
-Instead, you can use one of the utilities in the
-`presto-accumulo-tools <https://github.com/bloomberg/presto-accumulo/tree/master/presto-accumulo-tools>`__
-sub-project of the ``presto-accumulo`` repository.  Documentation and usage can be found in the README.
+Instead, use an external table, ``DROP`` the table, then recreate it with
+the new column.  This will preserve the underlying Accumulo tables allowing
+you to add a new column.
+Just be sure it is external!  Deleting an internal table will have the connector
+delete the Accumulo tables along with the metadata.
 
 Serializers
 -----------
@@ -733,7 +710,7 @@ the output of the ``DESCRIBE`` statement.
     );
 
 Metrics Storage
-~~~~~~~~~~~~~~~
+---------------
 
 The destination system for index metrics is pluggable, with the default
 implementation being stored in Accumulo.  This system was essentially a refactor
@@ -742,7 +719,7 @@ however it is not yet stable enough to consider for production use.  Users can
 specify a new storage system using the ``metrics_storage`` table property detailed above.
 
 Truncate Timestamp Metrics
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------
 
 For ``TIMESTAMP`` columns, metrics can be aggregated further to reduce the amount of
 time spent scanning Accumulo when querying over large timespans (due to the millisecond
