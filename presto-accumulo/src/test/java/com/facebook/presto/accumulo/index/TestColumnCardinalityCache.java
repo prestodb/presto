@@ -107,7 +107,7 @@ public class TestColumnCardinalityCache
 
         storage = MetricsStorage.getDefault(connector);
 
-        client = new AccumuloClient(connector, CONFIG, new ZooKeeperMetadataManager(CONFIG, new TypeRegistry()), new AccumuloTableManager(connector));
+        client = new AccumuloClient(connector, CONFIG, new ZooKeeperMetadataManager(CONFIG, new TypeRegistry()), new AccumuloTableManager(connector), new IndexLookup(connector, CONFIG));
         connector.securityOperations().changeUserAuthorizations("root", new Authorizations("private", "moreprivate", "foo", "bar", "xyzzy"));
         writeTestData();
     }

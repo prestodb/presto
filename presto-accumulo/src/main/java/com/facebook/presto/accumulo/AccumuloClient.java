@@ -101,17 +101,16 @@ public class AccumuloClient
             Connector connector,
             AccumuloConfig config,
             ZooKeeperMetadataManager metaManager,
-            AccumuloTableManager tableManager)
+            AccumuloTableManager tableManager,
+            IndexLookup indexLookup)
             throws AccumuloException, AccumuloSecurityException
     {
         this.connector = requireNonNull(connector, "connector is null");
         this.username = requireNonNull(config, "config is null").getUsername();
         this.metaManager = requireNonNull(metaManager, "metaManager is null");
         this.tableManager = requireNonNull(tableManager, "tableManager is null");
+        this.indexLookup = requireNonNull(indexLookup, "indexLookup is null");
         this.auths = connector.securityOperations().getUserAuthorizations(username);
-
-        // Create the index lookup utility
-        this.indexLookup = new IndexLookup(connector, config.getCardinalityCacheSize(), config.getCardinalityCacheExpiration(), config.getMaxIndexLookupCardinality());
     }
 
     public AccumuloTable createTable(ConnectorTableMetadata meta)

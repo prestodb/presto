@@ -14,6 +14,7 @@
 package com.facebook.presto.accumulo.index;
 
 import com.facebook.presto.accumulo.AccumuloClient;
+import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.conf.AccumuloSessionProperties;
 import com.facebook.presto.accumulo.index.metrics.MetricsReader;
 import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
@@ -39,6 +40,8 @@ import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
+
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -75,10 +78,11 @@ public class IndexLookup
     private final ExecutorService executor;
     private final int maxIndexLookup;
 
-    public IndexLookup(Connector connector, int cacheSize, Duration cacheExpireDuration, int maxIndexLookup)
+    @Inject
+    public IndexLookup(Connector connector, AccumuloConfig config)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.cardinalityCache = new ColumnCardinalityCache(cacheSize, requireNonNull(cacheExpireDuration, "cacheExpireDuration is null"));
+        this.cardinalityCache = new ColumnCardinalityCache(config.getCardinalityCacheSize(), config.getCardinalityCacheExpiration());
         AtomicLong threadCount = new AtomicLong(0);
         this.executor = MoreExecutors.getExitingExecutorService(
                 new ThreadPoolExecutor(1, 4 * Runtime.getRuntime().availableProcessors(), 60L,
@@ -86,7 +90,7 @@ public class IndexLookup
                         new Thread(runnable, "index-range-scan-thread-" + threadCount.getAndIncrement())
                 ));
 
-        this.maxIndexLookup = maxIndexLookup;
+        this.maxIndexLookup = config.getMaxIndexLookupCardinality();
     }
 
     /**
