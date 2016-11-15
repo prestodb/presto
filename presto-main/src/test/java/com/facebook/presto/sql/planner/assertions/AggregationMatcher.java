@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.FunctionCall;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,30 +26,32 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 
 public class AggregationMatcher
         implements Matcher
 {
-    private final List<FunctionCall> aggregations;
     private final Map<Symbol, Symbol> masks;
     private final List<List<Symbol>> groupingSets;
     private final Optional<Symbol> groupId;
 
-    public AggregationMatcher(List<List<Symbol>> groupingSets, List<FunctionCall> aggregations, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
+    public AggregationMatcher(List<List<Symbol>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
     {
-        this.aggregations = aggregations;
         this.masks = masks;
         this.groupingSets = groupingSets;
         this.groupId = groupId;
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean downMatches(PlanNode node)
     {
-        if (!(node instanceof AggregationNode)) {
-            return false;
-        }
+        return node instanceof AggregationNode;
+    }
 
+    @Override
+    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    {
+        checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
 
         if (groupId.isPresent() != aggregationNode.getGroupIdSymbol().isPresent()) {
@@ -84,10 +85,6 @@ public class AggregationMatcher
             }
         }
 
-        if (!matches(aggregations, aggregationNode.getAggregations().values().stream().collect(Collectors.toList()))) {
-            return false;
-        }
-
         return true;
     }
 
@@ -111,7 +108,6 @@ public class AggregationMatcher
     {
         return toStringHelper(this)
                 .add("groupingSets", groupingSets)
-                .add("aggregations", aggregations)
                 .add("masks", masks)
                 .add("groudId", groupId)
                 .toString();
