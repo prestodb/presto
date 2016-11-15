@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -38,10 +39,10 @@ final class PlanNodeMatcher
     }
 
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
-        return true;
+        return match();
     }
 
     @Override

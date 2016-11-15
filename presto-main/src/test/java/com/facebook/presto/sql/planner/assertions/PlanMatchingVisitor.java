@@ -77,7 +77,7 @@ final class PlanMatchingVisitor
     @Override
     protected Boolean visitPlan(PlanNode node, PlanMatchingContext context)
     {
-        List<PlanMatchingState> states = context.getPattern().downMatches(node, context.getExpressionAliases());
+        List<PlanMatchingState> states = context.getPattern().downMatches(node);
 
         // No shape match; don't need to check the internals of any of the nodes.
         if (states.isEmpty()) {
@@ -96,10 +96,12 @@ final class PlanMatchingVisitor
                 /*
                  * We have to call upMatches for two reasons:
                  * 1) Make sure there aren't any mismatches checking the internals of a leaf node.
-                 * 2) Calling upMatches has the side-effect of adding aliases to the context's
+                 * 2) Collect the aliases from the source nodes so we can add them to
                  *    ExpressionAliases. They'll be needed further up.
                  */
-                if (context.getPattern().upMatches(node, session, metadata, context.getExpressionAliases())) {
+                Matcher.DetailMatchResult matchResult = context.getPattern().upMatches(node, session, metadata, context.getExpressionAliases());
+                if (matchResult.getMatches()) {
+                    context.getExpressionAliases().putSourceAliases(matchResult.getNewAliases());
                     ++terminatedUpMatchCount;
                 }
             }
@@ -138,9 +140,13 @@ final class PlanMatchingVisitor
              * Try upMatching this node with the union of the aliases gathered from the
              * source nodes.
              */
-            if (sourcesMatch && context.getPattern().upMatches(node, session, metadata, stateAliases)) {
-                context.getExpressionAliases().putSourceAliases(stateAliases);
-                ++upMatchCount;
+            if (sourcesMatch) {
+                Matcher.DetailMatchResult matchResult = context.getPattern().upMatches(node, session, metadata, stateAliases);
+                if (matchResult.getMatches()) {
+                    context.getExpressionAliases().putSourceAliases(matchResult.getNewAliases());
+                    context.getExpressionAliases().putSourceAliases(stateAliases);
+                    ++upMatchCount;
+                }
             }
         }
         checkState(upMatchCount < 2, format("Ambiguous detail match on node %s", node));

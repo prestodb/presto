@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -42,7 +44,7 @@ public class OutputMatcher
     }
 
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         int i = 0;
         for (String alias : aliases) {
@@ -56,10 +58,10 @@ public class OutputMatcher
                 }
             }
             if (!found) {
-                return false;
+                return NO_MATCH;
             }
         }
-        return true;
+        return match();
     }
 
     @Override

@@ -49,17 +49,17 @@ public class AggregationMatcher
     }
 
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;
 
         if (groupId.isPresent() != aggregationNode.getGroupIdSymbol().isPresent()) {
-            return false;
+            return DetailMatchResult.NO_MATCH;
         }
 
         if (groupingSets.size() != aggregationNode.getGroupingSets().size()) {
-            return false;
+            return DetailMatchResult.NO_MATCH;
         }
 
         List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
@@ -70,22 +70,22 @@ public class AggregationMatcher
                 .collect(Collectors.toList());
 
         if (aggregationsWithMask.size() != masks.keySet().size()) {
-            return false;
+            return DetailMatchResult.NO_MATCH;
         }
 
         for (Symbol symbol : aggregationsWithMask) {
             if (!masks.keySet().contains(symbol)) {
-                return false;
+                return DetailMatchResult.NO_MATCH;
             }
         }
 
         for (int i = 0; i < groupingSets.size(); i++) {
             if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i))) {
-                return false;
+                return DetailMatchResult.NO_MATCH;
             }
         }
 
-        return true;
+        return DetailMatchResult.match();
     }
 
     static <T> boolean matches(Collection<T> expected, Collection<T> actual)

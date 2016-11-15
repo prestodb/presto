@@ -16,6 +16,9 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.SymbolReference;
+
+import static java.util.Objects.requireNonNull;
 
 public interface Matcher
 {
@@ -60,5 +63,51 @@ public interface Matcher
      * @param expressionAliases     The ExpressionAliases containing aliases from the nodes sources
      * @return      true if all matching tests pass, false otherwise
      */
-    boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases);
+    DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases);
+
+    class DetailMatchResult
+    {
+        public static final DetailMatchResult NO_MATCH = new DetailMatchResult(false, new ExpressionAliases());
+
+        private final boolean matches;
+        private final ExpressionAliases newAliases;
+
+        public static DetailMatchResult match()
+        {
+            return new DetailMatchResult(true, new ExpressionAliases());
+        }
+
+        public static DetailMatchResult match(String alias, SymbolReference symbolReference)
+        {
+            ExpressionAliases newAliases = new ExpressionAliases();
+            newAliases.put(alias, symbolReference);
+            return new DetailMatchResult(true, newAliases);
+        }
+
+        public static DetailMatchResult match(ExpressionAliases newAliases)
+        {
+            return new DetailMatchResult(true, newAliases);
+        }
+
+        public DetailMatchResult(boolean matches)
+        {
+            this(matches, new ExpressionAliases());
+        }
+
+        private DetailMatchResult(boolean matches, ExpressionAliases newAliases)
+        {
+            this.matches = matches;
+            this.newAliases = requireNonNull(newAliases, "newAliases is null");
+        }
+
+        public boolean getMatches()
+        {
+            return matches;
+        }
+
+        public ExpressionAliases getNewAliases()
+        {
+            return newAliases;
+        }
+    }
 }

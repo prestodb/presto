@@ -54,14 +54,16 @@ final class TableScanMatcher
     }
 
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
         TableScanNode tableScanNode = (TableScanNode) node;
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableScanNode.getTable());
         String actualTableName = tableMetadata.getTable().getTableName();
-        return expectedTableName.equalsIgnoreCase(actualTableName) && domainMatches(tableScanNode, session, metadata);
+        return new DetailMatchResult(
+                expectedTableName.equalsIgnoreCase(actualTableName) &&
+                domainMatches(tableScanNode, session, metadata));
     }
 
     private boolean domainMatches(TableScanNode tableScanNode, Session session, Metadata metadata)

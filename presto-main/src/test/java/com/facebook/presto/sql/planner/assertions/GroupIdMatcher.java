@@ -22,6 +22,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -44,7 +46,7 @@ public class GroupIdMatcher
     }
 
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
@@ -53,20 +55,20 @@ public class GroupIdMatcher
         Map<Symbol, Symbol> actualArgumentMappings = groudIdNode.getArgumentMappings();
 
         if (actualGroups.size() != groups.size()) {
-            return false;
+            return NO_MATCH;
         }
 
         for (int i = 0; i < actualGroups.size(); i++) {
             if (!AggregationMatcher.matches(actualGroups.get(i), groups.get(i))) {
-                return false;
+                return NO_MATCH;
             }
         }
 
         if (!AggregationMatcher.matches(identityMappings.keySet(), actualArgumentMappings.keySet())) {
-            return false;
+            return NO_MATCH;
         }
 
-        return true;
+        return match();
     }
 
     @Override

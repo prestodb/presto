@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.NO_MATCH;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -52,14 +53,14 @@ final class JoinMatcher
     }
 
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
         JoinNode joinNode = (JoinNode) node;
 
         if (joinNode.getCriteria().size() != equiCriteria.size()) {
-            return false;
+            return NO_MATCH;
         }
 
         /*
@@ -72,7 +73,7 @@ final class JoinMatcher
                 .map(maker -> maker.getExpectedValue(expressionAliases))
                 .collect(toImmutableSet());
 
-        return expected.equals(actual);
+        return new DetailMatchResult(expected.equals(actual));
     }
 
     @Override

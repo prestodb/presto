@@ -41,12 +41,13 @@ final class FilterMatcher
     }
 
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
         FilterNode filterNode = (FilterNode) node;
-        return new ExpressionVerifier(expressionAliases).process(filterNode.getPredicate(), predicate);
+        ExpressionVerifier verifier = new ExpressionVerifier(expressionAliases);
+        return new DetailMatchResult(verifier.process(filterNode.getPredicate(), predicate));
     }
 
     @Override

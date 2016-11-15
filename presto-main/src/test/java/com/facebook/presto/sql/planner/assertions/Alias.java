@@ -46,13 +46,13 @@ public class Alias
      * for matchers that run against the node's sources, which would be incorrect.
      */
     @Override
-    public boolean upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
     {
         Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, expressionAliases);
         if (symbol.isPresent() && alias.isPresent()) {
-            expressionAliases.put(alias.get(), symbol.get().toSymbolReference());
+            return DetailMatchResult.match(alias.get(), symbol.get().toSymbolReference());
         }
-        return symbol.isPresent();
+        return new DetailMatchResult(symbol.isPresent());
     }
 
     @Override
