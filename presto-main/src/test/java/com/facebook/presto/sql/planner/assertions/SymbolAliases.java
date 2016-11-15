@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -32,6 +33,14 @@ public final class SymbolAliases
     public SymbolAliases()
     {
         this.map = new HashMap<>();
+    }
+
+    public SymbolAliases(Map<String, SymbolReference> aliases)
+    {
+        this.map = aliases
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(entry -> toKey(entry.getKey()), Map.Entry::getValue));
     }
 
     public SymbolAliases(SymbolAliases symbolAliases)

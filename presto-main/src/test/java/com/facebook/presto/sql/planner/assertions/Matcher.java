@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableMap;
 
 import static java.util.Objects.requireNonNull;
 
@@ -79,8 +80,8 @@ public interface Matcher
 
         public static DetailMatchResult match(String alias, SymbolReference symbolReference)
         {
-            SymbolAliases newAliases = new SymbolAliases();
-            newAliases.put(alias, symbolReference);
+            SymbolAliases newAliases = new SymbolAliases(
+                    ImmutableMap.of(alias, symbolReference));
             return new DetailMatchResult(true, newAliases);
         }
 

@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
@@ -31,9 +32,10 @@ public class TestExpressionVerifier
     {
         Expression actual = expression("NOT(orderkey = 3 AND custkey = 3 AND orderkey < 10)");
 
-        SymbolAliases symbolAliases = new SymbolAliases();
-        symbolAliases.put("X", new SymbolReference("orderkey"));
-        symbolAliases.put("Y", new SymbolReference("custkey"));
+        SymbolAliases symbolAliases = new SymbolAliases(
+                ImmutableMap.of(
+                        "X", new SymbolReference("orderkey"),
+                        "Y", new SymbolReference("custkey")));
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
