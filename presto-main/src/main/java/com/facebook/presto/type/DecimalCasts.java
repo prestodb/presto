@@ -424,7 +424,7 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long doubleToShortDecimal(double value, long precision, long scale, long tenToScale)
     {
-        BigDecimal decimal = new BigDecimal(value);
+        BigDecimal decimal = doubleToBigDecimal(value, precision, scale);
         decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
         if (overflows(decimal, precision)) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
@@ -435,7 +435,7 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice doubleToLongDecimal(double value, long precision, long scale, BigInteger tenToScale)
     {
-        BigDecimal decimal = new BigDecimal(value);
+        BigDecimal decimal = doubleToBigDecimal(value, precision, scale);
         decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
         if (overflows(decimal, precision)) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
@@ -447,7 +447,7 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long realToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
+        BigDecimal decimal = doubleToBigDecimal(intBitsToFloat((int) value), precision, scale);
         decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
         if (overflows(decimal, precision)) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
@@ -458,13 +458,23 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice realToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
-        BigDecimal decimal = new BigDecimal(intBitsToFloat((int) value));
+        BigDecimal decimal = doubleToBigDecimal(intBitsToFloat((int) value), precision, scale);
         decimal = decimal.setScale((int) scale, ROUND_HALF_UP);
         if (overflows(decimal, precision)) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", intBitsToFloat((int) value), precision, scale));
         }
         BigInteger decimalBigInteger = decimal.unscaledValue();
         return encodeUnscaledValue(decimalBigInteger);
+    }
+
+    private static BigDecimal doubleToBigDecimal(double value, long precision, long scale)
+    {
+        try {
+            return new BigDecimal(value);
+        }
+        catch (NumberFormatException ex) { // inf or nan
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast floating point '%s' to DECIMAL(%s, %s)", value, precision, scale));
+        }
     }
 
     @UsedByGeneratedCode
