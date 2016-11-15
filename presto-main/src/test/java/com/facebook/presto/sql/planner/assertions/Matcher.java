@@ -16,10 +16,6 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ImmutableMap;
-
-import static java.util.Objects.requireNonNull;
 
 public interface Matcher
 {
@@ -27,12 +23,12 @@ public interface Matcher
      * Verifies that the PlanNode passes basic matching tests that can done with only
      * the information contained in the node itself. Typically, these should be limited to
      * tests that validate the type of the node or attributes of that type.
-     *
+     * <p>
      * Matchers that can be applied to any node should return true from downMatches and do
      * the rest of their work in upMatches.
      *
-     * @param node  The node to apply the matching tests to
-     * @return      true if all matching tests pass, false otherwise
+     * @param node The node to apply the matching tests to
+     * @return true if all matching tests pass, false otherwise
      */
     boolean downMatches(PlanNode node);
 
@@ -41,74 +37,28 @@ public interface Matcher
      * check detailed information in a node's internals should be in upMatches.
      * In particular, matching tests that need to reference symbols from source nodes
      * must be in a Matcher's upMatches method.
-     *
+     * <p>
      * The upMatches method may add symbols to the SymbolAliases that is passed to it.
      * This allows Matchers further up the tree to reference these symbols in their upMatches
      * method in turn.
-     *
+     * <p>
      * In general, adding symbols to the SymbolAliases map should be done with the
      * special Alias Matcher. In cases where a node produces a symbol not from an Expression,
      * the symbol should be added with a node-specific Matcher. For example, SemiJoinNodes
      * produce a semiJoinOutput symbol, and SemiJoinMatcher adds an alias for that to
      * SymbolAliases.
-     *
+     * <p>
      * Matchers that don't need to validate anything about the internals of a node should
      * return true from upMatches and do all of their work in downMatches.
-     *
+     * <p>
      * The plan testing framework should not call a Matcher's upMatches on a node if downMatches
      * didn't return true for the same node.
      *
-     * @param node      The node to apply the matching tests to
-     * @param session   The session information for the query
-     * @param metadata  The metadata for the query
-     * @param symbolAliases     The SymbolAliases containing aliases from the nodes sources
-     * @return      true if all matching tests pass, false otherwise
+     * @param node The node to apply the matching tests to
+     * @param session The session information for the query
+     * @param metadata The metadata for the query
+     * @param symbolAliases The SymbolAliases containing aliases from the nodes sources
+     * @return a DetailMatchResult with information about the success of the match
      */
     DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
-
-    class DetailMatchResult
-    {
-        public static final DetailMatchResult NO_MATCH = new DetailMatchResult(false, new SymbolAliases());
-
-        private final boolean matches;
-        private final SymbolAliases newAliases;
-
-        public static DetailMatchResult match()
-        {
-            return new DetailMatchResult(true, new SymbolAliases());
-        }
-
-        public static DetailMatchResult match(String alias, SymbolReference symbolReference)
-        {
-            SymbolAliases newAliases = new SymbolAliases(
-                    ImmutableMap.of(alias, symbolReference));
-            return new DetailMatchResult(true, newAliases);
-        }
-
-        public static DetailMatchResult match(SymbolAliases newAliases)
-        {
-            return new DetailMatchResult(true, newAliases);
-        }
-
-        public DetailMatchResult(boolean matches)
-        {
-            this(matches, new SymbolAliases());
-        }
-
-        private DetailMatchResult(boolean matches, SymbolAliases newAliases)
-        {
-            this.matches = matches;
-            this.newAliases = requireNonNull(newAliases, "newAliases is null");
-        }
-
-        public boolean getMatches()
-        {
-            return matches;
-        }
-
-        public SymbolAliases getNewAliases()
-        {
-            return newAliases;
-        }
-    }
 }

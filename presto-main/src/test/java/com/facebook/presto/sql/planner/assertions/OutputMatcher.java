@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.NO_MATCH;
-import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -50,7 +51,7 @@ public class Alias
     {
         Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
         if (symbol.isPresent() && alias.isPresent()) {
-            return DetailMatchResult.match(alias.get(), symbol.get().toSymbolReference());
+            return match(alias.get(), symbol.get().toSymbolReference());
         }
         return new DetailMatchResult(symbol.isPresent());
     }

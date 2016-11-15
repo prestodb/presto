@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

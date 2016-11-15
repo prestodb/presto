@@ -45,8 +45,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
-import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.NO_MATCH;
-import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
@@ -253,19 +253,19 @@ public final class PlanMatchPattern
         return states.build();
     }
 
-    Matcher.DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        SymbolAliases newAliases = new SymbolAliases();
+        SymbolAliases.Builder newAliases = SymbolAliases.builder();
 
         for (Matcher matcher : matchers) {
-            Matcher.DetailMatchResult matchResult = matcher.upMatches(node, session, metadata, symbolAliases);
+            DetailMatchResult matchResult = matcher.upMatches(node, session, metadata, symbolAliases);
             if (!matchResult.getMatches()) {
                 return NO_MATCH;
             }
-            newAliases.putSourceAliases(matchResult.getNewAliases());
+            newAliases.putAll(matchResult.getNewAliases());
         }
 
-        return match(newAliases);
+        return match(newAliases.build());
     }
 
     public PlanMatchPattern with(Matcher matcher)

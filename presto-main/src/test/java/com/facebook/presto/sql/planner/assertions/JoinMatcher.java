@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.presto.sql.planner.assertions.Matcher.DetailMatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.NO_MATCH;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
