@@ -50,7 +50,7 @@ public class ExpressionMatcher
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<Symbol> result = Optional.empty();
         ImmutableList.Builder<Expression> matchesBuilder = ImmutableList.builder();
@@ -60,7 +60,7 @@ public class ExpressionMatcher
         }
 
         ProjectNode projectNode = (ProjectNode) node;
-        ExpressionVerifier verifier = new ExpressionVerifier(expressionAliases);
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
         for (Map.Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
             if (verifier.process(assignment.getValue(), expression)) {

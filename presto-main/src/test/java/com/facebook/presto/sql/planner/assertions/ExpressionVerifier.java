@@ -63,11 +63,11 @@ import static java.util.Objects.requireNonNull;
 final class ExpressionVerifier
         extends AstVisitor<Boolean, Expression>
 {
-    private final ExpressionAliases expressionAliases;
+    private final SymbolAliases symbolAliases;
 
-    ExpressionVerifier(ExpressionAliases expressionAliases)
+    ExpressionVerifier(SymbolAliases symbolAliases)
     {
-        this.expressionAliases = requireNonNull(expressionAliases, "expressionAliases is null");
+        this.symbolAliases = requireNonNull(symbolAliases, "symbolAliases is null");
     }
 
     @Override
@@ -98,7 +98,7 @@ final class ExpressionVerifier
                 /*
                  * If the expected value is a value list, but the actual is e.g. a SymbolReference,
                  * we need to unpack the value from the list so that when we hit visitSymbolReference, the
-                 * expected.toString() call returns something that the expressionAliases actually contains.
+                 * expected.toString() call returns something that the symbolAliases actually contains.
                  * For example, InListExpression.toString returns "(onlyitem)" rather than "onlyitem".
                  *
                  * This is required because actual passes through the analyzer, planner, and possibly optimizers,
@@ -219,6 +219,6 @@ final class ExpressionVerifier
         if (!(expected instanceof SymbolReference)) {
             return false;
         }
-        return expressionAliases.get(((SymbolReference) expected).getName()).equals(actual);
+        return symbolAliases.get(((SymbolReference) expected).getName()).equals(actual);
     }
 }

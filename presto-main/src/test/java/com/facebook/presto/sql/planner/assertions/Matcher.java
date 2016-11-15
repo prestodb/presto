@@ -41,15 +41,15 @@ public interface Matcher
      * In particular, matching tests that need to reference symbols from source nodes
      * must be in a Matcher's upMatches method.
      *
-     * The upMatches method may add symbols to the ExpressionAliases that is passed to it.
+     * The upMatches method may add symbols to the SymbolAliases that is passed to it.
      * This allows Matchers further up the tree to reference these symbols in their upMatches
      * method in turn.
      *
-     * In general, adding symbols to the ExpressionAliases map should be done with the
+     * In general, adding symbols to the SymbolAliases map should be done with the
      * special Alias Matcher. In cases where a node produces a symbol not from an Expression,
      * the symbol should be added with a node-specific Matcher. For example, SemiJoinNodes
      * produce a semiJoinOutput symbol, and SemiJoinMatcher adds an alias for that to
-     * ExpressionAliases.
+     * SymbolAliases.
      *
      * Matchers that don't need to validate anything about the internals of a node should
      * return true from upMatches and do all of their work in downMatches.
@@ -60,41 +60,41 @@ public interface Matcher
      * @param node      The node to apply the matching tests to
      * @param session   The session information for the query
      * @param metadata  The metadata for the query
-     * @param expressionAliases     The ExpressionAliases containing aliases from the nodes sources
+     * @param symbolAliases     The SymbolAliases containing aliases from the nodes sources
      * @return      true if all matching tests pass, false otherwise
      */
-    DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases);
+    DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
 
     class DetailMatchResult
     {
-        public static final DetailMatchResult NO_MATCH = new DetailMatchResult(false, new ExpressionAliases());
+        public static final DetailMatchResult NO_MATCH = new DetailMatchResult(false, new SymbolAliases());
 
         private final boolean matches;
-        private final ExpressionAliases newAliases;
+        private final SymbolAliases newAliases;
 
         public static DetailMatchResult match()
         {
-            return new DetailMatchResult(true, new ExpressionAliases());
+            return new DetailMatchResult(true, new SymbolAliases());
         }
 
         public static DetailMatchResult match(String alias, SymbolReference symbolReference)
         {
-            ExpressionAliases newAliases = new ExpressionAliases();
+            SymbolAliases newAliases = new SymbolAliases();
             newAliases.put(alias, symbolReference);
             return new DetailMatchResult(true, newAliases);
         }
 
-        public static DetailMatchResult match(ExpressionAliases newAliases)
+        public static DetailMatchResult match(SymbolAliases newAliases)
         {
             return new DetailMatchResult(true, newAliases);
         }
 
         public DetailMatchResult(boolean matches)
         {
-            this(matches, new ExpressionAliases());
+            this(matches, new SymbolAliases());
         }
 
-        private DetailMatchResult(boolean matches, ExpressionAliases newAliases)
+        private DetailMatchResult(boolean matches, SymbolAliases newAliases)
         {
             this.matches = matches;
             this.newAliases = requireNonNull(newAliases, "newAliases is null");
@@ -105,7 +105,7 @@ public interface Matcher
             return matches;
         }
 
-        public ExpressionAliases getNewAliases()
+        public SymbolAliases getNewAliases()
         {
             return newAliases;
         }

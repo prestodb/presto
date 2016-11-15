@@ -25,19 +25,19 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class ExpressionAliases
+public final class SymbolAliases
 {
     private final Map<String, SymbolReference> map;
 
-    public ExpressionAliases()
+    public SymbolAliases()
     {
         this.map = new HashMap<>();
     }
 
-    public ExpressionAliases(ExpressionAliases expressionAliases)
+    public SymbolAliases(SymbolAliases symbolAliases)
     {
-        requireNonNull(expressionAliases, "symbolAliases are null");
-        this.map = new HashMap<>(expressionAliases.map);
+        requireNonNull(symbolAliases, "symbolAliases are null");
+        this.map = new HashMap<>(symbolAliases.map);
     }
 
     public void put(String alias, SymbolReference symbolReference)
@@ -49,7 +49,7 @@ public final class ExpressionAliases
         map.put(alias, symbolReference);
     }
 
-    public void putSourceAliases(ExpressionAliases sourceAliases)
+    public void putSourceAliases(SymbolAliases sourceAliases)
     {
         for (Map.Entry<String, SymbolReference> alias : sourceAliases.map.entrySet()) {
             put(alias.getKey(), alias.getValue());
@@ -109,15 +109,15 @@ public final class ExpressionAliases
     }
 
     /*
-     * Update assignments in ExpressionAliases.map based on assignments given that
+     * Update assignments in SymbolAliases.map based on assignments given that
      * assignments is a map of newSymbol := oldSymbolReference. RETAIN aliases for
      * SymbolReferences that aren't in assignments.values()
      *
      * Example:
-     * ExpressionAliases.map = { "ALIAS": SymbolReference("foo") }
+     * SymbolAliases.map = { "ALIAS": SymbolReference("foo") }
      * updateAssignments({"bar": SymbolReference("foo")})
      * results in
-     * ExpressionAliases.map = { "ALIAS": SymbolReference("bar") }
+     * SymbolAliases.map = { "ALIAS": SymbolReference("bar") }
      */
     public void updateAssignments(Map<Symbol, Expression> assignments)
     {
@@ -126,7 +126,7 @@ public final class ExpressionAliases
     }
 
     /*
-     * Update assignments in ExpressionAliases.map based on assignments given that
+     * Update assignments in SymbolAliases.map based on assignments given that
      * assignments is a map of newSymbol := oldSymbolReference. DISCARD aliases for
      * SymbolReferences that aren't in assignments.values()
      *
@@ -137,14 +137,14 @@ public final class ExpressionAliases
      * PlanMatchPattern.tableScan("nation", ImmutableMap.of("NK", "nationkey", "RK", "regionkey")
      * applied to
      * TableScanNode { col1 := ColumnHandle(nation, nationkey), col2 := ColumnHandle(nation, regionkey) }
-     * gives ExpressionAliases.map
+     * gives SymbolAliases.map
      * { "NK": SymbolReference("col1"), "RK": SymbolReference("col2") }
      *
      * ... Visit some other nodes, one of which presumably consumes col1, and none of which add any new aliases ...
      *
      * If we then visit a project node
      * Project { value3 := col2 }
-     * ExpressionAliases.map should be
+     * SymbolAliases.map should be
      * { "RK": SymbolReference("value3") }
      */
     public void replaceAssignments(Map<Symbol, Expression> assignments)

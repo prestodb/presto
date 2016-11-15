@@ -59,7 +59,7 @@ final class PlanMatchingVisitor
                 assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
             }
 
-            context.getExpressionAliases().updateAssignments(assignments.build());
+            context.getSymbolAliases().updateAssignments(assignments.build());
         }
         return result;
     }
@@ -69,7 +69,7 @@ final class PlanMatchingVisitor
     {
         boolean result = super.visitProject(node, context);
         if (result) {
-            context.getExpressionAliases().replaceAssignments(node.getAssignments());
+            context.getSymbolAliases().replaceAssignments(node.getAssignments());
         }
         return result;
     }
@@ -97,11 +97,11 @@ final class PlanMatchingVisitor
                  * We have to call upMatches for two reasons:
                  * 1) Make sure there aren't any mismatches checking the internals of a leaf node.
                  * 2) Collect the aliases from the source nodes so we can add them to
-                 *    ExpressionAliases. They'll be needed further up.
+                 *    SymbolAliases. They'll be needed further up.
                  */
-                Matcher.DetailMatchResult matchResult = context.getPattern().upMatches(node, session, metadata, context.getExpressionAliases());
+                Matcher.DetailMatchResult matchResult = context.getPattern().upMatches(node, session, metadata, context.getSymbolAliases());
                 if (matchResult.getMatches()) {
-                    context.getExpressionAliases().putSourceAliases(matchResult.getNewAliases());
+                    context.getSymbolAliases().putSourceAliases(matchResult.getNewAliases());
                     ++terminatedUpMatchCount;
                 }
             }
@@ -120,7 +120,7 @@ final class PlanMatchingVisitor
              * For every state, start with a clean set of aliases. Aliases from a different state
              * are not in scope.
              */
-            ExpressionAliases stateAliases = new ExpressionAliases();
+            SymbolAliases stateAliases = new SymbolAliases();
             for (PlanNode source : node.getSources()) {
                 /*
                  * Create a context for each source individually. Aliases from one source
@@ -133,7 +133,7 @@ final class PlanMatchingVisitor
                 }
 
                 // Add the per-source aliases to the per-state aliases.
-                stateAliases.putSourceAliases(sourceContext.getExpressionAliases());
+                stateAliases.putSourceAliases(sourceContext.getSymbolAliases());
             }
 
             /*
@@ -143,8 +143,8 @@ final class PlanMatchingVisitor
             if (sourcesMatch) {
                 Matcher.DetailMatchResult matchResult = context.getPattern().upMatches(node, session, metadata, stateAliases);
                 if (matchResult.getMatches()) {
-                    context.getExpressionAliases().putSourceAliases(matchResult.getNewAliases());
-                    context.getExpressionAliases().putSourceAliases(stateAliases);
+                    context.getSymbolAliases().putSourceAliases(matchResult.getNewAliases());
+                    context.getSymbolAliases().putSourceAliases(stateAliases);
                     ++upMatchCount;
                 }
             }

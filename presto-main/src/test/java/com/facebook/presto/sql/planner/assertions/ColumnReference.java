@@ -42,7 +42,7 @@ public class ColumnReference
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         if (!(node instanceof TableScanNode)) {
             return Optional.empty();

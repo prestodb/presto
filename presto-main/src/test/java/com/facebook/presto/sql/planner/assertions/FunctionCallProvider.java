@@ -66,7 +66,7 @@ class FunctionCallProvider
         return format("%s%s (%s) %s", distinct ? "DISTINCT" : "", name, Joiner.on(", ").join(args), frame.isPresent() ? frame.get().toString() : "");
     }
 
-    public FunctionCall getExpectedValue(ExpressionAliases aliases)
+    public FunctionCall getExpectedValue(SymbolAliases aliases)
     {
         List<Expression> symbolReferences = toSymbolReferences(args, aliases);
         if (isWindowFunction) {

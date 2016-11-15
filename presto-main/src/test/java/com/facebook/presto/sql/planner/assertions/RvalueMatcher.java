@@ -32,5 +32,5 @@ public interface RvalueMatcher
      * The assigned symbol is identified by matching the value on the right side of the assignment;
      * the rvalue. If no match is found in the node, getAssignedSymbol must return Optional.empty().
      */
-    Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases);
+    Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
 }

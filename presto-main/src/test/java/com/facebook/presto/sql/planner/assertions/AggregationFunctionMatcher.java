@@ -37,7 +37,7 @@ public class AggregationFunctionMatcher
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<Symbol> result = Optional.empty();
         if (!(node instanceof AggregationNode)) {
@@ -46,7 +46,7 @@ public class AggregationFunctionMatcher
 
         AggregationNode aggregationNode = (AggregationNode) node;
 
-        FunctionCall expectedCall = callMaker.getExpectedValue(expressionAliases);
+        FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<Symbol, FunctionCall> assignment : aggregationNode.getAggregations().entrySet()) {
             if (expectedCall.equals(assignment.getValue())) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);

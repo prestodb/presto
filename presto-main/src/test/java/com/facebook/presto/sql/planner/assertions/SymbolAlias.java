@@ -27,7 +27,7 @@ class SymbolAlias
         this.alias = requireNonNull(alias, "alias is null");
     }
 
-    public Symbol toSymbol(ExpressionAliases aliases)
+    public Symbol toSymbol(SymbolAliases aliases)
     {
         return Symbol.from(aliases.get(alias));
     }

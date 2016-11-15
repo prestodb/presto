@@ -37,7 +37,7 @@ public class WindowFunctionMatcher
     }
 
     @Override
-    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<Symbol> result = Optional.empty();
         if (!(node instanceof WindowNode)) {
@@ -46,7 +46,7 @@ public class WindowFunctionMatcher
 
         WindowNode windowNode = (WindowNode) node;
 
-        FunctionCall expectedCall = callMaker.getExpectedValue(expressionAliases);
+        FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<Symbol, WindowNode.Function> assignment : windowNode.getWindowFunctions().entrySet()) {
             if (expectedCall.equals(assignment.getValue().getFunctionCall())) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", windowNode);

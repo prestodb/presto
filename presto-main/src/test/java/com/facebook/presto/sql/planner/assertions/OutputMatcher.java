@@ -44,11 +44,11 @@ public class OutputMatcher
     }
 
     @Override
-    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         int i = 0;
         for (String alias : aliases) {
-            Expression expression = expressionAliases.get(alias);
+            Expression expression = symbolAliases.get(alias);
             boolean found = false;
             while (i < node.getOutputSymbols().size()) {
                 Symbol outputSymbol = node.getOutputSymbols().get(i++);

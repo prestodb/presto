@@ -253,12 +253,12 @@ public final class PlanMatchPattern
         return states.build();
     }
 
-    Matcher.DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    Matcher.DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        ExpressionAliases newAliases = new ExpressionAliases();
+        SymbolAliases newAliases = new SymbolAliases();
 
         for (Matcher matcher : matchers) {
-            Matcher.DetailMatchResult matchResult = matcher.upMatches(node, session, metadata, expressionAliases);
+            Matcher.DetailMatchResult matchResult = matcher.upMatches(node, session, metadata, symbolAliases);
             if (!matchResult.getMatches()) {
                 return NO_MATCH;
             }
@@ -338,11 +338,11 @@ public final class PlanMatchPattern
         return new FunctionCallProvider(QualifiedName.of(name), distinct, args);
     }
 
-    public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, ExpressionAliases expressionAliases)
+    public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, SymbolAliases symbolAliases)
     {
         return aliases
                 .stream()
-                .map(arg -> arg.toSymbol(expressionAliases).toSymbolReference())
+                .map(arg -> arg.toSymbol(symbolAliases).toSymbolReference())
                 .collect(toImmutableList());
     }
 

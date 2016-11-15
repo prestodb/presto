@@ -53,7 +53,7 @@ final class JoinMatcher
     }
 
     @Override
-    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
@@ -70,7 +70,7 @@ final class JoinMatcher
         Set<JoinNode.EquiJoinClause> actual = ImmutableSet.copyOf(joinNode.getCriteria());
         Set<JoinNode.EquiJoinClause> expected =
                 equiCriteria.stream()
-                .map(maker -> maker.getExpectedValue(expressionAliases))
+                .map(maker -> maker.getExpectedValue(symbolAliases))
                 .collect(toImmutableSet());
 
         return new DetailMatchResult(expected.equals(actual));

@@ -40,7 +40,7 @@ final class WindowMatcher
     }
 
     @Override
-    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
@@ -51,7 +51,7 @@ final class WindowMatcher
          * want to bind to an alias so we can reference it further up the tree. As such,
          * they need to be matched with an Alias matcher so we can bind the symbol if desired.
          */
-        return new DetailMatchResult(windowNode.getSpecification().equals(specification.getExpectedValue(expressionAliases)));
+        return new DetailMatchResult(windowNode.getSpecification().equals(specification.getExpectedValue(symbolAliases)));
     }
 
     @Override

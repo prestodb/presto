@@ -17,5 +17,5 @@ import com.facebook.presto.sql.planner.Symbol;
 
 public interface PlanTestSymbol
 {
-    Symbol toSymbol(ExpressionAliases aliases);
+    Symbol toSymbol(SymbolAliases aliases);
 }

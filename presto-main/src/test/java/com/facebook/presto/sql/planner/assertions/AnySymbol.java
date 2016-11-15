@@ -26,7 +26,7 @@ class AnySymbol
     }
 
     @Override
-    public Symbol toSymbol(ExpressionAliases aliases)
+    public Symbol toSymbol(SymbolAliases aliases)
     {
         return this;
     }

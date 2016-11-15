@@ -44,7 +44,7 @@ public class SpecificationProvider
     }
 
     @Override
-    public WindowNode.Specification getExpectedValue(ExpressionAliases aliases)
+    public WindowNode.Specification getExpectedValue(SymbolAliases aliases)
     {
         return new WindowNode.Specification(
                 partitionBy

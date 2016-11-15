@@ -44,7 +44,7 @@ public class CorrelationMatcher
     }
 
     @Override
-    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
 
@@ -56,7 +56,7 @@ public class CorrelationMatcher
 
         int i = 0;
         for (String alias : correlation) {
-            if (!expressionAliases.get(alias).equals(applyNode.getCorrelation().get(i++).toSymbolReference())) {
+            if (!symbolAliases.get(alias).equals(applyNode.getCorrelation().get(i++).toSymbolReference())) {
                 return NO_MATCH;
             }
         }

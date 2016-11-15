@@ -42,13 +42,13 @@ public class Alias
     }
 
     /*
-     * Add aliases on the way back up the tree. Adding them on the way down would put them in the expressionAliases
+     * Add aliases on the way back up the tree. Adding them on the way down would put them in the symbolAliases
      * for matchers that run against the node's sources, which would be incorrect.
      */
     @Override
-    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, expressionAliases);
+        Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
         if (symbol.isPresent() && alias.isPresent()) {
             return DetailMatchResult.match(alias.get(), symbol.get().toSymbolReference());
         }
