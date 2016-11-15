@@ -191,6 +191,7 @@ import static com.facebook.presto.operator.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
@@ -1665,7 +1666,18 @@ public class LocalExecutionPlanner
                     .put(node.getSemiJoinOutput(), probeSource.getLayout().size())
                     .build();
 
-            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(context.getNextOperatorId(), node.getId(), setProvider, probeSource.getTypes(), probeChannel);
+            signature = internalOperator(
+                    INDETERMINATE.name(),
+                    BOOLEAN.getTypeSignature(),
+                    ImmutableList.of(probeSource.getTypes().get(probeChannel).getTypeSignature()));
+            MethodHandle probeIndeterminateFunction = metadata.getFunctionRegistry().getScalarFunctionImplementation(signature).getMethodHandle();
+            HashSemiJoinOperatorFactory operator = new HashSemiJoinOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    setProvider,
+                    probeSource.getTypes(),
+                    probeChannel,
+                    probeIndeterminateFunction);
             return new PhysicalOperation(operator, outputMappings, probeSource);
         }
 

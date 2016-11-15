@@ -48,6 +48,7 @@ import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -63,12 +64,15 @@ public class TestHashSemiJoinOperator
 {
     private ExecutorService executor;
     private TaskContext taskContext;
+    private FunctionRegistry functionRegistry;
 
     @BeforeMethod
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
         taskContext = createTaskContext(executor, TEST_SESSION);
+        TypeManager typeManager = new TypeRegistry();
+        functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
     }
 
     @AfterMethod
@@ -128,7 +132,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                getIndeterminateFunction(probeTypes.get(0)));
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -192,7 +197,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                getIndeterminateFunction(probeTypes.get(0)));
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -205,7 +211,8 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
+    // TODO: for now we forbid all indeterminate values in the probe side, this test should be enabled after indeterminate values are allowed in probe side
+    @Test(dataProvider = "hashEnabledValues", enabled = false)
     public void testProbeSideNulls(boolean hashEnabled)
             throws Exception
     {
@@ -250,7 +257,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                getIndeterminateFunction(probeTypes.get(0)));
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -263,7 +271,8 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
+    // TODO: for now we forbid all indeterminate values in the probe side, this test should be enabled after indeterminate values are allowed in probe side
+    @Test(dataProvider = "hashEnabledValues", enabled = false)
     public void testProbeAndBuildNulls(boolean hashEnabled)
             throws Exception
     {
@@ -309,7 +318,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                getIndeterminateFunction(probeTypes.get(0)));
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -376,7 +386,8 @@ public class TestHashSemiJoinOperator
                 new PlanNodeId("test"),
                 setBuilderOperatorFactory.getSetProvider(),
                 rowPagesBuilderProbe.getTypes(),
-                0);
+                0,
+                getIndeterminateFunction(probeTypes.get(0)));
 
         // expected
         MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
@@ -418,5 +429,14 @@ public class TestHashSemiJoinOperator
         while (!driver.isFinished()) {
             driver.process();
         }
+    }
+
+    private MethodHandle getIndeterminateFunction(Type type)
+    {
+        Signature signature = internalOperator(
+                INDETERMINATE.name(),
+                BOOLEAN.getTypeSignature(),
+                ImmutableList.of(type.getTypeSignature()));
+        return functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
     }
 }

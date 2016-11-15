@@ -397,6 +397,19 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM VALUES (3,-3)");
     }
 
+    // TODO: for now we forbid all indeterminate values in the probe side, this test should be removed after indeterminate values are allowed in probe side
+    @Test
+    public void testInvalidIndeterminateInSubquery()
+            throws Exception
+    {
+        assertQueryFails("select x from (values null, 1) t(x) where x in (values 1, 2, 3, null)",
+                "indeterminate values are not allowed in probe side");
+        assertQueryFails("select x from (values null, 1) t(x) where (x in (select * from (values 1) p(y) where y < 0)) is null",
+                "indeterminate values are not allowed in probe side");
+        assertQueryFails("select x from (values map(array[1], array[cast(null as integer)])) t(x) where x in (values map(array[1], array[1]))",
+                "indeterminate values are not allowed in probe side");
+    }
+
     @Test
     public void testDereferenceInSubquery()
     {
@@ -5723,7 +5736,8 @@ public abstract class AbstractTestQueries
                 "  LIMIT 10)");
     }
 
-    @Test
+    // TODO: for now we forbid all indeterminate values in the probe side, this test should be enabled after indeterminate values are allowed in probe side
+    @Test(enabled = false)
     public void testSemiJoinNullHandling()
     {
         assertQuery("" +
