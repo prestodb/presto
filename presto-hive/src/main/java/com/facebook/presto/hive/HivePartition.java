@@ -17,7 +17,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -36,15 +35,6 @@ public class HivePartition
     private final String partitionId;
     private final Map<ColumnHandle, NullableValue> keys;
     private final List<HiveBucket> buckets;
-
-    public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate)
-    {
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
-        this.partitionId = UNPARTITIONED_ID;
-        this.keys = ImmutableMap.of();
-        this.buckets = ImmutableList.of();
-    }
 
     public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate, List<HiveBucket> buckets)
     {
