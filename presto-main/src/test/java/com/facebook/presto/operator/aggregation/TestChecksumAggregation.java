@@ -128,9 +128,9 @@ public class TestChecksumAggregation
     public void testLongDecimal()
             throws Exception
     {
-        InternalAggregationFunction decimalAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("checksum", AGGREGATE, parseTypeSignature(VARBINARY), parseTypeSignature("decimal(18,2)")));
+        InternalAggregationFunction decimalAgg = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("checksum", AGGREGATE, parseTypeSignature(VARBINARY), parseTypeSignature("decimal(19,2)")));
         Block block = createLongDecimalsBlock("11.11", "22.22", null, "33.33", "44.44");
-        DecimalType longDecimalType = DecimalType.createDecimalType(18);
+        DecimalType longDecimalType = DecimalType.createDecimalType(19);
         assertAggregation(decimalAgg, expectedChecksum(longDecimalType, block), block);
     }
 

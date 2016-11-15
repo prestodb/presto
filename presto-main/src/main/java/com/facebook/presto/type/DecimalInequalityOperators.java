@@ -22,7 +22,6 @@ import com.facebook.presto.metadata.SqlScalarFunctionBuilder;
 import com.facebook.presto.metadata.SqlScalarFunctionBuilder.SpecializeContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +30,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
-import java.math.BigInteger;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -46,10 +44,12 @@ import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.type.Decimals.bigIntegerTenToNth;
 import static com.facebook.presto.spi.type.Decimals.longTenToNth;
 import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.compare;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.Integer.max;
 
@@ -135,7 +135,7 @@ public class DecimalInequalityOperators
                 )
                 .implementation(b -> b
                         .methods("opShortShortLongRescale", "opShortLong", "opLongShort", "opLongLong")
-                        .withExtraParameters(concat(DecimalInequalityOperators::longRescaleExtraParameters, constant(getResultMethodHandle)))
+                        .withExtraParameters(concat(DecimalInequalityOperators::extractScaleParameters, constant(getResultMethodHandle)))
                 )
                 .build();
     }
@@ -152,7 +152,7 @@ public class DecimalInequalityOperators
                 )
                 .implementation(b -> b
                         .methods("opShortShortLongRescaleNullable", "opShortLongNullable", "opLongShortNullable", "opLongLongNullable")
-                        .withExtraParameters(concat(DecimalInequalityOperators::longRescaleExtraParameters, constant(getResultMethodHandle)))
+                        .withExtraParameters(concat(DecimalInequalityOperators::extractScaleParameters, constant(getResultMethodHandle)))
                 )
                 .build();
     }
@@ -178,13 +178,11 @@ public class DecimalInequalityOperators
         return ImmutableList.of(aRescale, bRescale);
     }
 
-    private static List<Object> longRescaleExtraParameters(SpecializeContext context)
+    private static List<Object> extractScaleParameters(SpecializeContext context)
     {
         long aScale = context.getLiteral("a_scale");
         long bScale = context.getLiteral("b_scale");
-        BigInteger aRescale = bigIntegerTenToNth(rescaleFactor(aScale, bScale));
-        BigInteger bRescale = bigIntegerTenToNth(rescaleFactor(bScale, aScale));
-        return ImmutableList.of(aRescale, bRescale);
+        return ImmutableList.of(aScale, bScale);
     }
 
     private static int rescaleFactor(long fromScale, long toScale)
@@ -216,11 +214,11 @@ public class DecimalInequalityOperators
     }
 
     @UsedByGeneratedCode
-    public static boolean opShortShortLongRescale(long a, long b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
+    public static boolean opShortShortLongRescale(long a, long b, long aScale, long bScale, MethodHandle getResultMethodHandle)
     {
-        BigInteger left = BigInteger.valueOf(a).multiply(aRescale);
-        BigInteger right = BigInteger.valueOf(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
+        Slice left = rescale(unscaledDecimal(a), rescaleFactor(aScale, bScale));
+        Slice right = rescale(unscaledDecimal(b), rescaleFactor(bScale, aScale));
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
     }
 
     @UsedByGeneratedCode
@@ -229,8 +227,8 @@ public class DecimalInequalityOperators
             boolean aNull,
             long b,
             boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
+            long aRescale,
+            long bRescale,
             MethodHandle getResultMethodHandle)
     {
         if (aNull != bNull) {
@@ -243,11 +241,11 @@ public class DecimalInequalityOperators
     }
 
     @UsedByGeneratedCode
-    public static boolean opShortLong(long a, Slice b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
+    public static boolean opShortLong(long a, Slice b, long aScale, long bScale, MethodHandle getResultMethodHandle)
     {
-        BigInteger left = BigInteger.valueOf(a).multiply(aRescale);
-        BigInteger right = Decimals.decodeUnscaledValue(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
+        Slice left = rescale(unscaledDecimal(a), rescaleFactor(aScale, bScale));
+        Slice right = rescale(b, rescaleFactor(bScale, aScale));
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
     }
 
     @UsedByGeneratedCode
@@ -256,8 +254,8 @@ public class DecimalInequalityOperators
             boolean aNull,
             Slice b,
             boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
+            long aRescale,
+            long bRescale,
             MethodHandle getResultMethodHandle)
     {
         if (aNull != bNull) {
@@ -270,11 +268,11 @@ public class DecimalInequalityOperators
     }
 
     @UsedByGeneratedCode
-    public static boolean opLongShort(Slice a, long b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
+    public static boolean opLongShort(Slice a, long b, long aScale, long bScale, MethodHandle getResultMethodHandle)
     {
-        BigInteger left = Decimals.decodeUnscaledValue(a).multiply(aRescale);
-        BigInteger right = BigInteger.valueOf(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
+        Slice left = rescale(a, rescaleFactor(aScale, bScale));
+        Slice right = rescale(unscaledDecimal(b), rescaleFactor(bScale, aScale));
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
     }
 
     @UsedByGeneratedCode
@@ -283,8 +281,8 @@ public class DecimalInequalityOperators
             boolean aNull,
             long b,
             boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
+            long aRescale,
+            long bRescale,
             MethodHandle getResultMethodHandle)
     {
         if (aNull != bNull) {
@@ -297,11 +295,11 @@ public class DecimalInequalityOperators
     }
 
     @UsedByGeneratedCode
-    public static boolean opLongLong(Slice a, Slice b, BigInteger aRescale, BigInteger bRescale, MethodHandle getResultMethodHandle)
+    public static boolean opLongLong(Slice a, Slice b, long aScale, long bScale, MethodHandle getResultMethodHandle)
     {
-        BigInteger left = Decimals.decodeUnscaledValue(a).multiply(aRescale);
-        BigInteger right = Decimals.decodeUnscaledValue(b).multiply(bRescale);
-        return invokeGetResult(getResultMethodHandle, left.compareTo(right));
+        Slice left = rescale(a, rescaleFactor(aScale, bScale));
+        Slice right = rescale(b, rescaleFactor(bScale, aScale));
+        return invokeGetResult(getResultMethodHandle, compare(left, right));
     }
 
     @UsedByGeneratedCode
@@ -310,8 +308,8 @@ public class DecimalInequalityOperators
             boolean aNull,
             Slice b,
             boolean bNull,
-            BigInteger aRescale,
-            BigInteger bRescale,
+            long aRescale,
+            long bRescale,
             MethodHandle getResultMethodHandle)
     {
         if (aNull != bNull) {

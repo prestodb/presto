@@ -13,16 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation.state;
 
-import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
 
-import java.math.BigInteger;
-
-@AccumulatorStateMetadata(stateFactoryClass = BigIntegerStateFactory.class, stateSerializerClass = BigIntegerStateSerializer.class)
-public interface BigIntegerState
-        extends AccumulatorState
+@AccumulatorStateMetadata(stateFactoryClass = LongDecimalWithOverflowAndLongStateFactory.class, stateSerializerClass = LongDecimalWithOverflowAndLongStateSerializer.class)
+public interface LongDecimalWithOverflowAndLongState
+        extends LongDecimalWithOverflowState
 {
-    BigInteger getBigInteger();
+    long getLong();
 
-    void setBigInteger(BigInteger value);
+    void setLong(long value);
 }

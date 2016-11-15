@@ -24,6 +24,7 @@ import com.facebook.presto.type.ArrayType;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,6 +33,8 @@ import java.util.List;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -236,7 +239,7 @@ public final class BlockAssertions
 
     public static Block createLongDecimalsBlock(Iterable<String> values)
     {
-        DecimalType longDecimalType = (DecimalType) DecimalType.createDecimalType(18);
+        DecimalType longDecimalType = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
         BlockBuilder builder = longDecimalType.createBlockBuilder(new BlockBuilderStatus(), 100);
 
         for (String value : values) {
@@ -475,6 +478,30 @@ public final class BlockAssertions
 
         for (int i = start; i < end; i++) {
             TIMESTAMP.writeLong(builder, i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createShortDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        long base = BigInteger.TEN.pow(type.getScale()).longValue();
+
+        for (int i = start; i < end; ++i) {
+            type.writeLong(builder, base * i);
+        }
+
+        return builder.build();
+    }
+
+    public static Block createLongDecimalSequenceBlock(int start, int end, DecimalType type)
+    {
+        BlockBuilder builder = type.createFixedSizeBlockBuilder(end - start);
+        BigInteger base = BigInteger.TEN.pow(type.getScale());
+
+        for (int i = start; i < end; ++i) {
+            type.writeSlice(builder, encodeUnscaledValue(BigInteger.valueOf(i).multiply(base)));
         }
 
         return builder.build();

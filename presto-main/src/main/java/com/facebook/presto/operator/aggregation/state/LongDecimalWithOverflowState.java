@@ -15,18 +15,17 @@ package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateMetadata;
+import io.airlift.slice.Slice;
 
-import java.math.BigInteger;
-
-@AccumulatorStateMetadata(stateFactoryClass = BigIntegerAndLongStateFactory.class, stateSerializerClass = BigIntegerAndLongStateSerializer.class)
-public interface BigIntegerAndLongState
+@AccumulatorStateMetadata(stateFactoryClass = LongDecimalWithOverflowStateFactory.class, stateSerializerClass = LongDecimalWithOverflowStateSerializer.class)
+public interface LongDecimalWithOverflowState
         extends AccumulatorState
 {
-    BigInteger getBigInteger();
+    Slice getLongDecimal();
 
-    void setBigInteger(BigInteger value);
+    void setLongDecimal(Slice unscaledDecimal);
 
-    long getLong();
+    long getOverflow();
 
-    void setLong(long value);
+    void setOverflow(long overflow);
 }
