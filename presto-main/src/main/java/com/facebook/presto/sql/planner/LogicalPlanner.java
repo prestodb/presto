@@ -130,29 +130,35 @@ public class LogicalPlanner
 
     public PlanNode planStatement(Analysis analysis, Statement statement)
     {
-        if (statement instanceof CreateTableAsSelect) {
+        if (statement instanceof CreateTableAsSelect && analysis.isCreateTableAsSelectNoOp()) {
             checkState(analysis.getCreateTableDestination().isPresent(), "Table destination is missing");
+            List<Expression> emptyRow = ImmutableList.of();
+            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow));
+            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(), ImmutableList.of());
+        }
+        return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
+    }
+
+    private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
+    {
+        if (statement instanceof CreateTableAsSelect) {
             if (analysis.isCreateTableAsSelectNoOp()) {
-                List<Expression> emptyRow = ImmutableList.of();
-                PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow));
-                return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(), ImmutableList.of());
+                throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
-            else {
-                return createOutputPlan(createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery()), analysis);
-            }
+            return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
         }
         else if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
-            return createOutputPlan(createInsertPlan(analysis, (Insert) statement), analysis);
+            return createInsertPlan(analysis, (Insert) statement);
         }
         else if (statement instanceof Delete) {
-            return createOutputPlan(createDeletePlan(analysis, (Delete) statement), analysis);
+            return createDeletePlan(analysis, (Delete) statement);
         }
         else if (statement instanceof Query) {
-            return createOutputPlan(createRelationPlan(analysis, (Query) statement), analysis);
+            return createRelationPlan(analysis, (Query) statement);
         }
         else if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
-            return createOutputPlan(createExplainAnalyzePlan(analysis, (Explain) statement), analysis);
+            return createExplainAnalyzePlan(analysis, (Explain) statement);
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
@@ -161,8 +167,9 @@ public class LogicalPlanner
 
     private RelationPlan createExplainAnalyzePlan(Analysis analysis, Explain statement)
     {
+        RelationPlan underlyingPlan = planStatementWithoutOutput(analysis, statement.getStatement());
+        PlanNode root = underlyingPlan.getRoot();
         Scope scope = analysis.getScope(statement);
-        PlanNode root = planStatement(analysis, statement.getStatement());
         Symbol outputSymbol = symbolAllocator.newSymbol(scope.getRelationType().getFieldByIndex(0));
         root = new ExplainAnalyzeNode(idAllocator.getNextId(), root, outputSymbol);
         return new RelationPlan(root, scope, ImmutableList.of(outputSymbol));

@@ -19,8 +19,10 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -355,6 +357,19 @@ public class TestLogicalPlanner
                                 node(AggregationNode.class,
                                         node(ValuesNode.class)))))
         );
+    }
+
+    @Test
+    public void testExplainAnalyze()
+    {
+        String sql = "EXPLAIN ANALYZE SELECT * FROM (VALUES (1,2,3)) t(x,y,z)";
+        assertPlan(sql, node(OutputNode.class,
+                node(ExplainAnalyzeNode.class,
+                        node(ValuesNode.class)))
+        );
+        // check that outputs of the underlying query are not pruned
+        PlanNode valuesNode = plan(sql).getRoot().getSources().get(0).getSources().get(0);
+        assertEquals(valuesNode.getOutputSymbols().size(), 3);
     }
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
