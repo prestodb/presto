@@ -28,6 +28,7 @@ import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
@@ -111,6 +112,12 @@ public class ParametricAggregation
                 outputType,
                 details.isDecomposable(),
                 new LazyAccumulatorFactoryBinder(metadata, classLoader));
+    }
+
+    @VisibleForTesting
+    public ParametricImplementationsGroup<AggregationImplementation> getImplementations()
+    {
+        return implementations;
     }
 
     @Override

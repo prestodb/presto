@@ -22,6 +22,7 @@ import com.facebook.presto.operator.scalar.annotations.ScalarImplementation;
 import com.facebook.presto.operator.scalar.annotations.ScalarImplementation.MethodHandleAndConstructor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Optional;
 
@@ -65,6 +66,12 @@ public class ParametricScalar
     public String getDescription()
     {
         return details.getDescription().isPresent() ? details.getDescription().get() : "";
+    }
+
+    @VisibleForTesting
+    public ParametricImplementationsGroup<ScalarImplementation> getImplementations()
+    {
+        return implementations;
     }
 
     @Override
