@@ -82,6 +82,7 @@ public class DriverContext
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final boolean partitioned;
+    private final AtomicLong spilledBytes = new AtomicLong();
 
     public DriverContext(PipelineContext pipelineContext, Executor executor, boolean partitioned)
     {
@@ -204,6 +205,7 @@ public class DriverContext
 
     public ListenableFuture<?> reserveSpill(long bytes)
     {
+        spilledBytes.getAndAdd(bytes);
         return pipelineContext.reserveSpill(bytes);
     }
 
@@ -407,6 +409,7 @@ public class DriverContext
                 processedInputPositions,
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
+                succinctBytes(spilledBytes.get()),
                 ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
     }
 

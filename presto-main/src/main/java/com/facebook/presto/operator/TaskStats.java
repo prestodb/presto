@@ -71,6 +71,8 @@ public class TaskStats
     private final DataSize outputDataSize;
     private final long outputPositions;
 
+    private final DataSize spilledDataSize;
+
     private final List<PipelineStats> pipelines;
 
     public TaskStats(DateTime createTime, DateTime endTime)
@@ -104,6 +106,7 @@ public class TaskStats
                 0,
                 new DataSize(0, BYTE),
                 0,
+                new DataSize(0, BYTE),
                 ImmutableList.of());
     }
 
@@ -144,6 +147,8 @@ public class TaskStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
@@ -195,6 +200,8 @@ public class TaskStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.pipelines = ImmutableList.copyOf(requireNonNull(pipelines, "pipelines is null"));
     }
@@ -366,6 +373,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
+    }
+
+    @JsonProperty
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
@@ -415,6 +428,7 @@ public class TaskStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
+                spilledDataSize,
                 ImmutableList.of());
     }
 
@@ -450,6 +464,7 @@ public class TaskStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
+                spilledDataSize,
                 pipelines.stream()
                         .map(PipelineStats::summarize)
                         .collect(Collectors.toList()));

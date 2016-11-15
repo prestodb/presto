@@ -65,6 +65,8 @@ public class TestTaskStats
             new DataSize(22, BYTE),
             23,
 
+            new DataSize(24, BYTE),
+
             ImmutableList.of(TestPipelineStats.EXPECTED));
 
     @Test
@@ -116,5 +118,6 @@ public class TestTaskStats
 
         assertEquals(actual.getPipelines().size(), 1);
         assertExpectedPipelineStats(actual.getPipelines().get(0));
+        assertEquals(actual.getSpilledDataSize(), new DataSize(24, BYTE));
     }
 }
