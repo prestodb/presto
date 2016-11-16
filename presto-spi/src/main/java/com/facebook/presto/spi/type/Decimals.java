@@ -30,10 +30,10 @@ import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
 import static java.lang.String.format;
-import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.math.BigInteger.TEN;
+import static java.math.RoundingMode.UNNECESSARY;
 
-public class Decimals
+public final class Decimals
 {
     private Decimals() {}
 
@@ -132,6 +132,7 @@ public class Decimals
         return groupValue;
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     public static Slice encodeUnscaledValue(BigInteger unscaledValue)
     {
         Slice result = Slices.allocate(SIZE_OF_LONG_DECIMAL);
@@ -255,7 +256,7 @@ public class Decimals
 
     public static BigDecimal rescale(BigDecimal value, DecimalType type)
     {
-        value = value.setScale(type.getScale(), ROUND_UNNECESSARY);
+        value = value.setScale(type.getScale(), UNNECESSARY);
 
         if (value.precision() > type.getPrecision()) {
             throw new IllegalArgumentException("decimal precision larger than column precision");
