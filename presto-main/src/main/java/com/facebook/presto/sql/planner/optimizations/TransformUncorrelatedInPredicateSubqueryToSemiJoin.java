@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.util.ImmutableRelaxedMapBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -40,6 +41,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -86,7 +88,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
     {
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
-        private final List<Map<InPredicate, Expression>> inPredicateMappings = new ArrayList<>();
+        private final List<Map<InPredicate, Symbol>> inPredicateMappings = new ArrayList<>();
 
         public InPredicateRewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
         {
@@ -114,14 +116,19 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                     context.defaultRewrite(node, context.get()),
                     node.getAssignments().values());
 
-            if (inPredicateMappings.isEmpty()) {
+            if (inPredicateMappingsEmpty()) {
                 return rewrittenNode;
             }
             else {
                 return new ProjectNode(rewrittenNode.getId(),
                         getOnlyElement(rewrittenNode.getSources()),
-                        replaceInPredicateInAssignments(node));
+                        replaceInPredicateInAssignments((ProjectNode) rewrittenNode));
             }
+        }
+
+        private boolean inPredicateMappingsEmpty()
+        {
+            return inPredicateMappings.stream().allMatch(Map::isEmpty);
         }
 
         private PlanNode rewriteInPredicates(PlanNode node, Expression expressions)
@@ -132,7 +139,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
         private PlanNode rewriteInPredicates(PlanNode node, Collection<Expression> expressions)
         {
             List<InPredicate> inPredicates = extractApplyInPredicates(expressions);
-            ImmutableMap.Builder<InPredicate, Expression> inPredicateMapping = ImmutableMap.builder();
+            ImmutableMap.Builder<InPredicate, Symbol> inPredicateMapping = ImmutableMap.builder();
             PlanNode rewrittenNode = node;
             for (InPredicate inPredicate : inPredicates) {
                 InsertSemiJoinRewriter rewriter = new InsertSemiJoinRewriter(idAllocator, symbolAllocator, inPredicate);
@@ -145,20 +152,32 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
 
         private Map<Symbol, Expression> replaceInPredicateInAssignments(ProjectNode node)
         {
-            ImmutableMap.Builder<Symbol, Expression> assignmentsBuilder = ImmutableMap.builder();
+            ImmutableRelaxedMapBuilder<Symbol, Expression> assignmentsBuilder = ImmutableRelaxedMapBuilder.builder();
             Map<Symbol, Expression> assignments = node.getAssignments();
             for (Symbol symbol : assignments.keySet()) {
                 assignmentsBuilder.put(symbol, replaceInPredicates(assignments.get(symbol)));
             }
+            appendMappingSymbols(node, assignmentsBuilder);
             return assignmentsBuilder.build();
         }
 
         private Expression replaceInPredicates(Expression expression)
         {
-            for (Map<InPredicate, Expression> inPredicateMapping : inPredicateMappings) {
-                expression = replaceExpression(expression, inPredicateMapping);
+            for (Map<InPredicate, Symbol> inPredicateMapping : inPredicateMappings) {
+                expression = replaceExpression(
+                        expression,
+                        inPredicateMapping.entrySet().stream()
+                                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference())));
             }
             return expression;
+        }
+
+        private void appendMappingSymbols(ProjectNode node, ImmutableRelaxedMapBuilder<Symbol, Expression> assignmentsBuilder)
+        {
+            inPredicateMappings.stream()
+                    .forEach(map -> map.values().stream()
+                            .filter(symbol -> node.getSource().getOutputSymbols().contains(symbol))
+                            .forEach(symbol -> assignmentsBuilder.put(symbol, symbol.toSymbolReference())));
         }
     }
 
@@ -259,12 +278,12 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             return node;
         }
 
-        public Map<InPredicate, Expression> getInPredicateMapping()
+        public Map<InPredicate, Symbol> getInPredicateMapping()
         {
             if (!semiJoinSymbol.isPresent()) {
                 return ImmutableMap.of();
             }
-            return ImmutableMap.of(originalInPredicate, semiJoinSymbol.get().toSymbolReference());
+            return ImmutableMap.of(originalInPredicate, semiJoinSymbol.get());
         }
     }
 }
