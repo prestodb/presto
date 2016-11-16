@@ -76,7 +76,7 @@ statement
     | RESET SESSION qualifiedName                                      #resetSession
     | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
     | COMMIT WORK?                                                     #commit
-    | ROLLBACK WORK?                                                   #rollback
+    | ROLLBACK WORK?                                                   #rollback                     0
     | SHOW PARTITIONS (FROM | IN) qualifiedName
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
