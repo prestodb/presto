@@ -24,8 +24,8 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,8 +52,8 @@ import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanc
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
@@ -164,19 +164,17 @@ public class TestLogicalPlanner
     @Test
     public void testSubqueryPruning()
     {
-        List<String> subqueries = ImmutableList.of(
+        List<QueryTemplate.Parameter> subqueries = new QueryTemplate.Parameter("subquery").of(
                 "orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)",
                 "EXISTS(SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)",
                 "0 = (SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)");
 
-        Quer
+        queryTemplate("SELECT COUNT(*) FROM (SELECT %subquery% FROM orders)")
+                .replaceAll(subqueries)
+                .forEach(this::assertPlanContainsNoApplyOrJoin);
 
-        for (String subquery : subqueries) {
-            // Apply can be rewritten to *join so we expect no join here as well
-            assertPlanContainsNoApplyOrJoin("SELECT COUNT(*) FROM (SELECT " + subquery + " FROM orders)");
-            // TODO enable when pruning apply nodes works for this kind of query
-            // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
-        }
+        // TODO enable when pruning apply nodes works for this kind of query
+        // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
     }
 
     private void assertPlanContainsNoApplyOrJoin(String sql)

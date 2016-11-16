@@ -12,6 +12,20 @@
  * limitations under the License.
  */
 
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.facebook.presto.tests;
 
 import com.facebook.presto.util.ImmutableCollectors;
@@ -29,6 +43,11 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryTemplate
 {
+    public static QueryTemplate queryTemplate(String queryTemplate, Parameter... parameters)
+    {
+        return new QueryTemplate(queryTemplate, parameters);
+    }
+
     private final String queryTemplate;
     private final List<Parameter> defaultParameters;
 
@@ -67,6 +86,13 @@ public class QueryTemplate
                     !query.contains(queryParameterKey),
                     "Query template parameters was not given: %s", queryParameterKey);
         }
+    }
+
+    public List<String> replaceAll(List<Parameter>... parametersLists)
+    {
+        ImmutableList.Builder<String> queries = ImmutableList.builder();
+        replaceAll(queries::add, parametersLists);
+        return queries.build();
     }
 
     public void replaceAll(Consumer<String> queryConsumer, List<Parameter>... parametersLists)
