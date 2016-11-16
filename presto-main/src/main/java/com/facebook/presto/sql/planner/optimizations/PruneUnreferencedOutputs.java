@@ -825,6 +825,10 @@ public class PruneUnreferencedOutputs
         @Override
         protected PlanNode rewriteApply(ApplyNode node)
         {
+            if (node.getOutputSymbols().size() != 1) {
+                return node;
+            }
+
             return node.getInput();
         }
     }
