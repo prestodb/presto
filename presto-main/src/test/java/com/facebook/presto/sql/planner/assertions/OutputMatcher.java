@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class OutputMatcher
@@ -59,5 +60,13 @@ public class OutputMatcher
             }
         }
         return true;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("outputs", aliases)
+                .toString();
     }
 }
