@@ -89,8 +89,8 @@ public class TestPlanMatchingFramework
     @Test
     public void testAliasExpressionFromProject()
     {
-        assertMinimallyOptimizedPlan("SELECT 1 + orderkey FROM lineitem",
-                output(ImmutableList.of("EXPRESSION"),
+        assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
+                output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
                         project(ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY")),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
