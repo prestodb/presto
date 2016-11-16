@@ -185,4 +185,14 @@ public class PlanNodeSearcher
             throw new IllegalArgumentException("Unable to replace first node when a node has multiple children, use replaceAll instead");
         }
     }
+
+    public boolean matches()
+    {
+        return findFirst().isPresent();
+    }
+
+    public int count()
+    {
+        return findAll().size();
+    }
 }
