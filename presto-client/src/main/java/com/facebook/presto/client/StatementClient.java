@@ -129,6 +129,9 @@ public class StatementClient
         if (session.getSource() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
         }
+        if (session.getClientInfo() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_CLIENT_INFO, session.getClientInfo());
+        }
         if (session.getCatalog() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_CATALOG, session.getCatalog());
         }

@@ -49,6 +49,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
@@ -103,7 +104,8 @@ final class ResourceUtil
                 .setCatalog(catalog)
                 .setSchema(schema)
                 .setRemoteUserAddress(servletRequest.getRemoteAddr())
-                .setUserAgent(servletRequest.getHeader(USER_AGENT));
+                .setUserAgent(servletRequest.getHeader(USER_AGENT))
+                .setClientInfo(servletRequest.getHeader(PRESTO_CLIENT_INFO));
 
         String timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
         if (timeZoneId != null) {

@@ -27,6 +27,7 @@ public class QueryContext
     private final Optional<String> principal;
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
+    private final Optional<String> clientInfo;
     private final Optional<String> source;
 
     private final Optional<String> catalog;
@@ -43,6 +44,7 @@ public class QueryContext
             Optional<String> principal,
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
+            Optional<String> clientInfo,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
@@ -55,6 +57,7 @@ public class QueryContext
         this.principal = requireNonNull(principal, "principal is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -86,6 +89,12 @@ public class QueryContext
     public Optional<String> getUserAgent()
     {
         return userAgent;
+    }
+
+    @JsonProperty
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
     }
 
     @JsonProperty

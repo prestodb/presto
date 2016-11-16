@@ -1742,6 +1742,7 @@ class StatementAnalyzer
                     .setLocale(session.getLocale())
                     .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                     .setUserAgent(session.getUserAgent().orElse(null))
+                    .setClientInfo(session.getClientInfo().orElse(null))
                     .setStartTime(session.getStartTime())
                     .setSystemProperty(LEGACY_ORDER_BY, session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class).toString())
                     .build();

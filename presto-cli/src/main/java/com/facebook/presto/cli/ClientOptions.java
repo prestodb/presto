@@ -131,6 +131,7 @@ public class ClientOptions
                 parseServer(server),
                 user,
                 source,
+                null, // client-supplied payload field not yet supported in CLI
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),

@@ -321,6 +321,7 @@ public class LocalQueryRunner
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),
                 defaultSession.getUserAgent(),
+                defaultSession.getClientInfo(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),

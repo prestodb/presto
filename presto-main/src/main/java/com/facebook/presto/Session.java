@@ -56,6 +56,7 @@ public final class Session
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
+    private final Optional<String> clientInfo;
     private final long startTime;
     private final Map<String, String> systemProperties;
     private final Map<ConnectorId, Map<String, String>> connectorProperties;
@@ -75,6 +76,7 @@ public final class Session
             Locale locale,
             Optional<String> remoteUserAddress,
             Optional<String> userAgent,
+            Optional<String> clientInfo,
             long startTime,
             Map<String, String> systemProperties,
             Map<ConnectorId, Map<String, String>> connectorProperties,
@@ -93,6 +95,7 @@ public final class Session
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -162,6 +165,11 @@ public final class Session
     public Optional<String> getUserAgent()
     {
         return userAgent;
+    }
+
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
     }
 
     public long getStartTime()
@@ -276,6 +284,7 @@ public final class Session
                 locale,
                 remoteUserAddress,
                 userAgent,
+                clientInfo,
                 startTime,
                 systemProperties,
                 connectorProperties.build(),
@@ -319,6 +328,7 @@ public final class Session
                 locale,
                 remoteUserAddress,
                 userAgent,
+                clientInfo,
                 startTime,
                 systemProperties,
                 connectorProperties,
@@ -340,6 +350,7 @@ public final class Session
                 .add("locale", locale)
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
                 .add("userAgent", userAgent.orElse(null))
+                .add("clientInfo", clientInfo.orElse(null))
                 .add("startTime", startTime)
                 .omitNullValues()
                 .toString();
@@ -369,6 +380,7 @@ public final class Session
         private Locale locale = Locale.getDefault();
         private String remoteUserAddress;
         private String userAgent;
+        private String clientInfo;
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
@@ -396,6 +408,7 @@ public final class Session
             this.locale = session.locale;
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
             this.userAgent = session.userAgent.orElse(null);
+            this.clientInfo = session.clientInfo.orElse(null);
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
             this.catalogSessionProperties.putAll(session.unprocessedCatalogProperties);
@@ -475,6 +488,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setClientInfo(String clientInfo)
+        {
+            this.clientInfo = clientInfo;
+            return this;
+        }
+
         /**
          * Sets a system property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
@@ -516,6 +535,7 @@ public final class Session
                     locale,
                     Optional.ofNullable(remoteUserAddress),
                     Optional.ofNullable(userAgent),
+                    Optional.ofNullable(clientInfo),
                     startTime,
                     systemProperties,
                     ImmutableMap.of(),

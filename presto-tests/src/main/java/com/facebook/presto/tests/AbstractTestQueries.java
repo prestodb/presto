@@ -5278,6 +5278,7 @@ public abstract class AbstractTestQueries
                 getSession().getLocale(),
                 getSession().getRemoteUserAddress(),
                 getSession().getUserAgent(),
+                getSession().getClientInfo(),
                 getSession().getStartTime(),
                 ImmutableMap.<String, String>builder()
                         .put("test_string", "foo string")
