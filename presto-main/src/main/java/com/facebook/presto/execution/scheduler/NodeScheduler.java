@@ -43,6 +43,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -306,8 +307,12 @@ public class NodeScheduler
         List<CompletableFuture<?>> blockedFutures = blockedNodes.stream()
                 .map(Node::getNodeIdentifier)
                 .map(nodeToTaskMap::get)
+                .filter(Objects::nonNull)
                 .map(remoteTask -> remoteTask.whenSplitQueueHasSpace(spaceThreshold))
                 .collect(toImmutableList());
+        if (blockedFutures.isEmpty()) {
+            return completedFuture(null);
+        }
         return firstCompletedFuture(blockedFutures, true);
     }
 
