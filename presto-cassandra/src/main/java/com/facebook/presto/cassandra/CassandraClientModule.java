@@ -103,7 +103,6 @@ public class CassandraClientModule
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-        clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
 
         clusterBuilder.withPort(config.getNativeProtocolPort());
         clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
@@ -158,6 +157,7 @@ public class CassandraClientModule
 
         return new CassandraSession(
                 connectorId.toString(),
+                contactPoints,
                 clusterBuilder,
                 config.getFetchSizeForPartitionKeySelect(),
                 config.getLimitForPartitionKeySelect(),
