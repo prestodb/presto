@@ -280,7 +280,10 @@ primaryExpression
     | BINARY_LITERAL                                                                      #binaryLiteral
     | '?'                                                                                 #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
-    | '(' expression (',' expression)+ ')'                                                #rowConstructor
+    // This case handles both an implicit row constructor or a simple parenthesized
+    // expression. We can't make the two separate alternatives because it needs
+    // unbounded look-ahead to figure out which one to take while it looks for the comma
+    | '(' expression (',' expression)* ')'                                                #implicitRowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter? over?  #functionCall
@@ -305,7 +308,6 @@ primaryExpression
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
-    | '(' expression ')'                                                                  #parenthesizedExpression
     ;
 
 timeZoneSpecifier

@@ -166,6 +166,26 @@ public class TestSqlParser
         SQL_PARSER.createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
     }
 
+    @Test(timeOut = 2_000)
+    public void testPotentialUnboundedLookahead()
+            throws Exception
+    {
+        SQL_PARSER.createExpression("(\n" +
+                "      1 * -1 +\n" +
+                "      1 * -2 +\n" +
+                "      1 * -3 +\n" +
+                "      1 * -4 +\n" +
+                "      1 * -5 +\n" +
+                "      1 * -6 +\n" +
+                "      1 * -7 +\n" +
+                "      1 * -8 +\n" +
+                "      1 * -9 +\n" +
+                "      1 * -10 +\n" +
+                "      1 * -11 +\n" +
+                "      1 * -12 \n" +
+                ")\n");
+    }
+
     @Test
     public void testQualifiedName()
     {
