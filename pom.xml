@@ -72,6 +72,7 @@
     </properties>
 
     <modules>
+        <module>presto-hdfs</module>
         <module>presto-atop</module>
         <module>presto-spi</module>
         <module>presto-array</module>
