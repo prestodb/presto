@@ -504,10 +504,12 @@ class StatementAnalyzer
             Query query = parseView(view.getOriginalSql(), name, table);
 
             analysis.registerNamedQuery(table, query);
-            analysis.registerTableForView(table);
 
             accessControl.checkCanSelectFromView(session.getRequiredTransactionId(), session.getIdentity(), name);
+
+            analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
+            analysis.unregisterTableForView();
 
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
@@ -1458,6 +1460,9 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);
             Scope queryScope = analyzer.process(query, Scope.create());
             return queryScope.getRelationType().withAlias(name.getObjectName(), null);
+        }
+        catch (SemanticException e) {
+            throw e;
         }
         catch (RuntimeException e) {
             throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());

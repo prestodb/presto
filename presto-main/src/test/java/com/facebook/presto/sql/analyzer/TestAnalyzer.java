@@ -881,7 +881,9 @@ public class TestAnalyzer
     public void testExistingRecursiveView()
             throws Exception
     {
-        assertFails(VIEW_IS_RECURSIVE, "SELECT * from v5");
+        analyze("SELECT * FROM v1 a JOIN v1 b ON a.a = b.a");
+        analyze("SELECT * FROM v1 a JOIN (SELECT * from v1) b ON a.a = b.a");
+        assertFails(VIEW_IS_RECURSIVE, "SELECT * FROM v5");
     }
 
     @Test

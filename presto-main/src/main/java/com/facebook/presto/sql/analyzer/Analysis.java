@@ -43,7 +43,7 @@ import com.google.common.collect.ListMultimap;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-import java.util.HashSet;
+import java.util.Stack;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,7 +103,7 @@ public class Analysis
     private final boolean isDescribe;
 
     // for recursive view detection
-    private final Set<Table> tablesForView = new HashSet<>();
+    private final Stack<Table> tablesForView = new Stack<>();
 
     public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -503,7 +503,12 @@ public class Analysis
     public void registerTableForView(Table tableReference)
     {
         requireNonNull(tableReference, "table is null");
-        tablesForView.add(tableReference);
+        tablesForView.push(tableReference);
+    }
+
+    public void unregisterTableForView()
+    {
+        tablesForView.pop();
     }
 
     public boolean hasTableInView(Table tableReference)
