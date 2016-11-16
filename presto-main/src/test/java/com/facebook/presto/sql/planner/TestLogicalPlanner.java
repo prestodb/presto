@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.tests.QueryTemplate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -53,6 +54,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -221,17 +223,17 @@ public class TestLogicalPlanner
     @Test
     public void testSubqueryPruning()
     {
-        List<String> subqueries = ImmutableList.of(
+        List<QueryTemplate.Parameter> subqueries = QueryTemplate.parameter("subquery").of(
                 "orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)",
                 "EXISTS(SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)",
                 "0 = (SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)");
 
-        for (String subquery : subqueries) {
-            // Apply can be rewritten to *join so we expect no join here as well
-            assertPlanContainsNoApplyOrJoin("SELECT COUNT(*) FROM (SELECT " + subquery + " FROM orders)");
-            // TODO enable when pruning apply nodes works for this kind of query
-            // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
-        }
+        queryTemplate("SELECT COUNT(*) FROM (SELECT %subquery% FROM orders)")
+                .replaceAll(subqueries)
+                .forEach(this::assertPlanContainsNoApplyOrJoin);
+
+        // TODO enable when pruning apply nodes works for this kind of query
+        // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
     }
 
     @Test
