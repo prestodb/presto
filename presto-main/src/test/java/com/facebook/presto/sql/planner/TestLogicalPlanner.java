@@ -173,8 +173,13 @@ public class TestLogicalPlanner
                 .replaceAll(subqueries)
                 .forEach(this::assertPlanContainsNoApplyOrJoin);
 
-        // TODO enable when pruning apply nodes works for this kind of query
-        // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
+        queryTemplate("SELECT * FROM orders WHERE true OR %subquery%")
+                .replaceAll(subqueries)
+                .forEach(this::assertPlanContainsNoApplyOrJoin);
+
+        queryTemplate("SELECT true OR %subquery% FROM orders")
+                .replaceAll(subqueries)
+                .forEach(this::assertPlanContainsNoApplyOrJoin);
     }
 
     private void assertPlanContainsNoApplyOrJoin(String sql)
