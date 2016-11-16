@@ -43,8 +43,12 @@ public class Alias
     }
 
     /*
-     * Add aliases on the way back up the tree. Adding them on the way down would put them in the symbolAliases
-     * for matchers that run against the node's sources, which would be incorrect.
+     * Aliases must be collected on the way back up the tree for several reasons:
+     * 1) The rvalue may depend on previously bound aliases (in the case of an
+     *    Expression or FunctionCall)
+     * 2) Scope: aliases bound in a node are only in scope in nodes higher up
+     *    the tree, just as symbols in a node's output are only in scope in nodes
+     *    higher up the tree.
      */
     @Override
     public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)

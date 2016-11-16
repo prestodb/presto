@@ -114,23 +114,20 @@ public final class SymbolAliases
     }
 
     /*
-     * Update assignments in SymbolAliases.map based on assignments given that
-     * assignments is a map of newSymbol := oldSymbolReference. RETAIN aliases for
-     * SymbolReferences that aren't in assignments.values()
+     * Return a new SymbolAliases that contains a map with the original bindings
+     * updated based on assignments given that assignments is a map of
+     * newSymbol := oldSymbolReference.
+     *
+     * INCLUDE aliases for SymbolReferences that aren't in assignments.values()
      *
      * Example:
-     * SymbolAliases.map = { "ALIAS": SymbolReference("foo") }
-     * updateAssignments({"bar": SymbolReference("foo")})
-     * results in
-     * SymbolAliases.map = { "ALIAS": SymbolReference("bar") }
+     * SymbolAliases = { "ALIAS1": SymbolReference("foo"), "ALIAS2": SymbolReference("bar")}
+     * updateAssignments({"baz": SymbolReference("foo")})
+     * returns a new
+     * SymbolAliases = { "ALIAS1": SymbolReference("baz"), "ALIAS2": SymbolReference("bar")}
      */
     public SymbolAliases updateAssignments(Map<Symbol, Expression> assignments)
     {
-        /*
-        Map<String, SymbolReference> additions = getUpdatedAssignments(assignments);
-        map.putAll(additions);
-        */
-
         return builder()
                 .putAll(this)
                 .putUnchecked(getUpdatedAssignments(assignments))
@@ -138,14 +135,22 @@ public final class SymbolAliases
     }
 
     /*
-     * Update assignments in SymbolAliases.map based on assignments given that
-     * assignments is a map of newSymbol := oldSymbolReference. DISCARD aliases for
-     * SymbolReferences that aren't in assignments.values()
+     * Return a new SymbolAliases that contains a map with the original bindings
+     * updated based on assignments given that assignments is a map of
+     * newSymbol := oldSymbolReference.
+     *
+     * DISCARD aliases for SymbolReferences that aren't in assignments.values()
+     *
+     * Example:
+     * SymbolAliases = { "ALIAS1": SymbolReference("foo"), "ALIAS2": SymbolReference("bar")}
+     * updateAssignments({"baz": SymbolReference("foo")})
+     * returns a new
+     * SymbolAliases = { "ALIAS1": SymbolReference("baz") }
      *
      * When you pass through a project node, all of the aliases need to be updated, and
      * aliases for symbols that aren't projected need to be removed.
      *
-     * Example:
+     * Example in the context of a Plan:
      * PlanMatchPattern.tableScan("nation", ImmutableMap.of("NK", "nationkey", "RK", "regionkey")
      * applied to
      * TableScanNode { col1 := ColumnHandle(nation, nationkey), col2 := ColumnHandle(nation, regionkey) }
@@ -197,6 +202,11 @@ public final class SymbolAliases
             return this;
         }
 
+        /*
+         * This is supplied specifically for updateAssigments, which needs to
+         * update existing bindings that have already been added. Unless you're
+         * certain you want this behavior, you don't want it.
+         */
         private Builder putUnchecked(Map<String, SymbolReference> aliases)
         {
             aliases.entrySet()

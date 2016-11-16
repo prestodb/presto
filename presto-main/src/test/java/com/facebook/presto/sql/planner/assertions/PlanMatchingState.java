@@ -19,6 +19,17 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A PlanMatchingState is a list of patterns representing a potential match
+ * for the sources of a PlanMatchNode. There is a 1:1 correspondence between
+ * the elements of the patterns and the sources.
+ *
+ * Example:
+ * During the matching process, a PlanMatchingState with patterns [pattern1, pattern2]
+ * is generated while visiting a PlanNode with sources [sourceA, sourceB].
+ * The matching process will attempt the following matches:
+ * [pattern1 : sourceA, pattern2 : sourceB]
+ */
 final class PlanMatchingState
 {
     private final List<PlanMatchPattern> patterns;

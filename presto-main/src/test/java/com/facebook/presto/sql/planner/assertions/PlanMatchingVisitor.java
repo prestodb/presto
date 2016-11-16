@@ -140,6 +140,23 @@ final class PlanMatchingVisitor
         return result;
     }
 
+    /*
+     * This is a little counter-intuitive. Calling matchSources calls
+     * source.accept, which (eventually) ends up calling into visitPlan
+     * recursively. Assuming the plan and pattern currently being matched
+     * actually match each other, eventually you hit the leaf nodes. At that
+     * point, visitPlan starts by returning the match result for the leaf nodes
+     * containing the symbol aliases needed by further up.
+     *
+     * For the non-leaf nodes, an invocation of matchSources returns a match
+     * result for a successful match containing the union of all of the symbol
+     * aliases added by the sources of the node currently being visited.
+     *
+     * Visiting that node proceeds by trying to apply the current pattern's
+     * upMatches() method to the node being visited. When a match is found,
+     * visitPlan returns a match result containing the aliases for all of the
+     * current node's sources, and the aliases for the current node.
+     */
     private DetailMatchResult matchSources(PlanNode node, PlanMatchingState state)
     {
         List<PlanMatchPattern> sourcePatterns = state.getPatterns();
@@ -148,10 +165,7 @@ final class PlanMatchingVisitor
         int i = 0;
         SymbolAliases.Builder allSourceAliases = SymbolAliases.builder();
         for (PlanNode source : node.getSources()) {
-                /*
-                 * Create a context for each source individually. Aliases from one source
-                 * shouldn't be visible in the context of other sources.
-                 */
+            // Match sources to patterns 1:1
             DetailMatchResult matchResult = source.accept(this, sourcePatterns.get(i++));
             if (!matchResult.getMatches()) {
                 return NO_MATCH;
