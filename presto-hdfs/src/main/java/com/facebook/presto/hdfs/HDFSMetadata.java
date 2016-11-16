@@ -1,6 +1,31 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.facebook.presto.hdfs;
 
-import com.facebook.presto.spi.*;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 
 import java.util.List;
@@ -15,14 +40,16 @@ import static java.util.Collections.emptyMap;
  * @author jelly.guodong.jin@gmail.com
  */
 public class HDFSMetadata
-implements ConnectorMetadata {
+implements ConnectorMetadata
+{
     /**
      * Returns the schemas provided by this connector.
      *
      * @param session
      */
     @Override
-    public List<String> listSchemaNames(ConnectorSession session) {
+    public List<String> listSchemaNames(ConnectorSession session)
+    {
         return null;
     }
 
@@ -33,7 +60,8 @@ implements ConnectorMetadata {
      * @param tableName
      */
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName) {
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
         return null;
     }
 
@@ -48,12 +76,14 @@ implements ConnectorMetadata {
      * @param desiredColumns
      */
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns) {
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    {
         return null;
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle) {
+    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    {
         return null;
     }
 
@@ -65,7 +95,8 @@ implements ConnectorMetadata {
      * @throws RuntimeException if table handle is no longer valid
      */
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table) {
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
         return null;
     }
 
@@ -76,7 +107,8 @@ implements ConnectorMetadata {
      * @param schemaNameOrNull
      */
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull) {
+    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    {
         return null;
     }
 
@@ -88,7 +120,8 @@ implements ConnectorMetadata {
      * @throws RuntimeException if table handle is no longer valid
      */
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
         return null;
     }
 
@@ -101,7 +134,8 @@ implements ConnectorMetadata {
      * @throws RuntimeException if table or column handles are no longer valid
      */
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle) {
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
         return null;
     }
 
@@ -112,7 +146,8 @@ implements ConnectorMetadata {
      * @param prefix
      */
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix) {
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
         return null;
     }
 
@@ -124,8 +159,8 @@ implements ConnectorMetadata {
      * @param properties
      */
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties) {
-
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    {
     }
 
     /**
@@ -136,8 +171,8 @@ implements ConnectorMetadata {
      * @throws PrestoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
      */
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName) {
-
+    public void dropSchema(ConnectorSession session, String schemaName)
+    {
     }
 
     /**
@@ -148,8 +183,8 @@ implements ConnectorMetadata {
      * @param target
      */
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target) {
-
+    public void renameSchema(ConnectorSession session, String source, String target)
+    {
     }
 
     /**
@@ -159,8 +194,8 @@ implements ConnectorMetadata {
      * @param tableMetadata
      */
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata) {
-
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
     }
 
     /**
@@ -171,8 +206,8 @@ implements ConnectorMetadata {
      * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
      */
     @Override
-    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle) {
-
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
     }
 
     /**
@@ -183,8 +218,8 @@ implements ConnectorMetadata {
      * @param newTableName
      */
     @Override
-    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName) {
-
+    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    {
     }
 
     /**

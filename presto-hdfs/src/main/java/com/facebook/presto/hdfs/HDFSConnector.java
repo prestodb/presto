@@ -1,7 +1,29 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.facebook.presto.hdfs;
 
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.*;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorIndexProvider;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.inject.Inject;
@@ -17,7 +39,8 @@ import static java.util.Objects.requireNonNull;
  * @author jelly.guodong.jin@gmail.com
  */
 public class HDFSConnector
-implements Connector {
+implements Connector
+{
     private final Logger logger = Logger.get(HDFSConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
@@ -32,7 +55,8 @@ implements Connector {
             HDFSMetadataFactory hdfsMetadataFactory,
             HDFSSplitManager hdfsSplitManager,
             HDFSPageSourceProvider hdfsPageSourceProvider,
-            HDFSPageSinkProvider hdfsPageSinkProvider) {
+            HDFSPageSinkProvider hdfsPageSinkProvider)
+    {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.hdfsMetadataFactory = requireNonNull(hdfsMetadataFactory, "hdfsMetadataFactory is null");
         this.hdfsSplitManager = requireNonNull(hdfsSplitManager, "hdfsSplitManager is null");
@@ -41,7 +65,8 @@ implements Connector {
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly) {
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    {
         return null;
     }
 
@@ -52,12 +77,14 @@ implements Connector {
      * @param transactionHandle
      */
     @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle) {
+    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
+    {
         return null;
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager() {
+    public ConnectorSplitManager getSplitManager()
+    {
         return null;
     }
 
@@ -65,7 +92,8 @@ implements Connector {
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
      */
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider() {
+    public ConnectorPageSourceProvider getPageSourceProvider()
+    {
         return null;
     }
 
@@ -73,7 +101,8 @@ implements Connector {
      * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider() {
+    public ConnectorRecordSetProvider getRecordSetProvider()
+    {
         return null;
     }
 
@@ -81,7 +110,8 @@ implements Connector {
      * @throws UnsupportedOperationException if this connector does not support writing tables page at a time
      */
     @Override
-    public ConnectorPageSinkProvider getPageSinkProvider() {
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
         return null;
     }
 
@@ -89,7 +119,8 @@ implements Connector {
      * @throws UnsupportedOperationException if this connector does not support writing tables record at a time
      */
     @Override
-    public ConnectorRecordSinkProvider getRecordSinkProvider() {
+    public ConnectorRecordSinkProvider getRecordSinkProvider()
+    {
         return null;
     }
 
@@ -97,7 +128,8 @@ implements Connector {
      * @throws UnsupportedOperationException if this connector does not support indexes
      */
     @Override
-    public ConnectorIndexProvider getIndexProvider() {
+    public ConnectorIndexProvider getIndexProvider()
+    {
         return null;
     }
 
@@ -105,7 +137,8 @@ implements Connector {
      * @throws UnsupportedOperationException if this connector does not support partitioned table layouts
      */
     @Override
-    public ConnectorNodePartitioningProvider getNodePartitioningProvider() {
+    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
         return null;
     }
 
@@ -113,7 +146,8 @@ implements Connector {
      * @return the set of system tables provided by this connector
      */
     @Override
-    public Set<SystemTable> getSystemTables() {
+    public Set<SystemTable> getSystemTables()
+    {
         return null;
     }
 
@@ -121,7 +155,8 @@ implements Connector {
      * @return the schema properties for this connector
      */
     @Override
-    public List<PropertyMetadata<?>> getSchemaProperties() {
+    public List<PropertyMetadata<?>> getSchemaProperties()
+    {
         return null;
     }
 
@@ -129,7 +164,8 @@ implements Connector {
      * @return the table properties for this connector
      */
     @Override
-    public List<PropertyMetadata<?>> getTableProperties() {
+    public List<PropertyMetadata<?>> getTableProperties()
+    {
         return null;
     }
 
@@ -141,7 +177,7 @@ implements Connector {
      * have been returned from the connector.
      */
     @Override
-    public void shutdown() {
-
+    public void shutdown()
+    {
     }
 }
