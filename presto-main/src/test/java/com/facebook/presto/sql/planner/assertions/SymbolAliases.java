@@ -50,7 +50,7 @@ public final class SymbolAliases
         return new Builder();
     }
 
-    public SymbolAliases withAliases(SymbolAliases sourceAliases)
+    public SymbolAliases withNewAliases(SymbolAliases sourceAliases)
     {
         Builder builder = new Builder(this);
 

@@ -108,7 +108,7 @@ final class PlanMatchingVisitor
             MatchResult matchResult = pattern.upMatches(node, session, metadata, allSourceAliases);
             if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on node %s", node));
-                result = match(allSourceAliases.withAliases(matchResult.getAliases()));
+                result = match(allSourceAliases.withNewAliases(matchResult.getAliases()));
             }
         }
         return result;
