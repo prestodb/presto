@@ -17,48 +17,48 @@ import com.facebook.presto.sql.tree.SymbolReference;
 
 import static java.util.Objects.requireNonNull;
 
-public class DetailMatchResult
+public class MatchResult
 {
-    public static final DetailMatchResult NO_MATCH = new DetailMatchResult(false, new SymbolAliases());
+    public static final MatchResult NO_MATCH = new MatchResult(false, new SymbolAliases());
 
     private final boolean matches;
     private final SymbolAliases newAliases;
 
-    public static DetailMatchResult match()
+    public static MatchResult match()
     {
-        return new DetailMatchResult(true, new SymbolAliases());
+        return new MatchResult(true, new SymbolAliases());
     }
 
-    public static DetailMatchResult match(String alias, SymbolReference symbolReference)
+    public static MatchResult match(String alias, SymbolReference symbolReference)
     {
         SymbolAliases newAliases = SymbolAliases.builder()
                 .put(alias, symbolReference)
                 .build();
-        return new DetailMatchResult(true, newAliases);
+        return new MatchResult(true, newAliases);
     }
 
-    public static DetailMatchResult match(SymbolAliases newAliases)
+    public static MatchResult match(SymbolAliases newAliases)
     {
-        return new DetailMatchResult(true, newAliases);
+        return new MatchResult(true, newAliases);
     }
 
-    public DetailMatchResult(boolean matches)
+    public MatchResult(boolean matches)
     {
         this(matches, new SymbolAliases());
     }
 
-    private DetailMatchResult(boolean matches, SymbolAliases newAliases)
+    private MatchResult(boolean matches, SymbolAliases newAliases)
     {
         this.matches = matches;
         this.newAliases = requireNonNull(newAliases, "newAliases is null");
     }
 
-    public boolean getMatches()
+    public boolean isMatch()
     {
         return matches;
     }
 
-    public SymbolAliases getNewAliases()
+    public SymbolAliases getAliases()
     {
         return newAliases;
     }

@@ -25,8 +25,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.NO_MATCH;
-import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -51,7 +51,7 @@ public class AggregationMatcher
     }
 
     @Override
-    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
         AggregationNode aggregationNode = (AggregationNode) node;

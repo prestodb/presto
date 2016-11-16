@@ -40,9 +40,9 @@ public interface Matcher
      * aliases from source nodes must be in a Matcher's upMatches method.
      * <p>
      * The upMatches method may collect Symbol aliases from the node that it is
-     * being applied to, and return them in the DetailMatchResult it returns.
+     * being applied to, and return them in the MatchResult it returns.
      * upMatches must ONLY collect SymbolAliases that are new to the node it is
-     * being applied to.  Specifically, the DetailMatchResult returned by
+     * being applied to.  Specifically, the MatchResult returned by
      * upMatches MUST NOT contain any of the aliases contained in the
      * SymbolAliases that was passed in to upMatches().
      * <p>
@@ -54,7 +54,7 @@ public interface Matcher
      * the union of the returned aliases.
      * <p>
      * Matchers that don't need to validate anything about the internals of a
-     * node should return a DetailMatchResult with true and an empty
+     * node should return a MatchResult with true and an empty
      * SymbolAliases object from upMatches and do all of their work in
      * downMatches.
      * <p>
@@ -65,7 +65,7 @@ public interface Matcher
      * @param session The session information for the query
      * @param metadata The metadata for the query
      * @param symbolAliases The SymbolAliases containing aliases from the nodes sources
-     * @return a DetailMatchResult with information about the success of the match
+     * @return a MatchResult with information about the success of the match
      */
-    DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
+    MatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases);
 }

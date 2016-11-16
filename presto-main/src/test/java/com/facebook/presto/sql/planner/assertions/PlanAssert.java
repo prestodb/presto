@@ -27,10 +27,10 @@ public final class PlanAssert
 
     public static void assertPlan(Session session, Metadata metadata, Plan actual, PlanMatchPattern pattern)
     {
-        DetailMatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata), pattern);
-        if (!matches.getMatches()) {
+        MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata), pattern);
+        if (!matches.isMatch()) {
             String logicalPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, session);
-            assertTrue(matches.getMatches(), format("Plan does not match:\n %s\n, to pattern:\n%s", logicalPlan, pattern));
+            assertTrue(matches.isMatch(), format("Plan does not match:\n %s\n, to pattern:\n%s", logicalPlan, pattern));
         }
     }
 }

@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.NO_MATCH;
-import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +44,7 @@ public class OutputMatcher
     }
 
     @Override
-    public DetailMatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         int i = 0;
         for (String alias : aliases) {

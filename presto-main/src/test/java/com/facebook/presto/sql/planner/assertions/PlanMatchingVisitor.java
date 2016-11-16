@@ -25,14 +25,14 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.NO_MATCH;
-import static com.facebook.presto.sql.planner.assertions.DetailMatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingVisitor
-        extends PlanVisitor<PlanMatchPattern, DetailMatchResult>
+        extends PlanVisitor<PlanMatchPattern, MatchResult>
 {
     private final Metadata metadata;
     private final Session session;
@@ -44,7 +44,7 @@ final class PlanMatchingVisitor
     }
 
     @Override
-    public DetailMatchResult visitExchange(ExchangeNode node, PlanMatchPattern pattern)
+    public MatchResult visitExchange(ExchangeNode node, PlanMatchPattern pattern)
     {
         checkState(node.getType() == ExchangeNode.Type.GATHER, "Only GATHER is supported");
         List<List<Symbol>> allInputs = node.getInputs();
@@ -53,9 +53,9 @@ final class PlanMatchingVisitor
         List<Symbol> inputs = allInputs.get(0);
         List<Symbol> outputs = node.getOutputSymbols();
 
-        DetailMatchResult result = super.visitExchange(node, pattern);
+        MatchResult result = super.visitExchange(node, pattern);
 
-        if (!result.getMatches()) {
+        if (!result.isMatch()) {
             return result;
         }
 
@@ -64,23 +64,23 @@ final class PlanMatchingVisitor
             assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
         }
 
-        return match(result.getNewAliases().updateAssignments(assignments.build()));
+        return match(result.getAliases().updateAssignments(assignments.build()));
     }
 
     @Override
-    public DetailMatchResult visitProject(ProjectNode node, PlanMatchPattern pattern)
+    public MatchResult visitProject(ProjectNode node, PlanMatchPattern pattern)
     {
-        DetailMatchResult result = super.visitProject(node, pattern);
+        MatchResult result = super.visitProject(node, pattern);
 
-        if (!result.getMatches()) {
+        if (!result.isMatch()) {
             return result;
         }
 
-        return match(result.getNewAliases().replaceAssignments(node.getAssignments()));
+        return match(result.getAliases().replaceAssignments(node.getAssignments()));
     }
 
     @Override
-    protected DetailMatchResult visitPlan(PlanNode node, PlanMatchPattern pattern)
+    protected MatchResult visitPlan(PlanNode node, PlanMatchPattern pattern)
     {
         List<PlanMatchingState> states = pattern.downMatches(node);
 
@@ -94,29 +94,29 @@ final class PlanMatchingVisitor
             return matchLeaf(node, pattern, states);
         }
 
-        DetailMatchResult result = NO_MATCH;
+        MatchResult result = NO_MATCH;
         for (PlanMatchingState state : states) {
             // Traverse down the tree, checking to see if the sources match the source patterns in state.
-            DetailMatchResult sourcesMatch = matchSources(node, state);
+            MatchResult sourcesMatch = matchSources(node, state);
 
-            if (!sourcesMatch.getMatches()) {
+            if (!sourcesMatch.isMatch()) {
                 continue;
             }
 
             // Try upMatching this node with the the aliases gathered from the source nodes.
-            SymbolAliases allSourceAliases = sourcesMatch.getNewAliases();
-            DetailMatchResult matchResult = pattern.upMatches(node, session, metadata, allSourceAliases);
-            if (matchResult.getMatches()) {
+            SymbolAliases allSourceAliases = sourcesMatch.getAliases();
+            MatchResult matchResult = pattern.upMatches(node, session, metadata, allSourceAliases);
+            if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on node %s", node));
-                result = match(allSourceAliases.withAliases(matchResult.getNewAliases()));
+                result = match(allSourceAliases.withAliases(matchResult.getAliases()));
             }
         }
         return result;
     }
 
-    private DetailMatchResult matchLeaf(PlanNode node, PlanMatchPattern pattern, List<PlanMatchingState> states)
+    private MatchResult matchLeaf(PlanNode node, PlanMatchPattern pattern, List<PlanMatchingState> states)
     {
-        DetailMatchResult result = NO_MATCH;
+        MatchResult result = NO_MATCH;
 
         for (PlanMatchingState state : states) {
             // Don't consider un-terminated PlanMatchingStates.
@@ -130,8 +130,8 @@ final class PlanMatchingVisitor
                  * 2) Collect the aliases from the source nodes so we can add them to
                  *    SymbolAliases. They'll be needed further up.
                  */
-            DetailMatchResult matchResult = pattern.upMatches(node, session, metadata, new SymbolAliases());
-            if (matchResult.getMatches()) {
+            MatchResult matchResult = pattern.upMatches(node, session, metadata, new SymbolAliases());
+            if (matchResult.isMatch()) {
                 checkState(result == NO_MATCH, format("Ambiguous match on leaf node %s", node));
                 result = matchResult;
             }
@@ -157,7 +157,7 @@ final class PlanMatchingVisitor
      * visitPlan returns a match result containing the aliases for all of the
      * current node's sources, and the aliases for the current node.
      */
-    private DetailMatchResult matchSources(PlanNode node, PlanMatchingState state)
+    private MatchResult matchSources(PlanNode node, PlanMatchingState state)
     {
         List<PlanMatchPattern> sourcePatterns = state.getPatterns();
         checkState(node.getSources().size() == sourcePatterns.size(), "Matchers count does not match count of sources");
@@ -166,13 +166,13 @@ final class PlanMatchingVisitor
         SymbolAliases.Builder allSourceAliases = SymbolAliases.builder();
         for (PlanNode source : node.getSources()) {
             // Match sources to patterns 1:1
-            DetailMatchResult matchResult = source.accept(this, sourcePatterns.get(i++));
-            if (!matchResult.getMatches()) {
+            MatchResult matchResult = source.accept(this, sourcePatterns.get(i++));
+            if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }
 
             // Add the per-source aliases to the per-state aliases.
-            allSourceAliases.putAll(matchResult.getNewAliases());
+            allSourceAliases.putAll(matchResult.getAliases());
         }
 
         return match(allSourceAliases.build());
