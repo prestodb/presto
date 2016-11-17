@@ -15,6 +15,8 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -24,8 +26,13 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Files;
+import io.airlift.testing.FileUtils;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -36,15 +43,40 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToLongBits;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
-    private final SpillerStats spillerStats = new SpillerStats();
-    private final BinarySpillerFactory factory = new BinarySpillerFactory(blockEncodingSerde, spillerStats, new FeaturesConfig());
+
+    private BlockEncodingSerde blockEncodingSerde;
+    private File spillPath = Files.createTempDir();
+    private SpillerStats spillerStats;
+    private SpillerFactory factory;
+    private PagesSerde pagesSerde;
+
+    @BeforeMethod
+    public void setUp()
+            throws Exception
+    {
+        blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.of(BIGINT, DOUBLE, VARBINARY)));
+        spillerStats = new SpillerStats();
+        FeaturesConfig featuresConfig = new FeaturesConfig();
+        featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
+        featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
+        factory = new GenericSpillerFactory(new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig));
+        PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false);
+        pagesSerde = pagesSerdeFactory.createPagesSerde();
+    }
+
+    @AfterMethod
+    public void tearDown()
+            throws Exception
+    {
+        FileUtils.deleteRecursively(spillPath);
+    }
 
     @Test
     public void testFileSpiller()
@@ -100,7 +132,9 @@ public class TestBinaryFileSpiller
         long spilledBytesBefore = spillerStats.getTotalSpilledBytes();
         long spilledBytes = 0;
         for (List<Page> spill : spills) {
-            spilledBytes += spill.stream().mapToLong(Page::getSizeInBytes).sum();
+            spilledBytes += spill.stream()
+                    .mapToLong(page -> pagesSerde.serialize(page).getSizeInBytes())
+                    .sum();
             spiller.spill(spill.iterator()).get();
         }
         assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);

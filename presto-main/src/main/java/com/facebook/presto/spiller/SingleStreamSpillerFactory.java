@@ -14,28 +14,11 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.operator.SpillContext;
+import com.facebook.presto.spi.type.Type;
 
-public class LocalSpillContext
-    implements SpillContext
+import java.util.List;
+
+public interface SingleStreamSpillerFactory
 {
-    private final SpillContext parentSpillContext;
-    private long spilledBytes;
-
-    public LocalSpillContext(SpillContext parentSpillContext)
-    {
-        this.parentSpillContext = parentSpillContext;
-    }
-
-    @Override
-    public void updateBytes(long bytes)
-    {
-        parentSpillContext.updateBytes(bytes);
-        spilledBytes += bytes;
-    }
-
-    @Override
-    public void close()
-    {
-        parentSpillContext.updateBytes(-spilledBytes);
-    }
+    SingleStreamSpiller create(List<Type> types, SpillContext spillContext);
 }

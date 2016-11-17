@@ -210,7 +210,7 @@ public class SpillableHashAggregationBuilder
         hashAggregationBuilder.setOutputPartial();
 
         if (!spiller.isPresent()) {
-            spiller = Optional.of(spillerFactory.create(hashAggregationBuilder.buildTypes(), operatorContext.getSpillContext().newLocalSpillContext()));
+            spiller = Optional.of(spillerFactory.create(hashAggregationBuilder.buildTypes(), operatorContext.getSpillContext()));
         }
         long spillMemoryUsage = getSizeInMemory();
 
