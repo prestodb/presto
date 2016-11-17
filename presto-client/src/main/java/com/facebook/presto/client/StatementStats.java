@@ -15,6 +15,7 @@ package com.facebook.presto.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -43,6 +44,7 @@ public class StatementStats
     private final long processedRows;
     private final long processedBytes;
     private final StageStats rootStage;
+    private final DataSize spilledDataSize;
 
     @JsonCreator
     public StatementStats(
@@ -59,7 +61,8 @@ public class StatementStats
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
-            @JsonProperty("rootStage") StageStats rootStage)
+            @JsonProperty("rootStage") StageStats rootStage,
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize)
     {
         this.state = requireNonNull(state, "state is null");
         this.queued = queued;
@@ -75,6 +78,7 @@ public class StatementStats
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.rootStage = rootStage;
+        this.spilledDataSize = spilledDataSize;
     }
 
     @NotNull
@@ -172,6 +176,12 @@ public class StatementStats
         return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
     }
 
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
+    }
+
     @Override
     public String toString()
     {
@@ -190,6 +200,7 @@ public class StatementStats
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
                 .add("rootStage", rootStage)
+                .add("spilledDataSize", spilledDataSize)
                 .toString();
     }
 
@@ -214,6 +225,7 @@ public class StatementStats
         private long processedRows;
         private long processedBytes;
         private StageStats rootStage;
+        private DataSize spilledDataSize;
 
         private Builder() {}
 
@@ -301,6 +313,12 @@ public class StatementStats
             return this;
         }
 
+        public Builder setSpilledDataSize(DataSize spilledDataSize)
+        {
+            this.spilledDataSize = spilledDataSize;
+            return this;
+        }
+
         public StatementStats build()
         {
             return new StatementStats(
@@ -317,7 +335,8 @@ public class StatementStats
                     wallTimeMillis,
                     processedRows,
                     processedBytes,
-                    rootStage);
+                    rootStage,
+                    spilledDataSize);
         }
     }
 }

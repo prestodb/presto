@@ -678,6 +678,7 @@ public class StatementResource
                     .setProcessedRows(queryStats.getRawInputPositions())
                     .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
                     .setRootStage(toStageStats(outputStage))
+                    .setSpilledDataSize(queryStats.getSpilledDataSize())
                     .build();
         }
 

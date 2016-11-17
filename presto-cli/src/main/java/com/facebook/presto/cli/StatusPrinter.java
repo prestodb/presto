@@ -194,6 +194,7 @@ Parallelism: 2.5
             reprintLine(perNodeSummary);
 
             out.println(String.format("Parallelism: %.1f", parallelism));
+            out.println("Spilled: " + stats.getSpilledDataSize());
         }
 
         // 0:32 [2.12GB, 15M rows] [67MB/s, 463K rows/s]
@@ -281,6 +282,7 @@ Parallelism: 2.5
                 reprintLine(perNodeSummary);
 
                 reprintLine(String.format("Parallelism: %.1f", parallelism));
+                reprintLine("Spilled: " + stats.getSpilledDataSize());
             }
 
             verify(terminalWidth >= 75); // otherwise handled above
