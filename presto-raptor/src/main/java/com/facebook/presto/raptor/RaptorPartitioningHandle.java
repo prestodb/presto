@@ -14,10 +14,12 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -28,14 +30,17 @@ public class RaptorPartitioningHandle
 {
     private final long distributionId;
     private final Map<Integer, String> bucketToNode;
+    private final List<Type> bucketTypes;
 
     @JsonCreator
     public RaptorPartitioningHandle(
             @JsonProperty("distributionId") long distributionId,
-            @JsonProperty("bucketToNode") Map<Integer, String> bucketToNode)
+            @JsonProperty("bucketToNode") Map<Integer, String> bucketToNode,
+            @JsonProperty("bucketTypes") List<Type> bucketTypes)
     {
         this.distributionId = distributionId;
         this.bucketToNode = ImmutableMap.copyOf(requireNonNull(bucketToNode, "bucketToNode is null"));
+        this.bucketTypes = requireNonNull(bucketTypes, "bucketTypes is null");
     }
 
     @JsonProperty
@@ -48,6 +53,12 @@ public class RaptorPartitioningHandle
     public Map<Integer, String> getBucketToNode()
     {
         return bucketToNode;
+    }
+
+    @JsonProperty
+    public List<Type> getBucketTypes()
+    {
+        return bucketTypes;
     }
 
     @Override
