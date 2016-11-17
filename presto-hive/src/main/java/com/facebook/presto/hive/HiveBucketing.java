@@ -49,7 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
@@ -232,7 +232,7 @@ final class HiveBucketing
             return ImmutableList.of();
         }
         Optional<Domain> domain = effectivePredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_NUMBER_COLUMN_NAME))
+                .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
                 .findFirst()
                 .map(Entry::getValue);
         if (!domain.isPresent()) {

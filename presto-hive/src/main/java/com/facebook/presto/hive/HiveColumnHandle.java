@@ -41,10 +41,10 @@ public class HiveColumnHandle
     public static final HiveType PATH_HIVE_TYPE = HIVE_STRING;
     public static final TypeSignature PATH_TYPE_SIGNATURE = PATH_HIVE_TYPE.getTypeSignature();
 
-    public static final int BUCKET_NUMBER_COLUMN_INDEX = -12;
-    public static final String BUCKET_NUMBER_COLUMN_NAME = "$bucket_number";
-    public static final HiveType BUCKET_NUMBER_HIVE_TYPE = HIVE_INT;
-    public static final TypeSignature BUCKET_NUMBER_TYPE_SIGNATURE = BUCKET_NUMBER_HIVE_TYPE.getTypeSignature();
+    public static final int BUCKET_COLUMN_INDEX = -12;
+    public static final String BUCKET_COLUMN_NAME = "$bucket";
+    public static final HiveType BUCKET_HIVE_TYPE = HIVE_INT;
+    public static final TypeSignature BUCKET_TYPE_SIGNATURE = BUCKET_HIVE_TYPE.getTypeSignature();
 
     private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
@@ -187,9 +187,9 @@ public class HiveColumnHandle
         return new HiveColumnHandle(connectorId, PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, HIDDEN);
     }
 
-    public static HiveColumnHandle bucketNumberColumnHandle(String connectorId)
+    public static HiveColumnHandle bucketColumnHandle(String connectorId)
     {
-        return new HiveColumnHandle(connectorId, BUCKET_NUMBER_COLUMN_NAME, BUCKET_NUMBER_HIVE_TYPE, BUCKET_NUMBER_TYPE_SIGNATURE, BUCKET_NUMBER_COLUMN_INDEX, HIDDEN);
+        return new HiveColumnHandle(connectorId, BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, HIDDEN);
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)
@@ -197,8 +197,8 @@ public class HiveColumnHandle
         return column.getHiveColumnIndex() == PATH_COLUMN_INDEX;
     }
 
-    public static boolean isBucketNumberColumnHandle(HiveColumnHandle column)
+    public static boolean isBucketColumnHandle(HiveColumnHandle column)
     {
-        return column.getHiveColumnIndex() == BUCKET_NUMBER_COLUMN_INDEX;
+        return column.getHiveColumnIndex() == BUCKET_COLUMN_INDEX;
     }
 }

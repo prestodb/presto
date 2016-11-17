@@ -76,7 +76,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -1294,7 +1294,7 @@ public class HiveMetadata
         // add hidden columns
         builder.put(PATH_COLUMN_NAME, Optional.empty());
         if (table.getStorage().getBucketProperty().isPresent()) {
-            builder.put(BUCKET_NUMBER_COLUMN_NAME, Optional.empty());
+            builder.put(BUCKET_COLUMN_NAME, Optional.empty());
         }
 
         Map<String, Optional<String>> columnComment = builder.build();

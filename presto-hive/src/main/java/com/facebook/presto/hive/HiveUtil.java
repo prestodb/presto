@@ -77,8 +77,8 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.HiveColumnHandle.bucketNumberColumnHandle;
-import static com.facebook.presto.hive.HiveColumnHandle.isBucketNumberColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -715,7 +715,7 @@ public final class HiveUtil
         // add hidden columns
         columns.add(pathColumnHandle(connectorId));
         if (table.getStorage().getBucketProperty().isPresent()) {
-            columns.add(bucketNumberColumnHandle(connectorId));
+            columns.add(bucketColumnHandle(connectorId));
         }
 
         return columns.build();
@@ -812,7 +812,7 @@ public final class HiveUtil
         if (isPathColumnHandle(columnHandle)) {
             return path.toString();
         }
-        if (isBucketNumberColumnHandle(columnHandle)) {
+        if (isBucketColumnHandle(columnHandle)) {
             return String.valueOf(bucketNumber.getAsInt());
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);

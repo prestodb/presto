@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
@@ -1640,10 +1640,10 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testBucketNumberHiddenColumn()
+    public void testBucketHiddenColumn()
             throws Exception
     {
-        @Language("SQL") String createTable = "CREATE TABLE test_bucket_number " +
+        @Language("SQL") String createTable = "CREATE TABLE test_bucket_hidden_column " +
                 "WITH (" +
                 "bucketed_by = ARRAY['col0']," +
                 "bucket_count = 2" +
@@ -1654,27 +1654,27 @@ public class TestHiveIntegrationSmokeTest
                 "(6, 17), (7, 18), (8, 19)" +
                 " ) t (col0, col1) ";
         assertUpdate(createTable, 9);
-        assertTrue(queryRunner.tableExists(getSession(), "test_bucket_number"));
+        assertTrue(queryRunner.tableExists(getSession(), "test_bucket_hidden_column"));
 
-        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_bucket_number");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_bucket_hidden_column");
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("col0"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 2);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_NUMBER_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
             assertEquals(columnMetadata.getName(), columnNames.get(i));
-            if (columnMetadata.getName().equals(BUCKET_NUMBER_COLUMN_NAME)) {
+            if (columnMetadata.getName().equals(BUCKET_COLUMN_NAME)) {
                 // $bucket_number should be hidden column
                 assertTrue(columnMetadata.isHidden());
             }
         }
-        assertEquals(getBucketCount("test_bucket_number"), 2);
+        assertEquals(getBucketCount("test_bucket_hidden_column"), 2);
 
-        MaterializedResult results = computeActual(format("SELECT *, \"%1$s\" FROM test_bucket_number WHERE \"%1$s\" = 1",
-                BUCKET_NUMBER_COLUMN_NAME));
+        MaterializedResult results = computeActual(format("SELECT *, \"%1$s\" FROM test_bucket_hidden_column WHERE \"%1$s\" = 1",
+                BUCKET_COLUMN_NAME));
         for (int i = 0; i < results.getRowCount(); i++) {
             MaterializedRow row = results.getMaterializedRows().get(i);
             int col0 = (int) row.getField(0);
@@ -1689,8 +1689,8 @@ public class TestHiveIntegrationSmokeTest
         }
         assertEquals(results.getRowCount(), 4);
 
-        assertUpdate("DROP TABLE test_bucket_number");
-        assertFalse(queryRunner.tableExists(getSession(), "test_bucket_number"));
+        assertUpdate("DROP TABLE test_bucket_hidden_column");
+        assertFalse(queryRunner.tableExists(getSession(), "test_bucket_hidden_column"));
     }
 
     @Test
