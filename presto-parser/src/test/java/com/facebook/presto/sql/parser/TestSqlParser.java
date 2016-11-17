@@ -87,10 +87,10 @@ import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
-import com.facebook.presto.sql.tree.ShowColumnStats;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SortItem;
@@ -1625,9 +1625,9 @@ public class TestSqlParser
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
-            assertStatement(format("SHOW COLUMN STATS %s", qualifiedName), new ShowColumnStats(qualifiedName));
-            assertStatement(format("SHOW COLUMN STATS FROM %s", qualifiedName), new ShowColumnStats(qualifiedName));
-            assertStatement(format("SHOW COLUMN STATS IN %s", qualifiedName), new ShowColumnStats(qualifiedName));
+            assertStatement(format("SHOW STATS %s", qualifiedName), new ShowStats(qualifiedName));
+            assertStatement(format("SHOW STATS FROM %s", qualifiedName), new ShowStats(qualifiedName));
+            assertStatement(format("SHOW STATS IN %s", qualifiedName), new ShowStats(qualifiedName));
         }
     }
 
