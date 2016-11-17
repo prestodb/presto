@@ -181,6 +181,7 @@ function update(graph, query)
                 ) +
                 "<div>Memory: " + stats.totalMemoryReservation + "</div>" +
                 "<div>Splits: Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers + "</div>" +
+                "<div>Spilled: " + stats.spilledDataSize + "</div>" +
 
                 "<hr>" +
                 "<div>Input: " + stats.processedInputDataSize + " / " + formatCount(stats.processedInputPositions) + " rows</div>";
