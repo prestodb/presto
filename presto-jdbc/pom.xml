@@ -142,7 +142,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 
