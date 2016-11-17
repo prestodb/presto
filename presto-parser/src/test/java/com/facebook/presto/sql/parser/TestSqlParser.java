@@ -1619,7 +1619,7 @@ public class TestSqlParser
     }
 
     @Test
-    public void testShowColumnStats()
+    public void testShowStats()
     {
         final String[] tableNames = {"t", "s.t", "c.s.t"};
 
@@ -1628,6 +1628,44 @@ public class TestSqlParser
             assertStatement(format("SHOW STATS %s", qualifiedName), new ShowStats(qualifiedName));
             assertStatement(format("SHOW STATS FROM %s", qualifiedName), new ShowStats(qualifiedName));
             assertStatement(format("SHOW STATS IN %s", qualifiedName), new ShowStats(qualifiedName));
+
+            assertStatement(format("SHOW STATS FROM %s WHERE row_count=17", qualifiedName),
+                    new ShowStats(qualifiedName,
+                            Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("row_count")), new LongLiteral("17"))),
+                            ImmutableList.of(),
+                            Optional.empty()));
+            assertStatement(format("SHOW STATS FROM %s WHERE row_count=17 ORDER BY column_name", qualifiedName),
+                    new ShowStats(qualifiedName,
+                            Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("row_count")), new LongLiteral("17"))),
+                            ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("column_name")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                            Optional.empty()));
+            assertStatement(format("SHOW STATS FROM %s WHERE row_count=17 ORDER BY column_name LIMIT 18 ", qualifiedName),
+                    new ShowStats(qualifiedName,
+                            Optional.of(new ComparisonExpression(ComparisonExpression.Type.EQUAL, new QualifiedNameReference(QualifiedName.of("row_count")), new LongLiteral("17"))),
+                            ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("column_name")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                            Optional.of("18")));
+
+            assertStatement(format("SHOW STATS FROM %s ORDER BY column_name ", qualifiedName),
+                    new ShowStats(qualifiedName,
+                            Optional.empty(),
+                            ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("column_name")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                            Optional.empty()));
+            assertStatement(format("SHOW STATS FROM %s ORDER BY column_name LIMIT 18 ", qualifiedName),
+                    new ShowStats(qualifiedName,
+                            Optional.empty(),
+                            ImmutableList.of(new SortItem(new QualifiedNameReference(QualifiedName.of("column_name")), SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)),
+                            Optional.of("18")));
+
+            assertStatement(format("SHOW STATS FROM %s LIMIT 18 ", qualifiedName),
+                    new ShowStats(qualifiedName,
+                            Optional.empty(),
+                            ImmutableList.of(),
+                            Optional.of("18")));
+            assertStatement(format("SHOW STATS FROM %s LIMIT ALL ", qualifiedName),
+                    new ShowStats(qualifiedName,
+                            Optional.empty(),
+                            ImmutableList.of(),
+                            Optional.of("ALL")));
         }
     }
 

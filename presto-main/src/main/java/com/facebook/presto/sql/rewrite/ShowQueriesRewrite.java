@@ -500,7 +500,14 @@ final class ShowQueriesRewrite
             Map<ColumnHandle, String> columnNames = getStatisticsColumnNames(tableStatistics, node, table);
             List<Expression> resultRows = buildStatisticsRows(tableStatistics, columnNames, statisticsNames);
 
-            return simpleQuery(selectList(selectItems), aliased(new Values(resultRows), "table_stats_for_" + table, resultColumnNames));
+            return simpleQuery(
+                    selectList(selectItems),
+                    aliased(new Values(resultRows), "table_stats_for_" + table, resultColumnNames),
+                    node.getWhere(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    node.getOrderBy(),
+                    node.getLimit());
         }
 
         private Map<ColumnHandle, String> getStatisticsColumnNames(TableStatistics statistics, ShowStats node, QualifiedName tableName)
