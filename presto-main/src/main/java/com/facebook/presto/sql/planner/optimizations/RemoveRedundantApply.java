@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 
@@ -55,7 +56,7 @@ public class RemoveRedundantApply
             // if the subquery produces no columns...
             if (node.getSubquery().getOutputSymbols().isEmpty()) {
                 // and it's guaranteed to produce a single row
-                if (node.getSubquery() instanceof EnforceSingleRowNode) {
+                if (subqueryEnforcesSingleRow(node)) {
                     return node.getInput();
                 }
             }
@@ -68,6 +69,14 @@ public class RemoveRedundantApply
             }
 
             return context.defaultRewrite(node);
+        }
+
+        private boolean subqueryEnforcesSingleRow(ApplyNode node)
+        {
+            return PlanNodeSearcher.searchFrom(node.getSubquery())
+                    .skipOnlyWhen(ProjectNode.class::isInstance)
+                    .where(EnforceSingleRowNode.class::isInstance)
+                    .matches();
         }
     }
 }
