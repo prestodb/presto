@@ -16,58 +16,51 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.Expression;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
-public class GroupIdMatcher
+public class OutputMatcher
     implements Matcher
 {
-    private final List<List<Symbol>> groups;
-    private final Map<Symbol, Symbol> identityMappings;
+    private final List<String> aliases;
 
-    public GroupIdMatcher(List<List<Symbol>> groups, Map<Symbol, Symbol> identityMappings)
+    OutputMatcher(List<String> aliases)
     {
-        this.groups = groups;
-        this.identityMappings = identityMappings;
+        this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
     }
 
     @Override
     public boolean downMatches(PlanNode node)
     {
-        return node instanceof GroupIdNode;
+        return true;
     }
 
     @Override
     public MatchResult upMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        checkState(downMatches(node), "Plan testing framework error: downMatches returned false in upMatches in %s", this.getClass().getName());
-
-        GroupIdNode groudIdNode = (GroupIdNode) node;
-        List<List<Symbol>> actualGroups = groudIdNode.getGroupingSets();
-        Map<Symbol, Symbol> actualArgumentMappings = groudIdNode.getArgumentMappings();
-
-        if (actualGroups.size() != groups.size()) {
-            return NO_MATCH;
-        }
-
-        for (int i = 0; i < actualGroups.size(); i++) {
-            if (!AggregationMatcher.matches(actualGroups.get(i), groups.get(i))) {
+        int i = 0;
+        for (String alias : aliases) {
+            Expression expression = symbolAliases.get(alias);
+            boolean found = false;
+            while (i < node.getOutputSymbols().size()) {
+                Symbol outputSymbol = node.getOutputSymbols().get(i++);
+                if (expression.equals(outputSymbol.toSymbolReference())) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
                 return NO_MATCH;
             }
         }
-
-        if (!AggregationMatcher.matches(identityMappings.keySet(), actualArgumentMappings.keySet())) {
-            return NO_MATCH;
-        }
-
         return match();
     }
 
@@ -75,7 +68,7 @@ public class GroupIdMatcher
     public String toString()
     {
         return toStringHelper(this)
-                .add("groups", groups)
+                .add("outputs", aliases)
                 .toString();
     }
 }

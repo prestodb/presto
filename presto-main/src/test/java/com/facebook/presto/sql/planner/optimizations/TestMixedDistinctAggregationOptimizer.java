@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -29,13 +30,16 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.groupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -70,13 +74,16 @@ public class TestMixedDistinctAggregationOptimizer
 
         // Second Aggregation data
         List<Symbol> groupByKeysSecond = ImmutableList.of(groupBy);
-        List<FunctionCall> aggregationsSecond = ImmutableList.of(
-                functionCall("arbitrary", "*"),
-                functionCall("count", "*"));
+        Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
+                Optional.of("arbitrary"), PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
+                Optional.of("count"), PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
 
         // First Aggregation data
         List<Symbol> groupByKeysFirst = ImmutableList.of(groupBy, distinctAggregation, group);
-        List<FunctionCall> aggregationsFirst = ImmutableList.of(functionCall("max", "totalprice"));
+        Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsFirst = ImmutableMap.of(
+                Optional.of("MAX"), functionCall("max", ImmutableList.of("TOTALPRICE")));
+
+        PlanMatchPattern tableScan = tableScan("orders", ImmutableMap.of("TOTALPRICE", "totalprice"));
 
         // GroupingSet symbols
         ImmutableList.Builder<List<Symbol>> groups = ImmutableList.builder();
@@ -87,16 +94,16 @@ public class TestMixedDistinctAggregationOptimizer
                         project(
                                 aggregation(ImmutableList.of(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(),
                                         groupingSet(groups.build(),
-                                                anyTree())))));
+                                                anyTree(tableScan))))));
 
         List<PlanOptimizer> optimizerProvider = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
                 new OptimizeMixedDistinctAggregations(queryRunner.getMetadata()),
                 new PruneUnreferencedOutputs());
-        Plan actualPlan = queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, new FeaturesConfig(), optimizerProvider));
 
         queryRunner.inTransaction(transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, new FeaturesConfig(), optimizerProvider);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, expectedPlanPattern);
             return null;
         });
