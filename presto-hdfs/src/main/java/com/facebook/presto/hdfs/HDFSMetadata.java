@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author jelly.guodong.jin@gmail.com
@@ -42,6 +43,21 @@ import static java.util.Collections.emptyMap;
 public class HDFSMetadata
 implements ConnectorMetadata
 {
+    private final String connectorId;
+
+    public HDFSMetadata(String connectorId)
+    {
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+    }
+
+    public void commit()
+    {
+    }
+
+    public void rollback()
+    {
+    }
+
     /**
      * Returns the schemas provided by this connector.
      *

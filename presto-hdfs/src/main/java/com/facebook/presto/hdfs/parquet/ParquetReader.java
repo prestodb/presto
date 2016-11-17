@@ -11,27 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hdfs;
-
-import io.airlift.log.Logger;
-
-import static java.util.Objects.requireNonNull;
+package com.facebook.presto.hdfs.parquet;
 
 /**
  * @author jelly.guodong.jin@gmail.com
  */
-public class HDFSMetadataFactory
+public class ParquetReader
 {
-    private static final Logger logger = Logger.get(HDFSMetadataFactory.class);
-    private final String connectorId;
-
-    public HDFSMetadataFactory(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
-    public HDFSMetadata create()
-    {
-        return new HDFSMetadata(connectorId);
-    }
 }

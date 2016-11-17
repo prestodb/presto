@@ -38,5 +38,6 @@ implements Module
     public void configure(Binder binder)
     {
         binder.bind(MetaServer.class).to(JDBCMetaServer.class).in(Scopes.SINGLETON);
+        binder.bind(HDFSMetadataFactory.class).in(Scopes.SINGLETON);
     }
 }

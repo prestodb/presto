@@ -53,6 +53,7 @@ implements Module
         binder.bind(HDFSSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(HDFSTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSConnector.class).in(Scopes.SINGLETON);
     }
 }
