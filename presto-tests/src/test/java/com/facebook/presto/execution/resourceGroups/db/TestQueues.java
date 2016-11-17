@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups.db;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.TestingSessionFactory;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfig;
@@ -230,7 +231,7 @@ public class TestQueues
 
     private static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
-        return queryRunner.getCoordinator().getQueryManager().createQuery(session, sql).getQueryId();
+        return queryRunner.getCoordinator().getQueryManager().createQuery(new TestingSessionFactory(session), sql).getQueryId();
     }
 
     private static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)

@@ -18,15 +18,13 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
@@ -36,8 +34,6 @@ import javax.ws.rs.core.Response.Status;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
-import java.security.Principal;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -58,66 +54,58 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
 
-final class ResourceUtil
+final class HttpRequestSessionFactory
+        implements SessionSupplier
 {
-    private ResourceUtil()
-    {
-    }
+    private final String catalog;
+    private final String schema;
 
-    public static Session createSessionForRequest(
-            HttpServletRequest servletRequest,
-            TransactionManager transactionManager,
-            AccessControl accessControl,
-            SessionPropertyManager sessionPropertyManager,
-            QueryId queryId)
+    private final Identity identity;
+
+    private final String source;
+    private final String userAgent;
+    private final String remoteUserAddress;
+    private final String timeZoneId;
+    private final String language;
+
+    private final Map<String, String> systemProperties;
+    private final Map<String, Map<String, String>> catalogSessionProperties;
+
+    private final Map<String, String> preparedStatements;
+
+    private final Optional<TransactionId> transactionId;
+    private final boolean clientTransactionSupport;
+    private final String clientInfo;
+
+    public HttpRequestSessionFactory(HttpServletRequest servletRequest)
+            throws WebApplicationException
     {
-        String catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
-        String schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
+        catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
+        schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
+        identity = new Identity(user, Optional.ofNullable(servletRequest.getUserPrincipal()));
 
-        Principal principal = servletRequest.getUserPrincipal();
-        try {
-            accessControl.checkCanSetUser(principal, user);
-        }
-        catch (AccessDeniedException e) {
-            throw new WebApplicationException(
-                    e,
-                    Response.status(Status.FORBIDDEN)
-                            .entity("Access denied: " + e.getMessage())
-                            .build());
-        }
-
-        Identity identity = new Identity(user, Optional.ofNullable(principal));
-        SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
-                .setQueryId(queryId)
-                .setIdentity(identity)
-                .setSource(servletRequest.getHeader(PRESTO_SOURCE))
-                .setCatalog(catalog)
-                .setSchema(schema)
-                .setRemoteUserAddress(servletRequest.getRemoteAddr())
-                .setUserAgent(servletRequest.getHeader(USER_AGENT))
-                .setClientInfo(servletRequest.getHeader(PRESTO_CLIENT_INFO));
-
-        String timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
-        if (timeZoneId != null) {
-            sessionBuilder.setTimeZoneKey(getTimeZoneKey(timeZoneId));
-        }
-
-        String language = servletRequest.getHeader(PRESTO_LANGUAGE);
-        if (language != null) {
-            sessionBuilder.setLocale(Locale.forLanguageTag(language));
-        }
+        source = servletRequest.getHeader(PRESTO_SOURCE);
+        userAgent = servletRequest.getHeader(USER_AGENT);
+        remoteUserAddress = servletRequest.getRemoteAddr();
+        timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
+        language = servletRequest.getHeader(PRESTO_LANGUAGE);
+        clientInfo = servletRequest.getHeader(PRESTO_CLIENT_INFO);
 
         // parse session properties
+        ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
+        Map<String, Map<String, String>> catalogSessionProperties  = new HashMap<>();
         for (Entry<String, String> entry : parseSessionHeaders(servletRequest).entrySet()) {
             String fullPropertyName = entry.getKey();
             String propertyValue = entry.getValue();
@@ -128,7 +116,7 @@ final class ResourceUtil
                 assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
                 // catalog session properties can not be validated until the transaction has stated, so we delay system property validation also
-                sessionBuilder.setSystemProperty(propertyName, propertyValue);
+                systemProperties.put(propertyName, propertyValue);
             }
             else if (nameParts.size() == 2) {
                 String catalogName = nameParts.get(0);
@@ -138,24 +126,75 @@ final class ResourceUtil
                 assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
 
                 // catalog session properties can not be validated until the transaction has stated
-                sessionBuilder.setCatalogSessionProperty(catalogName, propertyName, propertyValue);
+                catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
             }
             else {
                 throw badRequest(format("Invalid %s header", PRESTO_SESSION));
             }
         }
+        this.systemProperties = systemProperties.build();
+        this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
 
-        for (Entry<String, String> preparedStatement : parsePreparedStatementsHeaders(servletRequest).entrySet()) {
+        preparedStatements = parsePreparedStatementsHeaders(servletRequest);
+
+        String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
+        clientTransactionSupport = transactionIdHeader != null;
+        transactionId = parseTransactionId(transactionIdHeader);
+    }
+
+    @Override
+    public Identity getIdentity()
+    {
+        return identity;
+    }
+
+    @Override
+    public Session createSession(
+            QueryId queryId,
+            TransactionManager transactionManager,
+            AccessControl accessControl,
+            SessionPropertyManager sessionPropertyManager)
+    {
+        accessControl.checkCanSetUser(identity.getPrincipal().orElse(null), identity.getUser());
+
+        SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
+                .setQueryId(queryId)
+                .setIdentity(identity)
+                .setSource(source)
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setRemoteUserAddress(remoteUserAddress)
+                .setUserAgent(userAgent)
+                .setClientInfo(clientInfo);
+
+        if (timeZoneId != null) {
+            sessionBuilder.setTimeZoneKey(getTimeZoneKey(timeZoneId));
+        }
+
+        if (language != null) {
+            sessionBuilder.setLocale(Locale.forLanguageTag(language));
+        }
+
+        for (Entry<String, String> entry : systemProperties.entrySet()) {
+            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+        for (Entry<String, Map<String, String>> catalogProperties : catalogSessionProperties.entrySet()) {
+            String catalog = catalogProperties.getKey();
+            for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
+                sessionBuilder.setCatalogSessionProperty(catalog, entry.getKey(), entry.getValue());
+            }
+        }
+
+        for (Entry<String, String> preparedStatement : preparedStatements.entrySet()) {
             sessionBuilder.addPreparedStatement(preparedStatement.getKey(), preparedStatement.getValue());
         }
 
-        String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
-        if (transactionIdHeader != null) {
+        if (clientTransactionSupport) {
             sessionBuilder.setClientTransactionSupport();
         }
 
         Session session = sessionBuilder.build();
-        Optional<TransactionId> transactionId = parseTransactionId(transactionIdHeader);
         if (transactionId.isPresent()) {
             session = session.beginTransactionId(transactionId.get(), transactionManager, accessControl);
         }
@@ -183,7 +222,7 @@ final class ResourceUtil
         return sessionProperties;
     }
 
-    public static void assertRequest(boolean expression, String format, Object... args)
+    private static void assertRequest(boolean expression, String format, Object... args)
     {
         if (!expression) {
             throw badRequest(format(format, args));
@@ -221,16 +260,6 @@ final class ResourceUtil
         return preparedStatements;
     }
 
-    private static TimeZoneKey getTimeZoneKey(String timeZoneId)
-    {
-        try {
-            return TimeZoneKey.getTimeZoneKey(timeZoneId);
-        }
-        catch (TimeZoneNotSupportedException e) {
-            throw badRequest(e.getMessage());
-        }
-    }
-
     private static Optional<TransactionId> parseTransactionId(String transactionId)
     {
         transactionId = trimEmptyToNull(transactionId);
@@ -259,17 +288,7 @@ final class ResourceUtil
         return emptyToNull(nullToEmpty(value).trim());
     }
 
-    public static String urlEncode(String value)
-    {
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
-    }
-
-    public static String urlDecode(String value)
+    private static String urlDecode(String value)
     {
         try {
             return URLDecoder.decode(value, "UTF-8");

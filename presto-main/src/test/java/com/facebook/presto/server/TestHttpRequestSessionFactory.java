@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -38,12 +39,11 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
-import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;
 
-public class TestResourceUtil
+public class TestHttpRequestSessionFactory
 {
     @Test
     public void testCreateSession()
@@ -57,19 +57,19 @@ public class TestResourceUtil
                         .put(PRESTO_SCHEMA, "testSchema")
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-                        .put(PRESTO_CLIENT_INFO, "null")
+                        .put(PRESTO_CLIENT_INFO, "client-info")
                         .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                         .put(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
                         .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
                         .build(),
                 "testRemote");
 
-        Session session = createSessionForRequest(
-                request,
+        HttpRequestSessionFactory sessionFactory = new HttpRequestSessionFactory(request);
+        Session session = sessionFactory.createSession(
+                new QueryId("test_query_id"),
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
-                new SessionPropertyManager(),
-                new QueryId("test_query_id"));
+                new SessionPropertyManager());
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -79,7 +79,7 @@ public class TestResourceUtil
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
         assertEquals(session.getRemoteUserAddress().get(), "testRemote");
-        assertEquals(session.getClientInfo().get(), "null");
+        assertEquals(session.getClientInfo().get(), "client-info");
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(DISTRIBUTED_JOIN, "true")
@@ -89,6 +89,24 @@ public class TestResourceUtil
                 .put("query1", "select * from foo")
                 .put("query2", "select * from bar")
                 .build());
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testInvalidTimeZone()
+            throws Exception
+    {
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_TIME_ZONE, "unknown_timezone")
+                        .build(),
+                "testRemote");
+        HttpRequestSessionFactory sessionFactory = new HttpRequestSessionFactory(request);
+        sessionFactory.createSession(
+                new QueryId("test_query_id"),
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                new SessionPropertyManager());
     }
 
     @Test(expectedExceptions = WebApplicationException.class)
@@ -107,11 +125,6 @@ public class TestResourceUtil
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
                 "testRemote");
-        createSessionForRequest(
-                request,
-                createTestTransactionManager(),
-                new AllowAllAccessControl(),
-                new SessionPropertyManager(),
-                new QueryId("test_query_id"));
+        new HttpRequestSessionFactory(request);
     }
 }
