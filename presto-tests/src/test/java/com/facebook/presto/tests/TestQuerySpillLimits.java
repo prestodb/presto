@@ -38,6 +38,7 @@ public class TestQuerySpillLimits
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "1B")
                 .put("experimental.max-spill-per-node", "10B")
+                .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .build();
         try (QueryRunner queryRunner = createDistributedQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
@@ -52,6 +53,7 @@ public class TestQuerySpillLimits
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "1B")
                 .put("experimental.query-max-spill-per-node", "10B")
+                .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .build();
         try (QueryRunner queryRunner = createDistributedQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");

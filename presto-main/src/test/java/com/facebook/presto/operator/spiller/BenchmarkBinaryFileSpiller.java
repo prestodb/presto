@@ -18,8 +18,10 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spiller.BinarySpillerFactory;
+import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.Spiller;
+import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -89,7 +91,8 @@ public class BenchmarkBinaryFileSpiller
     {
         private final ListeningExecutorService executor = MoreExecutors.newDirectExecutorService();
         private final SpillerStats spillerStats = new SpillerStats();
-        private final BinarySpillerFactory spillerFactory = new BinarySpillerFactory(executor, BLOCK_ENCODING_MANAGER, spillerStats, SPILL_PATH);
+        private final SpillerFactory spillerFactory = new GenericSpillerFactory(
+                new FileSingleStreamSpillerFactory(executor, BLOCK_ENCODING_MANAGER, spillerStats, ImmutableList.of(SPILL_PATH), 1.0));
 
         @Param({"10000"})
         private int rowsPerPage = 10000;
