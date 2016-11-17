@@ -8,6 +8,13 @@ After analyzing implementations of other connectors such as Hive and JDBC, we gi
 own connector.
 
 ### Design
+When implementing a new Presto plugin, implement interfaces and override methods defined by the SPI.
+
+Plugins can provide additional Connectors, Types, Functions and System Access Control. Currently, we focus on Connector
+mostly.
+
+#### Plugin
+com.facebook.presto.spi.Plugin
 
 ### Implementation
 
