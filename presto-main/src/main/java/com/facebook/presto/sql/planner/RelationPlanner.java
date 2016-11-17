@@ -284,7 +284,7 @@ class RelationPlanner
 
         if (node.getType() != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
-                Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
+                List<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
                 if (!inPredicates.isEmpty()) {
                     InPredicate inPredicate = Iterables.getLast(inPredicates);
                     throwNotSupportedException(inPredicate, "IN with subquery predicate in join condition");

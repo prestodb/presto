@@ -137,20 +137,20 @@ class SubqueryPlanner
         return builder;
     }
 
-    public Set<InPredicate> collectInPredicateSubqueries(Expression expression, Node node)
+    public List<InPredicate> collectInPredicateSubqueries(Expression expression, Node node)
     {
         return analysis.getInPredicateSubqueries(node)
                 .stream()
                 .filter(inPredicate -> nodeContains(expression, inPredicate.getValueList()))
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
     }
 
-    public Set<SubqueryExpression> collectScalarSubqueries(Expression expression, Node node)
+    public List<SubqueryExpression> collectScalarSubqueries(Expression expression, Node node)
     {
         return analysis.getScalarSubqueries(node)
                 .stream()
                 .filter(subquery -> nodeContains(expression, subquery))
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
     }
 
     public Set<ExistsPredicate> collectExistsSubqueries(Expression expression, Node node)
@@ -169,7 +169,7 @@ class SubqueryPlanner
                 .collect(toImmutableSet());
     }
 
-    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, Set<InPredicate> inPredicates, boolean correlationAllowed)
+    private PlanBuilder appendInPredicateApplyNodes(PlanBuilder subPlan, List<InPredicate> inPredicates, boolean correlationAllowed)
     {
         for (InPredicate inPredicate : inPredicates) {
             subPlan = appendInPredicateApplyNode(subPlan, inPredicate, correlationAllowed);
@@ -179,10 +179,16 @@ class SubqueryPlanner
 
     private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, boolean correlationAllowed)
     {
+        if (subPlan.canTranslate(inPredicate)) {
+            // given subquery is already appended
+            return subPlan;
+        }
+
         subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
-        PlanNode subquery = createRelationPlan(((SubqueryExpression) inPredicate.getValueList()).getQuery()).getRoot();
+        SubqueryExpression subqueryExpression = ((SubqueryExpression) inPredicate.getValueList());
+        PlanNode subquery = createRelationPlan(subqueryExpression.getQuery()).getRoot();
         Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subquery);
         if (!correlationAllowed && correlation.isEmpty()) {
             throwNotSupportedException(inPredicate, "Correlated subquery in given context");
@@ -193,18 +199,22 @@ class SubqueryPlanner
         TranslationMap translationMap = subPlan.copyTranslations();
         InPredicate parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters, analysis), inPredicate);
         translationMap.addIntermediateMapping(inPredicate, parametersReplaced);
-        SymbolReference valueList = getOnlyElement(subquery.getOutputSymbols()).toSymbolReference();
+
+        PlanNode coercedSubqueryPlan = projectCoercionIfNeededWithoutTranslations(translationMap, subquery, subqueryExpression);
+        Expression valueList = getOnlyElement(coercedSubqueryPlan.getOutputSymbols()).toSymbolReference();
         translationMap.addIntermediateMapping(parametersReplaced, new InPredicate(parametersReplaced.getValue(), valueList));
 
-        return new PlanBuilder(translationMap,
+        subPlan = new PlanBuilder(translationMap,
                 new ApplyNode(idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        subquery,
+                        coercedSubqueryPlan,
                         ImmutableList.copyOf(correlation.values())),
                 analysis.getParameters());
+
+        return subPlan;
     }
 
-    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
+    private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, List<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
     {
         for (SubqueryExpression scalarSubquery : scalarSubqueries) {
             builder = appendScalarSubqueryApplyNode(builder, scalarSubquery, correlationAllowed);
@@ -478,23 +488,102 @@ class SubqueryPlanner
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
         TranslationMap translations = subPlan.copyTranslations();
-        if (subqueryNode.getOutputSymbols().size() == 1) {
-            translations.put(subqueryExpression, subqueryNode.getOutputSymbols().get(0));
-        }
-
         PlanNode root = subPlan.getRoot();
+        PlanNode subqueryWithCoercions = projectAllCoercionsIfNeededWithTranslations(translations, subqueryNode, subqueryExpression);
         if (root.getOutputSymbols().isEmpty()) {
             // there is nothing to join with - e.g. SELECT (SELECT 1)
-            return new PlanBuilder(translations, subqueryNode, analysis.getParameters());
+            return new PlanBuilder(
+                    translations,
+                    subqueryWithCoercions,
+                    analysis.getParameters());
         }
         else {
-            return new PlanBuilder(translations,
+            return new PlanBuilder(
+                    translations,
                     new ApplyNode(idAllocator.getNextId(),
                             root,
-                            subqueryNode,
+                            subqueryWithCoercions,
                             ImmutableList.copyOf(correlation.values())),
                     analysis.getParameters());
         }
+    }
+
+    private PlanNode projectCoercionIfNeededWithoutTranslations(TranslationMap translations, PlanNode subqueryPlanNode, Expression subqueryExpression)
+    {
+        return projectCoercionsIfNeeded(
+                translations,
+                subqueryPlanNode,
+                subqueryExpression,
+                false,
+                extractExactCoercion(subqueryExpression).map(ImmutableList::of).
+                        orElse(ImmutableList.of()));
+    }
+
+    private PlanNode projectAllCoercionsIfNeededWithTranslations(TranslationMap translations, PlanNode subqueryPlanNode, Expression subqueryExpression)
+    {
+        return projectCoercionsIfNeeded(translations, subqueryPlanNode, subqueryExpression, true, extractCoercions(subqueryExpression));
+    }
+
+    private PlanNode projectCoercionsIfNeeded(TranslationMap translations, PlanNode subqueryPlanNode, Expression subqueryExpression, boolean addTranslations, List<Coercion> coercions)
+    {
+        if (subqueryPlanNode.getOutputSymbols().size() != 1) {
+            return subqueryPlanNode;
+        }
+
+        Symbol subquerySymbol = getOnlyElement(subqueryPlanNode.getOutputSymbols());
+        if (coercions.isEmpty()) {
+            // subquery symbol is only used in direct context
+            if (addTranslations) {
+                translations.put(subqueryExpression, subquerySymbol);
+            }
+            return subqueryPlanNode;
+        }
+
+        // for each subqueryExpression coercion add a casting projection
+        Type subqueryType = analysis.getType(subqueryExpression);
+        ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+        for (Coercion coercion : coercions) {
+            Symbol coercionSymbol = symbolAllocator.newSymbol(subqueryExpression, coercion.getType());
+            Expression castExpression =
+                    new Cast(
+                            subquerySymbol.toSymbolReference(),
+                            coercion.getType().getTypeSignature().toString(),
+                            false,
+                            metadata.getTypeManager().isTypeOnlyCoercion(subqueryType, coercion.getType()));
+            assignments.put(coercionSymbol, castExpression);
+            if (addTranslations) {
+                translations.put(coercion.getExpression(), coercionSymbol);
+            }
+        }
+
+        if (!analysis.getCoercions().containsKey(subqueryExpression)) {
+            // subquery symbol is also used in direct context
+            assignments.put(subquerySymbol, subquerySymbol.toSymbolReference());
+            if (addTranslations) {
+                translations.put(subqueryExpression, subquerySymbol);
+            }
+        }
+
+        return new ProjectNode(
+                idAllocator.getNextId(),
+                subqueryPlanNode,
+                assignments.build());
+    }
+
+    private Optional<Coercion> extractExactCoercion(Expression subqueryExpression)
+    {
+        return analysis.getCoercions().entrySet().stream()
+                .filter(entry -> entry.getKey() == subqueryExpression)
+                .map(entry -> new Coercion(entry.getKey(), entry.getValue()))
+                .findFirst();
+    }
+
+    private List<Coercion> extractCoercions(Expression subqueryExpression)
+    {
+        return analysis.getCoercions().entrySet().stream()
+                .filter(entry -> entry.getKey().equals(subqueryExpression))
+                .map(entry -> new Coercion(entry.getKey(), entry.getValue()))
+                .collect(toImmutableList());
     }
 
     private Map<Expression, Symbol> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
@@ -564,6 +653,28 @@ class SubqueryPlanner
         Map<Expression, Expression> expressionMapping = mapping.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue().toSymbolReference()));
         return SimplePlanRewriter.rewriteWith(new ExpressionReplacer(idAllocator, expressionMapping), planNode, null);
+    }
+
+    private static class Coercion
+    {
+        private final Expression expression;
+        private final Type type;
+
+        public Coercion(Expression expression, Type type)
+        {
+            this.expression = expression;
+            this.type = type;
+        }
+
+        public Expression getExpression()
+        {
+            return expression;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
     }
 
     private static class ColumnReferencesExtractor

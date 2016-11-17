@@ -5591,6 +5591,10 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (VALUES (1,1), (2,2), (3, 3)) t(x, y) WHERE (x+y in (VALUES 4, 5)) AND (x*y in (VALUES 4, 5))",
                 "VALUES (2,2)");
 
+        // test multiple IN subqueries with coercions
+        assertQuery("SELECT 1.0 IN (SELECT 1), 1 IN (SELECT 1)");
+        assertQuery("SELECT 1 WHERE 1 IN (SELECT 1) AND 1.0 IN (SELECT 1)");
+
         // Throw in a bunch of IN subquery predicates
         assertQuery("" +
                 "SELECT *, o2.custkey\n" +
@@ -5930,6 +5934,11 @@ public abstract class AbstractTestQueries
         // exposes a bug in optimize hash generation because EnforceSingleNode does not
         // support more than one column from the underlying query
         assertQuery("SELECT custkey, (SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 1) FROM orders");
+
+        // cast scalar sub-query
+        assertQuery("SELECT 1.0/(SELECT 1), CAST(1.0 AS REAL)/(SELECT 1)");
+        assertQuery("SELECT 1.0 = (SELECT 1) AND 1 = (SELECT 1), 2.0 = (SELECT 1) WHERE 1.0 = (SELECT 1) AND 1 = (SELECT 1)");
+        assertQuery("SELECT 1.0 = (SELECT 1), 2.0 = (SELECT 1), CAST(2.0 AS REAL) = (SELECT 1) WHERE 1.0 = (SELECT 1)");
     }
 
     @Test
