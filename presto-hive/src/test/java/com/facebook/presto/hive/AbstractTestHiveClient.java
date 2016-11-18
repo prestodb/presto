@@ -799,7 +799,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doTestMismatchSchemaTable(
+    protected void doTestMismatchSchemaTable(
             SchemaTableName schemaTableName,
             HiveStorageFormat storageFormat,
             List<ColumnMetadata> tableBefore,
