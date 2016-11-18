@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -83,7 +84,6 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
@@ -126,10 +126,9 @@ public final class HttpRemoteTask
     private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
     @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
+    private final FutureStateChange<?> whenSplitQueueHasSpace = new FutureStateChange<>();
     @GuardedBy("this")
-    private CompletableFuture<?> whenSplitQueueHasSpace = completedFuture(null);
-    @GuardedBy("this")
-    private CompletableFuture<?> unmodifiableWhenSplitQueueHasSpace = completedFuture(null);
+    private boolean splitQueueHasSpace = true;
     @GuardedBy("this")
     private OptionalInt whenSplitQueueHasSpaceThreshold = OptionalInt.empty();
 
@@ -394,7 +393,10 @@ public final class HttpRemoteTask
             whenSplitQueueHasSpaceThreshold = OptionalInt.of(threshold);
             updateSplitQueueSpace();
         }
-        return unmodifiableWhenSplitQueueHasSpace;
+        if (splitQueueHasSpace) {
+            return completedFuture(null);
+        }
+        return whenSplitQueueHasSpace.createNewListener();
     }
 
     private synchronized void updateSplitQueueSpace()
@@ -402,32 +404,10 @@ public final class HttpRemoteTask
         if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
             return;
         }
-        if (getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt()) {
-            if (!whenSplitQueueHasSpace.isDone()) {
-                fireSplitQueueHasSpace(whenSplitQueueHasSpace);
-                whenSplitQueueHasSpace = completedFuture(null);
-                unmodifiableWhenSplitQueueHasSpace = unmodifiableFuture(whenSplitQueueHasSpace);
-            }
+        splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
+        if (splitQueueHasSpace) {
+            whenSplitQueueHasSpace.complete(null, executor);
         }
-        else {
-            if (whenSplitQueueHasSpace.isDone()) {
-                whenSplitQueueHasSpace = new CompletableFuture<>();
-                unmodifiableWhenSplitQueueHasSpace = unmodifiableFuture(whenSplitQueueHasSpace);
-            }
-        }
-    }
-
-    private void fireSplitQueueHasSpace(CompletableFuture<?> future)
-    {
-        executor.execute(() -> {
-            checkState(!Thread.holdsLock(this), "Can not notify split queue future while holding the lock");
-            try {
-                future.complete(null);
-            }
-            catch (Throwable e) {
-                log.error(e, "Error notifying split queue future for %s", taskId);
-            }
-        });
     }
 
     private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
@@ -569,11 +549,8 @@ public final class HttpRemoteTask
         pendingSplits.clear();
         pendingSourceSplitCount = 0;
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
-        if (!whenSplitQueueHasSpace.isDone()) {
-            fireSplitQueueHasSpace(whenSplitQueueHasSpace);
-            whenSplitQueueHasSpace = completedFuture(null);
-            unmodifiableWhenSplitQueueHasSpace = unmodifiableFuture(whenSplitQueueHasSpace);
-        }
+        splitQueueHasSpace = true;
+        whenSplitQueueHasSpace.complete(null, executor);
 
         // cancel pending request
         if (currentRequest != null) {
