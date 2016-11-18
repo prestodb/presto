@@ -33,14 +33,12 @@ import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
-import org.apache.hadoop.hive.metastore.api.HiveObjectType;
 import org.apache.hadoop.hive.metastore.api.InvalidObjectException;
 import org.apache.hadoop.hive.metastore.api.InvalidOperationException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.metastore.api.Role;
@@ -63,6 +61,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_VIEW_FLAG;
+import static com.facebook.presto.hive.metastore.HivePrincipal.toHivePrincipal;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.parsePrivilege;
@@ -75,6 +74,8 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.hadoop.hive.metastore.api.HiveObjectType.DATABASE;
+import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
@@ -629,7 +630,7 @@ public class ThriftHiveMetastore
         if (isDatabaseOwner(user, databaseName)) {
             privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
         }
-        privileges.addAll(getPrivileges(user, new HiveObjectRef(HiveObjectType.DATABASE, databaseName, null, null, null)));
+        privileges.addAll(getUserPrivileges(new HivePrincipal(user, USER), new HiveObjectRef(DATABASE, databaseName, null, null, null)));
 
         return privileges.build();
     }
@@ -642,7 +643,7 @@ public class ThriftHiveMetastore
         if (isTableOwner(user, databaseName, tableName)) {
             privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
         }
-        privileges.addAll(getPrivileges(user, new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null)));
+        privileges.addAll(getUserPrivileges(new HivePrincipal(user, USER), new HiveObjectRef(TABLE, databaseName, tableName, null, null)));
 
         return privileges.build();
     }
@@ -653,53 +654,36 @@ public class ThriftHiveMetastore
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
 
         try {
-            Set<HivePrivilegeInfo> existingPrivileges = getTablePrivileges(grantee, databaseName, tableName);
-
-            Set<PrivilegeGrantInfo> privilegesToGrant = newHashSet(requestedPrivileges);
-            for (Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator(); iterator.hasNext(); ) {
-                HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next()));
-
-                for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
-                    if ((requestedPrivilege.isContainedIn(existingPrivilege))) {
-                        iterator.remove();
-                    }
-                    else if (existingPrivilege.isContainedIn(requestedPrivilege)) {
-                        throw new PrestoException(NOT_SUPPORTED, format(
-                                "Granting %s WITH GRANT OPTION is not supported while %s possesses %s",
-                                requestedPrivilege.getHivePrivilege().name(),
-                                grantee,
-                                requestedPrivilege.getHivePrivilege().name()));
-                    }
-              }
-            }
-
-            if (privilegesToGrant.isEmpty()) {
-                return;
-            }
-
             retry()
                     .stopOnIllegalExceptions()
                     .run("grantTablePrivileges", stats.getGrantTablePrivileges().wrap(() -> {
                         try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
-                            PrincipalType principalType;
+                            HivePrincipal hivePrincipal = toHivePrincipal(grantee);
+                            Set<HivePrivilegeInfo> existingPrivileges = getTablePrivileges(hivePrincipal, databaseName, tableName);
 
-                            if (metastoreClient.getRoleNames().contains(grantee)) {
-                                principalType = ROLE;
-                            }
-                            else {
-                                principalType = USER;
-                            }
+                            Set<PrivilegeGrantInfo> privilegesToGrant = newHashSet(requestedPrivileges);
+                            for (Iterator<PrivilegeGrantInfo> iterator = privilegesToGrant.iterator(); iterator.hasNext(); ) {
+                                HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next()));
 
-                            ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();
-                            for (PrivilegeGrantInfo privilegeGrantInfo : privilegesToGrant) {
-                                privilegeBagBuilder.add(
-                                        new HiveObjectPrivilege(new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null),
+                                for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
+                                    if ((requestedPrivilege.isContainedIn(existingPrivilege))) {
+                                        iterator.remove();
+                                    }
+                                    else if (existingPrivilege.isContainedIn(requestedPrivilege)) {
+                                        throw new PrestoException(NOT_SUPPORTED, format(
+                                                "Granting %s WITH GRANT OPTION is not supported while %s possesses %s",
+                                                requestedPrivilege.getHivePrivilege().name(),
                                                 grantee,
-                                                principalType,
-                                                privilegeGrantInfo));
+                                                requestedPrivilege.getHivePrivilege().name()));
+                                    }
+                                }
                             }
-                            // TODO: Check whether the user/role exists in the hive metastore.
-                            metastoreClient.grantPrivileges(new PrivilegeBag(privilegeBagBuilder.build()));
+
+                            if (privilegesToGrant.isEmpty()) {
+                                return null;
+                            }
+
+                            metastoreClient.grantPrivileges(buildPrivilegeBag(databaseName, tableName, hivePrincipal, privilegesToGrant));
                         }
                         return null;
                     }));
@@ -718,42 +702,24 @@ public class ThriftHiveMetastore
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
 
         try {
-            Set<HivePrivilege> existingHivePrivileges = getTablePrivileges(grantee, databaseName, tableName).stream()
-                    .map(HivePrivilegeInfo::getHivePrivilege)
-                    .collect(toSet());
-
-            Set<PrivilegeGrantInfo> privilegesToRevoke = requestedPrivileges.stream()
-                    .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(parsePrivilege(privilegeGrantInfo)).getHivePrivilege()))
-                    .collect(toSet());
-
-            if (privilegesToRevoke.isEmpty()) {
-                return;
-            }
-
             retry()
                     .stopOnIllegalExceptions()
                     .run("revokeTablePrivileges", stats.getRevokeTablePrivileges().wrap(() -> {
                         try (HiveMetastoreClient metastoreClient = clientProvider.createMetastoreClient()) {
-                            PrincipalType principalType;
+                            HivePrincipal hivePrincipal = toHivePrincipal(grantee);
+                            Set<HivePrivilege> existingHivePrivileges = getTablePrivileges(hivePrincipal, databaseName, tableName).stream()
+                                    .map(HivePrivilegeInfo::getHivePrivilege)
+                                    .collect(toSet());
 
-                            if (metastoreClient.getRoleNames().contains(grantee)) {
-                                principalType = ROLE;
-                            }
-                            else {
-                                principalType = USER;
+                            Set<PrivilegeGrantInfo> privilegesToRevoke = requestedPrivileges.stream()
+                                    .filter(privilegeGrantInfo -> existingHivePrivileges.contains(getOnlyElement(parsePrivilege(privilegeGrantInfo)).getHivePrivilege()))
+                                    .collect(toSet());
+
+                            if (privilegesToRevoke.isEmpty()) {
+                                return null;
                             }
 
-                            ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();
-                            for (PrivilegeGrantInfo privilegeGrantInfo : privilegesToRevoke) {
-                                privilegeBagBuilder.add(
-                                        new HiveObjectPrivilege(
-                                                new HiveObjectRef(HiveObjectType.TABLE, databaseName, tableName, null, null),
-                                                grantee,
-                                                principalType,
-                                                privilegeGrantInfo));
-                            }
-                            // TODO: Check whether the user/role exists in the hive metastore.
-                            metastoreClient.revokePrivileges(new PrivilegeBag(privilegeBagBuilder.build()));
+                            metastoreClient.revokePrivileges(buildPrivilegeBag(databaseName, tableName, hivePrincipal, privilegesToRevoke));
                         }
                         return null;
                     }));
@@ -769,25 +735,85 @@ public class ThriftHiveMetastore
         }
     }
 
+    private PrivilegeBag buildPrivilegeBag(
+            String databaseName,
+            String tableName,
+            HivePrincipal hivePrincipal,
+            Set<PrivilegeGrantInfo> privilegeGrantInfos)
+            throws TException
+    {
+        ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();
+        for (PrivilegeGrantInfo privilegeGrantInfo : privilegeGrantInfos) {
+            privilegeBagBuilder.add(
+                    new HiveObjectPrivilege(
+                            new HiveObjectRef(TABLE, databaseName, tableName, null, null),
+                            hivePrincipal.getPrincipalName(),
+                            hivePrincipal.getPrincipalType(),
+                            privilegeGrantInfo));
+        }
+        return new PrivilegeBag(privilegeBagBuilder.build());
+    }
+
     private boolean containsAllPrivilege(Set<PrivilegeGrantInfo> requestedPrivileges)
     {
         return requestedPrivileges.stream()
                 .anyMatch(privilege -> privilege.getPrivilege().equalsIgnoreCase("all"));
     }
 
-    private Set<HivePrivilegeInfo> getPrivileges(String user, HiveObjectRef objectReference)
+    private Set<HivePrivilegeInfo> getTablePrivileges(HivePrincipal hivePrincipal, String databaseName, String tableName)
     {
+        if (hivePrincipal.getPrincipalType() == ROLE) {
+            return getRolePrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
+        }
+        else {
+            return getUserPrivileges(hivePrincipal, new HiveObjectRef(TABLE, databaseName, tableName, null, null));
+        }
+    }
+
+    private Set<HivePrivilegeInfo> getRolePrivileges(HivePrincipal hivePrincipal, HiveObjectRef hiveObjectRef)
+    {
+        checkArgument(hivePrincipal.getPrincipalType() == ROLE, "Expected ROLE PrincipalType but found USER");
+
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getListPrivileges", stats.getListPrivileges().wrap(() -> {
+                        try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
+
+                            List<HiveObjectPrivilege> hiveObjectPrivilegeList = client.listPrivileges(hivePrincipal.getPrincipalName(), hivePrincipal.getPrincipalType(), hiveObjectRef);
+                            for (HiveObjectPrivilege hiveObjectPrivilege : hiveObjectPrivilegeList) {
+                                privileges.addAll(parsePrivilege(hiveObjectPrivilege.getGrantInfo()));
+                            }
+                            return privileges.build();
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private Set<HivePrivilegeInfo> getUserPrivileges(HivePrincipal hivePrincipal, HiveObjectRef objectReference)
+    {
+        checkArgument(hivePrincipal.getPrincipalType() == USER, "Expected USER PrincipalType but found ROLE");
+
         try {
             return retry()
                     .stopOnIllegalExceptions()
                     .run("getPrivilegeSet", stats.getGetPrivilegeSet().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
-                            PrincipalPrivilegeSet privilegeSet = client.getPrivilegeSet(objectReference, user, null);
+
+                            String principalName = hivePrincipal.getPrincipalName();
+                            PrincipalPrivilegeSet privilegeSet = client.getPrivilegeSet(objectReference, principalName, null);
                             if (privilegeSet != null) {
                                 Map<String, List<PrivilegeGrantInfo>> userPrivileges = privilegeSet.getUserPrivileges();
                                 if (userPrivileges != null) {
-                                    privileges.addAll(toGrants(userPrivileges.get(user)));
+                                    privileges.addAll(toGrants(userPrivileges.get(principalName)));
                                 }
                                 Map<String, List<PrivilegeGrantInfo>> rolePrivilegesMap = privilegeSet.getRolePrivileges();
                                 if (rolePrivilegesMap != null) {
