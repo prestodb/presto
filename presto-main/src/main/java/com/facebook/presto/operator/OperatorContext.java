@@ -355,17 +355,22 @@ public class OperatorContext
         Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
 
+        long inputPositionsCount = inputPositions.getTotalCount();
+
         return new OperatorStats(
                 operatorId,
                 planNodeId,
                 operatorType,
+
+                1,
 
                 addInputCalls.get(),
                 new Duration(addInputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpuNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUserNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(inputDataSize.getTotalCount()),
-                inputPositions.getTotalCount(),
+                inputPositionsCount,
+                (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputCalls.get(),
                 new Duration(getOutputWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),

@@ -20,12 +20,11 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier
-        implements Supplier<LookupSource>
+        implements LookupSourceSupplier
 {
     private final ConnectorSession session;
     private final PagesHash pagesHash;
@@ -51,6 +50,18 @@ public class JoinHashSupplier
         this.addresses = addresses;
         this.channels = channels;
         this.filterFunctionFactory = filterFunctionFactory;
+    }
+
+    @Override
+    public long getHashCollisions()
+    {
+        return pagesHash.getHashCollisions();
+    }
+
+    @Override
+    public double getExpectedHashCollisions()
+    {
+        return pagesHash.getExpectedHashCollisions();
     }
 
     @Override

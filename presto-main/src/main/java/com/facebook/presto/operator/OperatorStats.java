@@ -37,12 +37,15 @@ public class OperatorStats
     private final PlanNodeId planNodeId;
     private final String operatorType;
 
+    private final long totalDrivers;
+
     private final long addInputCalls;
     private final Duration addInputWall;
     private final Duration addInputCpu;
     private final Duration addInputUser;
     private final DataSize inputDataSize;
     private final long inputPositions;
+    private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
     private final Duration getOutputWall;
@@ -70,12 +73,15 @@ public class OperatorStats
             @JsonProperty("planNodeId") PlanNodeId planNodeId,
             @JsonProperty("operatorType") String operatorType,
 
+            @JsonProperty("totalDrivers") long totalDrivers,
+
             @JsonProperty("addInputCalls") long addInputCalls,
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
             @JsonProperty("addInputUser") Duration addInputUser,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
+            @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
 
             @JsonProperty("getOutputCalls") long getOutputCalls,
             @JsonProperty("getOutputWall") Duration getOutputWall,
@@ -102,6 +108,8 @@ public class OperatorStats
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
 
+        this.totalDrivers = totalDrivers;
+
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
@@ -109,6 +117,7 @@ public class OperatorStats
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
+        this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
         this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
@@ -151,6 +160,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public long getTotalDrivers()
+    {
+        return totalDrivers;
+    }
+
+    @JsonProperty
     public long getAddInputCalls()
     {
         return addInputCalls;
@@ -184,6 +199,12 @@ public class OperatorStats
     public long getInputPositions()
     {
         return inputPositions;
+    }
+
+    @JsonProperty
+    public double getSumSquaredInputPositions()
+    {
+        return sumSquaredInputPositions;
     }
 
     @JsonProperty
@@ -284,12 +305,15 @@ public class OperatorStats
 
     public OperatorStats add(Iterable<OperatorStats> operators)
     {
+        long totalDrivers = this.totalDrivers;
+
         long addInputCalls = this.addInputCalls;
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long addInputUser = this.addInputUser.roundTo(NANOSECONDS);
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
+        double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
         long getOutputCalls = this.getOutputCalls;
         long getOutputWall = this.getOutputWall.roundTo(NANOSECONDS);
@@ -313,12 +337,15 @@ public class OperatorStats
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
 
+            totalDrivers += operator.totalDrivers;
+
             addInputCalls += operator.getAddInputCalls();
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
             addInputUser += operator.getAddInputUser().roundTo(NANOSECONDS);
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
+            sumSquaredInputPositions += operator.getSumSquaredInputPositions();
 
             getOutputCalls += operator.getGetOutputCalls();
             getOutputWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
@@ -351,12 +378,15 @@ public class OperatorStats
                 planNodeId,
                 operatorType,
 
+                totalDrivers,
+
                 addInputCalls,
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputUser, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(inputDataSize),
                 inputPositions,
+                sumSquaredInputPositions,
 
                 getOutputCalls,
                 new Duration(getOutputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -401,12 +431,14 @@ public class OperatorStats
                 operatorId,
                 planNodeId,
                 operatorType,
+                totalDrivers,
                 addInputCalls,
                 addInputWall,
                 addInputCpu,
                 addInputUser,
                 inputDataSize,
                 inputPositions,
+                sumSquaredInputPositions,
                 getOutputCalls,
                 getOutputWall,
                 getOutputCpu,

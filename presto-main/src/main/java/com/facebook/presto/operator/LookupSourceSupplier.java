@@ -11,29 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator.aggregation.builder;
+package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.HashCollisionsCounter;
-import com.facebook.presto.spi.Page;
+import java.util.function.Supplier;
 
-import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
-
-public interface HashAggregationBuilder
-        extends AutoCloseable
+public interface LookupSourceSupplier
+        extends Supplier<LookupSource>
 {
-    void processPage(Page page);
+    long getHashCollisions();
 
-    Iterator<Page> buildResult();
-
-    boolean isFull();
-
-    CompletableFuture<?> isBlocked();
-
-    void updateMemory();
-
-    void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter);
-
-    @Override
-    void close();
+    double getExpectedHashCollisions();
 }

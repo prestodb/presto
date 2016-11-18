@@ -28,6 +28,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = LocalExchangeBufferInfo.class, name = "localExchangeBuffer"),
         @JsonSubTypes.Type(value = TableFinishInfo.class, name = "tableFinish"),
         @JsonSubTypes.Type(value = SplitOperatorInfo.class, name = "splitOperator"),
+        @JsonSubTypes.Type(value = HashCollisionsInfo.class, name = "hashCollisionsInfo"),
         @JsonSubTypes.Type(value = PartitionedOutputInfo.class, name = "partitionedOutput")
 })
 public interface OperatorInfo

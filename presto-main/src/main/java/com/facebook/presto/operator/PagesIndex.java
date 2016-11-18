@@ -330,7 +330,7 @@ public class PagesIndex
         return new SimplePagesHashStrategy(types, outputChannels.orElse(rangeList(types.size())), ImmutableList.copyOf(channels), joinChannels, hashChannel);
     }
 
-    public Supplier<LookupSource> createLookupSourceSupplier(
+    public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
             Optional<Integer> hashChannel,
@@ -339,7 +339,7 @@ public class PagesIndex
         return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, Optional.empty());
     }
 
-    public Supplier<LookupSource> createLookupSourceSupplier(
+    public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
             Optional<Integer> hashChannel,
