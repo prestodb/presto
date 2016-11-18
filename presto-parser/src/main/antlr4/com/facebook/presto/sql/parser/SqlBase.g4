@@ -67,10 +67,7 @@ statement
     | SHOW SCHEMAS ((FROM | IN) identifier)? (LIKE pattern=STRING)?    #showSchemas
     | SHOW CATALOGS (LIKE pattern=STRING)?                             #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
-    | SHOW STATS (FROM | IN)? qualifiedName
-        (WHERE booleanExpression)?
-        (ORDER BY sortItem (',' sortItem)*)?
-        (LIMIT limit=(INTEGER_VALUE | ALL))?                           #showStats
+    | SHOW STATS (FROM | IN)? qualifiedName                            #showStats
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions

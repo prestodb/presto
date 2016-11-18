@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -25,57 +22,21 @@ public class ShowStats
         extends Statement
 {
     private final QualifiedName table;
-    private final Optional<Expression> where;
-    private final List<SortItem> orderBy;
-    private final Optional<String> limit;
 
     public ShowStats(QualifiedName table)
     {
-        this(Optional.empty(), table, Optional.empty(), ImmutableList.of(), Optional.empty());
-    }
-
-    public ShowStats(QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
-    {
-        this(Optional.empty(), table, where, orderBy, limit);
+        this(Optional.empty(), table);
     }
 
     public ShowStats(NodeLocation location, QualifiedName table)
     {
-        this(Optional.of(location), table, Optional.empty(), ImmutableList.of(), Optional.empty());
+        this(Optional.of(location), table);
     }
 
-    public ShowStats(NodeLocation location, QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
-    {
-        this(Optional.empty(), table, where, orderBy, limit);
-    }
-
-    private ShowStats(Optional<NodeLocation> location, QualifiedName table, Optional<Expression> where, List<SortItem> orderBy, Optional<String> limit)
+    private ShowStats(Optional<NodeLocation> location, QualifiedName table)
     {
         super(location);
         this.table = table;
-        this.where = where;
-        this.orderBy = orderBy;
-        this.limit = limit;
-    }
-
-    public QualifiedName getTable()
-    {
-        return table;
-    }
-
-    public Optional<Expression> getWhere()
-    {
-        return where;
-    }
-
-    public List<SortItem> getOrderBy()
-    {
-        return orderBy;
-    }
-
-    public Optional<String> getLimit()
-    {
-        return limit;
     }
 
     @Override
@@ -100,10 +61,7 @@ public class ShowStats
             return false;
         }
         ShowStats o = (ShowStats) obj;
-        return Objects.equals(table, o.table) &&
-                Objects.equals(where, where) &&
-                Objects.equals(orderBy, orderBy) &&
-                Objects.equals(limit, limit);
+        return Objects.equals(table, o.table);
     }
 
     @Override
@@ -112,5 +70,10 @@ public class ShowStats
         return toStringHelper(this)
                 .add("table", table)
                 .toString();
+    }
+
+    public QualifiedName getTable()
+    {
+        return table;
     }
 }

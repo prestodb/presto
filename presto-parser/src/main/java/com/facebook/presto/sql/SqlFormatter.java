@@ -634,21 +634,6 @@ public final class SqlFormatter
             builder.append("SHOW STATS FROM ")
                     .append(node.getTable());
 
-            if (node.getWhere().isPresent()) {
-                builder.append(" WHERE ")
-                        .append(formatExpression(node.getWhere().get(), parameters));
-            }
-
-            if (!node.getOrderBy().isEmpty()) {
-                builder.append(" ORDER BY ")
-                        .append(formatSortItems(node.getOrderBy(), parameters));
-            }
-
-            if (node.getLimit().isPresent()) {
-                builder.append(" LIMIT ")
-                        .append(node.getLimit().get());
-            }
-
             return null;
         }
 
