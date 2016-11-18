@@ -37,10 +37,10 @@ public class TestGrantRevoke
      * Pre-requisites for the tests in this class:
      *
      * (1) hive.properties file should have this property set: hive.security=sql-standard
-     * (2) tempto-configuration.yaml file should have definitions for two connections to Presto server:
-     * "alice@presto" that has "jdbc_user: alice" and
-     * "bob@presto" that has "jdbc_user: bob"
-     * (all other values of the connection are same as that of the default "presto" connection).
+     * (2) tempto-configuration.yaml file should have definitions for the following connections to Presto server:
+     *          - "alice@presto" that has "jdbc_user: alice"
+     *          - "bob@presto" that has "jdbc_user: bob"
+     *     (all other values of the connection are same as that of the default "presto" connection).
     */
 
     @BeforeTestWithContext
@@ -91,6 +91,17 @@ public class TestGrantRevoke
         assertAccessDeniedOnAllOperationsOnTable(bobExecutor, tableName);
     }
 
+    @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testPublic()
+    {
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO PUBLIC", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM PUBLIC", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
+                failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+    }
+
     private static void assertAccessDeniedOnAllOperationsOnTable(QueryExecutor queryExecutor, String tableName)
     {
         assertThat(() -> queryExecutor.executeQuery(format("SELECT * FROM %s", tableName))).
@@ -100,6 +111,4 @@ public class TestGrantRevoke
         assertThat(() -> queryExecutor.executeQuery(format("DELETE FROM %s WHERE day=3", tableName))).
                 failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
     }
-
-    //TODO: test PUBLIC: This will require adding users such as alice and bob to the hive metastore
 }
