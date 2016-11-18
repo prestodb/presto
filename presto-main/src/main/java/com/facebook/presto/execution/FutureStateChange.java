@@ -21,6 +21,10 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class FutureStateChange<T>
@@ -46,6 +50,17 @@ public class FutureStateChange<T>
 
     public void complete(T newState)
     {
+        fireStateChange(newState, directExecutor());
+    }
+
+    public void complete(T newState, Executor executor)
+    {
+        fireStateChange(newState, executor);
+    }
+
+    private void fireStateChange(T newState, Executor executor)
+    {
+        requireNonNull(executor, "executor is null");
         Set<CompletableFuture<T>> futures;
         synchronized (this) {
             futures = ImmutableSet.copyOf(listeners);
@@ -53,7 +68,7 @@ public class FutureStateChange<T>
         }
 
         for (CompletableFuture<T> future : futures) {
-            future.complete(newState);
+            executor.execute(() -> future.complete(newState));
         }
     }
 }
