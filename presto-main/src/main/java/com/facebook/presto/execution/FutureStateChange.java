@@ -30,17 +30,19 @@ import static java.util.Objects.requireNonNull;
 public class FutureStateChange<T>
 {
     // Use a separate future for each listener so canceled listeners can be removed
-    @GuardedBy("this")
+    @GuardedBy("listeners")
     private final Set<CompletableFuture<T>> listeners = new HashSet<>();
 
-    public synchronized CompletableFuture<T> createNewListener()
+    public CompletableFuture<T> createNewListener()
     {
         CompletableFuture<T> listener = new CompletableFuture<>();
-        listeners.add(listener);
+        synchronized (listeners) {
+            listeners.add(listener);
+        }
 
         // remove the listener when the future completes
         listener.whenComplete((t, throwable) -> {
-            synchronized (FutureStateChange.this) {
+            synchronized (listeners) {
                 listeners.remove(listener);
             }
         });
@@ -62,7 +64,7 @@ public class FutureStateChange<T>
     {
         requireNonNull(executor, "executor is null");
         Set<CompletableFuture<T>> futures;
-        synchronized (this) {
+        synchronized (listeners) {
             futures = ImmutableSet.copyOf(listeners);
             listeners.clear();
         }
