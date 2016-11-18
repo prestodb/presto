@@ -99,7 +99,10 @@ import io.airlift.units.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -113,6 +116,9 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DI
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.DataSize.succinctDataSize;
@@ -209,51 +215,75 @@ public class PlanPrinter
         // it's possible that some or all of them are missing or out of date.
         // For example, a LIMIT clause can cause a query to finish before stats
         // are collected from the leaf stages.
+        Map<PlanNodeId, Long> inputPositions = new HashMap<>();
+        Map<PlanNodeId, Long> inputBytes = new HashMap<>();
         Map<PlanNodeId, Long> outputPositions = new HashMap<>();
         Map<PlanNodeId, Long> outputBytes = new HashMap<>();
         Map<PlanNodeId, Long> wallMillis = new HashMap<>();
 
         for (PipelineStats pipelineStats : taskStats.getPipelines()) {
-            Map<PlanNodeId, Long> pipelineOutputPositions = new HashMap<>();
-            Map<PlanNodeId, Long> pipelineOutputBytes = new HashMap<>();
+            // Due to eventual consistently collected stats, these could be empty
+            if (pipelineStats.getOperatorSummaries().isEmpty()) {
+                continue;
+            }
 
-            List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
-            for (int i = 0; i < operatorSummaries.size(); i++) {
-                OperatorStats operatorStats = operatorSummaries.get(i);
+            Set<PlanNodeId> processedNodes = new HashSet<>();
+            PlanNodeId inputPlanNode = pipelineStats.getOperatorSummaries().iterator().next().getPlanNodeId();
+            PlanNodeId outputPlanNode = getLast(pipelineStats.getOperatorSummaries()).getPlanNodeId();
+
+            // Gather input statistics
+            for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
+
                 long wall = operatorStats.getAddInputWall().toMillis() + operatorStats.getGetOutputWall().toMillis() + operatorStats.getFinishWall().toMillis();
                 wallMillis.merge(planNodeId, wall, Long::sum);
 
-                // An "internal" pipeline like a hash build, links to another pipeline which is the actual output for this plan node
-                if (i == operatorSummaries.size() - 1 && !pipelineStats.isOutputPipeline()) {
-                    pipelineOutputBytes.remove(planNodeId);
-                    pipelineOutputPositions.remove(planNodeId);
+                // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
+                if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
+                    continue;
                 }
-                else {
-                    // Overwrite whatever we currently have, to get the last operator's stats for this plan node in this pipeline
-                    pipelineOutputPositions.put(planNodeId, operatorStats.getOutputPositions());
-                    pipelineOutputBytes.put(planNodeId, operatorStats.getOutputDataSize().toBytes());
+                if (processedNodes.contains(planNodeId)) {
+                    continue;
                 }
+
+                inputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
+                inputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
+                processedNodes.add(planNodeId);
             }
 
-            for (Map.Entry<PlanNodeId, Long> entry : pipelineOutputPositions.entrySet()) {
-                outputBytes.merge(entry.getKey(), pipelineOutputBytes.get(entry.getKey()), Long::sum);
-                outputPositions.merge(entry.getKey(), entry.getValue(), Long::sum);
+            // Gather output statistics
+            processedNodes.clear();
+            for (OperatorStats operatorStats : reverse(pipelineStats.getOperatorSummaries())) {
+                PlanNodeId planNodeId = operatorStats.getPlanNodeId();
+
+                // An "internal" pipeline like a hash build, links to another pipeline which is the actual output for this plan node
+                if (operatorStats.getPlanNodeId().equals(outputPlanNode) && !pipelineStats.isOutputPipeline()) {
+                    continue;
+                }
+                if (processedNodes.contains(planNodeId)) {
+                    continue;
+                }
+
+                outputPositions.merge(planNodeId, operatorStats.getOutputPositions(), Long::sum);
+                outputBytes.merge(planNodeId, operatorStats.getOutputDataSize().toBytes(), Long::sum);
+                processedNodes.add(planNodeId);
             }
         }
 
         List<PlanNodeStats> stats = new ArrayList<>();
         for (Map.Entry<PlanNodeId, Long> entry : wallMillis.entrySet()) {
-            if (outputPositions.containsKey(entry.getKey())) {
-                stats.add(new PlanNodeStats(entry.getKey(), new Duration(entry.getValue(), MILLISECONDS), outputPositions.get(entry.getKey()), succinctDataSize(outputBytes.get(entry.getKey()), BYTE)));
-            }
-            else {
-                // It's possible there will be no output stats because all the pipelines that we observed were non-output.
-                // For example in a query like SELECT * FROM a JOIN b ON c = d LIMIT 1
-                // It's possible to observe stats after the build starts, but before the probe does
-                // and therefore only have wall time, but no output stats
-                stats.add(new PlanNodeStats(entry.getKey(), new Duration(entry.getValue(), MILLISECONDS)));
-            }
+            PlanNodeId planNodeId = entry.getKey();
+            stats.add(new PlanNodeStats(
+                    entry.getKey(),
+                    new Duration(entry.getValue(), MILLISECONDS),
+                    inputPositions.get(planNodeId),
+                    succinctDataSize(inputBytes.get(planNodeId), BYTE),
+                    // It's possible there will be no output stats because all the pipelines that we observed were non-output.
+                    // For example in a query like SELECT * FROM a JOIN b ON c = d LIMIT 1
+                    // It's possible to observe stats after the build starts, but before the probe does
+                    // and therefore only have wall time, but no output stats
+                    outputPositions.getOrDefault(planNodeId, 0L),
+                    succinctDataSize(outputBytes.getOrDefault(planNodeId, 0L), BYTE)));
         }
         return stats;
     }
@@ -277,11 +307,11 @@ public class PlanPrinter
 
         if (stageStats.isPresent()) {
             builder.append(indentString(1))
-                    .append(format("Cost: CPU %s, Input %d (%s), Output %d (%s)\n",
+                    .append(format("Cost: CPU %s, Input: %s (%s), Output: %s (%s)\n",
                             stageStats.get().getTotalCpuTime(),
-                            stageStats.get().getProcessedInputPositions(),
+                            formatPositions(stageStats.get().getProcessedInputPositions()),
                             stageStats.get().getProcessedInputDataSize(),
-                            stageStats.get().getOutputPositions(),
+                            formatPositions(stageStats.get().getOutputPositions()),
                             stageStats.get().getOutputDataSize()));
         }
 
@@ -357,38 +387,82 @@ public class PlanPrinter
         output.append(indentString(indent)).append(value).append('\n');
     }
 
-    private void printStats(int indent, PlanNodeId planNodeId)
+    private void print(int indent, String format, List<Object> args)
+    {
+        print(indent, format, args.toArray(new Object[args.size()]));
+    }
+
+    private void printStats(int intent, PlanNodeId planNodeId)
+    {
+        printStats(intent, planNodeId, false, false);
+    }
+
+    private void printStats(int indent, PlanNodeId planNodeId, boolean printInput, boolean printFiltered)
     {
         if (!stats.isPresent()) {
             return;
         }
+
         long totalMillis = stats.get().values().stream()
                 .mapToLong(node -> node.getWallTime().toMillis())
                 .sum();
-        PlanNodeStats stats = this.stats.get().get(planNodeId);
-        if (stats == null) {
-            output.append(indentString(indent))
-                    .append("Cost: unknown, Output: unknown \n");
+
+        PlanNodeStats nodeStats = stats.get().get(planNodeId);
+        if (nodeStats == null) {
+            output.append(indentString(indent));
+            output.append("Cost: unknown");
+            if (printInput) {
+                output.append(", Input: unknown");
+            }
+            output.append(", Output: unknown");
+            if (printFiltered) {
+                output.append(", Filtered: unknown");
+            }
+            output.append('\n');
             return;
         }
-        double fraction = (stats.getWallTime().toMillis()) / (double) totalMillis;
+
+        double fraction = (nodeStats.getWallTime().toMillis()) / (double) totalMillis;
         String fractionString;
         if (isFinite(fraction)) {
-            fractionString = format("%.2f%%", 100.0 * fraction);
+            fractionString = format(Locale.US, "%.2f%%", 100.0 * fraction);
         }
         else {
             fractionString = "unknown";
         }
 
-        String outputString;
-        if (stats.getOutputPositions().isPresent() && stats.getOutputDataSize().isPresent()) {
-            outputString = format("%s rows (%s)", stats.getOutputPositions().get(), stats.getOutputDataSize().get());
+        output.append(indentString(indent));
+        output.append("Cost: " + fractionString);
+        if (printInput) {
+            output.append(format(", Input: %s (%s)",
+                    formatPositions(nodeStats.getInputPositions()),
+                    nodeStats.getInputDataSize().toString()));
         }
-        else {
-            outputString = "unknown";
+        output.append(format(", Output: %s (%s)",
+                formatPositions(nodeStats.getOutputPositions()),
+                nodeStats.getOutputDataSize().toString()));
+        if (printFiltered) {
+            double filtered = 100.0 * (nodeStats.getInputPositions() - nodeStats.getOutputPositions()) / nodeStats.getInputPositions();
+            String filteredString;
+            if (isFinite(filtered)) {
+                filteredString = format(Locale.US, "%.2f%%", filtered);
+            }
+            else {
+                filteredString = "unknown";
+            }
+
+            output.append(", Filtered: " + filteredString);
         }
-        output.append(indentString(indent))
-                .append(format("Cost: %s, Output: %s\n", fractionString, outputString));
+        output.append('\n');
+    }
+
+    private static String formatPositions(long positions)
+    {
+        if (positions == 1) {
+            return "1 row";
+        }
+
+        return positions + " rows";
     }
 
     private static String indentString(int indent)
@@ -685,6 +759,111 @@ public class PlanPrinter
             TableHandle table = node.getTable();
             print(indent, "- TableScan[%s, originalConstraint = %s] => [%s]", table, node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
+            printTableScanInfo(node, indent);
+
+            return null;
+        }
+
+        @Override
+        public Void visitValues(ValuesNode node, Integer indent)
+        {
+            print(indent, "- Values => [%s]", formatOutputs(node.getOutputSymbols()));
+            printStats(indent + 2, node.getId());
+            for (List<Expression> row : node.getRows()) {
+                print(indent + 2, "(" + Joiner.on(", ").join(row) + ")");
+            }
+            return null;
+        }
+
+        @Override
+        public Void visitFilter(FilterNode node, Integer indent)
+        {
+            return visitScanFilterAndProjectInfo(node.getId(), Optional.of(node), Optional.empty(), indent);
+        }
+
+        @Override
+        public Void visitProject(ProjectNode node, Integer indent)
+        {
+            if (node.getSource() instanceof FilterNode) {
+                return visitScanFilterAndProjectInfo(node.getId(), Optional.of((FilterNode) node.getSource()), Optional.of(node), indent);
+            }
+
+            return visitScanFilterAndProjectInfo(node.getId(), Optional.empty(), Optional.of(node), indent);
+        }
+
+        private Void visitScanFilterAndProjectInfo(
+                PlanNodeId planNodeId,
+                Optional<FilterNode> filterNode, Optional<ProjectNode> projectNode,
+                int indent)
+        {
+            checkState(projectNode.isPresent() || filterNode.isPresent());
+
+            PlanNode sourceNode;
+            if (filterNode.isPresent()) {
+                sourceNode = filterNode.get().getSource();
+            }
+            else {
+                sourceNode = projectNode.get().getSource();
+            }
+
+            Optional<TableScanNode> scanNode;
+            if (sourceNode instanceof TableScanNode) {
+                scanNode = Optional.of((TableScanNode) sourceNode);
+            }
+            else {
+                scanNode = Optional.empty();
+            }
+
+            String format = "[";
+            String operatorName = "- ";
+            List<Object> arguments = new LinkedList<>();
+
+            if (scanNode.isPresent()) {
+                operatorName += "Scan";
+                format += "table = %s, originalConstraint = %s";
+                if (filterNode.isPresent()) {
+                    format += ", ";
+                }
+                TableHandle table = scanNode.get().getTable();
+                arguments.add(table);
+                arguments.add(scanNode.get().getOriginalConstraint());
+            }
+
+            if (filterNode.isPresent()) {
+                operatorName += "Filter";
+                format += "filterPredicate = %s";
+                arguments.add(filterNode.get().getPredicate());
+            }
+
+            format += "] => [%s]";
+            if (projectNode.isPresent()) {
+                operatorName += "Project";
+                arguments.add(formatOutputs(projectNode.get().getOutputSymbols()));
+            }
+            else {
+                arguments.add(formatOutputs(filterNode.get().getOutputSymbols()));
+            }
+
+            format = operatorName + format;
+            print(indent, format, arguments);
+            printStats(indent + 2, planNodeId, true, true);
+
+            if (projectNode.isPresent()) {
+                printAssignments(projectNode.get().getAssignments(), indent + 2);
+            }
+
+            if (scanNode.isPresent()) {
+                printTableScanInfo(scanNode.get(), indent);
+                return null;
+            }
+
+            sourceNode.accept(this, indent + 1);
+            return null;
+        }
+
+        private void printTableScanInfo(TableScanNode node, int indent)
+        {
+            TableHandle table = node.getTable();
 
             TupleDomain<ColumnHandle> predicate = node.getLayout()
                     .map(layoutHandle -> metadata.getLayout(session, layoutHandle))
@@ -724,37 +903,6 @@ public class PlanPrinter
                             });
                 }
             }
-
-            return null;
-        }
-
-        @Override
-        public Void visitValues(ValuesNode node, Integer indent)
-        {
-            print(indent, "- Values => [%s]", formatOutputs(node.getOutputSymbols()));
-            printStats(indent + 2, node.getId());
-            for (List<Expression> row : node.getRows()) {
-                print(indent + 2, "(" + Joiner.on(", ").join(row) + ")");
-            }
-            return null;
-        }
-
-        @Override
-        public Void visitFilter(FilterNode node, Integer indent)
-        {
-            print(indent, "- Filter[%s] => [%s]", node.getPredicate(), formatOutputs(node.getOutputSymbols()));
-            printStats(indent + 2, node.getId());
-            return processChildren(node, indent + 1);
-        }
-
-        @Override
-        public Void visitProject(ProjectNode node, Integer indent)
-        {
-            print(indent, "- Project => [%s]", formatOutputs(node.getOutputSymbols()));
-            printStats(indent + 2, node.getId());
-            printAssignments(node.getAssignments(), indent + 2);
-
-            return processChildren(node, indent + 1);
         }
 
         @Override
@@ -1093,25 +1241,19 @@ public class PlanPrinter
     {
         private final PlanNodeId planNodeId;
         private final Duration wallTime;
-        private final Optional<Long> outputPositions;
-        private final Optional<DataSize> outputDataSize;
+        private final long inputPositions;
+        private final DataSize inputDataSize;
+        private final long outputPositions;
+        private final DataSize outputDataSize;
 
-        public PlanNodeStats(PlanNodeId planNodeId, Duration wallTime)
-        {
-            this(planNodeId, wallTime, Optional.empty(), Optional.empty());
-        }
-
-        public PlanNodeStats(PlanNodeId planNodeId, Duration wallTime, long outputPositions, DataSize outputDataSize)
-        {
-            this(planNodeId, wallTime, Optional.of(outputPositions), Optional.of(outputDataSize));
-        }
-
-        private PlanNodeStats(PlanNodeId planNodeId, Duration wallTime, Optional<Long> outputPositions, Optional<DataSize> outputDataSize)
+        private PlanNodeStats(PlanNodeId planNodeId, Duration wallTime, long inputPositions, DataSize inputDataSize, long outputPositions, DataSize outputDataSize)
         {
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.wallTime = requireNonNull(wallTime, "wallTime is null");
+            this.inputPositions = inputPositions;
+            this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
             this.outputPositions = outputPositions;
-            this.outputDataSize = outputDataSize;
+            this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         }
 
         public PlanNodeId getPlanNodeId()
@@ -1124,12 +1266,22 @@ public class PlanPrinter
             return wallTime;
         }
 
-        public Optional<Long> getOutputPositions()
+        public long getInputPositions()
+        {
+            return inputPositions;
+        }
+
+        public DataSize getInputDataSize()
+        {
+            return inputDataSize;
+        }
+
+        public long getOutputPositions()
         {
             return outputPositions;
         }
 
-        public Optional<DataSize> getOutputDataSize()
+        public DataSize getOutputDataSize()
         {
             return outputDataSize;
         }
@@ -1137,31 +1289,18 @@ public class PlanPrinter
         public static PlanNodeStats merge(PlanNodeStats planNodeStats1, PlanNodeStats planNodeStats2)
         {
             checkArgument(planNodeStats1.getPlanNodeId().equals(planNodeStats2.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeStats1.getPlanNodeId(), planNodeStats2.getPlanNodeId());
-            Optional<Long> outputPositions;
-            if (planNodeStats1.getOutputPositions().isPresent() && planNodeStats2.getOutputPositions().isPresent()) {
-                outputPositions = Optional.of(planNodeStats1.getOutputPositions().get() + planNodeStats2.getOutputPositions().get());
-            }
-            else if (planNodeStats1.getOutputPositions().isPresent()) {
-                outputPositions = planNodeStats1.getOutputPositions();
-            }
-            else {
-                outputPositions = planNodeStats2.getOutputPositions();
-            }
-            Optional<DataSize> outputDataSize;
-            if (planNodeStats1.getOutputDataSize().isPresent() && planNodeStats2.getOutputDataSize().isPresent()) {
-                outputDataSize = Optional.of(succinctBytes(planNodeStats1.getOutputDataSize().get().toBytes() + planNodeStats2.getOutputDataSize().get().toBytes()));
-            }
-            else if (planNodeStats1.getOutputDataSize().isPresent()) {
-                outputDataSize = planNodeStats1.getOutputDataSize();
-            }
-            else {
-                outputDataSize = planNodeStats2.getOutputDataSize();
-            }
+
+            long inputPositions = planNodeStats1.inputPositions + planNodeStats2.inputPositions;
+            DataSize inputDataSize = succinctBytes(planNodeStats1.inputDataSize.toBytes() + planNodeStats2.inputDataSize.toBytes());
+
+            long outputPositions = planNodeStats1.outputPositions + planNodeStats2.outputPositions;
+            DataSize outputDataSize = succinctBytes(planNodeStats1.outputDataSize.toBytes() + planNodeStats2.outputDataSize.toBytes());
+
             return new PlanNodeStats(
                     planNodeStats1.getPlanNodeId(),
                     new Duration(planNodeStats1.getWallTime().toMillis() + planNodeStats2.getWallTime().toMillis(), MILLISECONDS),
-                    outputPositions,
-                    outputDataSize);
+                    inputPositions, inputDataSize,
+                    outputPositions, outputDataSize);
         }
     }
 }
