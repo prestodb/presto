@@ -14,6 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
@@ -38,6 +39,8 @@ public interface QueryRunner
     TransactionManager getTransactionManager();
 
     Metadata getMetadata();
+
+    CostCalculator getCostCalculator();
 
     TestingAccessControlManager getAccessControl();
 
