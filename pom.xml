@@ -33,6 +33,31 @@
         <tag>HEAD</tag>
     </scm>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>http://repo1.maven.apache.org/maven2/</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+      <pluginRepository>
+          <id>central</id>
+          <url>http://repo1.maven.apache.org/maven2/</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+      </pluginRepository>
+    </pluginRepositories>
+
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
