@@ -425,7 +425,7 @@ public class PlanPrinter
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
             // Check if the node is actually a cross join node
-            if (node.getType() == JoinNode.Type.INNER && node.getCriteria().isEmpty()) {
+            if (node.getType() == JoinNode.Type.INNER && joinExpressions.isEmpty()) {
                 print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
             }
             else {
