@@ -18,8 +18,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.tree.Expression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,11 +31,13 @@ final class JoinMatcher
 {
     private final JoinNode.Type joinType;
     private final List<AliasPair> equiCriteria;
+    private final Optional<Expression> filter;
 
-    JoinMatcher(JoinNode.Type joinType, List<AliasPair> equiCriteria)
+    JoinMatcher(JoinNode.Type joinType, List<AliasPair> equiCriteria, Optional<Expression> filter)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
+        this.filter = requireNonNull(filter, "filter can not be null");
     }
 
     @Override
@@ -44,6 +48,21 @@ final class JoinMatcher
             if (joinNode.getType() != joinType) {
                 return false;
             }
+
+            if (filter.isPresent()) {
+                if (!joinNode.getFilter().isPresent()) {
+                    return false;
+                }
+                if (!new ExpressionVerifier(expressionAliases).process(joinNode.getFilter().get(), filter.get())) {
+                    return false;
+                }
+            }
+            else {
+                if (joinNode.getFilter().isPresent()) {
+                    return false;
+                }
+            }
+
             if (joinNode.getCriteria().size() == equiCriteria.size()) {
                 int i = 0;
                 for (JoinNode.EquiJoinClause equiJoinClause : joinNode.getCriteria()) {
@@ -62,6 +81,7 @@ final class JoinMatcher
     {
         return toStringHelper(this)
                 .add("equiCriteria", equiCriteria)
+                .add("filter", filter)
                 .toString();
     }
 }
