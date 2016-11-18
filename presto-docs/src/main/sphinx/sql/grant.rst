@@ -20,7 +20,7 @@ Grants the specified privileges to the specified grantee.
 
 Specifying ``ALL PRIVILEGES`` grants :doc:`delete`, :doc:`insert` and :doc:`select` privileges.
 
-Specifying ``PUBLIC`` grants privileges to all grantees.
+Specifying ``PUBLIC`` grants privileges to the ``PUBLIC`` role and hence to all users.
 
 The optional ``WITH GRANT OPTION`` clause allows the grantee to grant these same privileges to others.
 
