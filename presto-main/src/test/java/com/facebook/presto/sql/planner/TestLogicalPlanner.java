@@ -232,7 +232,7 @@ public class TestLogicalPlanner
                                 anyTree(
                                         node(AggregationNode.class,
                                                 anyTree(
-                                                        join(LEFT, ImmutableList.of(),
+                                                        join(LEFT, ImmutableList.of(), Optional.of("orderkey = BIGINT '3'"),
                                                                 anyTree(
                                                                         tableScan("orders")),
                                                                 anyTree(
