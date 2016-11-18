@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.HiveMetastoreClient;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
@@ -194,6 +195,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_privilege_set(hiveObject, userName, groupNames);
+    }
+
+    @Override
+    public List<HiveObjectPrivilege> listPrivileges(String principalName, PrincipalType principalType, HiveObjectRef hiveObjectRef)
+            throws TException
+    {
+        return client.list_privileges(principalName, principalType, hiveObjectRef);
     }
 
     @Override
