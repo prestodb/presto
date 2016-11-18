@@ -214,7 +214,7 @@ public class RaptorPageSink
                     "temporalColumnIndex and temporalColumnType must be both present or absent");
 
             this.bucketFunction = bucketCount.isPresent() ? Optional.of(new RaptorBucketFunction(bucketCount.getAsInt())) : Optional.empty();
-            this.temporalFunction = temporalColumnType.map(type -> TemporalFunction.create(temporalColumnType.get()));
+            this.temporalFunction = temporalColumnType.map(TemporalFunction::create);
         }
 
         @Override
