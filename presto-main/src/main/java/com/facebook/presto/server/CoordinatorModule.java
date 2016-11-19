@@ -141,15 +141,6 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jaxrsBinder(binder).bind(StatementResource.class);
 
-        // execute resource
-        jaxrsBinder(binder).bind(ExecuteResource.class);
-        httpClientBinder(binder).bindHttpClient("execute", ForExecute.class)
-                .withTracing()
-                .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
-                    config.setRequestTimeout(new Duration(10, SECONDS));
-                });
-
         // query execution visualizer
         jaxrsBinder(binder).bind(QueryExecutionResource.class);
 
