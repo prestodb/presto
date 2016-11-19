@@ -70,10 +70,10 @@ public class RaptorBucketFunction
         if (type.equals(INTEGER)) {
             return intHashFunction();
         }
-        if (!isVarcharType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "Bucketing is supported for bigint, integer and varchar, not " + type.getDisplayName());
+        if (isVarcharType(type)) {
+            return varcharHashFunction();
         }
-        return varcharHashFunction();
+        throw new PrestoException(NOT_SUPPORTED, "Bucketing is supported for bigint, integer and varchar, not " + type.getDisplayName());
     }
 
     private static HashFunction bigintHashFunction()
