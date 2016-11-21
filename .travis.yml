@@ -8,6 +8,7 @@ env:
   matrix:
     - MAVEN_CHECKS=true
     - TEST_SPECIFIC_MODULES=presto-tests
+    - TEST SPECIFIC MODULES=presto-hdfs
     - TEST_SPECIFIC_MODULES=presto-raptor
     - TEST_SPECIFIC_MODULES=presto-accumulo
     - TEST_SPECIFIC_MODULES=presto-cassandra,presto-hive,presto-kafka,presto-mysql,presto-postgresql,presto-redis
