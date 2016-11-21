@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -68,6 +69,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -1627,6 +1629,35 @@ public class TestSqlParser
                                 Join.Type.CROSS,
                                 new Table(QualifiedName.of("t")),
                                 new Unnest(ImmutableList.of(new Identifier("a")), true),
+                                Optional.empty())));
+    }
+
+    @Test
+    public void testLateral()
+            throws Exception
+    {
+        Lateral lateralRelation = new Lateral(new Query(
+                Optional.empty(),
+                new Values(ImmutableList.of(new LongLiteral("1"))),
+                Optional.empty(),
+                Optional.empty()));
+
+        assertStatement("SELECT * FROM t, LATERAL (VALUES 1) a(x)",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.IMPLICIT,
+                                new Table(QualifiedName.of("t")),
+                                new AliasedRelation(lateralRelation, "a", ImmutableList.of("x")),
+                                Optional.empty())));
+
+        assertStatement("SELECT * FROM t CROSS JOIN LATERAL (VALUES 1) ",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Join(
+                                Join.Type.CROSS,
+                                new Table(QualifiedName.of("t")),
+                                lateralRelation,
                                 Optional.empty())));
     }
 
