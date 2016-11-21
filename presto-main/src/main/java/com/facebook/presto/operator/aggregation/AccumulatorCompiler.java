@@ -31,6 +31,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.CallSiteBinder;
 import com.facebook.presto.sql.gen.CompilerOperations;
@@ -52,8 +53,10 @@ import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
 import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantString;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.not;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -61,6 +64,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.count
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 
 public class AccumulatorCompiler
 {
@@ -123,6 +127,7 @@ public class AccumulatorCompiler
 
         // Generate methods
         generateAddInput(definition, stateField, inputChannelsField, maskChannelField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder, grouped);
+        generateAddInputWindowIndex(definition, stateField, metadata.getInputMetadata(), metadata.getInputFunction(), callSiteBinder);
         generateGetEstimatedSize(definition, stateField);
         generateGetIntermediateType(definition, callSiteBinder, stateSerializer.getSerializedType());
         generateGetFinalType(definition, callSiteBinder, metadata.getOutputType());
@@ -233,6 +238,179 @@ public class AccumulatorCompiler
 
         body.append(block);
         body.ret();
+    }
+
+    private static void generateAddInputWindowIndex(
+            ClassDefinition definition,
+            FieldDefinition stateField,
+            List<ParameterMetadata> parameterMetadatas,
+            MethodHandle inputFunction,
+            CallSiteBinder callSiteBinder)
+    {
+        // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
+
+        Parameter index = arg("index", WindowIndex.class);
+        Parameter channel = arg("channel", int.class);
+        Parameter position = arg("position", int.class);
+
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channel, position));
+        Scope scope = method.getScope();
+        BytecodeBlock body = method.getBody();
+
+        scope.declareVariable(boolean.class, "isNull");
+        scope.declareVariable(Block.class, "block");
+
+        BytecodeBlock block = new BytecodeBlock();
+        block.append(constantFalse())
+                .putVariable(scope.getVariable("isNull"));
+
+        block.append(
+                generateInvokeFunctionOnIndex(scope, inputFunction.type().parameterArray(), parameterMetadatas, stateField));
+
+        BytecodeBlock popBlock = new BytecodeBlock();
+        Class<?>[] parameters = inputFunction.type().parameterArray();
+        for (int i = parameters.length - 1; i >= 0; i--) {
+            popBlock.pop(parameters[i]);
+        }
+
+        block.append(new IfStatement("if (!isNull)")
+                .condition(new BytecodeBlock()
+                        .getVariable(scope.getVariable("isNull")))
+                .ifTrue(popBlock) // clear the stack before return
+                .ifFalse(new BytecodeBlock()
+                        .comment("input()")
+                        .append(invoke(callSiteBinder.bind(inputFunction), "input"))));
+
+        body.append(block);
+        body.ret();
+    }
+
+    private static BytecodeBlock generateInvokeFunctionOnIndex(
+            Scope scope,
+            Class<?>[] parameters,
+            List<ParameterMetadata> parameterMetadatas,
+            FieldDefinition stateField)
+    {
+        BytecodeBlock block = new BytecodeBlock();
+
+        block.comment("Read value from WindowIndex");
+        for (int i = 0; i < parameters.length; i++) {
+            ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
+            switch (parameterMetadata.getParameterType()) {
+                case STATE:
+                    block.append(scope.getThis().getField(stateField));
+                    break;
+                case BLOCK_INDEX:
+                    block.append(constantInt(0)); // index.getSingleValueBlock(channel, position) generates always a page with only one position
+                    break;
+                case BLOCK_INPUT_CHANNEL:
+                    block.append(generateReadBlockFromIndex(scope));
+                    block.append(checkIsBlockNull(scope));
+                    break;
+                case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    block.append(generateReadBlockFromIndex(scope));
+                    break;
+                case INPUT_CHANNEL:
+                    block.append(generateReadFromIndex(scope, parameters[i]));
+                    break;
+            }
+        }
+
+        return block;
+    }
+
+    // block should be on stack and 'isNull' variable should be available in scope
+    private static BytecodeNode checkIsBlockNull(Scope scope)
+    {
+        BytecodeBlock block = new BytecodeBlock();
+
+        Variable blockVariable = scope.getVariable("block");
+
+        block.putVariable(blockVariable);
+
+        block.append(new IfStatement("if(block.isNull(position))")
+                .condition(new BytecodeBlock()
+                        .getVariable(blockVariable)
+                        .append(constantInt(0)) // WindowIndex.getSingleBlockValue() generates block with only one position
+                        .invokeInterface(Block.class, "isNull", boolean.class, int.class))
+                .ifTrue(new BytecodeBlock()
+                        .comment("isNull = true")
+                        .append(constantTrue())
+                        .putVariable(scope.getVariable("isNull"))));
+
+        block.getVariable(blockVariable);
+
+        return block;
+    }
+
+    private static BytecodeNode generateReadBlockFromIndex(Scope scope)
+    {
+        BytecodeBlock block = new BytecodeBlock();
+
+        block.comment("index.getSingleValueBlock(channel, position)")
+                .append(scope.getVariable("index"))
+                .append(scope.getVariable("channel"))
+                .append(scope.getVariable("position"))
+                .invokeInterface(WindowIndex.class, "getSingleValueBlock", Block.class, int.class, int.class);
+
+        return block;
+    }
+
+    private static BytecodeBlock generateReadFromIndex(Scope scope, Class<?> parameterType)
+    {
+        Variable index = scope.getVariable("index");
+        Variable channel = scope.getVariable("channel");
+        Variable position = scope.getVariable("position");
+
+        BytecodeBlock block = new BytecodeBlock();
+
+        block.append(new IfStatement("if (index.isNull(channel, position))")
+                .condition(new BytecodeBlock()
+                        .append(index)
+                        .append(channel)
+                        .append(position)
+                        .invokeInterface(WindowIndex.class, "isNull", boolean.class, int.class, int.class))
+                .ifTrue(new BytecodeBlock()
+                        .comment("isNull = true")
+                        .append(constantTrue())
+                        .putVariable(scope.getVariable("isNull"))));
+
+        if (parameterType == long.class) {
+            block.comment("index.getLong(channel, position)")
+                    .append(index)
+                    .append(channel)
+                    .append(position)
+                    .invokeInterface(WindowIndex.class, "getLong", long.class, int.class, int.class);
+        }
+        else if (parameterType == double.class) {
+            block.comment("index.getDouble(channel, position)")
+                    .append(index)
+                    .append(channel)
+                    .append(position)
+                    .invokeInterface(WindowIndex.class, "getDouble", double.class, int.class, int.class);
+        }
+        else if (parameterType == boolean.class) {
+            block.comment("index.getBoolean(channel, position)")
+                    .append(index)
+                    .append(channel)
+                    .append(position)
+                    .invokeInterface(WindowIndex.class, "getBoolean", boolean.class, int.class, int.class);
+        }
+        else if (parameterType == Slice.class) {
+            block.comment("index.getSlice(channel, position)")
+                    .append(index)
+                    .append(channel)
+                    .append(position)
+                    .invokeInterface(WindowIndex.class, "getSlice", Slice.class, int.class, int.class);
+        }
+        else if (parameterType == Block.class) {
+            block.append(generateReadBlockFromIndex(scope));
+        }
+        else {
+            throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
+        }
+
+        return block;
     }
 
     private static BytecodeBlock generateInputForLoop(
