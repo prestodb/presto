@@ -8020,4 +8020,52 @@ public abstract class AbstractTestQueries
                         "WHERE a = 1)",
                 "VALUES 3008750");
     }
+
+    @Test
+    public void testLateralJoin()
+    {
+        assertQuery(
+                "SELECT nationkey, a FROM nation, LATERAL (SELECT max(region.name) FROM region WHERE region.regionkey <= nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
+                "VALUES (0, 'AFRICA')");
+
+        assertQuery(
+                "SELECT nationkey, a FROM nation, LATERAL (SELECT region.name || '_' FROM region WHERE region.regionkey = nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
+                "VALUES (0, 'AFRICA_')");
+
+        assertQuery(
+                "SELECT nationkey, a, b, name FROM nation, LATERAL (SELECT nationkey + 2 AS a), LATERAL (SELECT a * -1 AS b) ORDER BY b LIMIT 1",
+                "VALUES (24, 26, -26, 'UNITED STATES')");
+
+        assertQuery(
+                "SELECT * FROM region r, LATERAL (SELECT * FROM nation) n WHERE n.regionkey = r.regionkey",
+                "SELECT * FROM region, nation WHERE nation.regionkey = region.regionkey"
+        );
+        assertQuery(
+                "SELECT * FROM region, LATERAL (SELECT * FROM nation WHERE nation.regionkey = region.regionkey)",
+                "SELECT * FROM region, nation WHERE nation.regionkey = region.regionkey"
+        );
+
+        assertQuery(
+                "SELECT quantity, extendedprice, avg_price, low, high " +
+                "FROM lineitem, " +
+                "LATERAL (SELECT extendedprice / quantity AS avg_price) average_price, " +
+                "LATERAL (SELECT avg_price * 0.9 AS low) lower_bound, " +
+                "LATERAL (SELECT avg_price * 1.1 AS high) upper_bound " +
+                "LIMIT 1",
+                "VALUES (17.0, 24710.35, 1453.55, 1308.195, 1598.905)"
+        );
+
+        assertQuery(
+                "SELECT y FROM (VALUES array[2, 3]) a(x) CROSS JOIN LATERAL(SELECT x[1]) b(y)",
+                "SELECT 2");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x + 1)",
+                "SELECT 2, 3");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x)",
+                "SELECT 2, 2");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x, x + 1)",
+                "SELECT 2, 2, 3");
+    }
 }
