@@ -229,10 +229,15 @@ class SubqueryPlanner
             subPlan.getTranslations().put(coercion, coercionSymbol);
         }
 
+        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed);
+    }
+
+    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query node, boolean correlationAllowed)
+    {
         PlanNode subqueryNode = subqueryPlan.getRoot();
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
-            throwNotSupportedException(scalarSubquery.getQuery(), "Correlated subquery in given context");
+            throwNotSupportedException(node, "Correlated subquery in given context");
         }
         subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
@@ -436,7 +441,7 @@ class SubqueryPlanner
                 analysis.getParameters());
     }
 
-    private Map<Expression, Expression> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
+    public Map<Expression, Expression> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
     {
         Set<Expression> missingReferences = extractOuterColumnReferences(subquery);
         ImmutableMap.Builder<Expression, Expression> correlation = ImmutableMap.builder();
