@@ -54,7 +54,6 @@ import com.facebook.presto.sql.planner.optimizations.TransformExistsApplyToScala
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToScalarApply;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedApplyToJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
-import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedScalarToJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
@@ -93,7 +92,8 @@ public class PlanOptimizers
                 new TransformQuantifiedComparisonApplyToScalarApply(metadata),
                 new RemoveUnreferencedScalarInputApplyNodes(),
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                new TransformUncorrelatedScalarToJoin(),
+                new TransformUncorrelatedApplyToJoin(),
+                new TransformCorrelatedNoAggregationSubqueryToJoin(),
                 new TransformCorrelatedSingleRowSubqueryToProject(),
                 new TransformCorrelatedNoAggregationSubqueryToJoin(),
                 new TransformCorrelatedScalarAggregationToJoin(metadata),

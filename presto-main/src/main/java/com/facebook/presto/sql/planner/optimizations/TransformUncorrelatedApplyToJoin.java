@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TransformUncorrelatedScalarToJoin
+public class TransformUncorrelatedApplyToJoin
         implements PlanOptimizer
 {
     @Override
@@ -52,7 +52,7 @@ public class TransformUncorrelatedScalarToJoin
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.isResolvedScalarSubquery()) {
+            if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.isResolvedSubquery()) {
                 return new JoinNode(
                         idAllocator.getNextId(),
                         JoinNode.Type.INNER,
