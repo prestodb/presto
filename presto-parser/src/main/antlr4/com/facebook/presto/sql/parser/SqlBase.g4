@@ -234,6 +234,7 @@ relationPrimary
     : qualifiedName                                                   #tableName
     | '(' query ')'                                                   #subqueryRelation
     | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
+    | LATERAL '(' query ')'                                           #lateral
     | '(' relation ')'                                                #parenthesizedRelation
     ;
 
@@ -646,6 +647,7 @@ EXCLUDING: 'EXCLUDING';
 PROPERTIES: 'PROPERTIES';
 UESCAPE: 'UESCAPE';
 STATS: 'STATS';
+LATERAL: 'LATERAL';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

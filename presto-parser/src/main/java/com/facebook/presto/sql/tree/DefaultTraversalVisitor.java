@@ -606,4 +606,12 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return null;
     }
+
+    @Override
+    protected R visitLateral(Lateral node, C context)
+    {
+        process(node.getQuery(), context);
+
+        return super.visitLateral(node, context);
+    }
 }
