@@ -70,6 +70,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
@@ -580,6 +581,15 @@ class StatementAnalyzer
     }
 
     @Override
+    protected Scope visitLateral(Lateral node, Scope scope)
+    {
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
+        Scope queryScope = analyzer.process(node.getQuery(), scope);
+        analysis.setScope(node, queryScope);
+        return queryScope;
+    }
+
+    @Override
     protected Scope visitTable(Table table, Scope scope)
     {
         if (!table.getName().getPrefix().isPresent()) {
@@ -888,7 +898,7 @@ class StatementAnalyzer
         }
 
         Scope left = process(node.getLeft(), scope);
-        Scope right = process(node.getRight(), isUnnestRelation(node.getRight()) ? left : scope);
+        Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? left : scope);
 
         Scope output = createScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
 
@@ -1018,12 +1028,12 @@ class StatementAnalyzer
         return output;
     }
 
-    private static boolean isUnnestRelation(Relation node)
+    private static boolean isLateralRelation(Relation node)
     {
         if (node instanceof AliasedRelation) {
-            return isUnnestRelation(((AliasedRelation) node).getRelation());
+            return isLateralRelation(((AliasedRelation) node).getRelation());
         }
-        return node instanceof Unnest;
+        return node instanceof Unnest || node instanceof Lateral;
     }
 
     private void addCoercionForJoinCriteria(Join node, Expression leftExpression, Expression rightExpression)
