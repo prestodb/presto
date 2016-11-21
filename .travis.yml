@@ -89,6 +89,11 @@ script:
 #        singlenode-sqlserver -g sqlserver
 #    fi
   - |
+    if [[ -v PRODUCT_TESTS ]]; then
+      presto-product-tests/bin/run_on_docker.sh \
+        multinode-tls -g smoke,cli,group-by,join
+    fi
+  - |
     if [[ -v HIVE_TESTS ]]; then
       presto-hive-hadoop2/bin/run_on_docker.sh
     fi
