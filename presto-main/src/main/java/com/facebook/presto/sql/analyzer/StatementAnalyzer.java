@@ -73,6 +73,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
@@ -646,6 +647,14 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitLateral(Lateral node, Optional<Scope> scope)
+        {
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
+            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            return createAndAssignScope(node, scope, queryScope.getRelationType());
+        }
+
+        @Override
         protected Scope visitTable(Table table, Optional<Scope> scope)
         {
             if (!table.getName().getPrefix().isPresent()) {
@@ -1030,7 +1039,7 @@ class StatementAnalyzer
             }
 
             Scope left = process(node.getLeft(), scope);
-            Scope right = process(node.getRight(), isUnnestRelation(node.getRight()) ? Optional.of(left) : scope);
+            Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
 
             Scope output = createAndAssignScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
 
@@ -1086,12 +1095,12 @@ class StatementAnalyzer
             return output;
         }
 
-        private boolean isUnnestRelation(Relation node)
+        private boolean isLateralRelation(Relation node)
         {
             if (node instanceof AliasedRelation) {
-                return isUnnestRelation(((AliasedRelation) node).getRelation());
+                return isLateralRelation(((AliasedRelation) node).getRelation());
             }
-            return node instanceof Unnest;
+            return node instanceof Unnest || node instanceof Lateral;
         }
 
         private void addCoercionForJoinCriteria(Join node, Expression leftExpression, Expression rightExpression)

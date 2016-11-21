@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
@@ -230,12 +231,16 @@ class SubqueryPlanner
             subPlan.getTranslations().put(coercion, coercionSymbol);
         }
 
+        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed);
+    }
+
+    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed)
+    {
         PlanNode subqueryNode = subqueryPlan.getRoot();
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
-            throw notSupportedException(scalarSubquery.getQuery(), "Correlated subquery in given context");
+            throw notSupportedException(query, "Correlated subquery in given context");
         }
-        subPlan = subPlan.appendProjections(correlation.keySet(), symbolAllocator, idAllocator);
         subqueryNode = replaceExpressionsWithSymbols(subqueryNode, correlation);
 
         return new PlanBuilder(
