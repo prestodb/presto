@@ -6253,7 +6253,7 @@ public abstract class AbstractTestQueries
     {
         String errorMsg = "Unsupported correlated subquery type";
 
-        assertQueryFails("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", errorMsg);
+        assertQuery("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
         assertQueryFails("SELECT * FROM lineitem l WHERE 1 IN (SELECT 2 * l.orderkey)", errorMsg);
         assertQueryFails("SELECT * FROM lineitem l ORDER BY 1 IN (SELECT 2 * l.orderkey)", errorMsg);
