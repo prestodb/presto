@@ -6253,18 +6253,57 @@ public abstract class AbstractTestQueries
     {
         String errorMsg = "Unsupported correlated subquery type";
 
-        assertQuery("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l WHERE 1 IN (SELECT 2 * l.orderkey)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY 1 IN (SELECT 2 * l.orderkey)", errorMsg);
+        assertQuery(
+                "SELECT DISTINCT 1 IN (SELECT l.orderkey), l.orderkey FROM lineitem l",
+                "SELECT DISTINCT 1 =          l.orderkey, l.orderkey FROM lineitem l");
+        assertQueryFails(
+                "SELECT 1 IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey), l.orderkey FROM lineitem l",
+                errorMsg);
+        assertQuery(
+                "SELECT DISTINCT 4 IN (SELECT 2 * l.orderkey), l.orderkey FROM lineitem l",
+                "SELECT DISTINCT 4 =          2 * l.orderkey , l.orderkey FROM lineitem l");
+        assertQuery(
+                "SELECT l.orderkey FROM lineitem l WHERE 4 IN (SELECT 2 * l.orderkey)",
+                "SELECT l.orderkey FROM lineitem l WHERE 4 =          2 * l.orderkey");
+        assertQueryFails(
+                "SELECT * FROM lineitem l ORDER BY 1 IN (SELECT orderkey  FROM orders o WHERE o.orderkey = l.orderkey)",
+                errorMsg);
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) IN (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)", errorMsg);
+        assertQuery(
+                "SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey",
+                "SELECT max(l.quantity), 2 * l.orderkey, 1 =          l.orderkey  FROM lineitem l GROUP BY l.orderkey");
+        assertQueryFails(
+                "SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey) " +
+                        "FROM lineitem l " +
+                        "GROUP BY l.orderkey ",
+                errorMsg);
+        assertQuery(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey " +
+                        "HAVING max(l.orderkey) IN (SELECT l.orderkey) " +
+                        "ORDER BY l.orderkey LIMIT 1",
+                "VALUES (36.0, 2)");
+        assertQueryFails(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey " +
+                        "HAVING max(l.orderkey) IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey) ",
+                errorMsg);
+
+        assertQuery(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)",
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 = l.orderkey");
+        assertQueryFails(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l " +
+                        "GROUP BY l.orderkey, 1 IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey) ",
+                errorMsg);
 
         // join
-        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)", errorMsg);
+        assertQuery(
+                "SELECT count(*) FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)",
+                "SELECT count(*) FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey = l2.orderkey");
+        assertQueryFails(
+                "SELECT * FROM lineitem l1 JOIN lineitem l2 " +
+                        "ON l1.orderkey IN (SELECT orderkey FROM orders o WHERE o.orderkey = l2.orderkey)",
+                errorMsg);
 
         // subrelation
         assertQueryFails("SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT 1 IN (SELECT 2 * l.orderkey)))", errorMsg);
