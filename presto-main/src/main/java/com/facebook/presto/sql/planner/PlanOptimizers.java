@@ -54,6 +54,8 @@ import com.facebook.presto.sql.planner.optimizations.TransformExistsApplyToLater
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedLateralToJoin;
+import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedSingleRowSubqueryToProject;
+import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedApplyToJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;

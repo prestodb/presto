@@ -96,15 +96,6 @@ public class ApplyNode
                 expression instanceof QuantifiedComparisonExpression;
     }
 
-    /**
-     * @return true when subquery is scalar and it's output symbols are directly mapped to ApplyNode output symbols
-     */
-    public boolean isResolvedScalarSubquery()
-    {
-        return isScalar(subquery) && subqueryAssignments.getExpressions().stream()
-                .allMatch(expression -> expression instanceof SymbolReference);
-    }
-
     @JsonProperty("input")
     public PlanNode getInput()
     {
