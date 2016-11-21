@@ -1266,7 +1266,6 @@ class StatementAnalyzer
                     // to catch any semantic errors (due to type mismatch, etc)
                     Scope synthetic = Scope.builder()
                             .withParent(sourceScope)
-                            .markQueryBoundary() // this is needed because of how the field resolution walks scopes
                             .withRelationType(outputScope.getRelationType())
                             .build();
 
