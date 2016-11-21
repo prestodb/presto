@@ -7,10 +7,10 @@ The HDFS Connector turns HDFS into a reliable and scalable storage for data with
 After analyzing implementations of other connectors such as Hive and JDBC, we give a guidance on how to implement your
 own connector.
 
-### Tips Ahead
-Set up Maven and don't forget to read `checkstyle` carefully.
+### Tips 
+Set up Maven and don't forget to read __`checkstyle`__ carefully.
 
-### Design
+### Design & Implementation
 When implementing a new Presto plugin, implement interfaces and override methods defined by the SPI.
 
 Plugins can provide additional Connectors, Types, Functions and System Access Control. Currently, we focus on Connector
@@ -88,7 +88,5 @@ Methods in detail:
 + __`createPageSource`__: given Split and list of ColumnHandle, return PageSource
 
 #### ParquetReader
-
-### Implementation
 
 ### Roadmap
