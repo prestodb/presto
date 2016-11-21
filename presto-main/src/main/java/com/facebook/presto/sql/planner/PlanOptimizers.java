@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.optimizations.RemoveUnreferencedScalarInp
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
+import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedNoAggregationSubqueryToJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedSingleRowSubqueryToProject;
 import com.facebook.presto.sql.planner.optimizations.TransformExistsApplyToScalarApply;
@@ -94,6 +95,7 @@ public class PlanOptimizers
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                 new TransformUncorrelatedScalarToJoin(),
                 new TransformCorrelatedSingleRowSubqueryToProject(),
+                new TransformCorrelatedNoAggregationSubqueryToJoin(),
                 new TransformCorrelatedScalarAggregationToJoin(metadata),
                 new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),
