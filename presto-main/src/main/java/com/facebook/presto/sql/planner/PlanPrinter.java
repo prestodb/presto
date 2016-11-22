@@ -942,7 +942,7 @@ public class PlanPrinter
         @Override
         public Void visitAssignUniqueId(AssignUniqueId node, Integer indent)
         {
-            print(indent, "- AssignUniqueId => [%s] %s", formatOutputs(node.getOutputSymbols()), node);
+            print(indent, "- AssignUniqueId => [%s] %s", formatOutputs(node.getOutputSymbols()), formatCost(node));
             printStats(indent + 2, node.getId());
 
             return processChildren(node, indent + 1);
