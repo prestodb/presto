@@ -24,16 +24,17 @@ import static java.util.Objects.requireNonNull;
 public final class DiscretePredicates
 {
     private final List<ColumnHandle> columns;
-    private final List<TupleDomain<ColumnHandle>> predicates;
+    private final Iterable<TupleDomain<ColumnHandle>> predicates;
 
-    public DiscretePredicates(List<ColumnHandle> columns, List<TupleDomain<ColumnHandle>> predicates)
+    public DiscretePredicates(List<ColumnHandle> columns, Iterable<TupleDomain<ColumnHandle>> predicates)
     {
         requireNonNull(columns, "columns is null");
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns is empty");
         }
         this.columns = unmodifiableList(new ArrayList<>(columns));
-        this.predicates = unmodifiableList(new ArrayList<>(requireNonNull(predicates, "predicates is null")));
+        // do not copy predicates because it may be lazy
+        this.predicates = requireNonNull(predicates, "predicates is null");
     }
 
     public List<ColumnHandle> getColumns()
@@ -41,7 +42,7 @@ public final class DiscretePredicates
         return columns;
     }
 
-    public List<TupleDomain<ColumnHandle>> getPredicates()
+    public Iterable<TupleDomain<ColumnHandle>> getPredicates()
     {
         return predicates;
     }

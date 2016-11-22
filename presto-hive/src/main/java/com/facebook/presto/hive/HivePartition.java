@@ -69,11 +69,6 @@ public class HivePartition
         return partitionId;
     }
 
-    public TupleDomain<ColumnHandle> getTupleDomain()
-    {
-        return TupleDomain.fromFixedValues(keys);
-    }
-
     public Map<ColumnHandle, NullableValue> getKeys()
     {
         return keys;

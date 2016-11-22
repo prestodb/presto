@@ -945,7 +945,6 @@ public abstract class AbstractTestHiveClient
             assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
             assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
             assertEquals(actualPartition.getBuckets(), expectedPartition.getBuckets());
-            assertEquals(actualPartition.getTupleDomain(), expectedPartition.getTupleDomain());
         }
     }
 
