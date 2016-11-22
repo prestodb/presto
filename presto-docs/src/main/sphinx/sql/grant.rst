@@ -51,3 +51,4 @@ See Also
 --------
 
 :doc:`revoke`
+:doc:`show-grants`
