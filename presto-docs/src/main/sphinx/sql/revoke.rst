@@ -51,3 +51,4 @@ See Also
 --------
 
 :doc:`grant`
+:doc:`show-grants`
