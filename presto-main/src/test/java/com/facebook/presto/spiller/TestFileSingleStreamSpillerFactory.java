@@ -40,6 +40,8 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
+import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static org.testng.Assert.assertEquals;
 
@@ -123,5 +125,37 @@ public class TestFileSingleStreamSpillerFactory
                 0.0);
 
         spillerFactory.create(types, bytes -> { }, new AggregatedMemoryContext().newLocalMemoryContext());
+    }
+
+    @Test
+    public void testCleanupOldSpillFiles()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry(ImmutableSet.copyOf(types)));
+        List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
+        spillPath1.mkdirs();
+        spillPath2.mkdirs();
+
+        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        java.nio.file.Files.createTempFile(spillPath1.toPath(), SPILL_FILE_PREFIX, "blah");
+        java.nio.file.Files.createTempFile(spillPath2.toPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
+        java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", SPILL_FILE_SUFFIX);
+        java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", "blah");
+
+        assertEquals(FileUtils.listFiles(spillPath1).size(), 3);
+        assertEquals(FileUtils.listFiles(spillPath2).size(), 3);
+
+        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                executor,
+                blockEncodingSerde,
+                new SpillerStats(),
+                spillPaths,
+                1.0);
+        spillerFactory.cleanupOldSpillFiles();
+
+        assertEquals(FileUtils.listFiles(spillPath1).size(), 1);
+        assertEquals(FileUtils.listFiles(spillPath2).size(), 2);
     }
 }

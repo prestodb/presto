@@ -21,11 +21,16 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
+
+import javax.annotation.PostConstruct;
 
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.Path;
 import java.util.List;
@@ -34,13 +39,23 @@ import static com.facebook.presto.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.nio.file.Files.delete;
 import static java.nio.file.Files.getFileStore;
+import static java.nio.file.Files.newDirectoryStream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class FileSingleStreamSpillerFactory
         implements SingleStreamSpillerFactory
 {
+    private static final Logger log = Logger.get(FileSingleStreamSpillerFactory.class);
+
+    @VisibleForTesting
+    static final String SPILL_FILE_PREFIX = "spill";
+    @VisibleForTesting
+    static final String SPILL_FILE_SUFFIX = ".bin";
+    private static final String SPILL_FILE_GLOB = "spill*.bin";
+
     private final ListeningExecutorService executor;
     private final PagesSerdeFactory serdeFactory;
     private final List<Path> spillPaths;
@@ -77,6 +92,30 @@ public class FileSingleStreamSpillerFactory
         spillPaths.forEach(path -> path.toFile().mkdirs());
         this.minimumFreeSpaceThreshold = requireNonNull(maxUsedSpaceThreshold, "maxUsedSpaceThreshold can not be null");
         this.roundRobinIndex = 0;
+    }
+
+    @PostConstruct
+    public void cleanupOldSpillFiles()
+    {
+        spillPaths.forEach(FileSingleStreamSpillerFactory::cleanupOldSpillFiles);
+    }
+
+    private static void cleanupOldSpillFiles(Path path)
+    {
+        try (DirectoryStream<Path> stream = newDirectoryStream(path, SPILL_FILE_GLOB)) {
+            stream.forEach(spillFile -> {
+                try {
+                    log.info("Deleting old spill file: " + spillFile);
+                    delete(spillFile);
+                }
+                catch (Exception e) {
+                    log.warn("Could not cleanup old spill file: " + spillFile);
+                }
+            });
+        }
+        catch (IOException e) {
+            log.warn(e, "Error cleaning spill files");
+        }
     }
 
     @Override
