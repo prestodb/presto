@@ -68,6 +68,8 @@ import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
@@ -562,11 +564,28 @@ public class HiveMetadata
     private PartitionStatistics readStatisticsFromParameters(Map<String, String> parameters, Map<String, ColumnStatistics> columnStatistics)
     {
         boolean columnStatsAcurate = Boolean.valueOf(Optional.ofNullable(parameters.get("COLUMN_STATS_ACCURATE")).orElse("false"));
-        Optional<Long> numFiles = Optional.ofNullable(parameters.get("numFiles")).map(Long::valueOf);
-        Optional<Long> numRows = Optional.ofNullable(parameters.get("numRows")).map(Long::valueOf);
-        Optional<Long> rawDataSize = Optional.ofNullable(parameters.get("rawDataSize")).map(Long::valueOf);
-        Optional<Long> totalSize = Optional.ofNullable(parameters.get("totalSize")).map(Long::valueOf);
+        Optional<Long> numFiles = convertStringParameter(parameters.get("numFiles"));
+        Optional<Long> numRows = convertStringParameter(parameters.get("numRows"));
+        Optional<Long> rawDataSize = convertStringParameter(parameters.get("rawDataSize"));
+        Optional<Long> totalSize = convertStringParameter(parameters.get("totalSize"));
         return new PartitionStatistics(columnStatsAcurate, numFiles, numRows, rawDataSize, totalSize, columnStatistics);
+    }
+
+    private Optional<Long> convertStringParameter(@Nullable String parameterValue)
+    {
+        if (parameterValue == null) {
+            return Optional.empty();
+        }
+        try {
+            Long longValue = Long.valueOf(parameterValue);
+            if (longValue < 0) {
+                return Optional.empty();
+            }
+            return Optional.of(longValue);
+        }
+        catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
