@@ -21,8 +21,10 @@ import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.sql.relational.Signatures.TRY;
 import static com.google.common.base.Preconditions.checkState;
@@ -31,7 +33,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class TryExpressionExtractor
         implements RowExpressionVisitor<Scope, BytecodeNode>
 {
-    private final ImmutableList.Builder<CallExpression> tryExpressions = ImmutableList.builder();
+    private final Set<CallExpression> tryExpressions = Sets.newLinkedHashSet();
 
     @Override
     public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
@@ -65,6 +67,6 @@ public class TryExpressionExtractor
 
     public List<CallExpression> getTryExpressionsPreOrder()
     {
-        return tryExpressions.build().reverse();
+        return ImmutableList.copyOf(tryExpressions).reverse();
     }
 }
