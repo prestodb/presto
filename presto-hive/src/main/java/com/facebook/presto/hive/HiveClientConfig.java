@@ -65,6 +65,8 @@ public class HiveClientConfig
 
     private Duration metastoreCacheTtl = new Duration(1, TimeUnit.HOURS);
     private Duration metastoreRefreshInterval = new Duration(1, TimeUnit.SECONDS);
+    private long metastoreCacheMaximumSize = 10000;
+    private long perTransactionMetastoreCacheMaximumSize = 1000;
     private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
@@ -311,6 +313,32 @@ public class HiveClientConfig
     public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
         this.metastoreRefreshInterval = metastoreRefreshInterval;
+        return this;
+    }
+
+    public long getMetastoreCacheMaximumSize()
+    {
+        return metastoreCacheMaximumSize;
+    }
+
+    @Min(1)
+    @Config("hive.metastore-cache-maximum-size")
+    public HiveClientConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
+    {
+        this.metastoreCacheMaximumSize = metastoreCacheMaximumSize;
+        return this;
+    }
+
+    public long getPerTransactionMetastoreCacheMaximumSize()
+    {
+        return perTransactionMetastoreCacheMaximumSize;
+    }
+
+    @Min(1)
+    @Config("hive.per-transaction-metastore-cache-maximum-size")
+    public HiveClientConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
+    {
+        this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
         return this;
     }
 
