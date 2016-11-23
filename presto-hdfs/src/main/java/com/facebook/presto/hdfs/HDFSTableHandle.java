@@ -14,6 +14,13 @@
 package com.facebook.presto.hdfs;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.SchemaTableName;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author jelly.guodong.jin@gmail.com
@@ -21,4 +28,68 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 public class HDFSTableHandle
 implements ConnectorTableHandle
 {
+    private final String clientId;
+    private final String schemaName;
+    private final String tableName;
+
+    @JsonCreator
+    public HDFSTableHandle(
+            @JsonProperty("clientId") String clientId,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName)
+    {
+        this.clientId = requireNonNull(clientId, "clientId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+    }
+
+    @JsonProperty
+    public String getClientId()
+    {
+        return clientId;
+    }
+
+    @JsonProperty
+    public String getSchemaName()
+    {
+        return schemaName;
+    }
+
+    @JsonProperty
+    public String getTableName()
+    {
+        return tableName;
+    }
+
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(schemaName, tableName);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(clientId, schemaName, tableName);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        HDFSTableHandle other = (HDFSTableHandle) obj;
+        return Objects.equals(this.clientId, other.clientId) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName);
+    }
+
+    @Override
+    public String toString()
+    {
+        return clientId + "." + schemaName + "." + tableName;
+    }
 }
