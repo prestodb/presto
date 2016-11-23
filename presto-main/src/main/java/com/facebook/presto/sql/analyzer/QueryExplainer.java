@@ -130,7 +130,7 @@ public class QueryExplainer
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    private Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
     {
         // analyze statement
         Analysis analysis = analyze(session, statement, parameters);

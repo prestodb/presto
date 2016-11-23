@@ -85,6 +85,7 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -673,7 +674,73 @@ class AstBuilder
     @Override
     public Node visitShowStats(SqlBaseParser.ShowStatsContext context)
     {
-        return new ShowStats(getLocation(context), getQualifiedName(context.qualifiedName()));
+        return new ShowStats(Optional.of(getLocation(context)), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitShowStatsParametrized(SqlBaseParser.ShowStatsParametrizedContext context)
+    {
+        // The following properties of SELECT subquery are required:
+        //  - only one relation in FROM
+        //  - only plain columns in projection
+        //  - only plain columns and constants in WHERE
+        //  - no group by
+        //  - no having
+        //  - no set quantifier
+        List<SqlBaseParser.RelationContext> relations = context.querySpecification().relation();
+        check(relations.size() != 0, "There must be exactly one relation in SHOW STATS SELECT clause", context.querySpecification());
+        check(relations.size() == 1, "There must be exactly one relation in SHOW STATS SELECT clause", context.querySpecification().relation(1));
+        check(context.querySpecification().groupBy() == null, "GROUP BY is not supported in SHOW STATS SELECT clause", context.querySpecification().groupBy());
+        check(context.querySpecification().having == null, "HAVING is not supported in SHOW STATS SELECT clause", context.querySpecification().having);
+        check(context.querySpecification().setQuantifier() == null, "ALL/DISTINCT are not supported by SHOW STATS SELECT clause", context.querySpecification().setQuantifier());
+
+        QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
+        int selectId = 0;
+        for (SelectItem selectItem : specification.getSelect().getSelectItems()) {
+            if (selectItem instanceof AllColumns) {
+                continue;
+            }
+            check(selectItem instanceof SingleColumn, "Only * and column references are supported by SHOW STATS SELECT clause", context.querySpecification().selectItem(selectId));
+
+            SingleColumn columnSelect = (SingleColumn) selectItem;
+            check(columnSelect.getExpression() instanceof Identifier, "Only * and column references are supported by SHOW STATS SELECT clause", context.querySpecification().selectItem(selectId));
+
+            selectId++;
+        }
+
+        if (specification.getWhere().isPresent()) {
+            validateShowStatsWhereExpression(specification.getWhere().get(), context.querySpecification().where);
+        }
+
+        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty());
+
+        return new ShowStats(Optional.of(getLocation(context)), query);
+    }
+
+    public static final List<Class<? extends Expression>> ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES = ImmutableList.of(
+            Literal.class, Identifier.class, ComparisonExpression.class, LogicalBinaryExpression.class, NotExpression.class, IsNullPredicate.class, IsNotNullPredicate.class);
+
+    void validateShowStatsWhereExpression(Expression expression, ParserRuleContext context)
+    {
+        check(ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES.stream().anyMatch(clazz -> clazz.isInstance(expression)), "Only literals, column references, comparators, is (not) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause", context);
+
+        if (expression instanceof NotExpression) {
+            validateShowStatsWhereExpression(((NotExpression) expression).getValue(), context);
+        }
+        else if (expression instanceof LogicalBinaryExpression) {
+            validateShowStatsWhereExpression(((LogicalBinaryExpression) expression).getLeft(), context);
+            validateShowStatsWhereExpression(((LogicalBinaryExpression) expression).getRight(), context);
+        }
+        else if (expression instanceof ComparisonExpression) {
+            validateShowStatsWhereExpression(((ComparisonExpression) expression).getLeft(), context);
+            validateShowStatsWhereExpression(((ComparisonExpression) expression).getRight(), context);
+        }
+        else if (expression instanceof IsNullPredicate) {
+            validateShowStatsWhereExpression(((IsNullPredicate) expression).getValue(), context);
+        }
+        else if (expression instanceof IsNotNullPredicate) {
+            validateShowStatsWhereExpression(((IsNotNullPredicate) expression).getValue(), context);
+        }
     }
 
     @Override

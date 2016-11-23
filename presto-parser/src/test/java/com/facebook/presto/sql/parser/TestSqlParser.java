@@ -89,6 +89,8 @@ import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowPartitions;
@@ -119,6 +121,7 @@ import com.google.common.collect.Lists;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.identifier;
@@ -135,6 +138,8 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.negative;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.positive;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
@@ -1684,16 +1689,105 @@ public class TestSqlParser
     }
 
     @Test
-    public void testShowColumnStats()
+    public void testShowStats()
     {
         final String[] tableNames = {"t", "s.t", "c.s.t"};
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
             assertStatement(format("SHOW STATS %s", qualifiedName), new ShowStats(qualifiedName));
-            assertStatement(format("SHOW STATS FROM %s", qualifiedName), new ShowStats(qualifiedName));
-            assertStatement(format("SHOW STATS IN %s", qualifiedName), new ShowStats(qualifiedName));
+            assertStatement(format("SHOW STATS FOR %s", qualifiedName), new ShowStats(qualifiedName));
+            assertStatement(format("SHOW STATS ON %s", qualifiedName), new ShowStats(qualifiedName));
         }
+    }
+
+    @Test
+    public void testShowStatsParametrized()
+    {
+        final String[] tableNames = {"t", "s.t", "c.s.t"};
+
+        for (String fullName : tableNames) {
+            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
+                    createShowStats(qualifiedName, ImmutableList.of(new AllColumns()), Optional.empty()));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
+                    createShowStats(qualifiedName,
+                            ImmutableList.of(new AllColumns()),
+                            Optional.of(
+                                    new ComparisonExpression(GREATER_THAN,
+                                            new Identifier("field"),
+                                            new LongLiteral("0")))));
+            assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0 or field < 0)", qualifiedName),
+                    createShowStats(qualifiedName,
+                            ImmutableList.of(new AllColumns()),
+                            Optional.of(
+                                    new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
+                                        new ComparisonExpression(GREATER_THAN,
+                                                new Identifier("field"),
+                                                new LongLiteral("0")),
+                                            new ComparisonExpression(LESS_THAN,
+                                                    new Identifier("field"),
+                                                    new LongLiteral("0"))
+                                            )
+                                    )));
+        }
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*There must be exactly one relation in SHOW STATS SELECT clause")
+    public void testShowStatsWithoutFromFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT 1)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*There must be exactly one relation in SHOW STATS SELECT clause")
+    public void testShowStatsWithMultipleFromFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT * FROM t1, t2)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*GROUP BY is not supported in SHOW STATS SELECT clause")
+    public void testShowStatsWithGroupByFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT avg(f) FROM t1 GROUP BY t2)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*HAVING is not supported in SHOW STATS SELECT clause")
+    public void testShowStatsWithHavingFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT avg(f1) FROM t1 HAVING avg(f1) < f2)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*ALL/DISTINCT are not supported by SHOW STATS SELECT clause")
+    public void testShowStatsWithSelectAllFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT ALL * FROM t1)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*ALL/DISTINCT are not supported by SHOW STATS SELECT clause")
+    public void testShowStatsWithSelectDistinctFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT DISTINCT * FROM t1)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*Only \\* and column references are supported by SHOW STATS SELECT clause")
+    public void testShowStatsWithSelectFunctionCallFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT sin(x) FROM t1)");
+    }
+
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause")
+    public void testShowStatsWithWhereFunctionCallFails()
+    {
+        SQL_PARSER.createStatement("SHOW STATS FOR (SELECT x FROM t1 WHERE sin(x) > 0)");
+    }
+
+    private ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
+    {
+        return new ShowStats(
+                simpleQuery(new Select(false, selects),
+                            new Table(name),
+                            where,
+                            Optional.empty()));
     }
 
     @Test
@@ -1740,7 +1834,7 @@ public class TestSqlParser
     {
         assertExpression("col1 < ANY (SELECT col2 FROM table1)",
                 new QuantifiedComparisonExpression(
-                        ComparisonExpressionType.LESS_THAN,
+                        LESS_THAN,
                         QuantifiedComparisonExpression.Quantifier.ANY,
                         identifier("col1"),
                         new SubqueryExpression(simpleQuery(selectList(new SingleColumn(identifier("col2"))), table(QualifiedName.of("table1"))))
