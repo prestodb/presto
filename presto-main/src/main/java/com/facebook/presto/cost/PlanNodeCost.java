@@ -15,6 +15,7 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.statistics.Estimate;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.statistics.Estimate.unknownValue;
@@ -51,6 +52,32 @@ public class PlanNodeCost
     public PlanNodeCost mapOutputSizeInBytes(Function<Double, Double> mappingFunction)
     {
         return builder().setFrom(this).setOutputSizeInBytes(outputRowCount.map(mappingFunction)).build();
+    }
+
+    @Override
+    public String toString()
+    {
+        return "PlanNodeCost{outputRowCount=" + outputRowCount + ", outputSizeInBytes=" + outputSizeInBytes + '}';
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PlanNodeCost that = (PlanNodeCost) o;
+        return Objects.equals(outputRowCount, that.outputRowCount) &&
+                Objects.equals(outputSizeInBytes, that.outputSizeInBytes);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(outputRowCount, outputSizeInBytes);
     }
 
     public static Builder builder()
