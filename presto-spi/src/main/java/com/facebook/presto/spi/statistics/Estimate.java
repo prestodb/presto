@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spi.statistics;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 import static java.lang.Double.isNaN;
@@ -56,5 +57,30 @@ public final class Estimate
         else {
             return new Estimate(mappingFunction.apply(value));
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "Estimate{value=" + value + '}';
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Estimate estimate = (Estimate) o;
+        return Double.compare(estimate.value, value) == 0;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(value);
     }
 }
