@@ -15,8 +15,12 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.plan.PlanNode;
+
+import java.util.Map;
 
 import static com.facebook.presto.sql.planner.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
@@ -31,7 +35,8 @@ public final class PlanAssert
     {
         requireNonNull(actual, "root is null");
 
-        boolean matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata), new PlanMatchingContext(pattern));
+        Map<PlanNode, PlanNodeCost> planCost = costCalculator.calculateCostForPlan(session, actual.getTypes(), actual.getRoot());
+        boolean matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, planCost), new PlanMatchingContext(pattern));
         if (!matches) {
             String logicalPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, costCalculator, session);
             assertTrue(matches, format("Plan does not match:\n %s\n, to pattern:\n%s", logicalPlan, pattern));

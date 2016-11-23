@@ -14,10 +14,12 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -36,7 +38,7 @@ final class SymbolMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, Map<PlanNode, PlanNodeCost> planCost, ExpressionAliases expressionAliases)
     {
         Symbol symbol = null;
         for (Symbol outputSymbol : node.getOutputSymbols()) {

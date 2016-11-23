@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -47,7 +48,7 @@ final class TableScanMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean matches(PlanNode node, Session session, Metadata metadata, Map<PlanNode, PlanNodeCost> planCost, ExpressionAliases expressionAliases)
     {
         if (node instanceof TableScanNode) {
             TableScanNode tableScanNode = (TableScanNode) node;

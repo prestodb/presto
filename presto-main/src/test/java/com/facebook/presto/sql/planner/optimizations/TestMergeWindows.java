@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.cost.CoefficientBasedCostCalculator;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -128,8 +129,8 @@ public class TestMergeWindows
                                                 anyNot(WindowNode.class,
                                                         anyTree())))));
 
-        Plan actualPlan = queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
         queryRunner.inTransaction(transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
             return null;
         });
@@ -415,23 +416,23 @@ public class TestMergeWindows
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        Plan actualPlan = unitPlan(sql);
         queryRunner.inTransaction(transactionSession -> {
+            Plan actualPlan = unitPlan(transactionSession, sql);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
             return null;
         });
     }
 
-    private Plan unitPlan(@Language("SQL") String sql)
+    private Plan unitPlan(Session session, @Language("SQL") String sql)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                        new UnaliasSymbolReferences(),
-                        new PruneIdentityProjections(),
-                        new MergeWindows(),
-                        new PruneUnreferencedOutputs());
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers));
+                new UnaliasSymbolReferences(),
+                new PruneIdentityProjections(),
+                new MergeWindows(),
+                new PruneUnreferencedOutputs());
+        return queryRunner.createPlan(session, sql, featuresConfig, optimizers);
     }
 }

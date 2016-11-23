@@ -94,9 +94,9 @@ public class TestMixedDistinctAggregationOptimizer
                 new PruneIdentityProjections(),
                 new OptimizeMixedDistinctAggregations(queryRunner.getMetadata()),
                 new PruneUnreferencedOutputs());
-        Plan actualPlan = queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, new FeaturesConfig(), optimizerProvider));
 
         queryRunner.inTransaction(transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, new FeaturesConfig(), optimizerProvider);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, expectedPlanPattern);
             return null;
         });
