@@ -51,6 +51,7 @@
         <dep.slice.version>0.27</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
         <dep.tempto.version>1.18</dep.tempto.version>
+        <dep.zookeeper.version>3.4.6</dep.zookeeper.version>
 
         <!--
         Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
@@ -722,7 +723,7 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.4.6</version>
+                <version>${dep.zookeeper.version}</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>junit</artifactId>
