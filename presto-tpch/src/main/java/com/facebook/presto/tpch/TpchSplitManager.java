@@ -45,7 +45,8 @@ public class TpchSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        TpchTableHandle tableHandle = checkType(layout, TpchTableLayoutHandle.class, "layout").getTable();
+        TpchTableLayoutHandle tableLayoutHandle = checkType(layout, TpchTableLayoutHandle.class, "layout");
+        TpchTableHandle tableHandle = tableLayoutHandle.getTable();
 
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 
@@ -56,7 +57,7 @@ public class TpchSplitManager
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (Node node : nodes) {
             for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpchSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort())));
+                splits.add(new TpchSplit(tableHandle, partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), tableLayoutHandle.getPredicate()));
                 partNumber++;
             }
         }
