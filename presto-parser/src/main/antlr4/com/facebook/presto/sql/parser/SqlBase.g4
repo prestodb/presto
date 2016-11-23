@@ -67,7 +67,8 @@ statement
     | SHOW SCHEMAS ((FROM | IN) identifier)? (LIKE pattern=STRING)?    #showSchemas
     | SHOW CATALOGS (LIKE pattern=STRING)?                             #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName                           #showColumns
-    | SHOW STATS (FROM | IN)? qualifiedName                            #showStats
+    | SHOW STATS (FOR | ON)? qualifiedName                             #showStats
+    | SHOW STATS (FOR | ON)? '(' querySpecification ')'                #showStatsParametrized
     | DESCRIBE qualifiedName                                           #showColumns
     | DESC qualifiedName                                               #showColumns
     | SHOW FUNCTIONS                                                   #showFunctions

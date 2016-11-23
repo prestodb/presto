@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.metadata.TableLayoutHandle;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
@@ -33,8 +32,6 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.statistics.ColumnStatistics;
-import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -65,7 +62,6 @@ import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
 import com.facebook.presto.sql.tree.ShowSession;
-import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -78,12 +74,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeSet;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_INTERNAL_PARTITIONS;
@@ -117,9 +111,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
-import static com.facebook.presto.sql.rewrite.ShowColumnStatsRewriteResultBuilder.buildColumnsNames;
-import static com.facebook.presto.sql.rewrite.ShowColumnStatsRewriteResultBuilder.buildSelectItems;
-import static com.facebook.presto.sql.rewrite.ShowColumnStatsRewriteResultBuilder.buildStatisticsRows;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ShowCreate.Type.TABLE;
@@ -129,7 +120,6 @@ import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
-import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -146,7 +136,7 @@ final class ShowQueriesRewrite
             List<Expression> parameters,
             AccessControl accessControl)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters, queryExplainer).process(node, null);
     }
 
     private static class Visitor
@@ -156,13 +146,15 @@ final class ShowQueriesRewrite
         private final Session session;
         private final SqlParser sqlParser;
         List<Expression> parameters;
+        Optional<QueryExplainer> queryExplainer;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
+            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         }
 
         @Override
@@ -484,60 +476,6 @@ final class ShowQueriesRewrite
                     return "scalar";
             }
             throw new IllegalArgumentException("Unsupported function kind: " + kind);
-        }
-
-        @Override
-        protected Node visitShowStats(ShowStats node, Void context)
-        {
-            QualifiedName table = node.getTable();
-            TableStatistics tableStatistics = getTableStatistics(node, table);
-
-            List<String> statisticsNames = findUniqueStatisticsNames(tableStatistics);
-
-            List<String> resultColumnNames = buildColumnsNames(statisticsNames);
-            SelectItem[] selectItems = buildSelectItems(resultColumnNames);
-
-            Map<ColumnHandle, String> columnNames = getStatisticsColumnNames(tableStatistics, node, table);
-            List<Expression> resultRows = buildStatisticsRows(tableStatistics, columnNames, statisticsNames);
-
-            return simpleQuery(selectList(selectItems), aliased(new Values(resultRows), "table_stats_for_" + table, resultColumnNames));
-        }
-
-        private Map<ColumnHandle, String> getStatisticsColumnNames(TableStatistics statistics, ShowStats node, QualifiedName tableName)
-        {
-            ImmutableMap.Builder<ColumnHandle, String> resultBuilder = ImmutableMap.builder();
-            TableHandle tableHandle = getTableHandle(node, tableName);
-
-            for (ColumnHandle column : statistics.getColumnStatistics().keySet()) {
-                resultBuilder.put(column, metadata.getColumnMetadata(session, tableHandle, column).getName());
-            }
-
-            return resultBuilder.build();
-        }
-
-        private TableStatistics getTableStatistics(ShowStats node, QualifiedName table)
-        {
-            TableHandle tableHandle = getTableHandle(node, table);
-            List<TableLayoutResult> tableLayouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-            TableLayoutHandle tableLayoutHandle = tableLayouts.get(0).getLayout().getHandle();
-            return metadata.getTableStatistics(session, tableHandle, tableLayoutHandle);
-        }
-
-        private TableHandle getTableHandle(ShowStats node, QualifiedName table)
-        {
-            QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
-            return metadata.getTableHandle(session, qualifiedTableName)
-                    .orElseThrow(() -> new SemanticException(MISSING_TABLE, node, "Table %s not found", table));
-        }
-
-        private static List<String> findUniqueStatisticsNames(TableStatistics tableStatistics)
-        {
-            TreeSet<String> statisticsKeys = new TreeSet<>();
-            statisticsKeys.addAll(tableStatistics.getTableStatistics().keySet());
-            for (ColumnStatistics columnStats : tableStatistics.getColumnStatistics().values()) {
-                statisticsKeys.addAll(columnStats.getStatistics().keySet());
-            }
-            return unmodifiableList(new ArrayList(statisticsKeys));
         }
 
         @Override
