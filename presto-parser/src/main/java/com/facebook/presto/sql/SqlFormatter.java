@@ -641,9 +641,9 @@ public final class SqlFormatter
         @Override
         protected Void visitShowStats(ShowStats node, Integer context)
         {
-            builder.append("SHOW STATS FROM ")
-                    .append(node.getTable());
-
+            builder.append("SHOW STATS FOR (");
+            visitQuery(node.getQuery(), 0);
+            builder.append(")");
             return null;
         }
 
