@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -24,6 +25,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -36,11 +38,13 @@ final class PlanMatchingVisitor
 {
     private final Metadata metadata;
     private final Session session;
+    private final Map<PlanNode, PlanNodeCost> planCost;
 
-    PlanMatchingVisitor(Session session, Metadata metadata)
+    PlanMatchingVisitor(Session session, Metadata metadata, Map<PlanNode, PlanNodeCost> planCost)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.planCost = requireNonNull(planCost, "planCost is null");
     }
 
     @Override

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.predicate.Domain;
@@ -275,6 +276,11 @@ public final class PlanMatchPattern
         }
 
         return match(newAliases.build());
+    }
+
+    public PlanMatchPattern withCost(PlanNodeCost cost)
+    {
+        return with(new PlanCostMatcher(cost));
     }
 
     public PlanMatchPattern with(Matcher matcher)
