@@ -13,6 +13,9 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <main-class>com.facebook.presto.orc.checksum.OrcFileChecksum</main-class>
+        <cli.skip-execute>false</cli.skip-execute>
+        <cli.main-class>${main-class}</cli.main-class>
     </properties>
 
     <dependencies>
