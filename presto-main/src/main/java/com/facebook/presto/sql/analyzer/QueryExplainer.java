@@ -124,7 +124,7 @@ public class QueryExplainer
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    private Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
     {
         // analyze statement
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters);
