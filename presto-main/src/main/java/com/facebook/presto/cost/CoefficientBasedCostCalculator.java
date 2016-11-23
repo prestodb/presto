@@ -197,7 +197,7 @@ public class CoefficientBasedCostCalculator
                 if (!layoutCandidates.isEmpty()) {
                     TableLayout layout = layoutCandidates.get(0).getLayout();
                     layoutHandle = Optional.of(layout.getHandle());
-                    fullyEnforced = layoutCandidates.get(0).getUnenforcedConstraint().isNone();
+                    fullyEnforced = layoutCandidates.get(0).getUnenforcedConstraint().isAll();
                 }
             }
             PlanNodeCost.Builder tableScanCost = PlanNodeCost.builder();
