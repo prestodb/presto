@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 public class QueryManagerConfig
 {
     private int scheduleSplitBatchSize = 1000;
+    private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
     private String queueConfigFile;
@@ -72,6 +73,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setScheduleSplitBatchSize(int scheduleSplitBatchSize)
     {
         this.scheduleSplitBatchSize = scheduleSplitBatchSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinScheduleSplitBatchSize()
+    {
+        return minScheduleSplitBatchSize;
+    }
+
+    @Config("query.min-schedule-split-batch-size")
+    public QueryManagerConfig setMinScheduleSplitBatchSize(int minScheduleSplitBatchSize)
+    {
+        this.minScheduleSplitBatchSize = minScheduleSplitBatchSize;
         return this;
     }
 

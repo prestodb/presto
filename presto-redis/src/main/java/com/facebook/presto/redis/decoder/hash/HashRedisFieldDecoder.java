@@ -21,10 +21,7 @@ import io.airlift.slice.Slice;
 
 import java.util.Set;
 
-import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class HashRedisFieldDecoder
         implements FieldDecoder<String>
@@ -50,47 +47,7 @@ public class HashRedisFieldDecoder
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
     {
-        requireNonNull(columnHandle, "columnHandle is null");
-
-        return new FieldValueProvider()
-        {
-            @Override
-            public boolean accept(DecoderColumnHandle handle)
-            {
-                return columnHandle.equals(handle);
-            }
-
-            @Override
-            public boolean isNull()
-            {
-                return (value == null) || value.isEmpty();
-            }
-
-            @SuppressWarnings("SimplifiableConditionalExpression")
-            @Override
-            public boolean getBoolean()
-            {
-                return isNull() ? false : Boolean.parseBoolean(value.trim());
-            }
-
-            @Override
-            public long getLong()
-            {
-                return isNull() ? 0L : Long.parseLong(value.trim());
-            }
-
-            @Override
-            public double getDouble()
-            {
-                return isNull() ? 0.0d : Double.parseDouble(value.trim());
-            }
-
-            @Override
-            public Slice getSlice()
-            {
-                return isNull() ? EMPTY_SLICE : utf8Slice(value);
-            }
-        };
+        return new HashRedisValueProvider(columnHandle, value);
     }
 
     @Override

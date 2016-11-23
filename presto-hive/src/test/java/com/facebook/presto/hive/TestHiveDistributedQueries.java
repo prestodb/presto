@@ -29,28 +29,24 @@ public class TestHiveDistributedQueries
 
     @Override
     public void testDelete()
-            throws Exception
     {
         // Hive connector currently does not support row-by-row delete
     }
 
     @Override
     public void testAddColumn()
-            throws Exception
     {
         // Hive connector currently does not support schema change
     }
 
     @Override
     public void testRenameColumn()
-            throws Exception
     {
         // Hive connector currently does not support schema change
     }
 
     @Override
     public void testRenameTable()
-            throws Exception
     {
         // Hive connector currently does not support table rename
     }

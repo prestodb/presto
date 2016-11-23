@@ -75,6 +75,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -504,22 +505,23 @@ public class PruneUnreferencedOutputs
             return new ProjectNode(node.getId(), rewrittenSource, assignments);
         }
 
-        private PlanNode pruneUnreferencedApplyNodes(List<Expression> removedExpressions, PlanNode rewrittenSource, Map<Symbol, Expression> assignments)
+        private PlanNode pruneUnreferencedApplyNodes(List<Expression> removedExpressions, PlanNode node, Map<Symbol, Expression> assignments)
         {
             Set<Symbol> symbolsUsedByProjection = assignments.values().stream()
                     .map(DependencyExtractor::extractUnique)
                     .flatMap(Set::stream)
                     .collect(toImmutableSet());
 
+            PlanNode rewrittenNode = node;
             for (Expression removedExpression : removedExpressions) {
                 for (Symbol symbol : DependencyExtractor.extractUnique(removedExpression)) {
                     if (!symbolsUsedByProjection.contains(symbol)) {
                         UnusedApplyRemover unusedApplyRemover = new UnusedApplyRemover(symbol.toSymbolReference());
-                        rewrittenSource = SimplePlanRewriter.rewriteWith(unusedApplyRemover, rewrittenSource, null);
+                        rewrittenNode = SimplePlanRewriter.rewriteWith(unusedApplyRemover, rewrittenNode, null);
                     }
                 }
             }
-            return rewrittenSource;
+            return rewrittenNode;
         }
 
         @Override
@@ -750,7 +752,7 @@ public class PruneUnreferencedOutputs
         @Override
         protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
-            if (usesSymbol(node, Symbol.from(reference))) {
+            if (usesSymbol(node, getReferenceSymbol())) {
                 return node;
             }
             return context.defaultRewrite(node);
@@ -759,9 +761,64 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
-            if (usesSymbol(node, Symbol.from(reference))) {
+            return visitPlan(node, context);
+        }
+
+        @Override
+        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
+        {
+            if (usesSymbol(node, getReferenceSymbol())) {
                 return node;
             }
+
+            boolean usesSymbolInCriteria = node.getCriteria().stream()
+                    .flatMap(criteria -> Stream.of(criteria.getLeft(), criteria.getRight()))
+                    .anyMatch(criteriaSymbol -> criteriaSymbol.equals(getReferenceSymbol()));
+
+            if (usesSymbolInCriteria) {
+                return node;
+            }
+
+            return context.defaultRewrite(node);
+        }
+
+        @Override
+        public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Void> context)
+        {
+            if (usesSymbol(node, getReferenceSymbol())) {
+                return node;
+            }
+
+            boolean usesSymbolInCriteria = node.getCriteria().stream()
+                    .flatMap(criteria -> Stream.of(criteria.getProbe(), criteria.getIndex()))
+                    .anyMatch(criteriaSymbol -> criteriaSymbol.equals(getReferenceSymbol()));
+
+            if (usesSymbolInCriteria) {
+                return node;
+            }
+
+            return context.defaultRewrite(node);
+        }
+
+        private Symbol getReferenceSymbol()
+        {
+            return Symbol.from(reference);
+        }
+
+        @Override
+        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
+        {
+            if (usesSymbol(node, getReferenceSymbol())) {
+                return node;
+            }
+
+            boolean usesSymbolInCriteria = node.getSourceJoinSymbol().equals(getReferenceSymbol())
+                    && node.getFilteringSourceJoinSymbol().equals(getReferenceSymbol());
+
+            if (usesSymbolInCriteria) {
+                return node;
+            }
+
             return context.defaultRewrite(node);
         }
 

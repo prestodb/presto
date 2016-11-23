@@ -210,11 +210,19 @@ public class TaskResource
             @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
+        TaskInfo taskInfo;
 
         if (abort) {
-            return taskManager.abortTask(taskId);
+            taskInfo = taskManager.abortTask(taskId);
         }
-        return taskManager.cancelTask(taskId);
+        else {
+            taskInfo = taskManager.cancelTask(taskId);
+        }
+
+        if (shouldSummarize(uriInfo)) {
+            taskInfo = taskInfo.summarize();
+        }
+        return taskInfo;
     }
 
     @GET

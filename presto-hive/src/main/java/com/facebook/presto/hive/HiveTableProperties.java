@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
@@ -35,6 +36,7 @@ import static java.util.Locale.ENGLISH;
 
 public class HiveTableProperties
 {
+    public static final String EXTERNAL_LOCATION_PROPERTY = "external_location";
     public static final String STORAGE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String BUCKETED_BY_PROPERTY = "bucketed_by";
@@ -46,6 +48,11 @@ public class HiveTableProperties
     public HiveTableProperties(TypeManager typeManager, HiveClientConfig config)
     {
         tableProperties = ImmutableList.of(
+                stringSessionProperty(
+                        EXTERNAL_LOCATION_PROPERTY,
+                        "File system location URI for external table",
+                        null,
+                        false),
                 new PropertyMetadata<>(
                         STORAGE_FORMAT_PROPERTY,
                         "Hive storage format for the table",
@@ -83,6 +90,11 @@ public class HiveTableProperties
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    public static String getExternalLocation(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(EXTERNAL_LOCATION_PROPERTY);
     }
 
     public static HiveStorageFormat getHiveStorageFormat(Map<String, Object> tableProperties)

@@ -56,11 +56,6 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void flushCache()
-    {
-    }
-
-    @Override
     public Optional<Database> getDatabase(String databaseName)
     {
         return delegate.getDatabase(databaseName);

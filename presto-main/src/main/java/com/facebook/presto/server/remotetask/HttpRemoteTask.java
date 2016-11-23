@@ -17,6 +17,7 @@ import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
+import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -60,6 +61,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -80,6 +82,7 @@ import static com.facebook.presto.server.remotetask.RequestErrorTracker.logError
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -87,6 +90,7 @@ import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -122,6 +126,11 @@ public final class HttpRemoteTask
     private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
     @GuardedBy("this")
     private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
+    private final FutureStateChange<?> whenSplitQueueHasSpace = new FutureStateChange<>();
+    @GuardedBy("this")
+    private boolean splitQueueHasSpace = true;
+    @GuardedBy("this")
+    private OptionalInt whenSplitQueueHasSpaceThreshold = OptionalInt.empty();
 
     private final boolean summarizeTaskInfo;
     private final Duration requestTimeout;
@@ -238,12 +247,14 @@ public final class HttpRemoteTask
                 }
                 else {
                     partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+                    updateSplitQueueSpace();
                 }
             });
 
             long timeout = minErrorDuration.toMillis() / MIN_RETRIES;
             this.requestTimeout = new Duration(timeout + taskStatusRefreshMaxWait.toMillis(), MILLISECONDS);
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            updateSplitQueueSpace();
         }
     }
 
@@ -310,6 +321,7 @@ public final class HttpRemoteTask
             }
             needsUpdate.set(true);
         }
+        updateSplitQueueSpace();
 
         scheduleUpdate();
     }
@@ -372,9 +384,30 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public CompletableFuture<TaskStatus> getStateChange(TaskStatus taskStatus)
+    public synchronized CompletableFuture<?> whenSplitQueueHasSpace(int threshold)
     {
-        return taskStatusFetcher.getStateChange(taskStatus);
+        if (whenSplitQueueHasSpaceThreshold.isPresent()) {
+            checkArgument(threshold == whenSplitQueueHasSpaceThreshold.getAsInt(), "Multiple split queue space notification thresholds not supported");
+        }
+        else {
+            whenSplitQueueHasSpaceThreshold = OptionalInt.of(threshold);
+            updateSplitQueueSpace();
+        }
+        if (splitQueueHasSpace) {
+            return completedFuture(null);
+        }
+        return whenSplitQueueHasSpace.createNewListener();
+    }
+
+    private synchronized void updateSplitQueueSpace()
+    {
+        if (!whenSplitQueueHasSpaceThreshold.isPresent()) {
+            return;
+        }
+        splitQueueHasSpace = getQueuedPartitionedSplitCount() < whenSplitQueueHasSpaceThreshold.getAsInt();
+        if (splitQueueHasSpace) {
+            whenSplitQueueHasSpace.complete(null, executor);
+        }
     }
 
     private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
@@ -394,6 +427,7 @@ public final class HttpRemoteTask
                 pendingSourceSplitCount -= removed;
             }
         }
+        updateSplitQueueSpace();
 
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
     }
@@ -515,6 +549,8 @@ public final class HttpRemoteTask
         pendingSplits.clear();
         pendingSourceSplitCount = 0;
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+        splitQueueHasSpace = true;
+        whenSplitQueueHasSpace.complete(null, executor);
 
         // cancel pending request
         if (currentRequest != null) {

@@ -67,7 +67,6 @@ public class TestPostgreSqlDistributedQueries
 
     @Override
     public void testLargeIn()
-            throws Exception
     {
         // the PostgreSQL query fails with "stack depth limit exceeded"
         // TODO: fix QueryBuilder not to generate such a large query
@@ -76,7 +75,6 @@ public class TestPostgreSqlDistributedQueries
 
     @Test
     public void testDropTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
         assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
@@ -98,14 +96,12 @@ public class TestPostgreSqlDistributedQueries
 
     @Test
     public void testPrestoCreatedParameterizedVarchar()
-            throws Exception
     {
         varcharDataTypeTest().execute(queryRunner, prestoCreateAsSelect("presto_test_parameterized_varchar"));
     }
 
     @Test
     public void testPostgreSqlCreatedParameterizedVarchar()
-            throws Exception
     {
         varcharDataTypeTest().execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar"));
     }
@@ -122,28 +118,24 @@ public class TestPostgreSqlDistributedQueries
 
     @Test
     public void testPrestoCreatedParameterizedVarcharUnicode()
-            throws Exception
     {
         unicodeVarcharDateTypeTest().execute(queryRunner, prestoCreateAsSelect("postgresql_test_parameterized_varchar_unicode"));
     }
 
     @Test
     public void testPostgreSqlCreatedParameterizedVarcharUnicode()
-            throws Exception
     {
         unicodeVarcharDateTypeTest().execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_varchar_unicode"));
     }
 
     @Test
     public void testPrestoCreatedParameterizedCharUnicode()
-            throws Exception
     {
         unicodeDataTypeTest(DataType::charDataType).execute(queryRunner, prestoCreateAsSelect("postgresql_test_parameterized_char_unicode"));
     }
 
     @Test
     public void testPostgreSqlCreatedParameterizedCharUnicode()
-            throws Exception
     {
         unicodeDataTypeTest(DataType::charDataType).execute(queryRunner, postgresCreateAndInsert("tpch.postgresql_test_parameterized_char_unicode"));
     }

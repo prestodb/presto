@@ -128,7 +128,7 @@ public class TestStatementBuilder
         printStatement("select * from a.b.c");
         printStatement("select * from a.b.c.e.f.g");
 
-        printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
+        printStatement("select \"TOTALPRICE\" \"my price\" from \"$MY\"\"ORDERS\"");
 
         printStatement("select * from foo tablesample system (10+1)");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");

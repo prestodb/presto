@@ -72,6 +72,7 @@ import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZ
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayToBytes;
 import static com.facebook.presto.raptor.util.DatabaseUtil.bindOptionalInt;
+import static com.facebook.presto.raptor.util.DatabaseUtil.isSyntaxOrAccessError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static com.facebook.presto.raptor.util.DatabaseUtil.runTransaction;
@@ -102,6 +103,7 @@ public class DatabaseShardManager
     private static final Logger log = Logger.get(DatabaseShardManager.class);
 
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
+    private static final int MAX_ADD_COLUMN_ATTEMPTS = 100;
 
     private final IDBI dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
@@ -167,7 +169,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed)
+    public void createTable(long tableId, List<ColumnInfo> columns, boolean bucketed, OptionalLong temporalColumnId)
     {
         StringJoiner tableColumns = new StringJoiner(",\n  ", "  ", ",\n").setEmptyValue("");
 
@@ -179,8 +181,19 @@ public class DatabaseShardManager
             }
         }
 
+        StringJoiner coveringIndexColumns = new StringJoiner(", ");
+
+        // Add the max temporal column first to accelerate queries that usually scan recent data
+        temporalColumnId.ifPresent(id -> coveringIndexColumns.add(maxColumn(id)));
+        temporalColumnId.ifPresent(id -> coveringIndexColumns.add(minColumn(id)));
+
         String sql;
         if (bucketed) {
+            coveringIndexColumns
+                    .add("bucket_number")
+                    .add("shard_id")
+                    .add("shard_uuid");
+
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
                     "  shard_id BIGINT NOT NULL,\n" +
@@ -189,17 +202,26 @@ public class DatabaseShardManager
                     tableColumns +
                     "  PRIMARY KEY (bucket_number, shard_uuid),\n" +
                     "  UNIQUE (shard_id),\n" +
-                    "  UNIQUE (shard_uuid)\n" +
+                    "  UNIQUE (shard_uuid),\n" +
+                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
                     ")";
         }
         else {
+            coveringIndexColumns
+                    .add("node_ids")
+                    .add("shard_id")
+                    .add("shard_uuid");
+
             sql = "" +
                     "CREATE TABLE " + shardIndexTable(tableId) + " (\n" +
-                    "  shard_id BIGINT NOT NULL PRIMARY KEY,\n" +
+                    "  shard_id BIGINT NOT NULL,\n" +
                     "  shard_uuid BINARY(16) NOT NULL,\n" +
                     "  node_ids VARBINARY(128) NOT NULL,\n" +
                     tableColumns +
-                    "  UNIQUE (shard_uuid)\n" +
+                    "  PRIMARY KEY (node_ids, shard_uuid),\n" +
+                    "  UNIQUE (shard_id),\n" +
+                    "  UNIQUE (shard_uuid),\n" +
+                    "  UNIQUE (" + coveringIndexColumns + ")\n" +
                     ")";
         }
 
@@ -253,11 +275,21 @@ public class DatabaseShardManager
                 minColumn(column.getColumnId()), columnType,
                 maxColumn(column.getColumnId()), columnType);
 
-        try (Handle handle = dbi.open()) {
-            handle.execute(sql);
-        }
-        catch (DBIException e) {
-            throw metadataError(e);
+        int attempts = 0;
+        while (true) {
+            attempts++;
+            try (Handle handle = dbi.open()) {
+                handle.execute(sql);
+            }
+            catch (DBIException e) {
+                if (isSyntaxOrAccessError(e)) {
+                    // exit when column already exists
+                    return;
+                }
+                if (attempts >= MAX_ADD_COLUMN_ATTEMPTS) {
+                    throw metadataError(e);
+                }
+            }
         }
     }
 

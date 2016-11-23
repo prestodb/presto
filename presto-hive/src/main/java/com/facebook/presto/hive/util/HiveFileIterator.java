@@ -16,6 +16,7 @@ package com.facebook.presto.hive.util;
 import com.facebook.presto.hive.DirectoryLister;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -30,6 +31,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -48,6 +50,7 @@ public class HiveFileIterator
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final Map<Integer, HiveType> columnCoercions;
 
     private RemoteIterator<LocatedFileStatus> remoteIterator;
 
@@ -60,7 +63,8 @@ public class HiveFileIterator
             InputFormat<?, ?> inputFormat,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Map<Integer, HiveType> columnCoercions)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
@@ -71,6 +75,7 @@ public class HiveFileIterator
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+        this.columnCoercions = requireNonNull(columnCoercions, "columnCoercions is null");
     }
 
     @Override
@@ -163,5 +168,10 @@ public class HiveFileIterator
     public TupleDomain<HiveColumnHandle> getEffectivePredicate()
     {
         return effectivePredicate;
+    }
+
+    public Map<Integer, HiveType> getColumnCoercions()
+    {
+        return columnCoercions;
     }
 }

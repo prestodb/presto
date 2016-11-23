@@ -75,7 +75,6 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testDropTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
         assertTrue(queryRunner.tableExists(getSession(), "test_drop"));
@@ -86,7 +85,7 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testViews()
-            throws Exception
+            throws SQLException
     {
         execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
 
@@ -97,7 +96,6 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testPrestoCreatedParameterizedVarchar()
-            throws Exception
     {
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("varchar(10)", createVarcharType(255)), "text_a")
@@ -114,7 +112,6 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testMySqlCreatedParameterizedVarchar()
-            throws Exception
     {
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("tinytext", createVarcharType(255)), "a")
@@ -128,7 +125,6 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testMySqlCreatedParameterizedVarcharUnicode()
-            throws Exception
     {
         String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
         DataTypeTest.create()
@@ -144,14 +140,12 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testPrestoCreatedParameterizedChar()
-            throws Exception
     {
         mysqlCharTypeTest().execute(queryRunner, prestoCreateAsSelect("mysql_test_parameterized_char"));
     }
 
     @Test
     public void testMySqlCreatedParameterizedChar()
-            throws Exception
     {
         mysqlCharTypeTest().execute(queryRunner, mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
     }
@@ -170,7 +164,6 @@ public class TestMySqlDistributedQueries
 
     @Test
     public void testMySqlCreatedParameterizedCharUnicode()
-            throws Exception
     {
         DataTypeTest.create()
                 .addRoundTrip(charDataType(1, CHARACTER_SET_UTF8), "\u653b")
@@ -192,7 +185,6 @@ public class TestMySqlDistributedQueries
 
     @Override
     public void testShowColumns()
-            throws Exception
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
@@ -209,6 +201,18 @@ public class TestMySqlDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    public void testDescribeOutput()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testDescribeOutputNamedAndUnnamed()
+    {
+        // this connector uses a non-canonical type for varchar columns in tpch
     }
 
     private void execute(String sql)

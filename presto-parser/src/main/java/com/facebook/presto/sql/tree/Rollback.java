@@ -17,7 +17,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Optional;
 
 public final class Rollback
-        extends Statement
+        extends DataDefinitionStatement
 {
     public Rollback()
     {

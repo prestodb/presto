@@ -76,6 +76,7 @@ public class CassandraSession
     private LoadingCache<String, Session> sessionBySchema;
 
     public CassandraSession(String connectorId,
+            final List<String> contactPoints,
             final Builder clusterBuilder,
             int fetchSizeForPartitionKeySelect,
             int limitForPartitionKeySelect,
@@ -95,6 +96,7 @@ public class CassandraSession
                     public Session load(String key)
                             throws Exception
                     {
+                        clusterBuilder.addContactPoints(contactPoints.toArray(new String[contactPoints.size()]));
                         return clusterBuilder.build().connect();
                     }
                 });

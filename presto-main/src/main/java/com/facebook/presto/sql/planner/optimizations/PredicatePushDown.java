@@ -379,10 +379,15 @@ public class PredicatePushDown
                         Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                         Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
-                        Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
-                        leftProjections.put(leftSymbol, leftExpression);
-                        Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
-                        rightProjections.put(rightSymbol, rightExpression);
+                        Symbol leftSymbol = symbolForExpression(leftExpression);
+                        if (!node.getLeft().getOutputSymbols().contains(leftSymbol)) {
+                            leftProjections.put(leftSymbol, leftExpression);
+                        }
+
+                        Symbol rightSymbol = symbolForExpression(rightExpression);
+                        if (!node.getRight().getOutputSymbols().contains(rightSymbol)) {
+                            rightProjections.put(rightSymbol, rightExpression);
+                        }
 
                         joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                     }
@@ -405,6 +410,15 @@ public class PredicatePushDown
                 output = new FilterNode(idAllocator.getNextId(), output, postJoinPredicate);
             }
             return output;
+        }
+
+        private Symbol symbolForExpression(Expression expression)
+        {
+            if (expression instanceof SymbolReference) {
+                return Symbol.from(expression);
+            }
+
+            return symbolAllocator.newSymbol(expression, extractType(expression));
         }
 
         private OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)

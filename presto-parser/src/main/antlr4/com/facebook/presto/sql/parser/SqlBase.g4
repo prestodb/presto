@@ -84,6 +84,7 @@ statement
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
     | DESCRIBE INPUT identifier                                        #describeInput
+    | DESCRIBE OUTPUT identifier                                       #describeOutput
     ;
 
 query
@@ -279,7 +280,10 @@ primaryExpression
     | BINARY_LITERAL                                                                      #binaryLiteral
     | '?'                                                                                 #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
-    | '(' expression (',' expression)+ ')'                                                #rowConstructor
+    // This case handles both an implicit row constructor or a simple parenthesized
+    // expression. We can't make the two separate alternatives because it needs
+    // unbounded look-ahead to figure out which one to take while it looks for the comma
+    | '(' expression (',' expression)* ')'                                                #implicitRowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter? over?  #functionCall
@@ -304,7 +308,6 @@ primaryExpression
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
-    | '(' expression ')'                                                                  #parenthesizedExpression
     ;
 
 timeZoneSpecifier
@@ -450,7 +453,7 @@ nonReserved
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
-    | INPUT
+    | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
     ;
 
@@ -618,6 +621,7 @@ PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
 INPUT: 'INPUT';
+OUTPUT: 'OUTPUT';
 CASCADE: 'CASCADE';
 RESTRICT: 'RESTRICT';
 INCLUDING: 'INCLUDING';

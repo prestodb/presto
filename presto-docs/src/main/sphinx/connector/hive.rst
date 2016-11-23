@@ -324,6 +324,23 @@ the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, 
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
 
+Schema Evolution
+----------------
+
+Hive allows the partitions in a table to have a different schema than the
+table. This occurs when the column types of a table are changed after
+partitions already exist (that use the original column types). The Hive
+connector supports this by allowing the same conversions as Hive:
+
+* ``varchar`` to and from ``tinyint``, ``smallint``, ``integer`` and ``bigint``
+* ``real`` to ``double``
+* Widening conversions for integers, such as ``tinyint`` to ``smallint``
+
+Any conversion failure will result in null, which is the same behavior
+as Hive. For example, converting the string ``'foo'`` to a number,
+or converting the string ``'1234'`` to a ``tinyint`` (which has a
+maximum value of ``127``).
+
 Examples
 --------
 
@@ -365,6 +382,25 @@ Drop a partition from the ``page_views`` table::
 Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
+
+Create an external Hive table named ``request_logs`` that points at
+existing data in S3::
+
+    CREATE TABLE hive.web.request_logs (
+      request_time timestamp,
+      url varchar,
+      ip varchar,
+      user_agent varchar
+    )
+    WITH (
+      format = 'TEXTFILE',
+      external_location = 's3://my-bucket/data/logs/'
+    )
+
+Drop the external table ``request_logs``. This only drops the metadata
+for the table. The referenced data directory is not deleted::
+
+    DROP hive.web.request_logs
 
 Drop a schema::
 

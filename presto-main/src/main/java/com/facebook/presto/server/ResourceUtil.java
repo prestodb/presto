@@ -147,8 +147,13 @@ final class ResourceUtil
             sessionBuilder.addPreparedStatement(preparedStatement.getKey(), preparedStatement.getValue());
         }
 
+        String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
+        if (transactionIdHeader != null) {
+            sessionBuilder.setClientTransactionSupport();
+        }
+
         Session session = sessionBuilder.build();
-        Optional<TransactionId> transactionId = getTransactionId(servletRequest.getHeader(PRESTO_TRANSACTION_ID));
+        Optional<TransactionId> transactionId = parseTransactionId(transactionIdHeader);
         if (transactionId.isPresent()) {
             session = session.beginTransactionId(transactionId.get(), transactionManager, accessControl);
         }
@@ -272,7 +277,7 @@ final class ResourceUtil
         }
     }
 
-    private static Optional<TransactionId> getTransactionId(String transactionId)
+    private static Optional<TransactionId> parseTransactionId(String transactionId)
     {
         transactionId = trimEmptyToNull(transactionId);
         if (transactionId == null || transactionId.equalsIgnoreCase("none")) {

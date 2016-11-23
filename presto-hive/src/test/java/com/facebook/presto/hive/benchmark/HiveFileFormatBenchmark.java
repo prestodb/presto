@@ -35,6 +35,7 @@ import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemColumn;
 import io.airlift.tpch.LineItemGenerator;
 import io.airlift.tpch.TpchColumn;
+import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -183,6 +184,15 @@ public class HiveFileFormatBenchmark
         deleteRecursively(targetDir);
     }
 
+    @SuppressWarnings("PublicField")
+    @AuxCounters
+    @State(Scope.Thread)
+    public static class CompressionCounter
+    {
+        public long inputSize;
+        public long outputSize;
+    }
+
     @Benchmark
     public List<Page> read(CompressionCounter counter)
             throws IOException
@@ -202,7 +212,8 @@ public class HiveFileFormatBenchmark
                 }
             }
         }
-        counter.addCompressed(size, dataFile.length());
+        counter.inputSize += size;
+        counter.outputSize += dataFile.length();
         return pages;
     }
 
@@ -212,7 +223,8 @@ public class HiveFileFormatBenchmark
     {
         File targetFile = new File(targetDir, UUID.randomUUID().toString());
         writeData(targetFile);
-        counter.addCompressed(size, targetFile.length());
+        counter.inputSize += size;
+        counter.outputSize += targetFile.length();
         return targetFile;
     }
 

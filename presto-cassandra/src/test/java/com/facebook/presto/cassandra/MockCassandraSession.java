@@ -46,6 +46,7 @@ public class MockCassandraSession
     public MockCassandraSession(String connectorId, CassandraClientConfig config)
     {
         super(connectorId,
+                ImmutableList.of(),
                 null,
                 config.getFetchSizeForPartitionKeySelect(),
                 config.getLimitForPartitionKeySelect(),

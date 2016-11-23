@@ -59,6 +59,7 @@ import java.util.function.Consumer;
 import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
+import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -89,6 +90,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_CANNOT_BE_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
@@ -786,11 +788,11 @@ public class TestAnalyzer
     public void testAggregateWithWildcard()
             throws Exception
     {
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) t GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 't.a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) t GROUP BY b ORDER BY 1");
 
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
-        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 'a' not in GROUP BY clause", "SELECT * FROM (SELECT a, b FROM t1) GROUP BY b ORDER BY 1");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "Column 1 not in GROUP BY clause", "SELECT * FROM (SELECT a + 1, b FROM t1) GROUP BY b ORDER BY 1");
     }
 
     @Test
@@ -966,7 +968,8 @@ public class TestAnalyzer
     public void testLambda()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT x -> abs(x) from t1");
+        analyze("SELECT apply(5, x -> abs(x)) from t1");
+        assertFails(STANDALONE_LAMBDA, "SELECT x -> abs(x) from t1");
     }
 
     @Test
@@ -1069,6 +1072,8 @@ public class TestAnalyzer
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
+
+        metadata.getFunctionRegistry().addFunctions(ImmutableList.of(APPLY_FUNCTION));
 
         catalogManager.registerCatalog(createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID));
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CONNECTOR_ID));
@@ -1221,6 +1226,11 @@ public class TestAnalyzer
         assertFails(CLIENT_SESSION, error, query);
     }
 
+    private void assertFails(SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        assertFails(CLIENT_SESSION, error, message, query);
+    }
+
     private void assertFails(Session session, SemanticErrorCode error, @Language("SQL") String query)
     {
         try {
@@ -1230,6 +1240,23 @@ public class TestAnalyzer
         catch (SemanticException e) {
             if (e.getCode() != error) {
                 fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
+            }
+        }
+    }
+
+    private void assertFails(Session session, SemanticErrorCode error, String message, @Language("SQL") String query)
+    {
+        try {
+            analyze(session, query);
+            fail(format("Expected error %s, but analysis succeeded", error));
+        }
+        catch (SemanticException e) {
+            if (e.getCode() != error) {
+                fail(format("Expected error %s, but found %s: %s", error, e.getCode(), e.getMessage()), e);
+            }
+
+            if (!e.getMessage().equals(message)) {
+                fail(format("Expected error '%s', but got '%s'", message, e.getMessage()), e);
             }
         }
     }

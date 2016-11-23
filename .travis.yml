@@ -2,24 +2,21 @@ language: java
 
 env:
   global:
-    - MAVEN_OPTS="-Xmx512M"
+    - MAVEN_OPTS="-Xmx512M -XX:+ExitOnOutOfMemoryError"
     - MAVEN_SKIP_CHECKS_AND_DOCS="-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
+    - MAVEN_FAST_INSTALL="-DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1"
   matrix:
     - MAVEN_CHECKS=true
-    - TEST_MODULES=!presto-tests,!presto-kafka,!presto-redis,!presto-cassandra,!presto-raptor,!presto-postgresql,!presto-mysql,!presto-accumulo
-    - TEST_MODULES=presto-tests
-    - TEST_MODULES=presto-accumulo
-    - TEST_MODULES=presto-raptor,presto-redis,presto-cassandra,presto-kafka,presto-postgresql,presto-mysql
+    - TEST_SPECIFIC_MODULES=presto-tests
+    - TEST_SPECIFIC_MODULES=presto-raptor
+    - TEST_SPECIFIC_MODULES=presto-accumulo
+    - TEST_SPECIFIC_MODULES=presto-cassandra,presto-hive,presto-kafka,presto-mysql,presto-postgresql,presto-redis
+    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kafka,!presto-mysql,!presto-postgresql,!presto-redis,!presto-docs,!presto-server,!presto-server-rpm
     - PRODUCT_TESTS=true
     - HIVE_TESTS=true
 
 sudo: required
 dist: trusty
-
-addons:
-  apt:
-    packages:
-      - oracle-java8-installer
 
 cache:
   directories:
@@ -32,7 +29,24 @@ before_install:
   # This is needed until Travis #4629 is fixed (https://github.com/travis-ci/travis-ci/issues/4629)
   - sed -i.bak -e 's|https://nexus.codehaus.org/snapshots/|https://oss.sonatype.org/content/repositories/codehaus-snapshots/|g' ~/.m2/settings.xml
 
-install: ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl '!presto-docs,!presto-server-rpm'
+install:
+  - ./mvnw -v
+  - |
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl $TEST_SPECIFIC_MODULES -am
+    fi
+  - |
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server,!presto-server-rpm'
+    fi
+  - |
+    if [[ -v PRODUCT_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
+    fi
+  - |
+    if [[ -v HIVE_TESTS ]]; then
+      ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
+    fi
 
 script:
   - |
@@ -40,8 +54,12 @@ script:
       ./mvnw install -DskipTests -B -T C1
     fi
   - |
-    if [[ -v TEST_MODULES ]]; then
-      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_MODULES
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES
+    fi
+  - |
+    if [[ -v TEST_OTHER_MODULES ]]; then
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_OTHER_MODULES
     fi
   - |
     if [[ -v PRODUCT_TESTS ]]; then
@@ -60,7 +78,7 @@ script:
   - |
     # Build presto-server-rpm for later artifact upload
     if [[ -v DEPLOY_S3_ACCESS_KEY && -v PRODUCT_TESTS ]]; then
-       ./mvnw install -DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1 -pl presto-server-rpm
+       ./mvnw install $MAVEN_FAST_INSTALL -pl presto-server-rpm
     fi
 
 before_cache:

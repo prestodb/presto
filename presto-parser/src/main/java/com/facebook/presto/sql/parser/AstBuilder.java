@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -78,6 +79,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -387,6 +389,13 @@ class AstBuilder
     {
         String name = context.identifier().getText();
         return new Execute(getLocation(context), name, visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitDescribeOutput(SqlBaseParser.DescribeOutputContext context)
+    {
+        String name = context.identifier().getText();
+        return new DescribeOutput(getLocation(context), name);
     }
 
     @Override
@@ -1050,9 +1059,14 @@ class AstBuilder
     // ********************* primary expressions **********************
 
     @Override
-    public Node visitParenthesizedExpression(SqlBaseParser.ParenthesizedExpressionContext context)
+    public Node visitImplicitRowConstructor(SqlBaseParser.ImplicitRowConstructorContext context)
     {
-        return visit(context.expression());
+        List<Expression> items = visit(context.expression(), Expression.class);
+        if (items.size() == 1) {
+            return items.get(0);
+        }
+
+        return new Row(getLocation(context), items);
     }
 
     @Override
@@ -1232,8 +1246,9 @@ class AstBuilder
     @Override
     public Node visitLambda(SqlBaseParser.LambdaContext context)
     {
-        List<String> arguments = context.identifier().stream()
+        List<LambdaArgumentDeclaration> arguments = context.identifier().stream()
                 .map(SqlBaseParser.IdentifierContext::getText)
+                .map(LambdaArgumentDeclaration::new)
                 .collect(toList());
 
         Expression body = (Expression) visit(context.expression());

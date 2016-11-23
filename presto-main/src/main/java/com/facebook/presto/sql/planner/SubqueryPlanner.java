@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -39,6 +40,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
@@ -56,6 +58,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,6 +67,7 @@ import java.util.Set;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
@@ -86,15 +90,24 @@ class SubqueryPlanner
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
+    private final IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
     private final Metadata metadata;
     private final Session session;
     private final List<Expression> parameters;
 
-    SubqueryPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session, List<Expression> parameters)
+    SubqueryPlanner(
+            Analysis analysis,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap,
+            Metadata metadata,
+            Session session,
+            List<Expression> parameters)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
+        requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
         requireNonNull(parameters, "parameters is null");
@@ -102,6 +115,7 @@ class SubqueryPlanner
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
+        this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.metadata = metadata;
         this.session = session;
         this.parameters = parameters;
@@ -381,8 +395,8 @@ class SubqueryPlanner
                         maxValue, new FunctionCall(max, outputColumnReference)
                 ),
                 ImmutableMap.of(
-                        minValue, functionRegistry.resolveFunction(min, outputColumnTypeSignature),
-                        maxValue, functionRegistry.resolveFunction(max, outputColumnTypeSignature)
+                        minValue, functionRegistry.resolveFunction(min, fromTypeSignatures(outputColumnTypeSignature)),
+                        maxValue, functionRegistry.resolveFunction(max, fromTypeSignatures(outputColumnTypeSignature))
                 ),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
@@ -417,7 +431,7 @@ class SubqueryPlanner
                 idAllocator.getNextId(),
                 subqueryPlan,
                 ImmutableMap.of(subValue, new FunctionCall(aggregationFunction, ImmutableList.of(outputColumn.toSymbolReference()))),
-                ImmutableMap.of(subValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(outputColumnType.getTypeSignature()))),
+                ImmutableMap.of(subValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(new TypeSignatureProvider(outputColumnType.getTypeSignature())))),
                 ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.SINGLE,
@@ -524,13 +538,13 @@ class SubqueryPlanner
 
     private RelationPlan createRelationPlan(Query subquery)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
                 .process(subquery, null);
     }
 
     private RelationPlan createRelationPlan(Expression subquery)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
                 .process(subquery, null);
     }
 

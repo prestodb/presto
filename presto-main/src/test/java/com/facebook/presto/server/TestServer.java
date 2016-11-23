@@ -19,6 +19,7 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -40,7 +41,11 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -50,6 +55,8 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.ws.rs.core.Response.Status.OK;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestServer
@@ -130,10 +137,59 @@ public class TestServer
                 data.addAll(queryResults.getData());
             }
         }
+        assertNull(queryResults.getError());
 
         // only the system catalog exists by default
         List<List<Object>> rows = data.build();
         assertEquals(rows, ImmutableList.of(ImmutableList.of("system")));
+    }
+
+    @Test
+    public void testTransactionSupport()
+            throws Exception
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(PRESTO_TRANSACTION_ID, "none")
+                .build();
+
+        JsonResponse<QueryResults> queryResults = client.execute(request, createFullJsonResponseHandler(jsonCodec(QueryResults.class)));
+        ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
+        while (true) {
+            if (queryResults.getValue().getData() != null) {
+                data.addAll(queryResults.getValue().getData());
+            }
+
+            if (queryResults.getValue().getNextUri() == null) {
+                break;
+            }
+            queryResults = client.execute(prepareGet().setUri(queryResults.getValue().getNextUri()).build(), createFullJsonResponseHandler(jsonCodec(QueryResults.class)));
+        }
+        assertNull(queryResults.getValue().getError());
+        assertNotNull(queryResults.getHeader(PRESTO_STARTED_TRANSACTION_ID));
+    }
+
+    @Test
+    public void testNoTransactionSupport()
+            throws Exception
+    {
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        while (queryResults.getNextUri() != null) {
+            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        }
+
+        assertNotNull(queryResults.getError());
+        assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
     }
 
     public URI uriFor(String path)

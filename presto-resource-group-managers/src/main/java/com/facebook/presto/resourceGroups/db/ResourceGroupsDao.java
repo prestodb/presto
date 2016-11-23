@@ -33,7 +33,7 @@ public interface ResourceGroupsDao
     List<ResourceGroupGlobalProperties> getResourceGroupGlobalProperties();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups (\n" +
-            "  id BIGINT NOT NULL AUTO_INCREMENT,\n" +
+            "  resource_group_id BIGINT NOT NULL AUTO_INCREMENT,\n" +
             "  name VARCHAR(250) NOT NULL,\n" +
             "  soft_memory_limit VARCHAR(128) NOT NULL,\n" +
             "  max_queued INT NOT NULL,\n" +
@@ -44,12 +44,12 @@ public interface ResourceGroupsDao
             "  soft_cpu_limit VARCHAR(128) NULL,\n" +
             "  hard_cpu_limit VARCHAR(128) NULL,\n" +
             "  parent BIGINT NULL,\n" +
-            "  PRIMARY KEY (id),\n" +
-            "  FOREIGN KEY (parent) REFERENCES resource_groups (id)\n" +
+            "  PRIMARY KEY (resource_group_id),\n" +
+            "  FOREIGN KEY (parent) REFERENCES resource_groups (resource_group_id)\n" +
             ")")
     void createResourceGroupsTable();
 
-    @SqlQuery("SELECT id, name, soft_memory_limit, max_queued, max_running," +
+    @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, max_running," +
             "  scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, hard_cpu_limit, parent\n" +
             "FROM resource_groups")
     @Mapper(ResourceGroupSpecBuilder.Mapper.class)
@@ -63,7 +63,7 @@ public interface ResourceGroupsDao
             "  resource_group_id BIGINT NOT NULL,\n" +
             "  user_regex VARCHAR(512),\n" +
             "  source_regex VARCHAR(512),\n" +
-            "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (id)\n" +
+            "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)\n" +
             ")")
     void createSelectorsTable();
 }

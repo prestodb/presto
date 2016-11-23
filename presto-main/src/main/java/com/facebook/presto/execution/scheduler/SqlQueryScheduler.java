@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -81,6 +82,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class SqlQueryScheduler
 {
@@ -91,6 +93,7 @@ public class SqlQueryScheduler
     private final StageId rootStageId;
     private final Map<StageId, StageScheduler> stageSchedulers;
     private final Map<StageId, StageLinkage> stageLinkages;
+    private final SplitSchedulerStats schedulerStats;
     private final boolean summarizeTaskInfo;
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -106,10 +109,12 @@ public class SqlQueryScheduler
             ExecutorService executor,
             OutputBuffers rootOutputBuffers,
             NodeTaskMap nodeTaskMap,
-            ExecutionPolicy executionPolicy)
+            ExecutionPolicy executionPolicy,
+            SplitSchedulerStats schedulerStats)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
+        this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
 
         // todo come up with a better way to build this, or eliminate this map
@@ -355,6 +360,19 @@ public class SqlQueryScheduler
                     }
                     stageLinkages.get(stage.getStageId())
                             .processScheduleResults(stage.getState(), result.getNewTasks());
+                    schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
+                    if (result.getBlockedReason().isPresent()) {
+                        switch (result.getBlockedReason().get()) {
+                            case WAITING_FOR_SOURCE:
+                                schedulerStats.getWaitingForSource().update(1);
+                                break;
+                            case SPLIT_QUEUES_FULL:
+                                schedulerStats.getSplitQueuesFull().update(1);
+                                break;
+                            default:
+                                throw new UnsupportedOperationException("Unknown blocked reason: " + result.getBlockedReason().get());
+                        }
+                    }
                 }
 
                 // make sure to update stage linkage at least once per loop to catch async state changes (e.g., partial cancel)
@@ -368,7 +386,9 @@ public class SqlQueryScheduler
 
                 // wait for a state change and then schedule again
                 if (!blockedStages.isEmpty()) {
-                    tryGetFutureValue(firstCompletedFuture(blockedStages), 100, MILLISECONDS);
+                    try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
+                        tryGetFutureValue(firstCompletedFuture(blockedStages), 1, SECONDS);
+                    }
                     for (CompletableFuture<?> blockedStage : blockedStages) {
                         blockedStage.cancel(true);
                     }

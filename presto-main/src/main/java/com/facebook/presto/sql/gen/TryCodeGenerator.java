@@ -20,12 +20,14 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.TryCatch;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 
 import java.lang.invoke.MethodHandle;
@@ -36,6 +38,7 @@ import java.util.Map;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -43,6 +46,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RAN
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -70,21 +74,15 @@ public class TryCodeGenerator
         CallExpression innerCallExpression = (CallExpression) getOnlyElement(arguments);
         checkState(tryMethodsMap.containsKey(innerCallExpression), "try methods map does not contain this try call");
 
-        BytecodeBlock bytecodeBlock = new BytecodeBlock()
-                .comment("load required variables")
-                .getVariable(context.getScope().getVariable("this"));
-
         MethodDefinition definition = tryMethodsMap.get(innerCallExpression);
 
-        definition.getParameters().stream()
+        ImmutableList<Variable> invokeArguments = definition.getParameters().stream()
                 .map(parameter -> context.getScope().getVariable(parameter.getName()))
-                .forEach(bytecodeBlock::getVariable);
+                .collect(toImmutableList());
 
-        bytecodeBlock.comment("call dynamic try method: " + definition.getName())
-                .invokeVirtual(definition)
+        return new BytecodeBlock()
+                .append(context.getScope().getThis().invoke(definition, invokeArguments))
                 .append(unboxPrimitiveIfNecessary(context.getScope(), Primitives.wrap(innerCallExpression.getType().getJavaType())));
-
-        return bytecodeBlock;
     }
 
     public static MethodDefinition defineTryMethod(
@@ -99,6 +97,7 @@ public class TryCodeGenerator
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
         Scope calleeMethodScope = method.getScope();
 
+        Variable wasNull = calleeMethodScope.declareVariable(boolean.class, "wasNull");
         BytecodeNode innerExpression = innerRowExpression.accept(innerExpressionVisitor, calleeMethodScope);
 
         MethodType exceptionHandlerType = methodType(returnType, PrestoException.class);
@@ -107,6 +106,7 @@ public class TryCodeGenerator
 
         method.comment("Try projection: %s", innerRowExpression.toString());
         method.getBody()
+                .append(wasNull.set(constantBoolean(false)))
                 .append(new TryCatch(
                         new BytecodeBlock()
                                 .append(innerExpression)

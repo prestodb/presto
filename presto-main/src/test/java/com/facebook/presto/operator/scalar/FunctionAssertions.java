@@ -582,7 +582,7 @@ public final class FunctionAssertions
 
     private OperatorFactory compileFilterWithNoInputColumns(Expression filter, ExpressionCompiler compiler)
     {
-        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(ImmutableMap.<Symbol, Integer>of()), filter);
+        filter = new SymbolToInputRewriter(ImmutableMap.of()).rewrite(filter);
 
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter), emptyList());
 
@@ -601,8 +601,8 @@ public final class FunctionAssertions
 
     private OperatorFactory compileFilterProject(Expression filter, Expression projection, ExpressionCompiler compiler)
     {
-        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
-        projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+        filter = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(filter);
+        projection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projection);
 
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata,
                 SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection), emptyList());
@@ -623,8 +623,8 @@ public final class FunctionAssertions
 
     private SourceOperatorFactory compileScanFilterProject(Expression filter, Expression projection, ExpressionCompiler compiler)
     {
-        filter = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), filter);
-        projection = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(INPUT_MAPPING), projection);
+        filter = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(filter);
+        projection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projection);
 
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata,
                 SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection), emptyList());

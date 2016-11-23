@@ -108,7 +108,7 @@ public class TaskInfo
 
     public TaskInfo summarize()
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats.summarize(), needsPlan, complete);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan, complete);
     }
 
     @Override

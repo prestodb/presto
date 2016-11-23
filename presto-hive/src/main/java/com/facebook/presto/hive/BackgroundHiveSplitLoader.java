@@ -48,6 +48,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -84,7 +85,7 @@ public class BackgroundHiveSplitLoader
     private final String connectorId;
     private final Table table;
     private final Optional<HiveBucketHandle> bucketHandle;
-    private final Optional<HiveBucket> bucket;
+    private final List<HiveBucket> buckets;
     private final HdfsEnvironment hdfsEnvironment;
     private final NamenodeStats namenodeStats;
     private final DirectoryLister directoryLister;
@@ -119,7 +120,7 @@ public class BackgroundHiveSplitLoader
             Table table,
             Iterable<HivePartitionMetadata> partitions,
             Optional<HiveBucketHandle> bucketHandle,
-            Optional<HiveBucket> bucket,
+            List<HiveBucket> buckets,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
             NamenodeStats namenodeStats,
@@ -132,7 +133,7 @@ public class BackgroundHiveSplitLoader
         this.connectorId = connectorId;
         this.table = table;
         this.bucketHandle = bucketHandle;
-        this.bucket = bucket;
+        this.buckets = buckets;
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.session = session;
@@ -236,7 +237,8 @@ public class BackgroundHiveSplitLoader
                             files.getInputFormat(),
                             files.getSchema(),
                             files.getPartitionKeys(),
-                            files.getEffectivePredicate());
+                            files.getEffectivePredicate(),
+                            files.getColumnCoercions());
                     fileIterators.add(fileIterator);
                 }
             }
@@ -254,7 +256,8 @@ public class BackgroundHiveSplitLoader
                         splittable,
                         session,
                         OptionalInt.empty(),
-                        files.getEffectivePredicate()));
+                        files.getEffectivePredicate(),
+                        files.getColumnCoercions()));
                 if (!future.isDone()) {
                     fileIterators.addFirst(files);
                     return future;
@@ -311,7 +314,8 @@ public class BackgroundHiveSplitLoader
                             false,
                             session,
                             OptionalInt.empty(),
-                            effectivePredicate));
+                            effectivePredicate,
+                            partition.getColumnCoercions()));
                     if (stopped) {
                         return;
                     }
@@ -321,25 +325,31 @@ public class BackgroundHiveSplitLoader
         }
 
         // If only one bucket could match: load that one file
-        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate);
-        if (bucket.isPresent()) {
-            List<LocatedFileStatus> locatedFileStatuses = listAndSortBucketFiles(iterator, bucket.get().getBucketCount());
-            FileStatus file = locatedFileStatuses.get(bucket.get().getBucketNumber());
-            BlockLocation[] blockLocations = fs.getFileBlockLocations(file, 0, file.getLen());
-            boolean splittable = isSplittable(inputFormat, fs, file.getPath());
+        HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
+        if (!buckets.isEmpty()) {
+            int bucketCount = buckets.get(0).getBucketCount();
+            List<LocatedFileStatus> list = listAndSortBucketFiles(iterator, bucketCount);
 
-            hiveSplitSource.addToQueue(createHiveSplits(
-                    partitionName,
-                    file.getPath().toString(),
-                    blockLocations,
-                    0,
-                    file.getLen(),
-                    schema,
-                    partitionKeys,
-                    splittable,
-                    session,
-                    OptionalInt.of(bucket.get().getBucketNumber()),
-                    effectivePredicate));
+            for (HiveBucket bucket : buckets) {
+                int bucketNumber = bucket.getBucketNumber();
+                LocatedFileStatus file = list.get(bucketNumber);
+                boolean splittable = isSplittable(iterator.getInputFormat(), hdfsEnvironment.getFileSystem(session.getUser(), file.getPath()), file.getPath());
+
+                hiveSplitSource.addToQueue(createHiveSplits(
+                        iterator.getPartitionName(),
+                        file.getPath().toString(),
+                        file.getBlockLocations(),
+                        0,
+                        file.getLen(),
+                        iterator.getSchema(),
+                        iterator.getPartitionKeys(),
+                        splittable,
+                        session,
+                        OptionalInt.of(bucketNumber),
+                        effectivePredicate,
+                        partition.getColumnCoercions()));
+            }
+
             return;
         }
 
@@ -364,7 +374,8 @@ public class BackgroundHiveSplitLoader
                         splittable,
                         session,
                         OptionalInt.of(bucketIndex),
-                        iterator.getEffectivePredicate()));
+                        iterator.getEffectivePredicate(),
+                        partition.getColumnCoercions()));
             }
 
             return;
@@ -426,7 +437,8 @@ public class BackgroundHiveSplitLoader
             boolean splittable,
             ConnectorSession session,
             OptionalInt bucketNumber,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Map<Integer, HiveType> columnCoercions)
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();
@@ -476,7 +488,8 @@ public class BackgroundHiveSplitLoader
                             addresses,
                             bucketNumber,
                             forceLocalScheduling && hasRealAddress(addresses),
-                            effectivePredicate));
+                            effectivePredicate,
+                            columnCoercions));
 
                     chunkOffset += chunkLength;
                 }
@@ -502,7 +515,8 @@ public class BackgroundHiveSplitLoader
                     addresses,
                     bucketNumber,
                     forceLocalScheduling && hasRealAddress(addresses),
-                    effectivePredicate));
+                    effectivePredicate,
+                    columnCoercions));
         }
         return builder.build();
     }

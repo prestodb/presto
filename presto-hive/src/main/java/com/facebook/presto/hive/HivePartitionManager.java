@@ -42,8 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
+import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucketNumbers;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -51,7 +52,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 
@@ -107,8 +107,7 @@ public class HivePartitionManager
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(connectorId, table);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(connectorId, table);
-        Optional<HiveBucketing.HiveBucket> bucket = getHiveBucket(table, TupleDomain.extractFixedValues(effectivePredicate).get());
-
+        List<HiveBucket> buckets = getHiveBucketNumbers(table, effectivePredicate);
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
 
         if (effectivePredicate.isNone()) {
@@ -118,7 +117,7 @@ public class HivePartitionManager
         if (partitionColumns.isEmpty()) {
             return new HivePartitionResult(
                     partitionColumns,
-                    ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)),
+                    ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, buckets)),
                     effectivePredicate,
                     TupleDomain.none(),
                     hiveBucketHandle);
@@ -132,7 +131,7 @@ public class HivePartitionManager
             Optional<Map<ColumnHandle, NullableValue>> values = parseValuesAndFilterPartition(partitionName, partitionColumns, effectivePredicate);
 
             if (values.isPresent()) {
-                partitions.add(new HivePartition(tableName, compactEffectivePredicate, partitionName, values.get(), bucket));
+                partitions.add(new HivePartition(tableName, compactEffectivePredicate, partitionName, values.get(), buckets));
             }
         }
 
@@ -193,12 +192,12 @@ public class HivePartitionManager
 
         String protectMode = table.getParameters().get(ProtectMode.PARAMETER_NAME);
         if (protectMode != null && getProtectModeFromString(protectMode).offline) {
-            throw new TableOfflineException(tableName);
+            throw new TableOfflineException(tableName, false, null);
         }
 
         String prestoOffline = table.getParameters().get(PRESTO_OFFLINE);
         if (!isNullOrEmpty(prestoOffline)) {
-            throw new TableOfflineException(tableName, format("Table '%s' is offline for Presto: %s", tableName, prestoOffline));
+            throw new TableOfflineException(tableName, true, prestoOffline);
         }
 
         return table;
