@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -34,6 +35,7 @@ public abstract class BaseStrictSymbolsMatcher
         this.getActual = requireNonNull(getActual, "getActual is null");
     }
 
+    @Override
     public boolean shapeMatches(PlanNode node)
     {
         try {
@@ -45,12 +47,10 @@ public abstract class BaseStrictSymbolsMatcher
         }
     }
 
-    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    @Override
+    public MatchResult detailMatches(PlanNode node, PlanNodeCost planNodeCost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
-
-        Set<Symbol> expected = getExpectedSymbols(node, session, metadata, symbolAliases);
-
         return new MatchResult(getActual.apply(node).equals(getExpectedSymbols(node, session, metadata, symbolAliases)));
     }
 

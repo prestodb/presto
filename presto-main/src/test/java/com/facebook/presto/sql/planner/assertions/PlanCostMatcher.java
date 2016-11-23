@@ -11,55 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.google.common.base.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
-final class WindowMatcher
+public class PlanCostMatcher
         implements Matcher
 {
-    private final ExpectedValueProvider<WindowNode.Specification> specification;
+    private final PlanNodeCost expectedCost;
 
-    WindowMatcher(
-            ExpectedValueProvider<WindowNode.Specification> specification)
+    PlanCostMatcher(PlanNodeCost expectedCost)
     {
-        this.specification = specification;
+        this.expectedCost = requireNonNull(expectedCost, "expectedCost is null");
     }
 
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return node instanceof WindowNode;
+        return true;
     }
 
     @Override
     public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
-
-        WindowNode windowNode = (WindowNode) node;
-
-        /*
-         * Window functions produce a symbol (the result of the function call) that we might
-         * want to bind to an alias so we can reference it further up the tree. As such,
-         * they need to be matched with an Alias matcher so we can bind the symbol if desired.
-         */
-        return new MatchResult(windowNode.getSpecification().equals(specification.getExpectedValue(symbolAliases)));
+        return new MatchResult(expectedCost.equals(cost));
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("specification", specification)
-                .toString();
+        return "expectedCost(" + expectedCost + ")";
     }
 }
