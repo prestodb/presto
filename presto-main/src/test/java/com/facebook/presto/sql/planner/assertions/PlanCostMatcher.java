@@ -16,36 +16,35 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
-import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
-public class LimitMatcher
+public class PlanCostMatcher
         implements Matcher
 {
-    private final long limit;
+    private final PlanNodeCost expectedCost;
 
-    public LimitMatcher(long limit)
+    PlanCostMatcher(PlanNodeCost expectedCost)
     {
-        this.limit = limit;
+        this.expectedCost = requireNonNull(expectedCost, "expectedCost is null");
     }
 
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof LimitNode)) {
-            return false;
-        }
-
-        LimitNode limitNode = (LimitNode) node;
-        return limitNode.getCount() == limit;
+        return true;
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, PlanNodeCost planNodeCost, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        checkState(shapeMatches(node));
-        return MatchResult.match();
+        return new MatchResult(expectedCost.equals(cost));
+    }
+
+    @Override
+    public String toString()
+    {
+        return "expectedCost(" + expectedCost + ")";
     }
 }
