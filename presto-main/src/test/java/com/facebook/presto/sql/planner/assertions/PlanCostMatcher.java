@@ -16,45 +16,35 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.Expression;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-final class FilterMatcher
+public class PlanCostMatcher
         implements Matcher
 {
-    private final Expression predicate;
+    private final PlanNodeCost expectedCost;
 
-    FilterMatcher(Expression predicate)
+    PlanCostMatcher(PlanNodeCost expectedCost)
     {
-        this.predicate = requireNonNull(predicate, "predicate is null");
+        this.expectedCost = requireNonNull(expectedCost, "expectedCost is null");
     }
 
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return node instanceof FilterNode;
+        return true;
     }
 
     @Override
     public MatchResult detailMatches(PlanNode node, PlanNodeCost cost, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
-
-        FilterNode filterNode = (FilterNode) node;
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-        return new MatchResult(verifier.process(filterNode.getPredicate(), predicate));
+        return new MatchResult(expectedCost.equals(cost));
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("predicate", predicate)
-                .toString();
+        return "expectedCost(" + expectedCost + ")";
     }
 }
