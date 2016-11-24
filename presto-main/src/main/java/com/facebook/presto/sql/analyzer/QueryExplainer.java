@@ -143,6 +143,6 @@ public class QueryExplainer
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser);
         Plan plan = logicalPlanner.plan(analysis);
 
-        return new PlanFragmenter().createSubPlans(session, metadata, plan);
+        return PlanFragmenter.createSubPlans(session, metadata, plan);
     }
 }

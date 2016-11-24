@@ -127,7 +127,7 @@ final class DescribeInputRewrite
             );
         }
 
-        private Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)
+        private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {

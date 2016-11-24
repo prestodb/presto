@@ -346,7 +346,7 @@ class RelationPlanner
         return new RelationPlan(root, analysis.getScope(node), outputSymbols);
     }
 
-    private boolean isEqualComparisonExpression(Expression conjunct)
+    private static boolean isEqualComparisonExpression(Expression conjunct)
     {
         return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getType() == ComparisonExpressionType.EQUAL;
     }

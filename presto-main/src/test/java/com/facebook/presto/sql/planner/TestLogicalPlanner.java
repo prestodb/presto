@@ -154,7 +154,7 @@ public class TestLogicalPlanner
                 2);
     }
 
-    private int countOfMatchingNodes(Plan plan, Predicate<PlanNode> predicate)
+    private static int countOfMatchingNodes(Plan plan, Predicate<PlanNode> predicate)
     {
         PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(predicate);
         plan.getRoot().accept(planNodeExtractor, null);

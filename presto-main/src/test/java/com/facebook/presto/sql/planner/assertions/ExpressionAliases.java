@@ -51,7 +51,7 @@ public final class ExpressionAliases
         }
     }
 
-    private String alias(String alias)
+    private static String alias(String alias)
     {
         return alias.toLowerCase().replace("(", "").replace(")", "").replace("\"", "");
     }

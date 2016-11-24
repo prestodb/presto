@@ -81,7 +81,7 @@ public class TestScope
         assertEquals(inner2.tryResolveField(c4).get().isLocal(), true);
     }
 
-    private QualifiedNameReference name(String first, String... parts)
+    private static QualifiedNameReference name(String first, String... parts)
     {
         return new QualifiedNameReference(QualifiedName.of(first, parts));
     }

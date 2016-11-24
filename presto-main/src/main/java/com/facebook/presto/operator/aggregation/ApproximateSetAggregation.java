@@ -31,7 +31,7 @@ import io.airlift.stats.cardinality.HyperLogLog;
 public final class ApproximateSetAggregation
 {
     private static final int NUMBER_OF_BUCKETS = 4096;
-    private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = new StateCompiler().generateStateSerializer(HyperLogLogState.class);
+    private static final AccumulatorStateSerializer<HyperLogLogState> SERIALIZER = StateCompiler.generateStateSerializer(HyperLogLogState.class);
 
     private ApproximateSetAggregation() {}
 

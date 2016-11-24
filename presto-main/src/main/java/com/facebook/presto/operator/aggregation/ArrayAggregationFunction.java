@@ -106,7 +106,7 @@ public class ArrayAggregationFunction
                 stateFactory,
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
     }
 

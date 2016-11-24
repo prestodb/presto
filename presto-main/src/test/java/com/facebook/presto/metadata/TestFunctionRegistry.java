@@ -317,12 +317,12 @@ public class TestFunctionRegistry
         return functionSignature(ImmutableList.copyOf(argumentTypes), "boolean");
     }
 
-    private SignatureBuilder functionSignature(List<String> arguments, String returnType)
+    private static SignatureBuilder functionSignature(List<String> arguments, String returnType)
     {
         return functionSignature(arguments, returnType, ImmutableList.of());
     }
 
-    private SignatureBuilder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
+    private static SignatureBuilder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
     {
         ImmutableSet<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
         List<TypeSignature> argumentSignatures = arguments.stream()
@@ -433,7 +433,7 @@ public class TestFunctionRegistry
             return functions.build();
         }
 
-        private List<TypeSignature> parseTypeSignatures(String... signatures)
+        private static List<TypeSignature> parseTypeSignatures(String... signatures)
         {
             return ImmutableList.copyOf(signatures)
                     .stream()

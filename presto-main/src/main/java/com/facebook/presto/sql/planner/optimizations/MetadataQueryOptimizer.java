@@ -180,7 +180,7 @@ public class MetadataQueryOptimizer
             return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 
-        private Optional<TableScanNode> findTableScan(PlanNode source)
+        private static Optional<TableScanNode> findTableScan(PlanNode source)
         {
             while (true) {
                 // allow any chain of linear transformations

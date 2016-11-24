@@ -63,7 +63,11 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
-    public SubPlan createSubPlans(Session session, Metadata metadata, Plan plan)
+    private PlanFragmenter()
+    {
+    }
+
+    public static SubPlan createSubPlans(Session session, Metadata metadata, Plan plan)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getSymbolAllocator().getTypes());
 

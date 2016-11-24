@@ -95,7 +95,7 @@ public abstract class AbstractOperatorBenchmark
 
     protected OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
-        return localQueryRunner.createHashProjectOperator(operatorId, planNodeId, types);
+        return LocalQueryRunner.createHashProjectOperator(operatorId, planNodeId, types);
     }
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);

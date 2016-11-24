@@ -978,12 +978,12 @@ public class TestArrayOperators
         assertOperator(HASH_CODE, inputArray, BIGINT, arrayType.hash(arrayArrayBuilder.build(), 0));
     }
 
-    private SqlTimestamp sqlTimestamp(long millisUtc)
+    private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
-    private SqlTimestamp sqlTimestamp(String dateString) throws ParseException
+    private static SqlTimestamp sqlTimestamp(String dateString) throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));

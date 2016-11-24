@@ -758,7 +758,7 @@ public class FunctionRegistry
         return representatives;
     }
 
-    private boolean someParameterIsUnknown(List<Type> parameters)
+    private static boolean someParameterIsUnknown(List<Type> parameters)
     {
         return parameters.stream().anyMatch(type -> type.equals(UNKNOWN));
     }

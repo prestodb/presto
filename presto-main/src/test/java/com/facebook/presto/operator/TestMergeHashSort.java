@@ -127,7 +127,7 @@ public class TestMergeHashSort
         assertPageEquals(types, pages.get(0), expectedPages.get(0));
     }
 
-    private long readBigint(MergeHashSort.PagePosition pagePosition)
+    private static long readBigint(MergeHashSort.PagePosition pagePosition)
     {
         return BIGINT.getLong(pagePosition.getPage().getBlock(0), pagePosition.getPosition());
     }

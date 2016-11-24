@@ -222,7 +222,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             }
         }
 
-        private ProjectNode appendIdentityProjection(ProjectNode node, Symbol symbol)
+        private static ProjectNode appendIdentityProjection(ProjectNode node, Symbol symbol)
         {
             if (node.getOutputSymbols().contains(symbol)) {
                 return node;

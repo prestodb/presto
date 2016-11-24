@@ -139,7 +139,7 @@ public final class Re2JRegexp
         return blockBuilder.build();
     }
 
-    private void validateGroup(int group, int groupCount)
+    private static void validateGroup(int group, int groupCount)
     {
         if (group < 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");

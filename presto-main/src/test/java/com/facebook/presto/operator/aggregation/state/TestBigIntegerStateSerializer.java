@@ -45,7 +45,7 @@ public class TestBigIntegerStateSerializer
         ));
     }
 
-    private void testRoundTrip(List<BigInteger> expected)
+    private static void testRoundTrip(List<BigInteger> expected)
     {
         BigIntegerStateSerializer serializer = new BigIntegerStateSerializer();
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(new BlockBuilderStatus(), expected.size(), 2);

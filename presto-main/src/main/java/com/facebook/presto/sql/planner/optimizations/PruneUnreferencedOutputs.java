@@ -505,7 +505,7 @@ public class PruneUnreferencedOutputs
             return new ProjectNode(node.getId(), rewrittenSource, assignments);
         }
 
-        private PlanNode pruneUnreferencedApplyNodes(List<Expression> removedExpressions, PlanNode node, Map<Symbol, Expression> assignments)
+        private static PlanNode pruneUnreferencedApplyNodes(List<Expression> removedExpressions, PlanNode node, Map<Symbol, Expression> assignments)
         {
             Set<Symbol> symbolsUsedByProjection = assignments.values().stream()
                     .map(DependencyExtractor::extractUnique)

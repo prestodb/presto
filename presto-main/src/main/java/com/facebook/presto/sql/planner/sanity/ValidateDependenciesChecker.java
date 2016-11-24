@@ -596,7 +596,7 @@ public final class ValidateDependenciesChecker
             nodesById.put(id, node);
         }
 
-        private ImmutableSet<Symbol> createInputs(PlanNode source, Set<Symbol> boundSymbols)
+        private static ImmutableSet<Symbol> createInputs(PlanNode source, Set<Symbol> boundSymbols)
         {
             return ImmutableSet.<Symbol>builder()
                     .addAll(source.getOutputSymbols())

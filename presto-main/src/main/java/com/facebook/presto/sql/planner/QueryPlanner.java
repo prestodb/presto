@@ -211,7 +211,7 @@ class QueryPlanner
         return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteHandle(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, outputs);
     }
 
-    private List<Symbol> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)
+    private static List<Symbol> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)
     {
         ImmutableList.Builder<Symbol> outputSymbols = ImmutableList.builder();
         for (Expression expression : outputExpressions) {
@@ -776,7 +776,7 @@ class QueryPlanner
         return subPlan;
     }
 
-    private SortOrder toSortOrder(SortItem sortItem)
+    private static SortOrder toSortOrder(SortItem sortItem)
     {
         if (sortItem.getOrdering() == Ordering.ASCENDING) {
             if (sortItem.getNullOrdering() == NullOrdering.FIRST) {

@@ -125,7 +125,7 @@ final class DescribeOutputRewrite
                     limit);
         }
 
-        private Row createDescribeOutputRow(Field field, Analysis analysis)
+        private static Row createDescribeOutputRow(Field field, Analysis analysis)
         {
             LongLiteral typeSize = new LongLiteral("0");
             if (field.getType() instanceof FixedWidthType) {

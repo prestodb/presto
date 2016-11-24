@@ -89,7 +89,7 @@ public class CursorProcessorCompiler
         constructorBody.ret();
     }
 
-    private void generateProcessMethod(ClassDefinition classDefinition, int projections)
+    private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
@@ -313,7 +313,7 @@ public class CursorProcessorCompiler
                 .ret();
     }
 
-    private RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(Variable cursorVariable)
+    private static RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler(Variable cursorVariable)
     {
         return new RowExpressionVisitor<Scope, BytecodeNode>()
         {

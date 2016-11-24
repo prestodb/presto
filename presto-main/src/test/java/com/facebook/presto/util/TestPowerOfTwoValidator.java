@@ -130,7 +130,7 @@ public class TestPowerOfTwoValidator
     public static class NullPowerOfTwoAnnotation
     {
         @PowerOfTwo
-        public Integer getConstrainedByPowerOfTwo()
+        public static Integer getConstrainedByPowerOfTwo()
         {
             return null;
         }

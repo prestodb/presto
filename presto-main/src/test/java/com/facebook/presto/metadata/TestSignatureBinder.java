@@ -1102,7 +1102,7 @@ public class TestSignatureBinder
         assertBindVariablesFails("T1(bigint)", boundVariables, "Unbounded parameters can not have parameters");
     }
 
-    private void assertBindVariablesFails(String typeSignature, BoundVariables boundVariables, String reason)
+    private static void assertBindVariablesFails(String typeSignature, BoundVariables boundVariables, String reason)
     {
         try {
             SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), boundVariables);
@@ -1113,7 +1113,7 @@ public class TestSignatureBinder
         }
     }
 
-    private void assertThat(String typeSignature, BoundVariables boundVariables, String expectedTypeSignature)
+    private static void assertThat(String typeSignature, BoundVariables boundVariables, String expectedTypeSignature)
     {
         assertEquals(
                 SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), boundVariables).toString(),
@@ -1121,7 +1121,7 @@ public class TestSignatureBinder
         );
     }
 
-    private SignatureBuilder functionSignature()
+    private static SignatureBuilder functionSignature()
     {
         return new SignatureBuilder()
                 .name("function")

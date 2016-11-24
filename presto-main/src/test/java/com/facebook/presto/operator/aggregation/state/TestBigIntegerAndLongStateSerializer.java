@@ -47,7 +47,7 @@ public class TestBigIntegerAndLongStateSerializer
         ));
     }
 
-    public void testRoundTrip(List<BigIntegerAndLong> expected)
+    public static void testRoundTrip(List<BigIntegerAndLong> expected)
             throws Exception
     {
         BigIntegerAndLongStateSerializer serializer = new BigIntegerAndLongStateSerializer();

@@ -1221,7 +1221,7 @@ class StatementAnalyzer
         return analyzedGroupingSets;
     }
 
-    private List<Set<Expression>> computeGroupingSetsCrossProduct(List<List<Set<Expression>>> enumeratedGroupingSets, boolean isDistinct)
+    private static List<Set<Expression>> computeGroupingSetsCrossProduct(List<List<Set<Expression>>> enumeratedGroupingSets, boolean isDistinct)
     {
         checkState(!enumeratedGroupingSets.isEmpty(), "enumeratedGroupingSets cannot be empty");
 

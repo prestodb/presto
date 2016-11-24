@@ -304,7 +304,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return decorrelatedNode(correlatedPredicates, node, correlation);
         }
 
-        private Optional<DecorrelatedNode> decorrelatedNode(
+        private static Optional<DecorrelatedNode> decorrelatedNode(
                 List<Expression> correlatedPredicates,
                 PlanNode node,
                 List<Symbol> correlation)
@@ -316,7 +316,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return Optional.of(new DecorrelatedNode(correlatedPredicates, node));
         }
 
-        private Predicate<Expression> isUsingPredicate(List<Symbol> symbols)
+        private static Predicate<Expression> isUsingPredicate(List<Symbol> symbols)
         {
             return expression -> symbols.stream().anyMatch(DependencyExtractor.extractUnique(expression)::contains);
         }
@@ -334,7 +334,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return filterNodeSearcher.replaceAll(newFilterNode);
         }
 
-        private PlanNode removeLimitNode(PlanNode node)
+        private static PlanNode removeLimitNode(PlanNode node)
         {
             node = searchFrom(node)
                     .where(LimitNode.class::isInstance)
