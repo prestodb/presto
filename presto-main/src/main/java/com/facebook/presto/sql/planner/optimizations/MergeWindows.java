@@ -65,6 +65,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class MergeWindows
         implements PlanOptimizer
 {
+    @Override
     public PlanNode optimize(PlanNode plan,
             Session session,
             Map<Symbol, Type> types,

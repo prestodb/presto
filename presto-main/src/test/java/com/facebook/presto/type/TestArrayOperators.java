@@ -885,6 +885,7 @@ public class TestArrayOperators
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)", INVALID_FUNCTION_ARGUMENT);
     }
 
+    @Override
     public void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
     {
         try {
