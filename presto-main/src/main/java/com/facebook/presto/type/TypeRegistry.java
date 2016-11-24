@@ -322,6 +322,7 @@ public final class TypeRegistry
      * coerceTypeBase and isCovariantParametrizedType defines all hand-coded rules for type coercion.
      * Other methods should reference these two functions instead of hand-code new rules.
      */
+    @Override
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
         String sourceTypeName = sourceType.getTypeSignature().getBase();

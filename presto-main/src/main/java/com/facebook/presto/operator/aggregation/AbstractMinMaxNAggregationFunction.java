@@ -69,6 +69,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         this.typeToComparator = typeToComparator;
     }
 
+    @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("E");

@@ -1270,11 +1270,13 @@ public class ExpressionInterpreter
             this.blocks = blocks;
         }
 
+        @Override
         public Block getBlock(int channel)
         {
             return blocks[channel];
         }
 
+        @Override
         public int getPosition(int channel)
         {
             return position;

@@ -606,6 +606,7 @@ public class ExpressionAnalyzer
             return type;
         }
 
+        @Override
         protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Context> context)
         {
             CharType type = CharType.createCharType(node.getValue().length());

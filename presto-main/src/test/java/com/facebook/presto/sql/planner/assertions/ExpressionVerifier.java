@@ -91,6 +91,7 @@ final class ExpressionVerifier
         return false;
     }
 
+    @Override
     protected Boolean visitGenericLiteral(GenericLiteral actual, Expression expected)
     {
         return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
