@@ -471,7 +471,7 @@ class SubqueryPlanner
         throw new IllegalArgumentException("Unexpected quantifier: " + quantifiedComparison.getQuantifier());
     }
 
-    private boolean isAggregationWithEmptyGroupBy(PlanNode subqueryPlan)
+    private static boolean isAggregationWithEmptyGroupBy(PlanNode subqueryPlan)
     {
         return searchFrom(subqueryPlan)
                 .skipOnlyWhen(Predicates.isInstanceOfAny(ProjectNode.class))
@@ -527,7 +527,7 @@ class SubqueryPlanner
     /**
      * Checks if give reference expression can resolved within given plan.
      */
-    private Optional<Expression> tryResolveMissingExpression(PlanBuilder subPlan, Expression expression)
+    private static Optional<Expression> tryResolveMissingExpression(PlanBuilder subPlan, Expression expression)
     {
         Expression rewritten = subPlan.rewrite(expression);
         if (rewritten instanceof SymbolReference) {

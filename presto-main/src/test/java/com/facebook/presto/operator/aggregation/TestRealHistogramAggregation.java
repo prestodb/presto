@@ -131,7 +131,7 @@ public class TestRealHistogramAggregation
         return (Map<Float, Float>) mapType.getObjectValue(null, block, 0);
     }
 
-    private Page makeInput(int numberOfBuckets)
+    private static Page makeInput(int numberOfBuckets)
     {
         PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, REAL, DOUBLE));
 

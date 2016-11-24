@@ -256,7 +256,7 @@ public final class PlanMatchPattern
         }
     }
 
-    private String indentString(int indent)
+    private static String indentString(int indent)
     {
         return Strings.repeat("    ", indent);
     }

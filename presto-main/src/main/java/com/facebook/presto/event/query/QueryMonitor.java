@@ -226,7 +226,7 @@ public class QueryMonitor
         return mergedProperties.build();
     }
 
-    private void logQueryTimeline(QueryInfo queryInfo)
+    private static void logQueryTimeline(QueryInfo queryInfo)
     {
         try {
             QueryStats queryStats = queryInfo.getQueryStats();

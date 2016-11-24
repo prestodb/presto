@@ -435,7 +435,7 @@ public class OptimizeMixedDistinctAggregations
         }
 
         // creates if clause specific to use case here, default value always null
-        private IfExpression createIfExpression(Expression left, Expression right, ComparisonExpressionType type, Expression result, Type trueValueType)
+        private static IfExpression createIfExpression(Expression left, Expression right, ComparisonExpressionType type, Expression result, Type trueValueType)
         {
             return new IfExpression(
                     new ComparisonExpression(type, left, right),

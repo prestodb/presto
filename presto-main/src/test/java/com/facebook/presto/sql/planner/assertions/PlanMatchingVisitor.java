@@ -71,7 +71,7 @@ final class PlanMatchingVisitor
         return false;
     }
 
-    private List<PlanMatchingState> filterTerminated(List<PlanMatchingState> states)
+    private static List<PlanMatchingState> filterTerminated(List<PlanMatchingState> states)
     {
         return states.stream()
                 .filter(PlanMatchingState::isTerminated)

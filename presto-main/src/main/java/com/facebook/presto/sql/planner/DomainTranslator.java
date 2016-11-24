@@ -429,7 +429,7 @@ public final class DomainTranslator
             return Optional.of(NullableValue.of(targetType, coercedValue));
         }
 
-        private ExtractionResult createComparisonExtractionResult(ComparisonExpressionType comparisonType, Symbol column, Type type, @Nullable Object value, boolean complement)
+        private static ExtractionResult createComparisonExtractionResult(ComparisonExpressionType comparisonType, Symbol column, Type type, @Nullable Object value, boolean complement)
         {
             if (value == null) {
                 switch (comparisonType) {

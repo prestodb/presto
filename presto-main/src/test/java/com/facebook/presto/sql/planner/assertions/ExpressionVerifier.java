@@ -103,7 +103,7 @@ final class ExpressionVerifier
         return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
     }
 
-    private String getValueFromLiteral(Expression expression)
+    private static String getValueFromLiteral(Expression expression)
     {
         if (expression instanceof LongLiteral) {
             return String.valueOf(((LongLiteral) expression).getValue());

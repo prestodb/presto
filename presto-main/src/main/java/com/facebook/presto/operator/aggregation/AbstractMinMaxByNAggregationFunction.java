@@ -163,7 +163,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                 new MinMaxByNStateFactory(),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(name, inputTypes, intermediateType, outputType, true, factory);
     }
 }

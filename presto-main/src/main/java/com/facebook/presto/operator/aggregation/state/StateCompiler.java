@@ -89,6 +89,10 @@ import static java.util.Objects.requireNonNull;
 
 public class StateCompiler
 {
+    private StateCompiler()
+    {
+    }
+
     private static Class<?> getBigArrayType(Class<?> type)
     {
         if (type.equals(long.class)) {
@@ -113,12 +117,12 @@ public class StateCompiler
         throw new IllegalArgumentException("Unsupported type: " + type.getName());
     }
 
-    public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
+    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
         return generateStateSerializer(clazz, new DynamicClassLoader(clazz.getClassLoader()));
     }
 
-    public <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
+    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != void.class) {
@@ -314,12 +318,12 @@ public class StateCompiler
         }
     }
 
-    public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
+    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
         return generateStateFactory(clazz, new DynamicClassLoader(clazz.getClassLoader()));
     }
 
-    public <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
+    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateFactoryClass() != void.class) {

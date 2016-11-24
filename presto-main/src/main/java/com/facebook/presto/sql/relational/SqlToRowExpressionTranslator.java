@@ -399,7 +399,7 @@ public final class SqlToRowExpressionTranslator
             return call(castSignature(types.get(node), value.getType()), types.get(node), value);
         }
 
-        private RowExpression changeType(RowExpression value, Type targetType)
+        private static RowExpression changeType(RowExpression value, Type targetType)
         {
             ChangeTypeVisitor visitor = new ChangeTypeVisitor(targetType);
             return value.accept(visitor, null);

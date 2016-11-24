@@ -64,7 +64,11 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class AccumulatorCompiler
 {
-    public GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
+    private AccumulatorCompiler()
+    {
+    }
+
+    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {
         Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
                 Accumulator.class,

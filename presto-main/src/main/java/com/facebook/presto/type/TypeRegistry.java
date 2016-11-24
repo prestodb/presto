@@ -272,7 +272,7 @@ public final class TypeRegistry
         return Optional.empty();
     }
 
-    private Type getCommonSuperTypeForDecimal(DecimalType firstType, DecimalType secondType)
+    private static Type getCommonSuperTypeForDecimal(DecimalType firstType, DecimalType secondType)
     {
         int targetScale = Math.max(firstType.getScale(), secondType.getScale());
         int targetPrecision = Math.max(firstType.getPrecision() - firstType.getScale(), secondType.getPrecision() - secondType.getScale()) + targetScale;
@@ -281,7 +281,7 @@ public final class TypeRegistry
         return createDecimalType(targetPrecision, targetScale);
     }
 
-    private Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
+    private static Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
     {
         return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
     }
