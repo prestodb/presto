@@ -1,4 +1,4 @@
--- database: presto; groups: big_query, tpch; tables: customer,orders,lineitem,supplier,nation,region
+-- database: presto; groups: tpch; tables: customer,orders,lineitem,supplier,nation,region
 SELECT
   n_name,
   sum(l_extendedprice * (1 - l_discount)) AS revenue
