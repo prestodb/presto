@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.hdfs;
 
+import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author jelly.guodong.jin@gmail.com
@@ -21,4 +26,18 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 public class HDFSTableLayoutHandle
 implements ConnectorTableLayoutHandle
 {
+    private final ConnectorTableLayout layout;
+
+    @JsonCreator
+    public HDFSTableLayoutHandle(
+            @JsonProperty("layout") ConnectorTableLayout layout)
+    {
+        this.layout = requireNonNull(layout, "layout is null");
+    }
+
+    @JsonProperty
+    public ConnectorTableLayout getLayout()
+    {
+        return layout;
+    }
 }

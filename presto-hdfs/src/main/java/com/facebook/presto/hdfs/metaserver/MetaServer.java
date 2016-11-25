@@ -13,9 +13,43 @@
  */
 package com.facebook.presto.hdfs.metaserver;
 
+import com.facebook.presto.hdfs.HDFSDatabase;
+import com.facebook.presto.hdfs.HDFSTableHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.connector.Connector;
+
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+
 /**
  * @author jelly.guodong.jin@gmail.com
  */
 public interface MetaServer
 {
+    public List<String> getAllDatabases();
+
+    public Optional<HDFSDatabase> getDatabase(String databaseName);
+
+    public Optional<List<String>> getAllTables(String databaseName);
+
+    public Optional<HDFSTableHandle> getTable(String databaseName, String tableName);
+
+    public void createDatabase(ConnectorSession session, HDFSDatabase database);
+
+    public boolean isDatabaseEmpty(ConnectorSession session, String databaseName);
+
+    public void dropDatabase(ConnectorSession session, String databaseName);
+
+    public void renameDatabase(ConnectorSession session, String source, String target);
+
+    public void createTable(ConnectorSession session, HDFSTableHandle table);
+
+    public void dropTable(ConnectorSession session, String databaseName, String tableName);
+
+    public void renameTable(ConnectorSession session, String databaseName, String tableName, String newDatabaseName, String newTableName);
+
+    public void commit();
+
+    public void rollback();
 }

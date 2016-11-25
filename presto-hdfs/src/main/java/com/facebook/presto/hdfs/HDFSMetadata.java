@@ -13,19 +13,8 @@
  */
 package com.facebook.presto.hdfs;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayout;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutResult;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.ConnectorViewDefinition;
-import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.hdfs.metaserver.MetaServer;
+import com.facebook.presto.spi.*;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 
 import java.util.List;
@@ -44,10 +33,12 @@ public class HDFSMetadata
 implements ConnectorMetadata
 {
     private final String connectorId;
+    private final MetaServer metaServer;
 
-    public HDFSMetadata(String connectorId)
+    public HDFSMetadata(String connectorId, MetaServer metaServer)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.metaServer = requireNonNull(metaServer, "metaServer is null");
     }
 
     public void commit()
@@ -66,7 +57,7 @@ implements ConnectorMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return null;
+        return metaServer.getAllDatabases();
     }
 
     /**
@@ -78,7 +69,8 @@ implements ConnectorMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return null;
+        Optional<HDFSTableHandle> table = metaServer.getTable(tableName.getSchemaName(), tableName.getTableName());
+        return new HDFSTableHandle(connectorId, table.get());
     }
 
     /**
@@ -113,6 +105,8 @@ implements ConnectorMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
+        HDFSTableHandle tableHandle = (HDFSTableHandle) table;
+        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
         return null;
     }
 
@@ -152,7 +146,8 @@ implements ConnectorMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return null;
+        HDFSColumnHandle column = (HDFSColumnHandle) columnHandle;
+        return new ColumnMetadata(column.getName(), column.getType(), column.getComment(), false);
     }
 
     /**
@@ -172,11 +167,16 @@ implements ConnectorMetadata
      *
      * @param session
      * @param schemaName
-     * @param properties
+     * @param properties: contains comment, location and owner
      */
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
+        HDFSDatabase database = new HDFSDatabase(schemaName,
+                (String) properties.get("comment"),
+                (String) properties.get("location"),
+                (String) properties.get("owner"));
+        metaServer.createDatabase(session, database);
     }
 
     /**
@@ -189,6 +189,11 @@ implements ConnectorMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
+        if (!metaServer.isDatabaseEmpty(session, schemaName)) {
+            throw new PrestoException(StandardErrorCode.SCHEMA_NOT_EMPTY, "schema is not empty");
+        }
+
+        metaServer.dropDatabase(session, schemaName);
     }
 
     /**
@@ -201,6 +206,7 @@ implements ConnectorMetadata
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
+        metaServer.renameDatabase(session, source, target);
     }
 
     /**
@@ -241,26 +247,26 @@ implements ConnectorMetadata
     /**
      * Drop the specified view.
      */
-    @Override
-    public void dropView(ConnectorSession session, SchemaTableName viewName)
-    {
-    }
+//    @Override
+//    public void dropView(ConnectorSession session, SchemaTableName viewName)
+//    {
+//    }
 
     /**
      * List view names, possibly filtered by schema. An empty list is returned if none match.
      */
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
-    {
-        return emptyList();
-    }
+//    @Override
+//    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+//    {
+//        return emptyList();
+//    }
 
     /**
      * Gets the view data for views that match the specified table prefix.
      */
-    @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return emptyMap();
-    }
+//    @Override
+//    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+//    {
+//        return emptyMap();
+//    }
 }

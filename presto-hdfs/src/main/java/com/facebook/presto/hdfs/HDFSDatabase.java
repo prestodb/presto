@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hdfs;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,28 +21,24 @@ import static java.util.Objects.requireNonNull;
 /**
  * @author jelly.guodong.jin@gmail.com
  */
-public class HDFSColumnHandle
-implements ColumnHandle
+public class HDFSDatabase
 {
     private final String name;
-    private final Type type;
     private final String comment;
-    private final boolean isFiberCol;
-    private final boolean isTimeCol;
+    private final String location;
+    private final String owner;
 
     @JsonCreator
-    public HDFSColumnHandle(
+    public HDFSDatabase(
             @JsonProperty("name") String name,
-            @JsonProperty("type") Type type,
             @JsonProperty("comment") String comment,
-            @JsonProperty("isFiberCol") boolean isFiberCol,
-            @JsonProperty("isTimeCol") boolean isTimeCol)
+            @JsonProperty("location") String location,
+            @JsonProperty("owner") String owner)
     {
         this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
-        this.isFiberCol = requireNonNull(isFiberCol, "isFiberCol is null");
-        this.isTimeCol = requireNonNull(isTimeCol, "isTimeCol is null");
+        this.location = requireNonNull(location, "location is null");
+        this.owner = requireNonNull(owner, "owner is null");
     }
 
     @JsonProperty
@@ -54,26 +48,20 @@ implements ColumnHandle
     }
 
     @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
     public String getComment()
     {
         return comment;
     }
 
     @JsonProperty
-    public boolean isFiberCol()
+    public String getLocation()
     {
-        return isFiberCol;
+        return location;
     }
 
     @JsonProperty
-    public boolean isTimeCol()
+    public String getOwner()
     {
-        return isTimeCol;
+        return owner;
     }
 }

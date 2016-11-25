@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hdfs;
 
+import com.facebook.presto.hdfs.metaserver.MetaServer;
 import io.airlift.log.Logger;
 
 import static java.util.Objects.requireNonNull;
@@ -24,14 +25,16 @@ public class HDFSMetadataFactory
 {
     private static final Logger logger = Logger.get(HDFSMetadataFactory.class);
     private final String connectorId;
+    private final MetaServer metaServer;
 
-    public HDFSMetadataFactory(String connectorId)
+    public HDFSMetadataFactory(String connectorId, MetaServer metaServer)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.metaServer = requireNonNull(metaServer, "metaServer is null");
     }
 
     public HDFSMetadata create()
     {
-        return new HDFSMetadata(connectorId);
+        return new HDFSMetadata(connectorId, metaServer);
     }
 }

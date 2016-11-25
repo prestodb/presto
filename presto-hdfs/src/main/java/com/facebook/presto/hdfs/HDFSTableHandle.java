@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.hdfs;
 
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,27 +24,47 @@ import static java.util.Objects.requireNonNull;
  * @author jelly.guodong.jin@gmail.com
  */
 public class HDFSTableHandle
-implements ConnectorTableHandle
 {
-    private final String clientId;
-    private final String schemaName;
     private final String tableName;
+    private final String schemaName;
+    private final String comment;
+    private final String location;
+    private final String owner;
+    private final StorageFormat storageFormat;
+    private final List<HDFSColumnHandle> columns;
+    private final HDFSColumnHandle fiberColumn;
+    private final HDFSColumnHandle timestampColumn;
+    private final String fiberFunc;
 
     @JsonCreator
     public HDFSTableHandle(
-            @JsonProperty("clientId") String clientId,
+            @JsonProperty("tableName") String tableName,
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("comment") String comment,
+            @JsonProperty("location") String location,
+            @JsonProperty("owner") String owner,
+            @JsonProperty("storageFormat") StorageFormat storageFormat,
+            @JsonProperty("columns") List<HDFSColumnHandle> columns,
+            @JsonProperty("fiberColumn") HDFSColumnHandle fiberColumn,
+            @JsonProperty("timestampColumn") HDFSColumnHandle timestampColumn,
+            @JsonProperty("fiberFunc") String fiberFunc)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.comment = requireNonNull(comment, "desc is null");
+        this.location = requireNonNull(location, "location is null");
+        this.owner = requireNonNull(owner, "owner is null");
+        this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
+        this.columns = requireNonNull(columns, "columns is null");
+        this.fiberColumn = requireNonNull(fiberColumn, "fiberColumn is null");
+        this.timestampColumn = requireNonNull(timestampColumn, "timestampColumn is null");
+        this.fiberFunc = requireNonNull(fiberFunc, "fiberFunc is null");
     }
 
     @JsonProperty
-    public String getClientId()
+    public String getTableName()
     {
-        return clientId;
+        return tableName;
     }
 
     @JsonProperty
@@ -56,40 +74,64 @@ implements ConnectorTableHandle
     }
 
     @JsonProperty
-    public String getTableName()
+    public String getDesc()
     {
-        return tableName;
+        return comment;
     }
 
-    public SchemaTableName getSchemaTableName()
+    @JsonProperty
+    public String getLocation()
     {
-        return new SchemaTableName(schemaName, tableName);
+        return location;
+    }
+
+    @JsonProperty
+    public String getOwner()
+    {
+        return owner;
+    }
+
+    @JsonProperty
+    public StorageFormat getStorageFormat()
+    {
+        return storageFormat;
+    }
+
+    @JsonProperty
+    public List<HDFSColumnHandle> getColumns()
+    {
+        return columns;
+    }
+
+    @JsonProperty
+    public HDFSColumnHandle getFiberColumn()
+    {
+        return fiberColumn;
+    }
+
+    @JsonProperty
+    public HDFSColumnHandle getTimestampColumn()
+    {
+        return timestampColumn;
+    }
+
+    @JsonProperty
+    public String getFiberFunc()
+    {
+        return fiberFunc;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(clientId, schemaName, tableName);
+        // TODO
+        return 1;
     }
 
     @Override
     public boolean equals(Object obj)
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        HDFSTableHandle other = (HDFSTableHandle) obj;
-        return Objects.equals(this.clientId, other.clientId) &&
-                Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
-    }
-
-    @Override
-    public String toString()
-    {
-        return clientId + "." + schemaName + "." + tableName;
+        // TODO
+        return true;
     }
 }

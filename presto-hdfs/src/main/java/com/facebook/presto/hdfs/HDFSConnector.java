@@ -177,20 +177,20 @@ implements Connector
     /**
      * @return the schema properties for this connector
      */
-    @Override
-    public List<PropertyMetadata<?>> getSchemaProperties()
-    {
-        return null;
-    }
+//    @Override
+//    public List<PropertyMetadata<?>> getSchemaProperties()
+//    {
+//        return null;
+//    }
 
     /**
      * @return the table properties for this connector
      */
-    @Override
-    public List<PropertyMetadata<?>> getTableProperties()
-    {
-        return null;
-    }
+//    @Override
+//    public List<PropertyMetadata<?>> getTableProperties()
+//    {
+//        return null;
+//    }
 
     /**
      * Shutdown the connector by releasing any held resources such as
