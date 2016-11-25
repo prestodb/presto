@@ -153,6 +153,13 @@ public class TestLogicalPlanner
                         plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 1)"),
                         EnforceSingleRowNode.class::isInstance),
                 2);
+
+        // one subquery used for "1 IN (SELECT 1)", one subquery used for "2 IN (SELECT 1)"
+        assertEquals(
+                countOfMatchingNodes(
+                        plan("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)"),
+                        SemiJoinNode.class::isInstance),
+                2);
     }
 
     private static int countOfMatchingNodes(Plan plan, Predicate<PlanNode> predicate)
