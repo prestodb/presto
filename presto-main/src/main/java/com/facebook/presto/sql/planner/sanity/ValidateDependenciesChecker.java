@@ -583,6 +583,16 @@ public final class ValidateDependenciesChecker
             checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
             checkDependencies(DependencyExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
+            ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
+                    .addAll(createInputs(node.getSubquery(), boundSymbols))
+                    .addAll(createInputs(node.getInput(), boundSymbols))
+                    .build();
+
+            for (Expression expression : node.getSubqueryAssignments().values()) {
+                Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
+                checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
+            }
+
             verifyUniqueId(node);
 
             return null;
