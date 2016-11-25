@@ -112,3 +112,45 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
         internal-communication.https.keystore.path=<keystore path>
         internal-communication.https.keystore.key=<keystore password>
+
+
+Performance with SSL/TLS enabled
+--------------------------------
+
+Enabling encryption impacts performance. The performance degradation can vary
+based on the environment, queries, and concurrency.
+
+For queries that do not require transferring too much data between the Presto
+nodes (e.g. `SELECT count(*) FROM table`), the performance impact is negligible.
+
+However, for CPU intensive queries which require a considerable amount of data
+to be transferred between the nodes (for example, distributed joins, aggregations and
+window functions, which require repartitioning), the performance impact might be
+considerable. The slowdown may vary from 10% to even 100%+, depending on the network
+traffic and the CPU utilization.
+
+Advanced Performance Tuning
+---------------------------
+
+In some cases, changing the source of random numbers will improve performance
+significantly.
+
+By default, TLS encryption uses the `/dev/urandom` system device as a source of entropy.
+This device has limited throughput, so on environments with high network bandwidth
+(e.g. InfiniBand), it may become a bottleneck. In such situations, it is recommended to try
+to switch the random number generator algorithm to `SHA1PRNG`, by setting it via
+`http-server.https.secure-random-algorithm` property in `config.properties` on the coordinator
+and all of the workers:
+
+    .. code-block:: none
+
+        http-server.https.secure-random-algorithm=SHA1PRNG
+
+Be aware that this algorithm takes the initial seed from
+the blocking `/dev/random` device. For environments that do not have enough entropy to seed
+the `SHAPRNG` algorithm, the source can be changed to `/dev/urandom`
+by adding the `java.security.egd` property to `jvm.config`:
+
+    .. code-block:: none
+
+        -Djava.security.egd=file:/dev/urandom
