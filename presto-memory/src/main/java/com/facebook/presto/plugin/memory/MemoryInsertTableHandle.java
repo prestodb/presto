@@ -15,10 +15,47 @@
 package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-// HACK: this class is an enum to make this class to be auto serializable
-public enum MemoryInsertTableHandle
+import java.util.Set;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
+
+public class MemoryInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    MEMORY_INSERT_TABLE_HANDLE
+    private final MemoryTableHandle table;
+    private Set<Long> activeTableIds;
+
+    @JsonCreator
+    public MemoryInsertTableHandle(
+            @JsonProperty("table") MemoryTableHandle table,
+            @JsonProperty("activeTableIds") Set<Long> activeTableIds)
+    {
+        this.table = requireNonNull(table, "table is null");
+        this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
+    }
+
+    @JsonProperty
+    public MemoryTableHandle getTable()
+    {
+        return table;
+    }
+
+    @JsonProperty
+    public Set<Long> getActiveTableIds()
+    {
+        return activeTableIds;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("table", table)
+                .add("activeTableIds", activeTableIds)
+                .toString();
+    }
 }

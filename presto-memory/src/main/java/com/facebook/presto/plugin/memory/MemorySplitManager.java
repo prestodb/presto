@@ -19,27 +19,22 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
-import java.util.Set;
+import java.util.List;
 
 import static com.facebook.presto.plugin.memory.Types.checkType;
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 public final class MemorySplitManager
         implements ConnectorSplitManager
 {
-    private final NodeManager nodeManager;
     private final int splitsPerNode;
 
-    public MemorySplitManager(NodeManager nodeManager, int splitsPerNode)
+    public MemorySplitManager(int splitsPerNode)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.splitsPerNode = splitsPerNode;
     }
 
@@ -51,22 +46,17 @@ public final class MemorySplitManager
                 MemoryTableLayoutHandle.class,
                 "MemoryTableLayoutHandle");
 
-        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
-        checkState(!nodes.isEmpty(), "No Memory nodes available");
-
-        int totalParts = nodes.size() * splitsPerNode;
-        int partNumber = 0;
+        List<HostAddress> hosts = layout.getTable().getHosts();
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (Node node : nodes) {
+        for (HostAddress host : hosts) {
             for (int i = 0; i < splitsPerNode; i++) {
                 splits.add(
                         new MemorySplit(
                                 layout.getTable(),
-                                partNumber,
-                                totalParts,
-                                ImmutableList.of(node.getHostAndPort())));
-                partNumber++;
+                                i,
+                                splitsPerNode,
+                                ImmutableList.of(host)));
             }
         }
         return new FixedSplitSource(splits.build());

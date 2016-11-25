@@ -54,12 +54,13 @@ public class MemoryConnectorFactory
     public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(requiredConfig);
+        MemoryPagesStore pagesStore = new MemoryPagesStore();
 
         return new MemoryConnector(
-                new MemoryMetadata(connectorId),
-                new MemorySplitManager(context.getNodeManager(), splitsPerNode),
-                new MemoryPageSourceProvider(),
-                new MemoryPageSinkProvider());
+                new MemoryMetadata(context.getNodeManager(), connectorId),
+                new MemorySplitManager(splitsPerNode),
+                new MemoryPageSourceProvider(pagesStore),
+                new MemoryPageSinkProvider(pagesStore));
     }
 
     private int getSplitsPerNode(Map<String, String> properties)

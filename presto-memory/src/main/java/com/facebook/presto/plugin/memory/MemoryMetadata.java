@@ -26,12 +26,15 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.Node;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -40,11 +43,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
-import static com.facebook.presto.plugin.memory.MemoryInsertTableHandle.MEMORY_INSERT_TABLE_HANDLE;
 import static com.facebook.presto.plugin.memory.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
@@ -54,12 +59,16 @@ public class MemoryMetadata
 {
     public static final String SCHEMA_NAME = "default";
 
+    private final NodeManager nodeManager;
     private final String connectorId;
-    private final Map<String, MemoryTableHandle> tables = new ConcurrentHashMap<>();
+    private final AtomicLong nextTableId = new AtomicLong();
+    private final Map<String, Long> tableIds = new ConcurrentHashMap<>();
+    private final Map<Long, MemoryTableHandle> tables = new ConcurrentHashMap<>();
 
-    public MemoryMetadata(String connectorId)
+    public MemoryMetadata(NodeManager nodeManager, String connectorId)
     {
-        this.connectorId = connectorId;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
 
     @Override
@@ -71,7 +80,11 @@ public class MemoryMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return tables.get(tableName.getTableName());
+        Long tableId = tableIds.get(tableName.getTableName());
+        if (tableId == null) {
+            return null;
+        }
+        return tables.get(tableId);
     }
 
     @Override
@@ -118,8 +131,11 @@ public class MemoryMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MemoryTableHandle inMemoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
-        tables.remove(inMemoryTableHandle.getTableName());
+        MemoryTableHandle handle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        Long tableId = tableIds.remove(handle.getTableName());
+        if (tableId != null) {
+            tables.remove(tableId);
+        }
     }
 
     @Override
@@ -130,10 +146,13 @@ public class MemoryMetadata
                 oldTableHandle.getConnectorId(),
                 oldTableHandle.getSchemaName(),
                 newTableName.getTableName(),
-                oldTableHandle.getColumnHandles()
-        );
-        tables.remove(oldTableHandle.getTableName());
-        tables.put(newTableName.getTableName(), newTableHandle);
+                oldTableHandle.getTableId(),
+                oldTableHandle.getColumnHandles(),
+                oldTableHandle.getHosts());
+        tableIds.remove(oldTableHandle.getTableName());
+        tableIds.put(newTableName.getTableName(), oldTableHandle.getTableId());
+        tables.remove(oldTableHandle.getTableId());
+        tables.put(oldTableHandle.getTableId(), newTableHandle);
     }
 
     @Override
@@ -144,11 +163,21 @@ public class MemoryMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        MemoryTableHandle table = new MemoryTableHandle(connectorId, tableMetadata);
-        tables.put(table.getTableName(), table);
-        return new MemoryOutputTableHandle(table);
+        long nextId = nextTableId.getAndIncrement();
+        Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
+        checkState(!nodes.isEmpty(), "No Memory nodes available");
+
+        tableIds.put(tableMetadata.getTable().getTableName(), nextId);
+        MemoryTableHandle table = new MemoryTableHandle(
+                connectorId,
+                nextId,
+                tableMetadata,
+                nodes.stream().map(Node::getHostAndPort).collect(Collectors.toList()));
+        tables.put(table.getTableId(), table);
+
+        return new MemoryOutputTableHandle(table, ImmutableSet.copyOf(tableIds.values()));
     }
 
     @Override
@@ -158,9 +187,10 @@ public class MemoryMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return MEMORY_INSERT_TABLE_HANDLE;
+        MemoryTableHandle memoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        return new MemoryInsertTableHandle(memoryTableHandle, ImmutableSet.copyOf(tableIds.values()));
     }
 
     @Override

@@ -18,20 +18,44 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Set;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
+
 public final class MemoryOutputTableHandle
         implements ConnectorOutputTableHandle
 {
     private final MemoryTableHandle table;
+    private Set<Long> activeTableIds;
 
     @JsonCreator
-    public MemoryOutputTableHandle(@JsonProperty("table") MemoryTableHandle table)
+    public MemoryOutputTableHandle(
+            @JsonProperty("table") MemoryTableHandle table,
+            @JsonProperty("activeTableIds") Set<Long> activeTableIds)
     {
-        this.table = table;
+        this.table = requireNonNull(table, "table is null");
+        this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
     }
 
     @JsonProperty
     public MemoryTableHandle getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public Set<Long> getActiveTableIds()
+    {
+        return activeTableIds;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("table", table)
+                .add("activeTableIds", activeTableIds)
+                .toString();
     }
 }

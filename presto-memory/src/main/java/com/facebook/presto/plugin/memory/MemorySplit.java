@@ -30,24 +30,24 @@ public class MemorySplit
         implements ConnectorSplit
 {
     private final MemoryTableHandle tableHandle;
-    private final int totalParts;
-    private final int partNumber;
+    private final int totalPartsPerWorker; // how many concurrent reads there will be from one worker
+    private final int partNumber; // part of the pages on one worker that this splits is responsible
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public MemorySplit(
             @JsonProperty("tableHandle") MemoryTableHandle tableHandle,
             @JsonProperty("partNumber") int partNumber,
-            @JsonProperty("totalParts") int totalParts,
+            @JsonProperty("totalPartsPerWorker") int totalPartsPerWorker,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
         checkState(partNumber >= 0, "partNumber must be >= 0");
-        checkState(totalParts >= 1, "totalParts must be >= 1");
-        checkState(totalParts > partNumber, "totalParts must be > partNumber");
+        checkState(totalPartsPerWorker >= 1, "totalPartsPerWorker must be >= 1");
+        checkState(totalPartsPerWorker > partNumber, "totalPartsPerWorker must be > partNumber");
 
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.partNumber = partNumber;
-        this.totalParts = totalParts;
+        this.totalPartsPerWorker = totalPartsPerWorker;
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
     }
 
@@ -58,9 +58,9 @@ public class MemorySplit
     }
 
     @JsonProperty
-    public int getTotalParts()
+    public int getTotalPartsPerWorker()
     {
-        return totalParts;
+        return totalPartsPerWorker;
     }
 
     @JsonProperty
@@ -99,14 +99,14 @@ public class MemorySplit
         }
         MemorySplit other = (MemorySplit) obj;
         return Objects.equals(this.tableHandle, other.tableHandle) &&
-                Objects.equals(this.totalParts, other.totalParts) &&
+                Objects.equals(this.totalPartsPerWorker, other.totalPartsPerWorker) &&
                 Objects.equals(this.partNumber, other.partNumber);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableHandle, totalParts, partNumber);
+        return Objects.hash(tableHandle, totalPartsPerWorker, partNumber);
     }
 
     @Override
@@ -115,7 +115,7 @@ public class MemorySplit
         return toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .add("partNumber", partNumber)
-                .add("totalParts", totalParts)
+                .add("totalPartsPerWorker", totalPartsPerWorker)
                 .toString();
     }
 }

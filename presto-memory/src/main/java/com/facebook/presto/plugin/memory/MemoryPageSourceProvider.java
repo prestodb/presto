@@ -19,17 +19,26 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.facebook.presto.plugin.memory.Types.checkType;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public final class MemoryPageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private final MemoryPagesStore pagesStore;
+
+    public MemoryPageSourceProvider(MemoryPagesStore pagesStore)
+    {
+        this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+    }
+
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transactionHandle,
@@ -37,7 +46,16 @@ public final class MemoryPageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        MemorySplit inMemorySplit = checkType(split, MemorySplit.class, "split");
-        return new FixedPageSource(ImmutableList.of());
+        MemorySplit memorySplit = checkType(split, MemorySplit.class, "split");
+        long tableId = memorySplit.getTableHandle().getTableId();
+        int partNumber = memorySplit.getPartNumber();
+        int totalParts = memorySplit.getTotalPartsPerWorker();
+
+        List<Integer> columnIndexes = columns.stream()
+                .map(value -> checkType(value, MemoryColumnHandle.class, "columns"))
+                .map(MemoryColumnHandle::getColumnIndex).collect(toList());
+        List<Page> pages = pagesStore.getPages(tableId, partNumber, totalParts, columnIndexes);
+
+        return new FixedPageSource(pages);
     }
 }

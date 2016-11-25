@@ -27,29 +27,62 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.plugin.memory.Types.checkType;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class MemoryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
+    private final MemoryPagesStore pagesStore;
+
+    public MemoryPageSinkProvider(MemoryPagesStore pagesStore)
+    {
+        this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+    }
+
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        return new NoOpConnectorPageSink();
+        MemoryOutputTableHandle memoryOutputTableHandle = checkType(outputTableHandle, MemoryOutputTableHandle.class, "outputTableHandle");
+        MemoryTableHandle tableHandle = memoryOutputTableHandle.getTable();
+        long tableId = tableHandle.getTableId();
+        checkState(memoryOutputTableHandle.getActiveTableIds().contains(tableId));
+
+        pagesStore.cleanUp(memoryOutputTableHandle.getActiveTableIds());
+        pagesStore.initialize(tableId);
+        return new MemoryPageSink(pagesStore, tableId);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return new NoOpConnectorPageSink();
+        MemoryInsertTableHandle memoryInsertTableHandle = checkType(insertTableHandle, MemoryInsertTableHandle.class, "insertTableHandle");
+        MemoryTableHandle tableHandle = memoryInsertTableHandle.getTable();
+        long tableId = tableHandle.getTableId();
+        checkState(memoryInsertTableHandle.getActiveTableIds().contains(tableId));
+
+        pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
+        return new MemoryPageSink(pagesStore, tableId);
     }
 
-    private static class NoOpConnectorPageSink
+    private static class MemoryPageSink
             implements ConnectorPageSink
     {
+        private final MemoryPagesStore pagesStore;
+        private final long tableId;
+
+        public MemoryPageSink(MemoryPagesStore pagesStore, long tableId)
+        {
+            this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+            this.tableId = tableId;
+        }
+
         @Override
         public CompletableFuture<?> appendPage(Page page)
         {
+            pagesStore.add(tableId, page);
             return NOT_BLOCKED;
         }
 

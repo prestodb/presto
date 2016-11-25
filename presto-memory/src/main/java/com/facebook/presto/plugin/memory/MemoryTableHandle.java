@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.memory;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +24,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public final class MemoryTableHandle
@@ -31,16 +34,22 @@ public final class MemoryTableHandle
     private final String connectorId;
     private final String schemaName;
     private final String tableName;
+    private final Long tableId;
     private final List<MemoryColumnHandle> columnHandles;
+    private final List<HostAddress> hosts;
 
-    public MemoryTableHandle(String connectorId, ConnectorTableMetadata tableMetadata)
+    public MemoryTableHandle(
+            String connectorId,
+            Long tableId,
+            ConnectorTableMetadata tableMetadata,
+            List<HostAddress> hosts)
     {
         this(connectorId,
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
-                tableMetadata.getColumns().stream()
-                        .map(MemoryColumnHandle::new)
-                        .collect(toList()));
+                tableId,
+                MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()),
+                hosts);
     }
 
     @JsonCreator
@@ -48,12 +57,16 @@ public final class MemoryTableHandle
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles)
+            @JsonProperty("tableId") Long tableId,
+            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles,
+            @JsonProperty("hosts") List<HostAddress> hosts)
     {
-        this.connectorId = connectorId;
-        this.schemaName = schemaName;
-        this.tableName = tableName;
-        this.columnHandles = columnHandles;
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableId = requireNonNull(tableId, "tableId is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        this.hosts = requireNonNull(hosts, "hosts is null");
     }
 
     @JsonProperty
@@ -75,9 +88,21 @@ public final class MemoryTableHandle
     }
 
     @JsonProperty
+    public Long getTableId()
+    {
+        return tableId;
+    }
+
+    @JsonProperty
     public List<MemoryColumnHandle> getColumnHandles()
     {
         return columnHandles;
+    }
+
+    @JsonProperty
+    public List<HostAddress> getHosts()
+    {
+        return hosts;
     }
 
     public ConnectorTableMetadata toTableMetadata()
@@ -95,7 +120,7 @@ public final class MemoryTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(getSchemaName(), getTableName());
+        return Objects.hash(getConnectorId(), getTableId());
     }
 
     @Override
@@ -108,7 +133,19 @@ public final class MemoryTableHandle
             return false;
         }
         MemoryTableHandle other = (MemoryTableHandle) obj;
-        return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
-                Objects.equals(this.getTableName(), other.getTableName());
+        return Objects.equals(this.getConnectorId(), other.getConnectorId()) &&
+                Objects.equals(this.getTableId(), other.getTableId());
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("connectorId", connectorId)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .add("tableId", tableId)
+                .add("columnHandles", columnHandles)
+                .toString();
     }
 }
