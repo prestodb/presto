@@ -1160,6 +1160,7 @@ public class AddExchanges
                     node.getId(),
                     input.getNode(),
                     subquery.getNode(),
+                    node.getSubqueryAssignments(),
                     node.getCorrelation());
             return new PlanWithProperties(rewritten, deriveProperties(rewritten, ImmutableList.of(input.getProperties(), subquery.getProperties())));
         }

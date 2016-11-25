@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
-import com.facebook.presto.sql.planner.ExpressionExtractor;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -56,7 +55,6 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -75,12 +73,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Sets.intersection;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -484,7 +482,6 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
             ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builder();
-            ImmutableList.Builder<Expression> removedExpressions = ImmutableList.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol output = node.getOutputSymbols().get(i);
                 Expression expression = node.getAssignments().get(output);
@@ -493,35 +490,11 @@ public class PruneUnreferencedOutputs
                     expectedInputs.addAll(DependencyExtractor.extractUnique(expression));
                     builder.put(output, expression);
                 }
-                else {
-                    removedExpressions.add(expression);
-                }
             }
 
-            Map<Symbol, Expression> assignments = builder.build();
-            PlanNode rewrittenSource = pruneUnreferencedApplyNodes(removedExpressions.build(), node.getSource(), assignments);
-            rewrittenSource = context.rewrite(rewrittenSource, expectedInputs.build());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new ProjectNode(node.getId(), rewrittenSource, assignments);
-        }
-
-        private static PlanNode pruneUnreferencedApplyNodes(List<Expression> removedExpressions, PlanNode node, Map<Symbol, Expression> assignments)
-        {
-            Set<Symbol> symbolsUsedByProjection = assignments.values().stream()
-                    .map(DependencyExtractor::extractUnique)
-                    .flatMap(Set::stream)
-                    .collect(toImmutableSet());
-
-            PlanNode rewrittenNode = node;
-            for (Expression removedExpression : removedExpressions) {
-                for (Symbol symbol : DependencyExtractor.extractUnique(removedExpression)) {
-                    if (!symbolsUsedByProjection.contains(symbol)) {
-                        UnusedApplyRemover unusedApplyRemover = new UnusedApplyRemover(symbol.toSymbolReference());
-                        rewrittenNode = SimplePlanRewriter.rewriteWith(unusedApplyRemover, rewrittenNode, null);
-                    }
-                }
-            }
-            return rewrittenNode;
+            return new ProjectNode(node.getId(), source, builder.build());
         }
 
         @Override
@@ -720,7 +693,25 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<Set<Symbol>> context)
         {
-            PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
+            // remove unused apply nodes
+            if (intersection(node.getSubqueryAssignments().keySet(), context.get()).isEmpty()) {
+                return context.rewrite(node.getInput(), context.get());
+            }
+
+            // extract symbols required subquery plan
+            ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
+            ImmutableMap.Builder<Symbol, Expression> subqueryAssignments = ImmutableMap.builder();
+            for (Map.Entry<Symbol, Expression> entry : node.getSubqueryAssignments().entrySet()) {
+                Symbol output = entry.getKey();
+                Expression expression = entry.getValue();
+                if (context.get().contains(output)) {
+                    subqueryAssignmentsSymbolsBuilder.addAll(DependencyExtractor.extractUnique(expression));
+                    subqueryAssignments.put(output, expression);
+                }
+            }
+
+            Set<Symbol> subqueryAssignmentsSymbols = subqueryAssignmentsSymbolsBuilder.build();
+            PlanNode subquery = context.rewrite(node.getSubquery(), subqueryAssignmentsSymbols);
 
             // prune not used correlation symbols
             Set<Symbol> subquerySymbols = DependencyExtractor.extractUnique(subquery);
@@ -731,107 +722,10 @@ public class PruneUnreferencedOutputs
             Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
                     .addAll(context.get())
                     .addAll(newCorrelation)
+                    .addAll(subqueryAssignmentsSymbols) // need to include those: e.g: "expr" from "expr IN (SELECT 1)"
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
-            return new ApplyNode(node.getId(), input, subquery, newCorrelation);
+            return new ApplyNode(node.getId(), input, subquery, subqueryAssignments.build(), newCorrelation);
         }
-    }
-
-    /**
-     * Removes ApplyNode which subquery produces given Expression (valueList of InPredicate or SymbolReference) only if
-     * that Expression is not used.
-     */
-    private static class UnusedApplyRemover
-            extends ApplyNodeRewriter
-    {
-        public UnusedApplyRemover(SymbolReference symbolReference)
-        {
-            super(symbolReference);
-        }
-
-        @Override
-        protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
-        {
-            if (usesSymbol(node, getReferenceSymbol())) {
-                return node;
-            }
-            return context.defaultRewrite(node);
-        }
-
-        @Override
-        public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
-        {
-            return visitPlan(node, context);
-        }
-
-        @Override
-        public PlanNode visitJoin(JoinNode node, RewriteContext<Void> context)
-        {
-            if (usesSymbol(node, getReferenceSymbol())) {
-                return node;
-            }
-
-            boolean usesSymbolInCriteria = node.getCriteria().stream()
-                    .flatMap(criteria -> Stream.of(criteria.getLeft(), criteria.getRight()))
-                    .anyMatch(criteriaSymbol -> criteriaSymbol.equals(getReferenceSymbol()));
-
-            if (usesSymbolInCriteria) {
-                return node;
-            }
-
-            return context.defaultRewrite(node);
-        }
-
-        @Override
-        public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Void> context)
-        {
-            if (usesSymbol(node, getReferenceSymbol())) {
-                return node;
-            }
-
-            boolean usesSymbolInCriteria = node.getCriteria().stream()
-                    .flatMap(criteria -> Stream.of(criteria.getProbe(), criteria.getIndex()))
-                    .anyMatch(criteriaSymbol -> criteriaSymbol.equals(getReferenceSymbol()));
-
-            if (usesSymbolInCriteria) {
-                return node;
-            }
-
-            return context.defaultRewrite(node);
-        }
-
-        private Symbol getReferenceSymbol()
-        {
-            return Symbol.from(reference);
-        }
-
-        @Override
-        public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Void> context)
-        {
-            if (usesSymbol(node, getReferenceSymbol())) {
-                return node;
-            }
-
-            boolean usesSymbolInCriteria = node.getSourceJoinSymbol().equals(getReferenceSymbol())
-                    && node.getFilteringSourceJoinSymbol().equals(getReferenceSymbol());
-
-            if (usesSymbolInCriteria) {
-                return node;
-            }
-
-            return context.defaultRewrite(node);
-        }
-
-        @Override
-        protected PlanNode rewriteApply(ApplyNode node)
-        {
-            return node.getInput();
-        }
-    }
-
-    private static boolean usesSymbol(PlanNode node, Symbol symbol)
-    {
-        return ExpressionExtractor.extractExpressionsNonRecursive(node).stream()
-                .anyMatch(nodeExpression -> DependencyExtractor.extractUnique(nodeExpression).contains(symbol));
     }
 }
