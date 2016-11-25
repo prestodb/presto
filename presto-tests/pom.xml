@@ -203,6 +203,7 @@
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>
                         <exclude>**/TestLocalQueries.java</exclude>
                         <exclude>**/TestLocalQueriesIndexed.java</exclude>
+                        <exclude>**/TestLocalBinarySpilledQueries.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
