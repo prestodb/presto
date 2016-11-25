@@ -428,43 +428,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-
-            Map<Expression, Symbol> computedExpressions = new HashMap<>();
-
-            Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                Expression expression = canonicalize(entry.getValue());
-
-                if (expression instanceof SymbolReference) {
-                    // Always map a trivial symbol projection
-                    Symbol symbol = Symbol.from(expression);
-                    if (!symbol.equals(entry.getKey())) {
-                        map(entry.getKey(), symbol);
-                    }
-                }
-                else if (DeterminismEvaluator.isDeterministic(expression) && !(expression instanceof NullLiteral)) {
-                    // Try to map same deterministic expressions within a projection into the same symbol
-                    // Omit NullLiterals since those have ambiguous types
-                    Symbol computedSymbol = computedExpressions.get(expression);
-                    if (computedSymbol == null) {
-                        // If we haven't seen the expression before in this projection, record it
-                        computedExpressions.put(expression, entry.getKey());
-                    }
-                    else {
-                        // If we have seen the expression before and if it is deterministic
-                        // then we can rewrite references to the current symbol in terms of the parallel computedSymbol in the projection
-                        map(entry.getKey(), computedSymbol);
-                    }
-                }
-
-                Symbol canonical = canonicalize(entry.getKey());
-
-                if (!assignments.containsKey(canonical)) {
-                    assignments.put(canonical, expression);
-                }
-            }
-
-            return new ProjectNode(node.getId(), source, assignments);
+            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()));
         }
 
         @Override
@@ -499,7 +463,7 @@ public class UnaliasSymbolReferences
             PlanNode subquery = context.rewrite(node.getSubquery());
             List<Symbol> canonicalCorrelation = Lists.transform(node.getCorrelation(), this::canonicalize);
 
-            return new ApplyNode(node.getId(), source, subquery, canonicalCorrelation);
+            return new ApplyNode(node.getId(), source, subquery, canonicalize(node.getSubqueryAssignments()), canonicalCorrelation);
         }
 
         @Override
@@ -635,6 +599,44 @@ public class UnaliasSymbolReferences
         {
             Preconditions.checkArgument(!symbol.equals(canonical), "Can't map symbol to itself: %s", symbol);
             mapping.put(symbol, canonical);
+        }
+
+        private Map<Symbol, Expression> canonicalize(Map<Symbol, Expression> oldAssignments)
+        {
+            Map<Expression, Symbol> computedExpressions = new HashMap<>();
+            Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+            for (Map.Entry<Symbol, Expression> entry : oldAssignments.entrySet()) {
+                Expression expression = canonicalize(entry.getValue());
+
+                if (expression instanceof SymbolReference) {
+                    // Always map a trivial symbol projection
+                    Symbol symbol = Symbol.from(expression);
+                    if (!symbol.equals(entry.getKey())) {
+                        map(entry.getKey(), symbol);
+                    }
+                }
+                else if (DeterminismEvaluator.isDeterministic(expression) && !(expression instanceof NullLiteral)) {
+                    // Try to map same deterministic expressions within a projection into the same symbol
+                    // Omit NullLiterals since those have ambiguous types
+                    Symbol computedSymbol = computedExpressions.get(expression);
+                    if (computedSymbol == null) {
+                        // If we haven't seen the expression before in this projection, record it
+                        computedExpressions.put(expression, entry.getKey());
+                    }
+                    else {
+                        // If we have seen the expression before and if it is deterministic
+                        // then we can rewrite references to the current symbol in terms of the parallel computedSymbol in the projection
+                        map(entry.getKey(), computedSymbol);
+                    }
+                }
+
+                Symbol canonical = canonicalize(entry.getKey());
+
+                if (!assignments.containsKey(canonical)) {
+                    assignments.put(canonical, expression);
+                }
+            }
+            return assignments;
         }
 
         private Optional<Symbol> canonicalize(Optional<Symbol> symbol)
