@@ -1128,7 +1128,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.bucket-execution")
-    @ConfigDescription("Use bucketing to speed up execution")
+    @ConfigDescription("Enable bucket-aware execution: only use a single worker per bucket")
     public HiveClientConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
