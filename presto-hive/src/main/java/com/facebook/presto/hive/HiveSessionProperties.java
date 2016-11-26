@@ -27,6 +27,7 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 
 public final class HiveSessionProperties
 {
+    private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -44,6 +45,11 @@ public final class HiveSessionProperties
     public HiveSessionProperties(HiveClientConfig config)
     {
         sessionProperties = ImmutableList.of(
+                booleanSessionProperty(
+                        BUCKET_EXECUTION_ENABLED,
+                        "Enable bucket-aware execution: only use a single worker per bucket",
+                        config.isBucketExecutionEnabled(),
+                        false),
                 booleanSessionProperty(
                         FORCE_LOCAL_SCHEDULING,
                         "Only schedule splits on workers colocated with data node",
@@ -99,6 +105,11 @@ public final class HiveSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static boolean isBucketExecutionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)
