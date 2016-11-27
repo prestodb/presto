@@ -29,22 +29,22 @@ implements ColumnHandle
     private final String name;
     private final Type type;
     private final String comment;
-    private final boolean isFiberCol;
-    private final boolean isTimeCol;
+//    private final boolean isFiberCol;
+//    private final boolean isTimeCol;
 
     @JsonCreator
     public HDFSColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
-            @JsonProperty("comment") String comment,
-            @JsonProperty("isFiberCol") boolean isFiberCol,
-            @JsonProperty("isTimeCol") boolean isTimeCol)
+            @JsonProperty("comment") String comment)
+//            @JsonProperty("isFiberCol") boolean isFiberCol,
+//            @JsonProperty("isTimeCol") boolean isTimeCol)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
-        this.isFiberCol = requireNonNull(isFiberCol, "isFiberCol is null");
-        this.isTimeCol = requireNonNull(isTimeCol, "isTimeCol is null");
+//        this.isFiberCol = requireNonNull(isFiberCol, "isFiberCol is null");
+//        this.isTimeCol = requireNonNull(isTimeCol, "isTimeCol is null");
     }
 
     @JsonProperty
@@ -65,15 +65,15 @@ implements ColumnHandle
         return comment;
     }
 
-    @JsonProperty
-    public boolean isFiberCol()
-    {
-        return isFiberCol;
-    }
+//    @JsonProperty
+//    public boolean isFiberCol()
+//    {
+//        return isFiberCol;
+//    }
 
-    @JsonProperty
-    public boolean isTimeCol()
-    {
-        return isTimeCol;
-    }
+//    @JsonProperty
+//    public boolean isTimeCol()
+//    {
+//        return isTimeCol;
+//    }
 }
