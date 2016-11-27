@@ -35,12 +35,14 @@ After opening the project in IntelliJ, double check that the Java SDK is properl
 * In the SDKs section, ensure that a 1.8 JDK is selected (create one if none exist)
 * In the Project section, ensure the Project language level is set to 8.0 as Presto makes use of several Java 8 language features
 
-Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
+Presto comes with sample configuration that should work out-of-the-box for development. 
 
-* Main Class: `com.facebook.presto.server.PrestoServer`
-* VM Options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
-* Working directory: `$MODULE_DIR$`
-* Use classpath of module: `presto-main`
+* Open the Run menu and select Edit Configurations...
+* In the Application section, use the following options to create a run configuration:
+  * Main Class: `com.facebook.presto.server.PrestoServer`
+  * VM Options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties`
+  * Working directory: `$MODULE_DIR$`
+  * Use classpath of module: `presto-main`
 
 The working directory should be the `presto-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
