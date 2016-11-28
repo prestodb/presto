@@ -1,55 +1,63 @@
 ================
-Table statistics
+Table Statistics
 ================
 
-Presto supports statistics based optimizations for queries. For query to be subject for such optimization
-statistics information must be available for tables used by query.
+Presto supports statistics based optimizations for queries. For a query to take advantage of these optimizations,
+Presto must have statistical information for the tables in that query.
 
-Table statistics are provided to query planner by connectors.
-Currently the only connector supporting the mechanism is Hive connector.
+Table statistics are provided to the query planner by connectors.
+Currently the only connector that supports statistics is the Hive connector.
 
-Table layouts
+Table Layouts
 -------------
 
-Statistics are exposed to query planner on per table layout basis. Table layout represents a subset of table's data with attached
-data organization properties (like sort order, bucketing etc.).
+Statistics are exposed to the query planner by table layout. A table layout represents a subset of a table's data
+and contains information about the organizational properties of that data (like sort order and bucketing).
 
-How many table layouts table has and details of table layout implementation are specific to connector.
-Taking Hive connector as an example:
+The number of table layouts available for a table and the details of those table layouts are specific to each connector.
+Using the Hive connector as an example:
 
-* not partitioned tables have just one table layout - representing all data in a table
-* partitioned tables have a family of table layouts. Each subset of partitions to be scanned represent one table layout.
-  Presto will try to pick up smallest possible layout based on filtering predicates from query.
+* Non-partitioned tables have just one table layout representing all data in the table
+* Partitioned tables have a family of table layouts. Each set of partitions to be scanned represents one table layout.
+  Presto will try to pick a table layout consisting of the smallest number of partitions based on filtering predicates
+  from the query.
 
-Available statistics
+Available Statistics
 --------------------
 
-Currently following statics are available in Presto:
- * **rows count** - total number of rows for table layout
- * Per each column:
+Currently, the following statistics are available in Presto:
 
-   * **data size** - summary column data size which needs to be read
-   * **nulls count** - number of null values
-   * **distinct values count** - estimated number of distinct values
+ * For the whole table:
+
+   * **row count**: the total number of rows for the table layout
+
+ * For each column:
+
+   * **data size**: the data size that needs to be read
+   * **null count**: the number of null values
+   * **distinct value count**: the estimated number of distinct values
 
 
-Depending which connector is in use only, subset of statistics may be available.
-For example Hive connector does not support data size for now.
-Also some statistics may be available for one table but not the other,
-or even one table layout and not the other for single table.
+The set of statistics available for a particular query depends on the connector being used and can also vary by table or
+even table layout. For example, the Hive connector does not currently provide statistics on data size.
 
-Displaying table statistics
+Displaying Table Statistics
 ---------------------------
 
-Table statistics can be displayed via Presto CLI using ``SHOW STATS`` command.
-
+Table statistics can be displayed via the Presto CLI using the ``SHOW STATS`` command.
 There are two flavors of the command:
- * ``SHOW STATS FOR <table_name>`` - will show statistics for table layout representing all data in the table
- * ``SHOW STATS FOR (SELECT <column_list|*> FROM <table_name> WHERE <filtering_condition>)`` -
-   will show statistics for table layout of table ``t`` representing subset of data after applying given filtering condition. Filtering condition used in
-   ``WHERE`` and column list can reference table columns.
 
-See the examples output for ``SHOW STATS`` command:
+ * ``SHOW STATS FOR <table_name>`` will show statistics for the table layout representing all data in the table
+ * ``SHOW STATS FOR (SELECT <column_list|*> FROM <table_name> WHERE <filtering_condition>)``
+   will show statistics for the table layout of table ``t`` representing a subset of data after applying the given filtering
+   condition. Both the column list and the filtering condition used in the ``WHERE`` clause can reference table columns.
+
+In both cases, the ``SHOW STATS`` command outputs two types of rows.
+For each column in the table there is a row with ``column_name`` equal to the name of that column.
+These rows expose column-related statistics for a table (data size, nulls count, distinct values count).
+Additionally there is one row with NULL as the ``column_name``. This row contains table-layout wide statistics - for now just row count.
+
+For example:
 
 .. code-block:: none
 
@@ -76,38 +84,33 @@ See the examples output for ``SHOW STATS`` command:
      NULL        | NULL      | NULL                  | NULL        |      15.0
      (5 rows)
 
-There are two types of rows here.
-For each column in table there is a row with ``column_name`` equal to name of column.
-Such rows expose column-related statistics for a table (data size, nulls count, distinct values count).
-
-Additionally there is one row with NULL as ``column_name``. This row contains table-layout wide statistics - for now just row count.
 
 
-Updating Hive tables statistics
--------------------------------
+Updating Statistics for Hive Tables
+-----------------------------------
 
-Presto makes use of statistics which are managed by Hive and exposed via Hive metastore API.
-Depending on Hive configuration table statistics may be or may be not updated automatically.
+For the Hive connector, Presto uses the statistics that are managed by Hive and exposed via the Hive metastore API.
+Depending on the Hive configuration, table statistics may not be updated automatically.
 
-To trigger updating table statistics user have to use Hive CLI.
+If statistics are not updated automatically, the user needs to trigger a statistics update via the Hive CLI.
 
-Following command should be used to update table statistics for non-partitioned table ``t``::
+The following command can be used in the Hive CLI to update table statistics for non-partitioned table ``t``::
 
         ANALYZE TABLE t COMPUTE STATISTICS FOR COLUMNS
 
-For partitioned tables partitions specification must be used.
-Assuming table ``t`` has two partitioning keys ``a`` and ``b``, following command should be used
-to update table statistics for all partitions::
+For partitioned tables, partitioning information must be specified in the command.
+Assuming table ``t`` has two partitioning keys ``a`` and ``b``, the following command would
+update the table statistics for all partitions::
 
         ANALYZE TABLE t PARTITION (a, b) COMPUTE STATISTICS FOR COLUMNS``
 
-It is also possible to update statistics for just subset of partitions.
+It is also possible to update statistics for just a subset of partitions.
 This command will update statistics for all partitions for which partitioning key ``a`` is equal to ``1``::
 
         ANALYZE TABLE t PARTITION (a=1, b) COMPUTE STATISTICS FOR COLUMNS``
 
-And this command will update stats for just one partition::
+And this command will update statistics for just one partition::
 
         ANALYZE TABLE t PARTITION (a=1, b=5) COMPUTE STATISTICS FOR COLUMNS``
 
-For documentation of Hive statistics mechanism see https://cwiki.apache.org/confluence/display/Hive/StatsDev
+For documentation on Hive's statistics mechanism see https://cwiki.apache.org/confluence/display/Hive/StatsDev

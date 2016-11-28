@@ -2,14 +2,14 @@
 Cost in EXPLAIN
 ===============
 
-During planning cost is computed for each plan node based on root table statistics.
-Cost is exposed in output of ``EXPLAIN`` statement.
+During planning, the cost associated with each node of the plan is computed based on the root table statistics
+for the tables in the query. This calculated cost is printed as part of the output of an ``EXPLAIN`` statement.
 
-Cost structure consist of two fields:
- * output rows count - expected number of rows outputted by plan node during execution
- * output size - expected amount of data in bytes outputted by plan node
+Cost information is displayed in the plan tree using the format ``{rows: XX, bytes: XX}``.  ``rows`` refers to the
+expected number of rows output by each plan node during execution.  ``bytes`` refers to the expected size of the
+data output by each plan node in bytes. If any of the values is not known, a ``?`` is printed.
 
-Example output:
+For example:
 
 .. code-block:: none
 
@@ -24,19 +24,14 @@ Example output:
                 nationkey := HiveColumnHandle{clientId=hive, name=nationkey, hiveType=bigint, hiveColumnIndex=0, columnType=REGULAR}
                 comment := HiveColumnHandle{clientId=hive, name=comment, hiveType=varchar(152), hiveColumnIndex=3, columnType=REGULAR}
 
+Generally there is only one cost printed for each plan node.
+However, when a ``Scan`` operator is combined with a ``Filter`` and/or ``Project`` operator, then multiple cost structures will be printed,
+each corresponding to an individual logical part of the combined meta-operator.
+For example, for a ``ScanFilterProject`` operator three cost structures will be printed.
 
-The cost information is exposed usign ``{rows: XX, bytes: XX}`` snippets in printed plan tree.
-``rows`` denotes output rows count and ``bytes`` denotes output size.
-If one of the values is not know the ``?`` is printed.
+ * the first will correspond to ``Scan`` part of operator
+ * the second will correspond to ``Filter`` part of opertor
+ * the third will corresponde to ``Project`` part of operator
 
-Generally there is single cost section printed per plan node.
-Exception from that rule is ``Scan`` operator which can be combined with ``Filter`` and/or ``Project``. Then multiple cost structures will be printed.
-Each one will correspond to individual logical part of combined meta operator.
-E.g. for ``ScanFilterProject`` operator three cost structures will be printed.
-
- * first will correspond to ``Scan`` part of operator
- * second will correspond to ``Filter`` part of opertor
- * third will corresponde to ``Project`` part of operator
-
-Cost will also be printed in ``EXPLAIN ANALYZE`` output.
+Cost is also printed in ``EXPLAIN ANALYZE`` output.
 
