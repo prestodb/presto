@@ -474,6 +474,12 @@ public enum CassandraType
         else if (type.equals(DateType.DATE)) {
             return TEXT;
         }
+        else if (type.equals(VarbinaryType.VARBINARY)) {
+            return BLOB;
+        }
+        else if (type.equals(TimestampType.TIMESTAMP)) {
+            return TIMESTAMP;
+        }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 }
