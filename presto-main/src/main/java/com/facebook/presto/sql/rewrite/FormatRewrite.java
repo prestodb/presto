@@ -18,28 +18,25 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Format;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Statement;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
+import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
+import static com.facebook.presto.sql.SqlFormatter.formatSql;
 
-public final class StatementRewrite
+final class FormatRewrite
+        implements StatementRewrite.Rewrite
 {
-    private static final List<Rewrite> REWRITES = ImmutableList.of(
-            new DescribeInputRewrite(),
-            new DescribeOutputRewrite(),
-            new ShowQueriesRewrite(),
-            new ExplainRewrite(),
-            new FormatRewrite());
-
-    private StatementRewrite() {}
-
-    public static Statement rewrite(
+    @Override
+    public Statement rewrite(
             Session session,
             Metadata metadata,
             SqlParser parser,
@@ -48,21 +45,23 @@ public final class StatementRewrite
             List<Expression> parameters,
             AccessControl accessControl)
     {
-        for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, accessControl), "Statement rewrite returned null");
-        }
-        return node;
+        return (Statement) new Visitor().process(node, null);
     }
 
-    interface Rewrite
+    private static final class Visitor
+            extends AstVisitor<Node, Void>
     {
-        Statement rewrite(
-                Session session,
-                Metadata metadata,
-                SqlParser parser,
-                Optional<QueryExplainer> queryExplainer,
-                Statement node,
-                List<Expression> parameters,
-                AccessControl accessControl);
+        @Override
+        protected Node visitFormat(Format node, Void context)
+                throws SemanticException
+        {
+            return singleValueQuery("SQL", formatSql(node.getStatement(), Optional.empty()));
+        }
+
+        @Override
+        protected Node visitNode(Node node, Void context)
+        {
+            return node;
+        }
     }
 }

@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.Format;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -597,6 +598,12 @@ class AstBuilder
     public Node visitExplain(SqlBaseParser.ExplainContext context)
     {
         return new Explain(getLocation(context), context.ANALYZE() != null, (Statement) visit(context.statement()), visit(context.explainOption(), ExplainOption.class));
+    }
+
+    @Override
+    public Node visitFormat(SqlBaseParser.FormatContext context)
+    {
+        return new Format(getLocation(context), (Statement) visit(context.statement()));
     }
 
     @Override

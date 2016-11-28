@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Format;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -562,6 +563,16 @@ public final class SqlFormatter
             }
 
             builder.append("\n");
+
+            process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitFormat(Format node, Integer indent)
+        {
+            builder.append("FORMAT ");
 
             process(node.getStatement(), indent);
 
