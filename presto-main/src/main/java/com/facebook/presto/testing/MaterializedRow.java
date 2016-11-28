@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -70,6 +71,9 @@ public class MaterializedRow
             }
             return map;
         }
+        if (value instanceof byte[]) {
+            return ByteBuffer.wrap((byte[]) value);
+        }
         return value;
     }
 
@@ -112,6 +116,9 @@ public class MaterializedRow
                 map.put(processField(entry.getKey()), processField(entry.getValue()));
             }
             return map;
+        }
+        if (value instanceof ByteBuffer) {
+            return ((ByteBuffer) value).array();
         }
 
         return value;
