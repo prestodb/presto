@@ -114,14 +114,7 @@ public final class SqlFormatter
     public static String formatSql(Node root, Optional<List<Expression>> parameters)
     {
         StringBuilder builder = new StringBuilder();
-        new Formatter(builder, true, parameters).process(root, 0);
-        return builder.toString();
-    }
-
-    public static String formatSql(Node root, boolean unmangleNames, Optional<List<Expression>> parameters)
-    {
-        StringBuilder builder = new StringBuilder();
-        new Formatter(builder, unmangleNames, parameters).process(root, 0);
+        new Formatter(builder, parameters).process(root, 0);
         return builder.toString();
     }
 
@@ -129,13 +122,11 @@ public final class SqlFormatter
             extends AstVisitor<Void, Integer>
     {
         private final StringBuilder builder;
-        private final boolean unmangledNames;
         private final Optional<List<Expression>> parameters;
 
-        public Formatter(StringBuilder builder, boolean unmangleNames, Optional<List<Expression>> parameters)
+        public Formatter(StringBuilder builder, Optional<List<Expression>> parameters)
         {
             this.builder = builder;
-            this.unmangledNames = unmangleNames;
             this.parameters = parameters;
         }
 
@@ -149,7 +140,7 @@ public final class SqlFormatter
         protected Void visitExpression(Expression node, Integer indent)
         {
             checkArgument(indent == 0, "visitExpression should only be called at root");
-            builder.append(formatExpression(node, unmangledNames, parameters));
+            builder.append(formatExpression(node, parameters));
             return null;
         }
 
@@ -267,7 +258,7 @@ public final class SqlFormatter
             }
 
             if (node.getGroupBy().isPresent()) {
-                append(indent, "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements(), parameters)).append('\n');
+                append(indent, "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements())).append('\n');
             }
 
             if (node.getHaving().isPresent()) {
