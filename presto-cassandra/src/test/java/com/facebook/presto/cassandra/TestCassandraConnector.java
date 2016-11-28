@@ -48,8 +48,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.HOSTNAME;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.PORT;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_NAME;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.initializeTestData;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -89,7 +89,7 @@ public class TestCassandraConnector
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
 
         String keyspace = "test_connector";
-        initializeTestData(DATE, keyspace);
+        createTestTables(keyspace, DATE);
 
         String connectorId = "cassandra-test";
         CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(
@@ -111,7 +111,7 @@ public class TestCassandraConnector
         assertInstanceOf(recordSetProvider, CassandraRecordSetProvider.class);
 
         database = keyspace;
-        table = new SchemaTableName(database, TABLE_NAME.toLowerCase());
+        table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase());
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
