@@ -140,7 +140,7 @@ public class PrestoServer
         }
     }
 
-    protected static Iterable<? extends Module> getAdditionalModules()
+    protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
     }
