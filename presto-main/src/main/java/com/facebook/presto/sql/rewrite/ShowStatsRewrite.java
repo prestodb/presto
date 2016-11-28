@@ -67,6 +67,7 @@ import static com.facebook.presto.sql.rewrite.ShowColumnStatsRewriteResultBuilde
 import static com.facebook.presto.sql.rewrite.ShowColumnStatsRewriteResultBuilder.buildStatisticsRows;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -85,21 +86,21 @@ public class ShowStatsRewrite
         private final Metadata metadata;
         private final Session session;
         private final List<Expression> parameters;
-        private final QueryExplainer queryExplainer;
+        private final Optional<QueryExplainer> queryExplainer;
 
         public Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
-            checkArgument(queryExplainer.isPresent(), "Query explainer must be provided for SHOW STATS SELECT");
-            this.queryExplainer = requireNonNull(queryExplainer.get(), "queryExplainer is null");
+            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         }
 
         @Override
         protected Node visitShowStats(ShowStats node, Void context)
         {
             checkArgument(node.getQuery().getQueryBody() instanceof QuerySpecification);
+            checkState(queryExplainer.isPresent(), "Query explainer must be provided for SHOW STATS SELECT");
             QuerySpecification specification = (QuerySpecification) node.getQuery().getQueryBody();
 
             checkArgument(specification.getFrom().isPresent());
@@ -161,7 +162,7 @@ public class ShowStatsRewrite
                 return Optional.empty();
             }
 
-            Plan plan = queryExplainer.getLogicalPlan(session, new Query(Optional.empty(), specification, ImmutableList.of(), Optional.empty()), parameters);
+            Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, ImmutableList.of(), Optional.empty()), parameters);
             Map<Symbol, Type> types = plan.getTypes();
 
             Optional<TableScanNode> scanNode = findTableScanNode(plan);
