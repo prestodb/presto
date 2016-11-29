@@ -36,7 +36,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -87,7 +86,7 @@ public class TestCassandraConnector
     public void setup()
             throws Exception
     {
-        EmbeddedCassandraServerHelper.startEmbeddedCassandra();
+        EmbeddedCassandra.start();
 
         String keyspace = "test_connector";
         createTestTables(keyspace, DATE);
