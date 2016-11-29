@@ -63,7 +63,6 @@ public class MapStreamReader
     private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
     @Nullable
     private LongStream lengthStream;
-    private int[] lengthVector = new int[0];
 
     private boolean rowGroupOpen;
 
@@ -105,9 +104,11 @@ public class MapStreamReader
             }
         }
 
-        if (lengthVector.length < nextBatchSize) {
-            lengthVector = new int[nextBatchSize];
-        }
+        // The length vector could be reused, but this simplifies the code below by
+        // taking advantage of null entries being initialized to zero.  The vector
+        // could be reinitialized for each loop, but that is likely just as expensive
+        // as allocating a new array
+        int[] lengthVector = new int[nextBatchSize];
         boolean[] nullVector = new boolean[nextBatchSize];
         if (presentStream == null) {
             if (lengthStream == null) {
@@ -121,7 +122,6 @@ public class MapStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                Arrays.fill(lengthVector, 0, nextBatchSize, 0);
                 lengthStream.nextIntVector(nextBatchSize, lengthVector, nullVector);
             }
         }
@@ -130,8 +130,8 @@ public class MapStreamReader
         Type valueType = type.getTypeParameters().get(1);
 
         int entryCount = 0;
-        for (int position = 0; position < nextBatchSize; position++) {
-            entryCount += lengthVector[position];
+        for (int length : lengthVector) {
+            entryCount += length;
         }
 
         Block keys;
