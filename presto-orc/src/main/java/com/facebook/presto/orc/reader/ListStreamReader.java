@@ -31,7 +31,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -60,7 +59,6 @@ public class ListStreamReader
     private StreamSource<LongStream> lengthStreamSource = missingStreamSource(LongStream.class);
     @Nullable
     private LongStream lengthStream;
-    private int[] lengthVector = new int[0];
 
     private boolean rowGroupOpen;
 
@@ -100,9 +98,11 @@ public class ListStreamReader
             }
         }
 
-        if (lengthVector.length < nextBatchSize) {
-            lengthVector = new int[nextBatchSize];
-        }
+        // The length vector could be reused, but this simplifies the code below by
+        // taking advantage of null entries being initialized to zero.  The vector
+        // could be reinitialized for each loop, but that is likely just as expensive
+        // as allocating a new array
+        int[] lengthVector = new int[nextBatchSize];
         boolean[] nullVector = new boolean[nextBatchSize];
         if (presentStream == null) {
             if (lengthStream == null) {
@@ -116,7 +116,6 @@ public class ListStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                Arrays.fill(lengthVector, 0, nextBatchSize, 0);
                 lengthStream.nextIntVector(nextBatchSize, lengthVector, nullVector);
             }
         }
