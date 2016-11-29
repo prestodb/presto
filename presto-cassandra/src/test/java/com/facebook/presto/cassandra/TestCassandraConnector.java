@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
@@ -236,6 +237,9 @@ public class TestCassandraConnector
                 }
                 else if (DOUBLE.equals(type)) {
                     cursor.getDouble(columnIndex);
+                }
+                else if (REAL.equals(type)) {
+                    cursor.getLong(columnIndex);
                 }
                 else if (isVarcharType(type) || VARBINARY.equals(type)) {
                     try {
