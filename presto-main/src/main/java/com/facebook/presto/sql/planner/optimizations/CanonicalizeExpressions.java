@@ -137,15 +137,15 @@ public class CanonicalizeExpressions
 
             switch (node.getType()) {
                 case DATE:
-                    return new FunctionCall(QualifiedName.of("current_date"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("current_date"), ImmutableList.of());
                 case TIME:
-                    return new FunctionCall(QualifiedName.of("current_time"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("current_time"), ImmutableList.of());
                 case LOCALTIME:
-                    return new FunctionCall(QualifiedName.of("localtime"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("localtime"), ImmutableList.of());
                 case TIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("current_timestamp"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("current_timestamp"), ImmutableList.of());
                 case LOCALTIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("localtimestamp"), ImmutableList.<Expression>of());
+                    return new FunctionCall(QualifiedName.of("localtimestamp"), ImmutableList.of());
                 default:
                     throw new UnsupportedOperationException("not yet implemented: " + node.getType());
             }

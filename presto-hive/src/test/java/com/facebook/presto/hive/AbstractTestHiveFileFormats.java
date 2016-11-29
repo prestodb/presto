@@ -407,7 +407,7 @@ public abstract class AbstractTestHiveFileFormats
                             getStandardListObjectInspector(
                                     getStandardStructObjectInspector(
                                             ImmutableList.of("s_int"),
-                                            ImmutableList.<ObjectInspector>of(javaIntObjectInspector)
+                                            ImmutableList.of(javaIntObjectInspector)
                                     )
                             )
                     ),

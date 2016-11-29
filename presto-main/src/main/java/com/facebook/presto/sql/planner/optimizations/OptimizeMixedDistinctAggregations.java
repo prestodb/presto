@@ -170,10 +170,10 @@ public class OptimizeMixedDistinctAggregations
                     source,
                     aggregations.build(),
                     functions.build(),
-                    Collections.<Symbol, Symbol>emptyMap(),
+                    Collections.emptyMap(),
                     node.getGroupingSets(),
                     node.getStep(),
-                    Optional.<Symbol>empty(),
+                    Optional.empty(),
                     node.getGroupIdSymbol());
         }
 
@@ -419,7 +419,7 @@ public class OptimizeMixedDistinctAggregations
                     groupIdNode,
                     aggregations.build(),
                     functions.build(),
-                    Collections.<Symbol, Symbol>emptyMap(),
+                    Collections.emptyMap(),
                     ImmutableList.of(groupByKeys),
                     SINGLE,
                     originalNode.getHashSymbol(),

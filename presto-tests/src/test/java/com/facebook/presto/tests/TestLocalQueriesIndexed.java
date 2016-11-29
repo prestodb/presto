@@ -41,7 +41,7 @@ public class TestLocalQueriesIndexed
         // add the tpch catalog
         // local queries run directly against the generator
         localQueryRunner.createCatalog(defaultSession.getCatalog().get(),
-                new IndexedTpchConnectorFactory(INDEX_SPEC, 1), ImmutableMap.<String, String>of());
+                new IndexedTpchConnectorFactory(INDEX_SPEC, 1), ImmutableMap.of());
 
         return localQueryRunner;
     }

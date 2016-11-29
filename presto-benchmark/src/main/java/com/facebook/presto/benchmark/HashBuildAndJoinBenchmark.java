@@ -21,7 +21,6 @@ import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFacto
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
@@ -69,7 +68,7 @@ public class HashBuildAndJoinBenchmark
         OperatorFactory source = ordersTableScan;
         Optional<Integer> hashChannel = Optional.empty();
         if (hashEnabled) {
-            source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.<Type>of(BIGINT, DOUBLE));
+            source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.of(BIGINT, DOUBLE));
             driversBuilder.add(source);
             hashChannel = Optional.of(2);
         }
@@ -87,7 +86,7 @@ public class HashBuildAndJoinBenchmark
         source = lineItemTableScan;
         hashChannel = Optional.empty();
         if (hashEnabled) {
-            source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.<Type>of(BIGINT, BIGINT));
+            source = createHashProjectOperator(1, new PlanNodeId("test"), ImmutableList.of(BIGINT, BIGINT));
             joinDriversBuilder.add(source);
             hashChannel = Optional.of(2);
         }

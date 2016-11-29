@@ -64,7 +64,7 @@ public class TestMLQueries
         localQueryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
                 new TpchConnectorFactory(1),
-                ImmutableMap.<String, String>of());
+                ImmutableMap.of());
 
         MLPlugin plugin = new MLPlugin();
         for (Type type : plugin.getTypes()) {

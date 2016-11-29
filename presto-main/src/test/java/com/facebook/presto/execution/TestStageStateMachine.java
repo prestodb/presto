@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -325,7 +324,7 @@ public class TestStageStateMachine
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
                         ImmutableList.of(ImmutableList.of(new StringLiteral("foo")))),
-                ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
+                ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)));

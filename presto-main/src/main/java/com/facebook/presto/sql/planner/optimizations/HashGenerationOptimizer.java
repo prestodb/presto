@@ -484,7 +484,7 @@ public class HashGenerationOptimizer
                 newSources.add(child.getNode());
 
                 // add hash symbols to inputs in the required order
-                ImmutableList.Builder<Symbol> newInputSymbols = ImmutableList.<Symbol>builder();
+                ImmutableList.Builder<Symbol> newInputSymbols = ImmutableList.builder();
                 newInputSymbols.addAll(node.getInputs().get(sourceId));
                 for (HashComputation preferredHashSymbol : hashSymbolOrder) {
                     HashComputation hashComputation = preferredHashSymbol.translate(outputToInputTranslator).get();

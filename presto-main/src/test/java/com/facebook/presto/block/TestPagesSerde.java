@@ -54,7 +54,7 @@ public class TestPagesSerde
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
         writePages(blockEncodingManager, sliceOutput, expectedPage, expectedPage, expectedPage);
 
-        List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, VARCHAR);
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, VARCHAR);
         Iterator<Page> pageIterator = readPages(blockEncodingManager, sliceOutput.slice().getInput());
         assertPageEquals(types, pageIterator.next(), expectedPage);
         assertPageEquals(types, pageIterator.next(), expectedPage);

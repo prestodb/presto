@@ -28,7 +28,7 @@ public class BufferResult
 {
     public static BufferResult emptyResults(String taskInstanceId, long token, boolean bufferComplete)
     {
-        return new BufferResult(taskInstanceId, token, token, bufferComplete, ImmutableList.<Page>of());
+        return new BufferResult(taskInstanceId, token, token, bufferComplete, ImmutableList.of());
     }
 
     private final String taskInstanceId;

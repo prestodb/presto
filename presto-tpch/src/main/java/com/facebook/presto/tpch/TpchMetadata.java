@@ -142,8 +142,8 @@ public class TpchMetadata
 
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new TpchTableLayoutHandle(tableHandle),
-                Optional.<List<ColumnHandle>>empty(),
-                TupleDomain.<ColumnHandle>all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
+                Optional.empty(),
+                TupleDomain.all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
                 nodePartition,
                 partitioningColumns,
                 Optional.empty(),
@@ -158,7 +158,7 @@ public class TpchMetadata
         TpchTableLayoutHandle layout = checkType(handle, TpchTableLayoutHandle.class, "layout");
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
+        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }

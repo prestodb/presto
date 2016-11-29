@@ -285,7 +285,7 @@ public class PageProcessorCompiler
         Scope scope = method.getScope();
         Variable thisVariable = method.getThis();
 
-        ImmutableList.Builder<Variable> builder = ImmutableList.<Variable>builder();
+        ImmutableList.Builder<Variable> builder = ImmutableList.builder();
         for (int channel : getInputChannels(projection)) {
             Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
             builder.add(blockVariable);
@@ -632,7 +632,7 @@ public class PageProcessorCompiler
         List<Integer> filterChannels = getInputChannels(filter);
 
         // extract block variables
-        ImmutableList.Builder<Variable> blockVariablesBuilder = ImmutableList.<Variable>builder();
+        ImmutableList.Builder<Variable> blockVariablesBuilder = ImmutableList.builder();
         for (int channel : filterChannels) {
             Variable blockVariable = scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
             blockVariablesBuilder.add(blockVariable);

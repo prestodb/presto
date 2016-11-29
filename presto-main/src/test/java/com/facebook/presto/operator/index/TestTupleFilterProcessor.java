@@ -41,7 +41,7 @@ public class TestTupleFilterProcessor
                 .row(1L, "a", 0.1)
                 .build());
 
-        List<Type> outputTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BOOLEAN, DOUBLE, DOUBLE);
+        List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, BOOLEAN, DOUBLE, DOUBLE);
         TupleFilterProcessor tupleFilterProcessor = new TupleFilterProcessor(tuplePage, outputTypes, new int[] { 1, 0, 3 });
 
         Page inputPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
@@ -72,7 +72,7 @@ public class TestTupleFilterProcessor
                 .row(1L, "a", 0.1)
                 .build());
 
-        List<Type> outputTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, BOOLEAN, DOUBLE, DOUBLE);
+        List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, BOOLEAN, DOUBLE, DOUBLE);
         TupleFilterProcessor tupleFilterProcessor = new TupleFilterProcessor(tuplePage, outputTypes, new int[] { 1, 0, 3 });
 
         Page inputPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)

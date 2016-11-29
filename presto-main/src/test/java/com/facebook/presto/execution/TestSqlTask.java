@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.event.query.QueryMonitor;
@@ -108,7 +107,7 @@ public class TestSqlTask
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
-                ImmutableList.<TaskSource>of(),
+                ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                     .withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
@@ -118,7 +117,7 @@ public class TestSqlTask
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
-                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)),
+                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                     .withNoMoreBufferIds());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -171,7 +170,7 @@ public class TestSqlTask
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
-                ImmutableList.<TaskSource>of(),
+                ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                     .withBuffer(OUT, 0)
                     .withNoMoreBufferIds());
@@ -228,7 +227,7 @@ public class TestSqlTask
         assertFalse(bufferResult.isDone());
 
         // close the sources (no splits will ever be added)
-        updateTask(sqlTask, ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.<ScheduledSplit>of(), true)), outputBuffers);
+        updateTask(sqlTask, ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)), outputBuffers);
 
         // finish the task by calling abort on it
         sqlTask.abortTaskResults(OUT);
@@ -301,7 +300,7 @@ public class TestSqlTask
                 new QueryContext(new QueryId("query"), new DataSize(1, MEGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE)), taskNotificationExecutor),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
-                Functions.<SqlTask>identity(),
+                Functions.identity(),
                 new DataSize(32, MEGABYTE),
                 true);
     }

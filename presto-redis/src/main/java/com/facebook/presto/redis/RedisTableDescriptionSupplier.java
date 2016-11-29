@@ -88,8 +88,8 @@ public class RedisTableDescriptionSupplier
                     log.debug("Created dummy Table definition for %s", tableName);
                     builder.put(tableName, new RedisTableDescription(tableName.getTableName(),
                             tableName.getSchemaName(),
-                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of()),
-                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.<RedisTableFieldDescription>of())));
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.of()),
+                            new RedisTableFieldGroup(DummyRowDecoder.NAME, null, ImmutableList.of())));
                 }
             }
 

@@ -688,7 +688,7 @@ public class PlanPrinter
             TupleDomain<ColumnHandle> predicate = node.getLayout()
                     .map(layoutHandle -> metadata.getLayout(session, layoutHandle))
                     .map(TableLayout::getPredicate)
-                    .orElse(TupleDomain.<ColumnHandle>all());
+                    .orElse(TupleDomain.all());
 
             if (node.getLayout().isPresent()) {
                 // TODO: find a better way to do this

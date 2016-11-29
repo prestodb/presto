@@ -230,7 +230,7 @@ class PreferredProperties
 
         public static Global distributed()
         {
-            return distributed(Optional.<PartitioningProperties>empty());
+            return distributed(Optional.empty());
         }
 
         public static Global distributed(PartitioningProperties partitioning)

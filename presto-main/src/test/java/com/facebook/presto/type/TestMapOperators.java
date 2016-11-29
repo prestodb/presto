@@ -81,7 +81,7 @@ public class TestMapOperators
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(actualSliceOutput, actualBlock);
 
-        Block expectedBlock = new InterleavedBlockBuilder(ImmutableList.<Type>of(DOUBLE, new ArrayType(BIGINT)), new BlockBuilderStatus(), 3)
+        Block expectedBlock = new InterleavedBlockBuilder(ImmutableList.of(DOUBLE, new ArrayType(BIGINT)), new BlockBuilderStatus(), 3)
                 .writeLong(doubleToLongBits(1.0))
                 .closeEntry()
                 .writeObject(

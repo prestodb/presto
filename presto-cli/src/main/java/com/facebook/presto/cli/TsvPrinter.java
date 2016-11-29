@@ -44,7 +44,7 @@ public class TsvPrinter
     {
         if (needHeader) {
             needHeader = false;
-            printRows(ImmutableList.<List<?>>of(fieldNames), false);
+            printRows(ImmutableList.of(fieldNames), false);
         }
 
         for (List<?> row : rows) {
@@ -56,7 +56,7 @@ public class TsvPrinter
     public void finish()
             throws IOException
     {
-        printRows(ImmutableList.<List<?>>of(), true);
+        printRows(ImmutableList.of(), true);
         writer.flush();
     }
 

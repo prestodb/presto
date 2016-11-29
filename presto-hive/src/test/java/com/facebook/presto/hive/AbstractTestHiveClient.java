@@ -428,7 +428,7 @@ public abstract class AbstractTestHiveClient
         List<ColumnHandle> partitionColumns = ImmutableList.of(dsColumn, fileFormatColumn, dummyColumn);
         List<HivePartition> partitions = ImmutableList.<HivePartition>builder()
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=textfile/dummy=1",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -437,7 +437,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -446,7 +446,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=rctext/dummy=3",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -455,7 +455,7 @@ public abstract class AbstractTestHiveClient
                                 .build(),
                         ImmutableList.of()))
                 .add(new HivePartition(tablePartitionFormat,
-                        TupleDomain.<HiveColumnHandle>all(),
+                        TupleDomain.all(),
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
@@ -1536,7 +1536,7 @@ public abstract class AbstractTestHiveClient
                     new HiveClientConfig().setTimeZone(timeZone.getID()),
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarTextHiveRecordCursorProvider(hdfsEnvironment)),
-                    ImmutableSet.<HivePageSourceFactory>of(),
+                    ImmutableSet.of(),
                     TYPE_MANAGER);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
@@ -1572,7 +1572,7 @@ public abstract class AbstractTestHiveClient
                     new HiveClientConfig().setTimeZone(timeZone.getID()),
                     hdfsEnvironment,
                     ImmutableSet.of(new ColumnarBinaryHiveRecordCursorProvider(hdfsEnvironment)),
-                    ImmutableSet.<HivePageSourceFactory>of(),
+                    ImmutableSet.of(),
                     TYPE_MANAGER);
 
             ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
@@ -2034,7 +2034,7 @@ public abstract class AbstractTestHiveClient
 
                 // verify the data
                 resultBuilder.rows(CREATE_TABLE_DATA.getMaterializedRows());
-                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.<ColumnHandle>all(), OptionalInt.empty(), Optional.empty());
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), resultBuilder.build().getMaterializedRows());
             }
         }
@@ -2716,8 +2716,8 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        List<Object> expected1 = ImmutableList.<Object>of("test abc", 0.1);
-                        List<Object> expected2 = ImmutableList.<Object>of("test xyz", 0.2);
+                        List<Object> expected1 = ImmutableList.of("test abc", 0.1);
+                        List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
                         assertEquals(row.getField(index), ImmutableList.of(expected1, expected2));
                     }
                 }
@@ -2729,8 +2729,8 @@ public abstract class AbstractTestHiveClient
                         assertNull(row.getField(index));
                     }
                     else {
-                        List<Object> expected1 = ImmutableList.<Object>of("test abc", 0.1);
-                        List<Object> expected2 = ImmutableList.<Object>of("test xyz", 0.2);
+                        List<Object> expected1 = ImmutableList.of("test abc", 0.1);
+                        List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
                         assertEquals(row.getField(index), ImmutableMap.of(1, ImmutableList.of(expected1, expected2)));
                     }
                 }

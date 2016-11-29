@@ -64,7 +64,7 @@ public class HandTpchQuery6
         //    and quantity < 24;
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "extendedprice", "discount", "shipdate", "quantity");
 
-        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(1, new PlanNodeId("test"), () -> new TpchQuery6Processor(), ImmutableList.<Type>of(DOUBLE));
+        FilterAndProjectOperator.FilterAndProjectOperatorFactory tpchQuery6Operator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(1, new PlanNodeId("test"), () -> new TpchQuery6Processor(), ImmutableList.of(DOUBLE));
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,

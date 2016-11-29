@@ -954,7 +954,7 @@ public class TestExpressionCompiler
                         expected = "else";
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' else 'else' end",
-                            Arrays.<Object>asList(value, firstTest, value, secondTest),
+                            Arrays.asList(value, firstTest, value, secondTest),
                             ImmutableList.of("double", "bigint", "double", "double"));
                     assertExecute(expressions, createVarcharType(6), expected);
                 }
@@ -985,7 +985,7 @@ public class TestExpressionCompiler
                         expected = null;
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' end",
-                            Arrays.<Object>asList(value, firstTest, value, secondTest),
+                            Arrays.asList(value, firstTest, value, secondTest),
                             ImmutableList.of("double", "bigint", "double", "double"));
                     assertExecute(expressions, createVarcharType(6), expected);
                 }
@@ -1538,14 +1538,14 @@ public class TestExpressionCompiler
     private static List<String> formatExpression(String expressionPattern, Object value, String type)
     {
         return formatExpression(expressionPattern,
-                Arrays.<Object>asList(value),
+                Arrays.asList(value),
                 ImmutableList.of(type));
     }
 
     private static List<String> formatExpression(String expressionPattern, Object left, final String leftType, Object right, final String rightType)
     {
         return formatExpression(expressionPattern,
-                Arrays.<Object>asList(left, right),
+                Arrays.asList(left, right),
                 ImmutableList.of(leftType, rightType));
     }
 
@@ -1555,7 +1555,7 @@ public class TestExpressionCompiler
             Object third, String thirdType)
     {
         return formatExpression(expressionPattern,
-                Arrays.<Object>asList(first, second, third),
+                Arrays.asList(first, second, third),
                 ImmutableList.of(firstType, secondType, thirdType));
     }
 

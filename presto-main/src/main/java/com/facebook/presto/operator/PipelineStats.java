@@ -371,6 +371,6 @@ public class PipelineStats
                 outputDataSize,
                 outputPositions,
                 operatorSummaries,
-                ImmutableList.<DriverStats>of());
+                ImmutableList.of());
     }
 }

@@ -52,7 +52,7 @@ public class ClassInfoLoader
             classDefinition.visit(classNode);
             classNodes.put(classDefinition.getType(), classNode);
         }
-        return new ClassInfoLoader(classNodes.build(), ImmutableMap.<ParameterizedType, byte[]>of(), classLoader, true);
+        return new ClassInfoLoader(classNodes.build(), ImmutableMap.of(), classLoader, true);
     }
 
     private final Map<ParameterizedType, ClassNode> classNodes;

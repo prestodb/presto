@@ -182,7 +182,7 @@ public class MongoMetadata
         MongoTableLayoutHandle layout = checkType(handle, MongoTableLayoutHandle.class, "layout");
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
+        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }

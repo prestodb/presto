@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class TableFinishOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
     public static class TableFinishOperatorFactory
             implements OperatorFactory

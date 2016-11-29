@@ -163,7 +163,7 @@ public class PerfTest
                         schema,
                         TimeZone.getDefault().getID(),
                         Locale.getDefault(),
-                        ImmutableMap.<String, String>of(),
+                        ImmutableMap.of(),
                         null,
                         debug,
                         clientRequestTimeout);

@@ -149,7 +149,7 @@ public class PruneUnreferencedOutputs
                     node.getPartitioningScheme().isReplicateNulls(),
                     node.getPartitioningScheme().getBucketToPartition());
 
-            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.<PlanNode>builder();
+            ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
             for (int i = 0; i < node.getSources().size(); i++) {
                 ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                         .addAll(inputsBySource.get(i));

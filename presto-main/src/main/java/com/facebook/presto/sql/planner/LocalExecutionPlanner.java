@@ -1167,7 +1167,7 @@ public class LocalExecutionPlanner
                         context.getSession(),
                         metadata,
                         sqlParser,
-                        ImmutableMap.<Symbol, Type>of(),
+                        ImmutableMap.of(),
                         ImmutableList.copyOf(row),
                         emptyList(),
                         false);

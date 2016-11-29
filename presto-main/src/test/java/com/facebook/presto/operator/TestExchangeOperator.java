@@ -74,7 +74,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestExchangeOperator
 {
-    private static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
+    private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final Page PAGE = createSequencePage(TYPES, 10, 100);
     private static final BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
 

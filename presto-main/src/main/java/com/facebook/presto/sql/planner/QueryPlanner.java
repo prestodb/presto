@@ -260,9 +260,9 @@ class QueryPlanner
         List<Expression> emptyRow = ImmutableList.of();
         Scope scope = Scope.builder().withParent(analysis.getScope(node)).build();
         return new RelationPlan(
-                new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
+                new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow)),
                 scope,
-                ImmutableList.<Symbol>of());
+                ImmutableList.of());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)

@@ -33,7 +33,7 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestJsonHiveHandles
 {
-    private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.<String, Object>of(
+    private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.of(
             "clientId", "hive",
             "schemaName", "hive_schema",
             "tableName", "hive_table");
