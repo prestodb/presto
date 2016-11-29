@@ -20,7 +20,6 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -44,7 +43,7 @@ public final class CassandraQueryRunner
     public static DistributedQueryRunner createCassandraQueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        EmbeddedCassandraServerHelper.startEmbeddedCassandra();
+        EmbeddedCassandra.start();
 
         try (Cluster cluster = CassandraTestingUtils.getCluster();
                 com.datastax.driver.core.Session session = cluster.connect()) {
