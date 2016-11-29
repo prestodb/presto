@@ -25,13 +25,11 @@ import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
-import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -42,7 +40,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
-import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -64,7 +61,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -260,36 +256,19 @@ class SubqueryPlanner
 
         PlanNode subqueryPlan = createRelationPlan(existsPredicate.getSubquery()).getRoot();
 
-        Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         if (isAggregationWithEmptyGroupBy(subqueryPlan)) {
             subPlan.getTranslations().put(existsPredicate, BooleanLiteral.TRUE_LITERAL);
             return subPlan;
         }
 
-        subqueryPlan = new LimitNode(idAllocator.getNextId(), subqueryPlan, 1, false);
-
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-        QualifiedName countFunction = QualifiedName.of("count");
-        Symbol count = symbolAllocator.newSymbol(countFunction.toString(), BIGINT);
-        subqueryPlan = new AggregationNode(
-                idAllocator.getNextId(),
-                subqueryPlan,
-                ImmutableMap.of(count, new FunctionCall(countFunction, ImmutableList.of())),
-                ImmutableMap.of(count, functionRegistry.resolveFunction(countFunction, ImmutableList.of())),
-                ImmutableMap.of(),
-                ImmutableList.of(ImmutableList.of()),
-                AggregationNode.Step.SINGLE,
-                Optional.empty(),
-                Optional.empty());
-
-        ComparisonExpression countGreaterThanZero = new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()));
-        subqueryPlan = new ProjectNode(
-                idAllocator.getNextId(),
-                subqueryPlan,
-                ImmutableMap.of(exists, countGreaterThanZero));
-
+        Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
-        return appendApplyNode(subPlan, existsPredicate.getSubquery(), subqueryPlan, identityAssigments(subqueryPlan), correlationAllowed);
+        return appendApplyNode(
+                subPlan,
+                existsPredicate.getSubquery(),
+                subqueryPlan,
+                ImmutableMap.of(exists, existsPredicate),
+                correlationAllowed);
     }
 
     private PlanBuilder appendQuantifiedComparisonApplyNodes(PlanBuilder subPlan, Set<QuantifiedComparisonExpression> quantifiedComparisons, boolean correlationAllowed)
