@@ -30,7 +30,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -112,6 +114,9 @@ public class CassandraRecordSink
         }
         else if (INTEGER.equals(columnTypes.get(field))) {
             append(((Number) value).intValue());
+        }
+        else if (REAL.equals(columnTypes.get(field))) {
+            append(intBitsToFloat((int) value));
         }
         else {
             append(value);
