@@ -53,6 +53,7 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private boolean legacyArrayAgg;
     private boolean optimizeMixedDistinctAggregations;
+    private boolean joinReorderingEnabled = false;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -310,5 +311,17 @@ public class FeaturesConfig
     {
         this.optimizeMixedDistinctAggregations = value;
         return this;
+    }
+
+    @Config("join-reordering-enabled")
+    public FeaturesConfig setJoinReorderingEnabled(boolean joinReorderingEnabled)
+    {
+        this.joinReorderingEnabled = joinReorderingEnabled;
+        return this;
+    }
+
+    public boolean isJoinReorderingEnabled()
+    {
+        return joinReorderingEnabled;
     }
 }

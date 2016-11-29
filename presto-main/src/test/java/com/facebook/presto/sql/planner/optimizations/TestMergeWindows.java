@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
@@ -46,6 +49,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 public class TestMergeWindows
 {
     private final LocalQueryRunner queryRunner;
+    private final CostCalculator costCalculator;
     private final WindowFrame commonFrame;
     private final Window windowA;
     private final Window windowB;
@@ -60,6 +64,8 @@ public class TestMergeWindows
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.<String, String>of());
+
+        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
 
         commonFrame = new WindowFrame(
                 WindowFrame.Type.ROWS,
@@ -123,9 +129,9 @@ public class TestMergeWindows
                                                 anyNot(WindowNode.class,
                                                         anyTree())))));
 
-        Plan actualPlan = queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
         queryRunner.inTransaction(transactionSession -> {
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
             return null;
         });
     }
@@ -410,23 +416,23 @@ public class TestMergeWindows
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        Plan actualPlan = unitPlan(sql);
         queryRunner.inTransaction(transactionSession -> {
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            Plan actualPlan = unitPlan(transactionSession, sql);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), costCalculator, actualPlan, pattern);
             return null;
         });
     }
 
-    private Plan unitPlan(@Language("SQL") String sql)
+    private Plan unitPlan(Session session, @Language("SQL") String sql)
     {
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                        new UnaliasSymbolReferences(),
-                        new PruneIdentityProjections(),
-                        new MergeWindows(),
-                        new PruneUnreferencedOutputs());
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers));
+                new UnaliasSymbolReferences(),
+                new PruneIdentityProjections(),
+                new MergeWindows(),
+                new PruneUnreferencedOutputs());
+        return queryRunner.createPlan(session, sql, featuresConfig, optimizers);
     }
 }

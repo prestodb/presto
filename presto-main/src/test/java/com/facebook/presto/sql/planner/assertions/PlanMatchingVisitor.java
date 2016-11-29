@@ -14,12 +14,14 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeCost;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
@@ -30,11 +32,13 @@ final class PlanMatchingVisitor
 {
     private final Metadata metadata;
     private final Session session;
+    private final Map<PlanNode, PlanNodeCost> planCost;
 
-    PlanMatchingVisitor(Session session, Metadata metadata)
+    PlanMatchingVisitor(Session session, Metadata metadata, Map<PlanNode, PlanNodeCost> planCost)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.planCost = requireNonNull(planCost, "planCost is null");
     }
 
     @Override
@@ -47,7 +51,7 @@ final class PlanMatchingVisitor
     @Override
     protected Boolean visitPlan(PlanNode node, PlanMatchingContext context)
     {
-        List<PlanMatchingState> states = context.getPattern().matches(node, session, metadata, context.getExpressionAliases());
+        List<PlanMatchingState> states = context.getPattern().matches(node, session, metadata, planCost, context.getExpressionAliases());
 
         if (states.isEmpty()) {
             return false;
