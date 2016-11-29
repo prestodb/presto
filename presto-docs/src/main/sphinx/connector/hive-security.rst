@@ -346,7 +346,7 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 .. code-block:: none
 
     hive.hdfs.authentication.type=KERBEROS
-    hive.hdfs.impersonation=true
+    hive.hdfs.impersonation.enabled=true
     hive.hdfs.presto.principal=presto@EXAMPLE.COM
     hive.hdfs.presto.keytab=/etc/presto/hdfs.keytab
 
