@@ -46,7 +46,6 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.google.common.primitives.Ints.toByteArray;
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -65,7 +64,7 @@ public class TestCassandraIntegrationSmokeTest
     public TestCassandraIntegrationSmokeTest()
             throws Exception
     {
-        super(createCassandraQueryRunner(ORDERS));
+        super(createCassandraQueryRunner());
     }
 
     @BeforeClass
