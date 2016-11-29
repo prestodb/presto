@@ -56,7 +56,8 @@ public class TestCachingHiveMetastore
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
-                new Duration(1, TimeUnit.MINUTES));
+                new Duration(1, TimeUnit.MINUTES),
+                1000);
         stats = thriftHiveMetastore.getStats();
     }
 
