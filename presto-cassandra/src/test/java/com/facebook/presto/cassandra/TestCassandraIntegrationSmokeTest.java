@@ -39,6 +39,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -89,7 +90,7 @@ public class TestCassandraIntegrationSmokeTest
                 " AND typeboolean = false" +
                 " AND typedecimal = 128.0" +
                 " AND typedouble = 16384.0" +
-                " AND typefloat = 2097152.0" +
+                " AND typefloat = REAL '2097152.0'" +
                 " AND typeinet = '127.0.0.1'" +
                 " AND typevarchar = 'varchar 7'" +
                 " AND typevarint = '10000000'" +
@@ -162,7 +163,7 @@ public class TestCassandraIntegrationSmokeTest
                 BOOLEAN,
                 DOUBLE,
                 DOUBLE,
-                DOUBLE,
+                REAL,
                 inetType,
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType(),
@@ -188,7 +189,7 @@ public class TestCassandraIntegrationSmokeTest
                     rowNumber % 2 == 0,
                     Math.pow(2, rowNumber),
                     Math.pow(4, rowNumber),
-                    Math.pow(8, rowNumber),
+                    (float) Math.pow(8, rowNumber),
                     "127.0.0.1",
                     "varchar " + rowNumber,
                     BigInteger.TEN.pow(rowNumber).toString(),
