@@ -145,7 +145,7 @@ public class CoefficientBasedCostCalculator
 
             PlanNodeCost.Builder joinCost = PlanNodeCost.builder();
             if (!leftCost.getOutputRowCount().isValueUnknown() && !rightCost.getOutputRowCount().isValueUnknown()) {
-                double joinOutputRowCount = Math.min(leftCost.getOutputRowCount().getValue(), rightCost.getOutputRowCount().getValue()) * JOIN_MATCHING_COEFFICIENT;
+                double joinOutputRowCount = Math.max(leftCost.getOutputRowCount().getValue(), rightCost.getOutputRowCount().getValue()) * JOIN_MATCHING_COEFFICIENT;
                 joinCost.setOutputRowCount(new Estimate(joinOutputRowCount));
             }
 
