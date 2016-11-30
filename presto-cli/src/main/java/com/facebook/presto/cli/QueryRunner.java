@@ -53,20 +53,22 @@ public class QueryRunner
             Optional<String> kerberosPrincipal,
             Optional<String> kerberosRemoteServiceName,
             boolean authenticationEnabled,
-            KerberosConfig kerberosConfig)
+            KerberosConfig kerberosConfig,
+            Optional<HttpClientConfig> httpClientConfig)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.queryResultsCodec = requireNonNull(queryResultsCodec, "queryResultsCodec is null");
         this.httpClient = new JettyHttpClient(
-                getHttpClientConfig(
-                        socksProxy,
-                        keystorePath,
-                        keystorePassword,
-                        truststorePath,
-                        truststorePassword,
-                        kerberosPrincipal,
-                        kerberosRemoteServiceName,
-                        authenticationEnabled),
+                httpClientConfig.isPresent() ? httpClientConfig.get() :
+                        getHttpClientConfig(
+                                socksProxy,
+                                keystorePath,
+                                keystorePassword,
+                                truststorePath,
+                                truststorePassword,
+                                kerberosPrincipal,
+                                kerberosRemoteServiceName,
+                                authenticationEnabled),
                 kerberosConfig,
                 Optional.<JettyIoPool>empty(),
                 ImmutableList.<HttpRequestFilter>of());
@@ -110,6 +112,32 @@ public class QueryRunner
             boolean authenticationEnabled,
             KerberosConfig kerberosConfig)
     {
+        return create(session,
+                socksProxy,
+                keystorePath,
+                keystorePassword,
+                truststorePath,
+                truststorePassword,
+                kerberosPrincipal,
+                kerberosRemoteServiceName,
+                authenticationEnabled,
+                kerberosConfig,
+                Optional.empty());
+    }
+
+    public static QueryRunner create(
+            ClientSession session,
+            Optional<HostAndPort> socksProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> truststorePath,
+            Optional<String> truststorePassword,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            boolean authenticationEnabled,
+            KerberosConfig kerberosConfig,
+            Optional<HttpClientConfig> httpClientConfig)
+    {
         return new QueryRunner(
                 session,
                 jsonCodec(QueryResults.class),
@@ -121,7 +149,8 @@ public class QueryRunner
                 kerberosPrincipal,
                 kerberosRemoteServiceName,
                 authenticationEnabled,
-                kerberosConfig);
+                kerberosConfig,
+                httpClientConfig);
     }
 
     private static HttpClientConfig getHttpClientConfig(
