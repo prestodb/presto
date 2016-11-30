@@ -67,6 +67,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
     public static final String REORDER_WINDOWS = "reorder_windows";
+    public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -271,6 +272,11 @@ public final class SystemSessionProperties
                         REORDER_WINDOWS,
                         "Allow reordering window functions in query",
                         featuresConfig.isReorderWindows(),
+                        false),
+                booleanSessionProperty(
+                        ITERATIVE_OPTIMIZER,
+                        "Experimental: enable iterative optimizer",
+                        featuresConfig.isIterativeOptimizerEnabled(),
                         false));
     }
 
@@ -426,5 +432,10 @@ public final class SystemSessionProperties
     public static boolean isLegacyOrderByEnabled(Session session)
     {
         return session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class);
+    }
+
+    public static boolean isNewOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(ITERATIVE_OPTIMIZER, Boolean.class);
     }
 }
