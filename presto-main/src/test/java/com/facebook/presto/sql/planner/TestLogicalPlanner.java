@@ -325,17 +325,6 @@ public class TestLogicalPlanner
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ALL (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
 
-        assertPlan(query, LogicalPlanner.Stage.CREATED,
-                anyTree(
-                        project(
-                                filter("MIN = MAX AND X = MIN",
-                                        apply(ImmutableList.of(),
-                                                project(
-                                                        tableScan("orders").withSymbol("orderkey", "X")),
-                                                node(AggregationNode.class,
-                                                        anyTree(
-                                                                node(ValuesNode.class)))).withSymbol("min", "MIN").withSymbol("max", "MAX")
-                                ))));
         assertPlan(query, anyTree(
                 node(JoinNode.class,
                         anyTree(
@@ -351,17 +340,6 @@ public class TestLogicalPlanner
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> SOME (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
 
-        assertPlan(query, LogicalPlanner.Stage.CREATED,
-                anyTree(
-                        project(
-                                filter("NOT (MIN = MAX AND X = MIN)",
-                                        apply(ImmutableList.of(),
-                                                project(
-                                                        tableScan("orders").withSymbol("orderkey", "X")),
-                                                node(AggregationNode.class,
-                                                        anyTree(
-                                                                node(ValuesNode.class)))).withSymbol("min", "MIN").withSymbol("max", "MAX")
-                                ))));
         assertPlan(query, anyTree(
                 node(JoinNode.class,
                         tableScan("orders"),
@@ -415,16 +393,6 @@ public class TestLogicalPlanner
 
     private void assertOrderedQuantifiedComparison(String query, String filter, String columnMapping, String function, String functionAlias)
     {
-        assertPlan(query, LogicalPlanner.Stage.CREATED, anyTree(
-                project(
-                        filter(filter,
-                                apply(ImmutableList.of(),
-                                        project(
-                                                tableScan("orders").withSymbol("orderkey", columnMapping)),
-                                        node(AggregationNode.class,
-                                                anyTree(
-                                                        node(ValuesNode.class))).withSymbol(function, functionAlias)
-                                )))));
         assertPlan(query, anyTree(
                 project(
                         join(INNER, ImmutableList.of(), Optional.of(filter),
