@@ -113,6 +113,7 @@ public class DistributedQueryRunner
 
             Map<String, String> extraCoordinatorProperties = ImmutableMap.<String, String>builder()
                     .put("optimizer.optimize-mixed-distinct-aggregations", "true")
+                    .put("experimental.new-optimizer-enabled", "true")
                     .putAll(extraProperties)
                     .putAll(coordinatorProperties)
                     .build();
