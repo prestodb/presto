@@ -88,10 +88,11 @@ class AggregationAnalyzer
     private final Metadata metadata;
     private final Set<Expression> columnReferences;
     private final List<Expression> parameters;
+    private final boolean isDescribe;
 
     private final Scope scope;
 
-    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, Scope scope, Set<Expression> columnReferences, List<Expression> parameters)
+    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, Scope scope, Set<Expression> columnReferences, List<Expression> parameters, boolean isDescribe)
     {
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
@@ -103,6 +104,7 @@ class AggregationAnalyzer
         this.metadata = metadata;
         this.columnReferences = ImmutableSet.copyOf(columnReferences);
         this.parameters = parameters;
+        this.isDescribe = isDescribe;
         this.expressions = groupByExpressions.stream()
                 .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), e))
                 .collect(toImmutableList());
@@ -493,6 +495,9 @@ class AggregationAnalyzer
         @Override
         public Boolean visitParameter(Parameter node, Void context)
         {
+            if (isDescribe) {
+                return true;
+            }
             checkArgument(node.getPosition() < parameters.size(), "Invalid parameter number %s, max values is %s", node.getPosition(), parameters.size() - 1);
             return process(parameters.get(node.getPosition()), context);
         }

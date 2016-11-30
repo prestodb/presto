@@ -7558,6 +7558,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDescribeInputWithAggregation()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "select count(*) + ? from nation")
+                .build();
+        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
+        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "bigint")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testDescribeInputNoParameters()
     {
         Session session = Session.builder(getSession())
