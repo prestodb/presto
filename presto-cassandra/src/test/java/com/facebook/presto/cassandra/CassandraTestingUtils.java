@@ -119,6 +119,8 @@ public class CassandraTestingUtils
                 " typeuuid uuid, " +
                 " typeinteger int, " +
                 " typelong bigint, " +
+                " typesmallint smallint, " +
+                " typetinyint tinyint, " +
                 " typebytes blob, " +
                 " typetimestamp timestamp, " +
                 " typeansi ascii, " +
@@ -146,6 +148,8 @@ public class CassandraTestingUtils
                 " typeuuid uuid, " +
                 " typeinteger int, " +
                 " typelong bigint, " +
+                " typesmallint smallint, " +
+                " typetinyint tinyint, " +
                 " typebytes blob, " +
                 " typetimestamp timestamp, " +
                 " typeansi ascii, " +
@@ -165,6 +169,8 @@ public class CassandraTestingUtils
                 "   typeuuid, " +
                 "   typeinteger, " +
                 "   typelong, " +
+                "   typesmallint, " +
+                "   typetinyint, " +
                 // TODO: NOT YET SUPPORTED AS A PARTITION KEY
                 // "   typebytes, " +
                 "   typetimestamp, " +
@@ -197,6 +203,8 @@ public class CassandraTestingUtils
                     .value("typeuuid", UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)))
                     .value("typeinteger", rowNumber)
                     .value("typelong", rowNumber.longValue() + 1000)
+                    .value("typesmallint", rowNumber.shortValue())
+                    .value("typetinyint", rowNumber.byteValue())
                     .value("typebytes", ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer())
                     .value("typetimestamp", date)
                     .value("typeansi", "ansi " + rowNumber)

@@ -25,7 +25,9 @@ import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
+import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.google.common.annotations.VisibleForTesting;
@@ -74,7 +76,9 @@ public enum CassandraType
     VARINT(createUnboundedVarcharType(), BigInteger.class),
     LIST(createUnboundedVarcharType(), null),
     MAP(createUnboundedVarcharType(), null),
-    SET(createUnboundedVarcharType(), null);
+    SET(createUnboundedVarcharType(), null),
+    SMALLINT(SmallintType.SMALLINT, Short.class),
+    TINYINT(TinyintType.TINYINT, Byte.class);
 
     private static class Constants
     {
@@ -143,12 +147,16 @@ public enum CassandraType
                 return MAP;
             case SET:
                 return SET;
+            case SMALLINT:
+                return SMALLINT;
             case TEXT:
                 return TEXT;
             case TIMESTAMP:
                 return TIMESTAMP;
             case TIMEUUID:
                 return TIMEUUID;
+            case TINYINT:
+                return TINYINT;
             case UUID:
                 return UUID;
             case VARCHAR:
@@ -180,6 +188,10 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
                 case INT:
                     return NullableValue.of(nativeType, (long) row.getInt(i));
+                case SMALLINT:
+                    return NullableValue.of(nativeType, row.getShort(i));
+                case TINYINT:
+                    return NullableValue.of(nativeType, row.getByte(i));
                 case BIGINT:
                 case COUNTER:
                     return NullableValue.of(nativeType, row.getLong(i));
@@ -301,6 +313,10 @@ public enum CassandraType
                     return CassandraCqlUtils.quoteStringLiteral(row.getString(i));
                 case INT:
                     return Integer.toString(row.getInt(i));
+                case SMALLINT:
+                    return Short.toString(row.getShort(i));
+                case TINYINT:
+                    return Byte.toString(row.getByte(i));
                 case BIGINT:
                 case COUNTER:
                     return Long.toString(row.getLong(i));
@@ -355,6 +371,8 @@ public enum CassandraType
             case DOUBLE:
             case FLOAT:
             case DECIMAL:
+            case SMALLINT:
+            case TINYINT:
                 return object.toString();
             default:
                 throw new IllegalStateException("Handling of type " + elemType + " is not implemented");
@@ -396,6 +414,8 @@ public enum CassandraType
             case BOOLEAN:
             case DOUBLE:
             case COUNTER:
+            case SMALLINT:
+            case TINYINT:
                 return nativeValue;
             case INET:
                 return InetAddresses.forString(((Slice) nativeValue).toStringUtf8());
@@ -438,6 +458,8 @@ public enum CassandraType
             case DOUBLE:
             case INET:
             case INT:
+            case SMALLINT:
+            case TINYINT:
             case FLOAT:
             case DECIMAL:
             case TIMESTAMP:
@@ -453,7 +475,7 @@ public enum CassandraType
             case MAP:
             default:
                 // todo should we just skip partition pruning instead of throwing an exception?
-                throw new PrestoException(NOT_SUPPORTED, "Unsupport partition key type: " + this);
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported partition key type: " + this);
         }
     }
 
@@ -497,6 +519,12 @@ public enum CassandraType
         }
         else if (type.equals(IntegerType.INTEGER)) {
             return INT;
+        }
+        else if (type.equals(SmallintType.SMALLINT)) {
+            return SMALLINT;
+        }
+        else if (type.equals(TinyintType.TINYINT)) {
+            return TINYINT;
         }
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;

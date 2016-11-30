@@ -42,7 +42,9 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
@@ -85,6 +87,8 @@ public class TestCassandraIntegrationSmokeTest
                 " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
+                " AND typesmallint = 7" +
+                " AND typetinyint = 7" +
                 " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(toByteArray(7))) + "')" +
                 " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05'" +
                 " AND typeansi = 'ansi 7'" +
@@ -205,6 +209,8 @@ public class TestCassandraIntegrationSmokeTest
                 " typeuuid, " +
                 " typeinteger, " +
                 " typelong, " +
+                " typesmallint, " +
+                " typetinyint, " +
                 " typebytes, " +
                 " typetimestamp, " +
                 " typeansi, " +
@@ -230,6 +236,8 @@ public class TestCassandraIntegrationSmokeTest
                 uuidType,
                 INTEGER,
                 BIGINT,
+                SMALLINT,
+                TINYINT,
                 VARBINARY,
                 TIMESTAMP,
                 createUnboundedVarcharType(),
@@ -256,6 +264,8 @@ public class TestCassandraIntegrationSmokeTest
                     String.format("00000000-0000-0000-0000-%012d", rowNumber),
                     rowNumber,
                     rowNumber + 1000L,
+                    rowNumber,
+                    rowNumber,
                     ByteBuffer.wrap(toByteArray(rowNumber)),
                     TIMESTAMP_LOCAL,
                     "ansi " + rowNumber,

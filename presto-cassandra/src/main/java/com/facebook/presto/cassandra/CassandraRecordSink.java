@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -116,6 +118,12 @@ public class CassandraRecordSink
         }
         else if (REAL.equals(columnTypes.get(field))) {
             append(intBitsToFloat((int) value));
+        }
+        else if (SMALLINT.equals(columnTypes.get(field))) {
+            append(((Number) value).shortValue());
+        }
+        else if (TINYINT.equals(columnTypes.get(field))) {
+            append(((Number) value).byteValue());
         }
         else {
             append(value);
