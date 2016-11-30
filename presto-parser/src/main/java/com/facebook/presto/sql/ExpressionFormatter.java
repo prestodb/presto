@@ -86,6 +86,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.SqlFormatter.indentString;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -200,7 +201,7 @@ public final class ExpressionFormatter
         {
             ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
             for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value, parameters));
+                valueStrings.add(formatExpression(value, parameters, indent + 1));
             }
             return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
         }
@@ -208,7 +209,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubscriptExpression(SubscriptExpression node, Integer indent)
         {
-            return formatSql(node.getBase(), parameters) + "[" + formatSql(node.getIndex(), parameters) + "]";
+            return formatExpression(node.getBase(), parameters, indent) + "[" + formatExpression(node.getIndex(), parameters, indent) + "]";
         }
 
         @Override
@@ -272,13 +273,13 @@ public final class ExpressionFormatter
         @Override
         protected String visitSubqueryExpression(SubqueryExpression node, Integer indent)
         {
-            return "(" + formatSql(node.getQuery(), parameters) + ")";
+            return "(\n" + formatSql(node.getQuery(), parameters, indent + 1) + indentString(indent) + ')';
         }
 
         @Override
         protected String visitExists(ExistsPredicate node, Integer indent)
         {
-            return "(EXISTS (" + formatSql(node.getSubquery(), parameters) + "))";
+            return "EXISTS (\n" + formatSql(node.getSubquery(), parameters, indent + 1) + indentString(indent) + ")";
         }
 
         @Override
@@ -326,7 +327,7 @@ public final class ExpressionFormatter
         {
             StringBuilder builder = new StringBuilder();
 
-            String arguments = joinExpressions(node.getArguments());
+            String arguments = joinExpressions(node.getArguments(), indent);
             if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
                 arguments = "*";
             }
@@ -363,7 +364,22 @@ public final class ExpressionFormatter
         @Override
         protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Integer indent)
         {
-            return formatBinaryExpression(node.getType().toString(), node.getLeft(), node.getRight());
+            String left;
+            if (node.getLeft() instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) node.getLeft()).getType() != node.getType()) {
+                left = '(' + process(node.getLeft(), indent + 1) + ')';
+            }
+            else {
+                left = process(node.getLeft(), indent);
+            }
+            String right;
+            if (node.getRight() instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) node.getRight()).getType() != node.getType()) {
+                right = '(' + process(node.getRight(), indent + 1) + ')';
+            }
+            else {
+                right = process(node.getRight(), indent);
+            }
+            return left + '\n'
+                    + indentString(indent + 1) + node.getType().toString() + ' ' + right;
         }
 
         @Override
@@ -375,7 +391,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitComparisonExpression(ComparisonExpression node, Integer indent)
         {
-            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight(), indent);
         }
 
         @Override
@@ -421,7 +437,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitCoalesceExpression(CoalesceExpression node, Integer indent)
         {
-            return "COALESCE(" + joinExpressions(node.getOperands()) + ")";
+            return "COALESCE(" + joinExpressions(node.getOperands(), indent) + ")";
         }
 
         @Override
@@ -444,7 +460,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Integer indent)
         {
-            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight());
+            return formatBinaryExpression(node.getType().getValue(), node.getLeft(), node.getRight(), indent);
         }
 
         @Override
@@ -543,7 +559,16 @@ public final class ExpressionFormatter
         @Override
         protected String visitInListExpression(InListExpression node, Integer indent)
         {
-            return "(" + joinExpressions(node.getValues()) + ")";
+            StringBuilder builder = new StringBuilder("(");
+            boolean first = true;
+            for (Expression expression : node.getValues()) {
+                builder.append("\n")
+                        .append(indentString(indent + 1))
+                        .append(first ? "  " : ", ")
+                        .append(process(expression, indent + 1));
+                first = false;
+            }
+            return builder.append(")").toString();
         }
 
         private String visitFilter(Expression node, Integer indent)
@@ -557,7 +582,7 @@ public final class ExpressionFormatter
             List<String> parts = new ArrayList<>();
 
             if (!node.getPartitionBy().isEmpty()) {
-                parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy()));
+                parts.add("PARTITION BY " + joinExpressions(node.getPartitionBy(), indent));
             }
             if (!node.getOrderBy().isEmpty()) {
                 parts.add("ORDER BY " + formatSortItems(node.getOrderBy(), parameters, indent));
@@ -621,15 +646,15 @@ public final class ExpressionFormatter
                     .toString();
         }
 
-        private String formatBinaryExpression(String operator, Expression left, Expression right)
+        private String formatBinaryExpression(String operator, Expression left, Expression right, Integer indent)
         {
-            return '(' + process(left, null) + ' ' + operator + ' ' + process(right, null) + ')';
+            return "(" + process(left, indent + 1) + ' ' + operator + ' ' + process(right, indent + 1) + ')';
         }
 
-        private String joinExpressions(List<Expression> expressions)
+        private String joinExpressions(List<Expression> expressions, Integer indent)
         {
             return Joiner.on(", ").join(expressions.stream()
-                    .map((e) -> process(e, null))
+                    .map((e) -> process(e, indent))
                     .iterator());
         }
 

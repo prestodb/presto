@@ -114,8 +114,13 @@ public final class SqlFormatter
 
     public static String formatSql(Node root, Optional<List<Expression>> parameters)
     {
+        return formatSql(root, parameters, 0);
+    }
+
+    public static String formatSql(Node root, Optional<List<Expression>> parameters, int indent)
+    {
         StringBuilder builder = new StringBuilder();
-        new Formatter(builder, parameters).process(root, 0);
+        new Formatter(builder, parameters).process(root, indent);
         return builder.toString();
     }
 
@@ -487,6 +492,7 @@ public final class SqlFormatter
                 processRelation(relations.next(), indent);
 
                 if (relations.hasNext()) {
+                    builder.append(indentString(indent));
                     builder.append("INTERSECT ");
                     if (!node.isDistinct()) {
                         builder.append("ALL ");
@@ -1073,11 +1079,11 @@ public final class SqlFormatter
             return builder.append(indentString(indent))
                     .append(value);
         }
+    }
 
-        private static String indentString(int indent)
-        {
-            return Strings.repeat(INDENT, indent);
-        }
+    public static String indentString(int indent)
+    {
+        return Strings.repeat(INDENT, indent);
     }
 
     private static void appendAliasColumns(StringBuilder builder, List<String> columns)
