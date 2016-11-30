@@ -102,6 +102,14 @@ public class TestApplyFunction
     }
 
     @Test
+    public void testRowAccess()
+            throws Exception
+    {
+        assertFunction("apply(CAST(ROW(1, 'a') AS ROW(x INTEGER, y VARCHAR)), r -> r.x)", INTEGER, 1);
+        assertFunction("apply(CAST(ROW(1, 'a') AS ROW(x INTEGER, y VARCHAR)), r -> r.y)", VARCHAR, "a");
+    }
+
+    @Test
     public void testTypeCombinations()
             throws Exception
     {
