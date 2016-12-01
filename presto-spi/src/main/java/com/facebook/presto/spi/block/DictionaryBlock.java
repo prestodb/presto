@@ -39,8 +39,8 @@ public class DictionaryBlock
     private final Block dictionary;
     private final Slice ids;
     private final int retainedSizeInBytes;
-    private final int sizeInBytes;
-    private final int uniqueIds;
+    private volatile int sizeInBytes = -1;
+    private volatile int uniqueIds = -1;
     private final DictionaryId dictionarySourceId;
 
     public DictionaryBlock(int positionCount, Block dictionary, Slice ids)
@@ -80,23 +80,6 @@ public class DictionaryBlock
         if (dictionaryIsCompacted) {
             this.sizeInBytes = this.retainedSizeInBytes;
             this.uniqueIds = dictionary.getPositionCount();
-        }
-        else {
-            int sizeInBytes = 0;
-            int uniqueIds = 0;
-            boolean[] seen = new boolean[dictionary.getPositionCount()];
-            for (int i = 0; i < positionCount; i++) {
-                int position = getIndex(ids, i);
-                if (!seen[position]) {
-                    if (!dictionary.isNull(position)) {
-                        sizeInBytes += dictionary.getLength(position);
-                    }
-                    uniqueIds++;
-                    seen[position] = true;
-                }
-            }
-            this.sizeInBytes = sizeInBytes + ids.length();
-            this.uniqueIds = uniqueIds;
         }
     }
 
@@ -199,7 +182,31 @@ public class DictionaryBlock
     @Override
     public int getSizeInBytes()
     {
+        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
+        if (sizeInBytes < 0) {
+            calculateCompactSize();
+        }
         return sizeInBytes;
+    }
+
+    private void calculateCompactSize()
+    {
+        int sizeInBytes = 0;
+        int uniqueIds = 0;
+        boolean[] seen = new boolean[dictionary.getPositionCount()];
+        for (int i = 0; i < positionCount; i++) {
+            int position = getIndex(ids, i);
+            if (!seen[position]) {
+                if (!dictionary.isNull(position)) {
+                    // todo this is wrong for ArrayBlock and InterleavedBlock as length means entry count
+                    sizeInBytes += dictionary.getLength(position);
+                }
+                uniqueIds++;
+                seen[position] = true;
+            }
+        }
+        this.sizeInBytes = sizeInBytes;
+        this.uniqueIds = uniqueIds;
     }
 
     @Override
@@ -283,6 +290,10 @@ public class DictionaryBlock
 
     public boolean isCompact()
     {
+        // this is racy but is safe because sizeInBytes is an int and the calculation is stable
+        if (uniqueIds < 0) {
+            calculateCompactSize();
+        }
         return uniqueIds == dictionary.getPositionCount();
     }
 
