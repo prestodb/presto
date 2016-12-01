@@ -532,11 +532,15 @@ public class InternalResourceGroup
             else {
                 for (Iterator<InternalResourceGroup> iterator = dirtySubGroups.iterator(); iterator.hasNext(); ) {
                     InternalResourceGroup subGroup = iterator.next();
-                    cachedMemoryUsageBytes -= subGroup.cachedMemoryUsageBytes;
+                    long oldMemoryUsageBytes = subGroup.cachedMemoryUsageBytes;
+                    cachedMemoryUsageBytes -= oldMemoryUsageBytes;
                     subGroup.internalRefreshStats();
                     cachedMemoryUsageBytes += subGroup.cachedMemoryUsageBytes;
                     if (!subGroup.isDirty()) {
                         iterator.remove();
+                    }
+                    if (oldMemoryUsageBytes != subGroup.cachedMemoryUsageBytes) {
+                        subGroup.updateEligiblility();
                     }
                 }
             }
