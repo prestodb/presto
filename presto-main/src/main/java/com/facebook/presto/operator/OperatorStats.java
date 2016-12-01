@@ -394,4 +394,33 @@ public class OperatorStats
     {
         return (Mergeable<T>) base.mergeWith(other);
     }
+
+    public OperatorStats summarize()
+    {
+        return new OperatorStats(
+                operatorId,
+                planNodeId,
+                operatorType,
+                addInputCalls,
+                addInputWall,
+                addInputCpu,
+                addInputUser,
+                inputDataSize,
+                inputPositions,
+                getOutputCalls,
+                getOutputWall,
+                getOutputCpu,
+                getOutputUser,
+                outputDataSize,
+                outputPositions,
+                blockedWall,
+                finishCalls,
+                finishWall,
+                finishCpu,
+                finishUser,
+                memoryReservation,
+                systemMemoryReservation,
+                blockedReason,
+                (info != null && info.isFinal()) ? info : null);
+    }
 }

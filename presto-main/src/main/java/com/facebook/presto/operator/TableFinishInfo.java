@@ -48,6 +48,12 @@ public class TableFinishInfo
         this.connectorOutputMetadata = MAPPER.writeValueAsString(connectorOutputMetadata);
     }
 
+    @Override
+    public boolean isFinal()
+    {
+        return true;
+    }
+
     @JsonProperty
     @JsonRawValue
     public String getConnectorOutputMetadata()

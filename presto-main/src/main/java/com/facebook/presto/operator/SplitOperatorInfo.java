@@ -30,6 +30,12 @@ public class SplitOperatorInfo
         this.splitInfo = splitInfo;
     }
 
+    @Override
+    public boolean isFinal()
+    {
+        return true;
+    }
+
     @JsonProperty
     public Object getSplitInfo()
     {

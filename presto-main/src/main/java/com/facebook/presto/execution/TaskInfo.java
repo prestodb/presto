@@ -108,6 +108,9 @@ public class TaskInfo
 
     public TaskInfo summarize()
     {
+        if (taskStatus.getState().isDone()) {
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan, complete);
+        }
         return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan, complete);
     }
 

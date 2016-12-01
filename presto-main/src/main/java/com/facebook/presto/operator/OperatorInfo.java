@@ -32,4 +32,11 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 public interface OperatorInfo
 {
+    /**
+     * @return true if this OperatorInfo should be collected and sent to the coordinator when the task completes (i.e. it will not be stripped away during summarization).
+     */
+    default boolean isFinal()
+    {
+        return false;
+    }
 }
