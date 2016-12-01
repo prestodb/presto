@@ -24,7 +24,7 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestQueryPlansDeterministic
 {
-    private PlanDeterminismChecker determinismChecker = new PlanDeterminismChecker(createLocalQueryRunner());
+    private final PlanDeterminismChecker determinismChecker = new PlanDeterminismChecker(createLocalQueryRunner());
 
     private static LocalQueryRunner createLocalQueryRunner()
     {
@@ -81,5 +81,24 @@ public class TestQueryPlansDeterministic
                 "ORDER BY\n" +
                 "  nation,\n" +
                 "  o_year DESC\n");
+    }
+
+    @Test
+    public void testTpcdsQ6deterministic()
+            throws Exception
+    {
+        //This is a query inspired on TPC-DS Q6 that reproduces its plan nondeterminism problems
+        determinismChecker.checkPlanIsDeterministic("SELECT orderdate " +
+                "FROM orders o,\n" +
+                "     lineitem i\n" +
+                "WHERE o.orderdate =\n" +
+                "    (SELECT DISTINCT (orderdate)\n" +
+                "     FROM orders\n" +
+                "     WHERE totalprice > 2)\n" +
+                "  AND i.quantity > 1.2 *\n" +
+                "    (SELECT avg(j.quantity)\n" +
+                "     FROM lineitem j\n" +
+                "    )\n"
+        );
     }
 }
