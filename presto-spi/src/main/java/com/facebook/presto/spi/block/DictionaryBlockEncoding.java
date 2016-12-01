@@ -14,9 +14,9 @@
 package com.facebook.presto.spi.block;
 
 import com.facebook.presto.spi.type.TypeManager;
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static java.util.Objects.requireNonNull;
 
@@ -55,10 +55,7 @@ public class DictionaryBlockEncoding
         dictionaryEncoding.writeBlock(sliceOutput, dictionary);
 
         // ids
-        Slice ids = dictionaryBlock.getIds();
-        sliceOutput
-                .appendInt(ids.length())
-                .writeBytes(ids);
+        sliceOutput.writeBytes(dictionaryBlock.getIds());
 
         // instance id
         sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getMostSignificantBits());
@@ -76,8 +73,8 @@ public class DictionaryBlockEncoding
         Block dictionaryBlock = dictionaryEncoding.readBlock(sliceInput);
 
         // ids
-        int lengthIdsSlice = sliceInput.readInt();
-        Slice ids = sliceInput.readSlice(lengthIdsSlice);
+        int[] ids = new int[positionCount];
+        sliceInput.readBytes(Slices.wrappedIntArray(ids));
 
         // instance id
         long mostSignificantBits = sliceInput.readLong();

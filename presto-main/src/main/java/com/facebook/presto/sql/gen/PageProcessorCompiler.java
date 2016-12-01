@@ -50,8 +50,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -455,7 +453,6 @@ public class PageProcessorCompiler
         Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
 
         Variable dictionary = scope.declareVariable(Block.class, "dictionary");
-        Variable ids = scope.declareVariable(Slice.class, "ids");
         Variable dictionaryCount = scope.declareVariable(int.class, "dictionaryCount");
         Variable inputSourceId = scope.declareVariable(DictionaryId.class, "inputSourceId");
         Variable outputSourceId = scope.declareVariable(DictionaryId.class, "outputSourceId");
@@ -471,7 +468,6 @@ public class PageProcessorCompiler
         BytecodeExpression castDictionaryBlock = inputBlock.cast(DictionaryBlock.class);
         body.comment("Extract dictionary, ids, positionCount and dictionarySourceId")
                 .append(dictionary.set(castDictionaryBlock.invoke("getDictionary", Block.class)))
-                .append(ids.set(castDictionaryBlock.invoke("getIds", Slice.class)))
                 .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)))
                 .append(inputSourceId.set(castDictionaryBlock.invoke("getDictionarySourceId", DictionaryId.class)));
 
@@ -509,8 +505,7 @@ public class PageProcessorCompiler
                         .append(dictionarySourceIds.invoke("put", Object.class, inputSourceId.cast(Object.class), outputSourceId.cast(Object.class)))
                         .pop()));
 
-        BytecodeExpression idsSlice = invokeStatic(Slices.class, "wrappedIntArray", Slice.class, outputIds);
-        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, idsSlice, constantFalse(), outputSourceId)
+        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, outputIds, constantFalse(), outputSourceId)
                 .cast(Block.class)
                 .ret());
         return method;

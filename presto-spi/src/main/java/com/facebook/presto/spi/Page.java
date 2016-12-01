@@ -16,7 +16,6 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
-import io.airlift.slice.Slice;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,8 +25,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -163,7 +160,6 @@ public class Page
     {
         DictionaryBlock firstDictionaryBlock = blocks.get(0);
         Block dictionary = firstDictionaryBlock.getDictionary();
-        Slice dictionaryIds = firstDictionaryBlock.getIds();
 
         int positionCount = firstDictionaryBlock.getPositionCount();
         int dictionarySize = dictionary.getPositionCount();
@@ -175,7 +171,7 @@ public class Page
 
         int newIndex = 0;
         for (int i = 0; i < positionCount; i++) {
-            int position = getIndex(dictionaryIds, i);
+            int position = firstDictionaryBlock.getId(i);
             if (remapIndex[position] == -1) {
                 dictionaryPositionsToCopy.add(position);
                 remapIndex[position] = newIndex;
@@ -189,7 +185,7 @@ public class Page
         }
 
         // compact the dictionaries
-        Slice newIdsSlice = wrappedIntArray(getNewIds(positionCount, dictionaryIds, remapIndex));
+        int[] newIds = getNewIds(positionCount, firstDictionaryBlock, remapIndex);
         List<DictionaryBlock> outputDictionaryBlocks = new ArrayList<>(blocks.size());
         DictionaryId newDictionaryId = randomDictionaryId();
         for (DictionaryBlock dictionaryBlock : blocks) {
@@ -199,32 +195,27 @@ public class Page
 
             try {
                 Block compactDictionary = dictionaryBlock.getDictionary().copyPositions(dictionaryPositionsToCopy);
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIdsSlice, true, newDictionaryId));
+                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, compactDictionary, newIds, true, newDictionaryId));
             }
             catch (UnsupportedOperationException e) {
                 // ignore if copy positions is not supported for the dictionary
-                outputDictionaryBlocks.add(new DictionaryBlock(positionCount, dictionaryBlock.getDictionary(), dictionaryBlock.getIds()));
+                outputDictionaryBlocks.add(dictionaryBlock);
             }
         }
         return outputDictionaryBlocks;
     }
 
-    private static int[] getNewIds(int positionCount, Slice ids, int[] remapIndex)
+    private static int[] getNewIds(int positionCount, DictionaryBlock dictionaryBlock, int[] remapIndex)
     {
         int[] newIds = new int[positionCount];
         for (int i = 0; i < positionCount; i++) {
-            int newId = remapIndex[getIndex(ids, i)];
+            int newId = remapIndex[dictionaryBlock.getId(i)];
             if (newId == -1) {
                 throw new IllegalStateException("reference to a non-existent key");
             }
             newIds[i] = newId;
         }
         return newIds;
-    }
-
-    private static int getIndex(Slice ids, int i)
-    {
-        return ids.getInt(i * SIZE_OF_INT);
     }
 
     /**
