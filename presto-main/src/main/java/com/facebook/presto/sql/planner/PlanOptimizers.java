@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.iterative.rule.UnaliasMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasOutput;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasProject;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasSort;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasTopN;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -97,7 +98,8 @@ public class PlanOptimizers
                         new UnaliasOutput(),
                         new UnaliasSort(),
                         new UnaliasGroupId(),
-                        new UnaliasMarkDistinct()
+                        new UnaliasMarkDistinct(),
+                        new UnaliasTopN()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
