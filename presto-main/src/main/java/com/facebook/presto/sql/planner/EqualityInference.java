@@ -62,7 +62,7 @@ public class EqualityInference
             // Current cost heuristic:
             // 1) Prefer fewer input symbols
             // 2) Prefer smaller expression trees
-            // 3) Ordering.arbitrary() - creates a stable consistent ordering (extremely useful for unit testing)
+            // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
             // TODO: be more precise in determining the cost of an expression
             return ComparisonChain.start()
                     .compare(DependencyExtractor.extractAll(expression1).size(), DependencyExtractor.extractAll(expression2).size())
