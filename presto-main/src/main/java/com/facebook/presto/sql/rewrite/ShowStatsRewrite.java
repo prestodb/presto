@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -137,11 +138,14 @@ public class ShowStatsRewrite
 
         private Optional<TableLayoutHandle> getTableLayoutHandle(ShowStats node, TableHandle tableHandle)
         {
-            Optional<TableLayoutHandle> handle = findTableLayoutHandleWithWhere(node);
-            if (!handle.isPresent()) {
-                return findEmptyConditionLayoutHandle(tableHandle);
+            checkArgument(node.getQuery().getQueryBody() instanceof QuerySpecification);
+            QuerySpecification specification = (QuerySpecification) node.getQuery().getQueryBody();
+
+            if (specification.getWhere().isPresent()) {
+                return findTableLayoutHandleWithWhere(node);
             }
-            return handle;
+
+            return findEmptyConditionLayoutHandle(tableHandle);
         }
 
         private Optional<TableLayoutHandle> findEmptyConditionLayoutHandle(TableHandle tableHandle)
@@ -157,10 +161,6 @@ public class ShowStatsRewrite
         {
             checkArgument(node.getQuery().getQueryBody() instanceof QuerySpecification);
             QuerySpecification specification = (QuerySpecification) node.getQuery().getQueryBody();
-
-            if (!specification.getWhere().isPresent()) {
-                return Optional.empty();
-            }
 
             Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, ImmutableList.of(), Optional.empty()), parameters);
             Map<Symbol, Type> types = plan.getTypes();
@@ -183,7 +183,11 @@ public class ShowStatsRewrite
 
         private Node createEmptyStatsTable(QualifiedName tableName)
         {
-            return simpleQuery(selectList(unaliasedName("column_name")), aliased(new Values(ImmutableList.of()), "table_stats_for_" + tableName, ImmutableList.of("column_name")));
+            return simpleQuery(
+                    selectList(unaliasedName("column_name")),
+                    aliased(new Values(ImmutableList.of(new NullLiteral())),
+                            "table_stats_for_" + tableName,
+                            ImmutableList.of("column_name")));
         }
 
         private List<TableLayoutResult> getLayouts(TableScanNode node, Expression predicate, Map<Symbol, Type> types)
