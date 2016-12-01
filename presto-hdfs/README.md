@@ -111,7 +111,7 @@ Table:
 | NAME     | table name    | test             |
 | LOCATION | table path    | hdfs://u/db/t1   |
 | OWNER    | owner name    | root             |
-| STR_FOR  | storage format| parquet/orc/rcfile |
+| STR_FOR  | storage format| parquet/orc/rcfile|
 
 + TBL_PARAMS
 
@@ -127,9 +127,9 @@ Table:
 | field    | description   |     example      |
 |----------|---------------|------------------|
 | COL_ID   | column id     |         1        |
-| NAME     | column name   | id               |
+| NAME     | column name   | t.id             |
 | TYPE     | column type   | INT              |
-| OWNER    | owner name    | root             |
+| COMMENT  | column comment| id col           |
 | FIBER_K  |    fiber key? | Y/N              |
 | TIME_K   | timestamp key?| Y/N              |
 
