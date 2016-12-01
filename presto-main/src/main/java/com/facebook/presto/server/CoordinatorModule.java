@@ -161,6 +161,9 @@ public class CoordinatorModule
         }
         newExporter(binder).export(QueryManager.class).withGeneratedName();
 
+        // resource manager resource
+        jaxrsBinder(binder).bind(ResourceManagerResource.class);
+
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);

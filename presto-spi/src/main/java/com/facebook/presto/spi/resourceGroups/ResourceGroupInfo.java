@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.spi.resourceGroups;
 
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.google.common.collect.ImmutableList;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
 
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -33,15 +34,16 @@ public class ResourceGroupInfo
     private final DataSize memoryUsage;
     private final List<ResourceGroupInfo> subGroups;
 
+    @JsonCreator
     public ResourceGroupInfo(
-            ResourceGroupId id,
-            DataSize softMemoryLimit,
-            int maxRunningQueries,
-            int maxQueuedQueries,
-            int runningQueries,
-            int queuedQueries,
-            DataSize memoryUsage,
-            List<ResourceGroupInfo> subGroups)
+            @JsonProperty("id") ResourceGroupId id,
+            @JsonProperty("softMemoryLimit")DataSize softMemoryLimit,
+            @JsonProperty("maxRunningQueries")int maxRunningQueries,
+            @JsonProperty("maxQueuedQueries")int maxQueuedQueries,
+            @JsonProperty("runningQueries")int runningQueries,
+            @JsonProperty("queuedQueries")int queuedQueries,
+            @JsonProperty("memoryUsage")DataSize memoryUsage,
+            @JsonProperty("subGroups") List<ResourceGroupInfo> subGroups)
     {
         this.id = id;
         this.softMemoryLimit = requireNonNull(softMemoryLimit, "softMemoryLimit is null");
@@ -50,44 +52,52 @@ public class ResourceGroupInfo
         this.runningQueries = runningQueries;
         this.queuedQueries = queuedQueries;
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
-        this.subGroups = ImmutableList.copyOf(requireNonNull(subGroups, "subGroups is null"));
+        this.subGroups = Collections.unmodifiableList(requireNonNull(subGroups, "subGroups is null"));
     }
 
+    @JsonProperty
     public ResourceGroupId getId()
     {
         return id;
     }
 
+    @JsonProperty
     public DataSize getSoftMemoryLimit()
     {
         return softMemoryLimit;
     }
 
+    @JsonProperty
     public int getMaxRunningQueries()
     {
         return maxRunningQueries;
     }
 
+    @JsonProperty
     public int getMaxQueuedQueries()
     {
         return maxQueuedQueries;
     }
 
+    @JsonProperty
     public List<ResourceGroupInfo> getSubGroups()
     {
         return subGroups;
     }
 
+    @JsonProperty
     public int getRunningQueries()
     {
         return runningQueries;
     }
 
+    @JsonProperty
     public int getQueuedQueries()
     {
         return queuedQueries;
     }
 
+    @JsonProperty
     public DataSize getMemoryUsage()
     {
         return memoryUsage;

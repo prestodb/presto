@@ -14,10 +14,14 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.sql.tree.Statement;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
@@ -49,5 +53,11 @@ public final class NoOpResourceGroupManager
             throws Exception
     {
         // no-op
+    }
+
+    @Override
+    public List<ResourceGroup> getRootResourceGroups()
+    {
+        return ImmutableList.of();
     }
 }

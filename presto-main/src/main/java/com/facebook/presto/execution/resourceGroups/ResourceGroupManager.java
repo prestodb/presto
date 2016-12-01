@@ -14,8 +14,12 @@
 package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryQueueManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
+
+import java.util.List;
 
 public interface ResourceGroupManager
         extends QueryQueueManager
@@ -25,4 +29,6 @@ public interface ResourceGroupManager
     void addConfigurationManagerFactory(ResourceGroupConfigurationManagerFactory factory);
 
     void loadConfigurationManager() throws Exception;
+
+    List<ResourceGroup> getRootResourceGroups();
 }

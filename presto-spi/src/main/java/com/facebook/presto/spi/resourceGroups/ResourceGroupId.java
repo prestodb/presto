@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.resourceGroups;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -44,6 +47,7 @@ public final class ResourceGroupId
         return result;
     }
 
+    @JsonCreator
     private ResourceGroupId(List<String> segments)
     {
         checkArgument(!segments.isEmpty(), "Resource group id is empty");
@@ -58,6 +62,7 @@ public final class ResourceGroupId
         return segments.get(segments.size() - 1);
     }
 
+    @JsonProperty
     public List<String> getSegments()
     {
         return segments;

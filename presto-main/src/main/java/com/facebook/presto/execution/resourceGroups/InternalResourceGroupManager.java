@@ -18,13 +18,16 @@ import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import org.weakref.jmx.JmxException;
@@ -140,6 +143,12 @@ public final class InternalResourceGroupManager
         else {
             setConfigurationManager(LEGACY_RESOURCE_GROUP_MANAGER, ImmutableMap.of());
         }
+    }
+
+    @Override
+    public List<ResourceGroup> getRootResourceGroups()
+    {
+        return ImmutableList.copyOf(rootGroups);
     }
 
     @VisibleForTesting

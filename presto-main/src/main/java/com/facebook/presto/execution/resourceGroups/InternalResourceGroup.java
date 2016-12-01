@@ -18,6 +18,7 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -119,6 +120,7 @@ public class InternalResourceGroup
         }
     }
 
+    @Override
     public ResourceGroupInfo getInfo()
     {
         synchronized (root) {
