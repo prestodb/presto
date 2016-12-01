@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.iterative.rule.UnaliasAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasFilter;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasOutput;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasProject;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasSort;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -91,7 +92,8 @@ public class PlanOptimizers
                         new UnaliasProject(),
                         new UnaliasFilter(),
                         new UnaliasAggregation(),
-                        new UnaliasOutput()
+                        new UnaliasOutput(),
+                        new UnaliasSort()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
