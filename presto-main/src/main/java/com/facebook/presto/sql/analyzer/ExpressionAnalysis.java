@@ -21,17 +21,17 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.IdentityHashMap;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalysis
 {
-    private final IdentityHashMap<Expression, Type> expressionTypes;
-    private final IdentityHashMap<Expression, Type> expressionCoercions;
+    private final IdentityLinkedHashMap<Expression, Type> expressionTypes;
+    private final IdentityLinkedHashMap<Expression, Type> expressionCoercions;
     private final Set<Expression> typeOnlyCoercions;
     private final Set<Expression> columnReferences;
     private final Set<InPredicate> subqueryInPredicates;
@@ -39,18 +39,18 @@ public class ExpressionAnalysis
     private final Set<ExistsPredicate> existsSubqueries;
     private final Set<QuantifiedComparisonExpression> quantifiedComparisons;
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
-    private final IdentityHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences;
+    private final IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences;
 
     public ExpressionAnalysis(
-            IdentityHashMap<Expression, Type> expressionTypes,
-            IdentityHashMap<Expression, Type> expressionCoercions,
+            IdentityLinkedHashMap<Expression, Type> expressionTypes,
+            IdentityLinkedHashMap<Expression, Type> expressionCoercions,
             Set<InPredicate> subqueryInPredicates,
             Set<SubqueryExpression> scalarSubqueries,
             Set<ExistsPredicate> existsSubqueries,
             Set<Expression> columnReferences,
             Set<Expression> typeOnlyCoercions,
             Set<QuantifiedComparisonExpression> quantifiedComparisons,
-            IdentityHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences)
+            IdentityLinkedHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences)
     {
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
@@ -68,7 +68,7 @@ public class ExpressionAnalysis
         return expressionTypes.get(expression);
     }
 
-    public IdentityHashMap<Expression, Type> getExpressionTypes()
+    public IdentityLinkedHashMap<Expression, Type> getExpressionTypes()
     {
         return expressionTypes;
     }

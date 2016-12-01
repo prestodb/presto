@@ -28,6 +28,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
 import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -37,7 +38,6 @@ import io.airlift.slice.Slice;
 
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -100,7 +100,7 @@ public class ExpressionEquivalence
         Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
 
         // determine the type of every expression
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
                 session,
                 metadata,
                 sqlParser,

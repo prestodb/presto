@@ -88,6 +88,7 @@ import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.RowType.RowField;
 import com.facebook.presto.util.Failures;
 import com.facebook.presto.util.FastutilSetHelper;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Defaults;
 import com.google.common.base.Functions;
@@ -102,7 +103,6 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -134,15 +134,15 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final ConnectorSession session;
     private final boolean optimize;
-    private final IdentityHashMap<Expression, Type> expressionTypes;
+    private final IdentityLinkedHashMap<Expression, Type> expressionTypes;
 
     private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, Regex> likePatternCache = new IdentityHashMap<>();
-    private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
+    private final IdentityLinkedHashMap<LikePredicate, Regex> likePatternCache = new IdentityLinkedHashMap<>();
+    private final IdentityLinkedHashMap<InListExpression, Set<?>> inListCache = new IdentityLinkedHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityLinkedHashMap<Expression, Type> expressionTypes)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(metadata, "metadata is null");
@@ -151,7 +151,7 @@ public class ExpressionInterpreter
         return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
     }
 
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes)
+    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, IdentityLinkedHashMap<Expression, Type> expressionTypes)
     {
         requireNonNull(expression, "expression is null");
         requireNonNull(metadata, "metadata is null");
@@ -172,7 +172,7 @@ public class ExpressionInterpreter
                     actualType.getTypeSignature()));
         }
 
-        IdentityHashMap<Expression, Type> coercions = new IdentityHashMap<>();
+        IdentityLinkedHashMap<Expression, Type> coercions = new IdentityLinkedHashMap<>();
         coercions.putAll(analyzer.getExpressionCoercions());
         coercions.put(expression, expectedType);
         return evaluateConstantExpression(expression, coercions, metadata, session, ImmutableSet.of(), parameters);
@@ -180,7 +180,7 @@ public class ExpressionInterpreter
 
     public static Object evaluateConstantExpression(
             Expression expression,
-            IdentityHashMap<Expression, Type> coercions,
+            IdentityLinkedHashMap<Expression, Type> coercions,
             Metadata metadata, Session session,
             Set<Expression> columnReferences,
             List<Expression> parameters)
@@ -235,7 +235,7 @@ public class ExpressionInterpreter
         new ConstantExpressionVerifierVisitor(columnReferences, expression).process(expression, null);
     }
 
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityHashMap<Expression, Type> expressionTypes, boolean optimize)
+    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, IdentityLinkedHashMap<Expression, Type> expressionTypes, boolean optimize)
     {
         this.expression = expression;
         this.metadata = metadata;

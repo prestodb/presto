@@ -25,10 +25,10 @@ import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +45,7 @@ class TranslationMap
     // all expressions are rewritten in terms of fields declared by this relation plan
     private final RelationPlan rewriteBase;
     private final Analysis analysis;
-    private final IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
+    private final IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
 
     // current mappings of underlying field -> symbol for translating direct field references
     private final Symbol[] fieldSymbols;
@@ -54,7 +54,7 @@ class TranslationMap
     private final Map<Expression, Symbol> expressionToSymbols = new HashMap<>();
     private final Map<Expression, Expression> expressionToExpressions = new HashMap<>();
 
-    public TranslationMap(RelationPlan rewriteBase, Analysis analysis, IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap)
+    public TranslationMap(RelationPlan rewriteBase, Analysis analysis, IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap)
     {
         this.rewriteBase = requireNonNull(rewriteBase, "rewriteBase is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
@@ -73,7 +73,7 @@ class TranslationMap
         return analysis;
     }
 
-    public IdentityHashMap<LambdaArgumentDeclaration, Symbol> getLambdaDeclarationToSymbolMap()
+    public IdentityLinkedHashMap<LambdaArgumentDeclaration, Symbol> getLambdaDeclarationToSymbolMap()
     {
         return lambdaDeclarationToSymbolMap;
     }

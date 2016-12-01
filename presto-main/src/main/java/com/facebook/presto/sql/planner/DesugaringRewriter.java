@@ -21,9 +21,8 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
-
-import java.util.IdentityHashMap;
 
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -34,9 +33,9 @@ import static java.util.Objects.requireNonNull;
 public class DesugaringRewriter
         extends ExpressionRewriter<Void>
 {
-    private final IdentityHashMap<Expression, Type> expressionTypes;
+    private final IdentityLinkedHashMap<Expression, Type> expressionTypes;
 
-    public DesugaringRewriter(IdentityHashMap<Expression, Type> expressionTypes)
+    public DesugaringRewriter(IdentityLinkedHashMap<Expression, Type> expressionTypes)
     {
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
     }
