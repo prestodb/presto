@@ -63,6 +63,7 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,7 +72,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -502,7 +502,7 @@ class PropertyDerivations
             for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
                 Expression expression = assignment.getValue();
 
-                IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */);
+                IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */);
                 Type type = requireNonNull(expressionTypes.get(expression));
                 ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
                 // TODO:

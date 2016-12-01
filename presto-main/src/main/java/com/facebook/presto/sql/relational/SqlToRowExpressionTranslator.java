@@ -69,10 +69,10 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.type.RowType;
 import com.facebook.presto.type.RowType.RowField;
 import com.facebook.presto.type.UnknownType;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
-import java.util.IdentityHashMap;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -130,7 +130,7 @@ public final class SqlToRowExpressionTranslator
     public static RowExpression translate(
             Expression expression,
             FunctionKind functionKind,
-            IdentityHashMap<Expression, Type> types,
+            IdentityLinkedHashMap<Expression, Type> types,
             FunctionRegistry functionRegistry,
             TypeManager typeManager,
             Session session,
@@ -152,11 +152,11 @@ public final class SqlToRowExpressionTranslator
             extends AstVisitor<RowExpression, Void>
     {
         private final FunctionKind functionKind;
-        private final IdentityHashMap<Expression, Type> types;
+        private final IdentityLinkedHashMap<Expression, Type> types;
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
 
-        private Visitor(FunctionKind functionKind, IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        private Visitor(FunctionKind functionKind, IdentityLinkedHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
         {
             this.functionKind = functionKind;
             this.types = types;

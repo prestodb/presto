@@ -22,10 +22,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -55,7 +55,7 @@ public class InterpretedInternalFilterFunction
         for (Map.Entry<Symbol, Integer> entry : symbolToInputMappings.entrySet()) {
             inputTypes.put(entry.getValue(), symbolTypes.get(entry.getKey()));
         }
-        IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten, emptyList() /* parameters already rewritten */);
+        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(session, metadata, sqlParser, inputTypes.build(), rewritten, emptyList() /* parameters already rewritten */);
 
         evaluator = ExpressionInterpreter.expressionInterpreter(rewritten, metadata, session, expressionTypes);
         InputReferenceExtractor inputReferenceExtractor = new InputReferenceExtractor();

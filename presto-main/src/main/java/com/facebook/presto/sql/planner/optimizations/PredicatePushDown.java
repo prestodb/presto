@@ -53,6 +53,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.util.maps.IdentityLinkedHashMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -62,7 +63,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -782,7 +782,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
                     session,
                     metadata,
                     sqlParser,
@@ -798,7 +798,7 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
         {
-            IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(
+            IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypes(
                     session,
                     metadata,
                     sqlParser,
