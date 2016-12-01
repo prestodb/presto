@@ -84,6 +84,35 @@ For example:
      NULL        | NULL      | NULL                  | NULL        |      15.0
      (5 rows)
 
+If provided ``SELECT`` will filter out all of the partitions (all table layouts),
+than the ``SHOW STATS`` will return no statistic which will be represented as in example below.
+
+.. code-block:: none
+
+    presto:default> SHOW STATS FOR (SELECT * FROM nation WHERE nationkey > 999);
+
+     column_name
+    -------------
+     NULL
+    (1 row)
+
+Note, that currently providing ``column_list`` instead of ``*`` in ``SELECT`` will not influence the output table. This mimics
+Presto internal behavior.
+
+For example:
+
+.. code-block:: none
+
+    presto:default> SHOW STATS FOR (SELECT comment FROM nation WHERE nationkey > 10);
+
+     column_name | data_size | distinct_values_count | nulls_count | row_count
+    -------------+-----------+-----------------------+-------------+-----------
+     comment     | NULL      |                  21.0 |        21.0 | NULL
+     nationkey   | NULL      |                   9.0 |         9.0 | NULL
+     name        | NULL      |                  14.0 |        14.0 | NULL
+     regionkey   | NULL      |                   3.0 |         3.0 | NULL
+     NULL        | NULL      | NULL                  | NULL        |      15.0
+     (5 rows)
 
 
 Updating Statistics for Hive Tables
