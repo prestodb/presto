@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAs
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasFilter;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasGroupId;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasOutput;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasProject;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasSort;
@@ -95,7 +96,8 @@ public class PlanOptimizers
                         new UnaliasAggregation(),
                         new UnaliasOutput(),
                         new UnaliasSort(),
-                        new UnaliasGroupId()
+                        new UnaliasGroupId(),
+                        new UnaliasMarkDistinct()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
