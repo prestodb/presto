@@ -36,6 +36,7 @@ import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.MODULUS;
@@ -289,5 +290,16 @@ public final class BigintOperators
             return false;
         }
         return notEqual(left, right);
+    }
+
+    @ScalarOperator(IS_NOT_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNotDistinctFrom(
+            @SqlType(StandardTypes.BIGINT) long left,
+            @IsNull boolean leftNull,
+            @SqlType(StandardTypes.BIGINT) long right,
+            @IsNull boolean rightNull)
+    {
+        return !isDistinctFrom(left, leftNull, right, rightNull);
     }
 }

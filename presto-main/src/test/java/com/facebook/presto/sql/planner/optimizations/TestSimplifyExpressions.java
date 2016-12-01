@@ -61,7 +61,8 @@ public class TestSimplifyExpressions
         assertSimplifies("NOT (X OR Y OR (NOT (Z OR V)))", "(NOT X) AND (NOT Y) AND (Z OR V)");
         assertSimplifies("NOT (X OR Y OR (Z OR V))", "(NOT X) AND (NOT Y) AND ((NOT Z) AND (NOT V))");
 
-        assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)");
+        assertSimplifies("NOT (X IS DISTINCT FROM Y)", "X IS NOT DISTINCT FROM Y");
+        assertSimplifies("NOT (X IS NOT DISTINCT FROM Y)", "X IS DISTINCT FROM Y");
     }
 
     @Test

@@ -782,17 +782,19 @@ public class ExpressionInterpreter
             ComparisonExpressionType type = node.getType();
 
             Object left = process(node.getLeft(), context);
-            if (left == null && type != ComparisonExpressionType.IS_DISTINCT_FROM) {
+            boolean distinctComparison = type == ComparisonExpressionType.IS_DISTINCT_FROM || type == ComparisonExpressionType.IS_NOT_DISTINCT_FROM;
+            if (left == null && !distinctComparison) {
                 return null;
             }
 
             Object right = process(node.getRight(), context);
-            if (type == ComparisonExpressionType.IS_DISTINCT_FROM) {
+            if (distinctComparison) {
+                boolean valueIfBothNull = type == ComparisonExpressionType.IS_NOT_DISTINCT_FROM;
                 if (left == null && right == null) {
-                    return false;
+                    return valueIfBothNull;
                 }
                 else if (left == null || right == null) {
-                    return true;
+                    return !valueIfBothNull;
                 }
             }
             else if (right == null) {

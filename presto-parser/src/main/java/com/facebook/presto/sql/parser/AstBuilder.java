@@ -893,17 +893,11 @@ class AstBuilder
     @Override
     public Node visitDistinctFrom(SqlBaseParser.DistinctFromContext context)
     {
-        Expression expression = new ComparisonExpression(
+        return new ComparisonExpression(
                 getLocation(context),
-                ComparisonExpressionType.IS_DISTINCT_FROM,
+                context.NOT() == null ? ComparisonExpressionType.IS_DISTINCT_FROM : ComparisonExpressionType.IS_NOT_DISTINCT_FROM,
                 (Expression) visit(context.value),
                 (Expression) visit(context.right));
-
-        if (context.NOT() != null) {
-            expression = new NotExpression(getLocation(context), expression);
-        }
-
-        return expression;
     }
 
     @Override

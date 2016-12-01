@@ -175,8 +175,8 @@ public class TestInterpretedFilterFunction
     public void testComparisonExpressionWithNulls()
     {
         for (ComparisonExpressionType type : ComparisonExpressionType.values()) {
-            if (type == ComparisonExpressionType.IS_DISTINCT_FROM) {
-                // IS DISTINCT FROM has different NULL semantics
+            if (type == ComparisonExpressionType.IS_DISTINCT_FROM || type == ComparisonExpressionType.IS_NOT_DISTINCT_FROM) {
+                // IS (NOT) DISTINCT FROM has different NULL semantics
                 continue;
             }
 

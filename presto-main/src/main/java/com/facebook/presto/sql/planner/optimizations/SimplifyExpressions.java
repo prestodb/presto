@@ -53,7 +53,6 @@ import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.OR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Collections.emptyList;
@@ -170,7 +169,7 @@ public class SimplifyExpressions
                         .collect(toImmutableList());
                 return combinePredicates(child.getType().flip(), negatedPredicates);
             }
-            else if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getType() != IS_DISTINCT_FROM) {
+            else if (node.getValue() instanceof ComparisonExpression) {
                 ComparisonExpression child = (ComparisonExpression) node.getValue();
                 return new ComparisonExpression(
                         child.getType().negate(),

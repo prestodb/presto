@@ -27,14 +27,15 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.google.common.base.Defaults.defaultValue;
 
-@ScalarOperator(IS_DISTINCT_FROM)
 public final class MapDistinctFromOperator
 {
     private MapDistinctFromOperator() {}
 
+    @ScalarOperator(IS_DISTINCT_FROM)
     @TypeParameter("K")
     @TypeParameter("V")
     @SqlType(StandardTypes.BOOLEAN)
@@ -43,41 +44,62 @@ public final class MapDistinctFromOperator
                     MethodHandle keyEqualsFunction,
             @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"})
                     MethodHandle keyHashcodeFunction,
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"})
-                    MethodHandle valueDistinctFromFunction,
+            @OperatorDependency(operator = IS_NOT_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"})
+                    MethodHandle valueNotDistinctFromFunction,
             @TypeParameter("K") Type keyType,
             @TypeParameter("V") Type valueType,
-            @SqlNullable @SqlType("map(K,V)") Block leftMapBlock,
-            @SqlNullable @SqlType("map(K,V)") Block rightMapBlock)
+            @SqlNullable @SqlType("map(K,V)") Block leftBlock,
+            @SqlNullable @SqlType("map(K,V)") Block rightBlock)
     {
-        boolean leftMapNull = leftMapBlock == null;
-        boolean rightMapNull = rightMapBlock == null;
-        if (leftMapNull != rightMapNull) {
-            return true;
-        }
-        if (leftMapNull) {
+        return !isNotDistinctFrom(keyEqualsFunction, keyHashcodeFunction, valueNotDistinctFromFunction, keyType, valueType, leftBlock, rightBlock);
+    }
+
+    @ScalarOperator(IS_NOT_DISTINCT_FROM)
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNotDistinctFrom(
+            @OperatorDependency(operator = EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"K", "K"})
+                    MethodHandle keyEqualsFunction,
+            @OperatorDependency(operator = HASH_CODE, returnType = StandardTypes.BIGINT, argumentTypes = {"K"})
+                    MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = IS_NOT_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"V", "V"})
+                    MethodHandle valueNotDistinctFromFunction,
+            @TypeParameter("K") Type keyType,
+            @TypeParameter("V") Type valueType,
+            @SqlNullable @SqlType("map(K,V)") Block leftBlock,
+            @SqlNullable @SqlType("map(K,V)") Block rightBlock)
+    {
+        boolean leftNull = leftBlock == null;
+        boolean rightNull = rightBlock == null;
+        if (leftNull != rightNull) {
             return false;
         }
+        if (leftNull) {
+            return true;
+        }
         // Note that we compare to NOT distinct here and so negate the result.
-        return !MapGenericEquality.genericEqual(
+        Boolean result = MapGenericEquality.genericEqual(
                 keyEqualsFunction,
                 keyHashcodeFunction,
                 keyType,
-                leftMapBlock,
-                rightMapBlock,
+                leftBlock,
+                rightBlock,
                 (leftMapIndex, rightMapIndex) -> {
-                    Object leftValue = readNativeValue(valueType, leftMapBlock, leftMapIndex);
-                    boolean leftNull = leftValue == null;
-                    if (leftNull) {
+                    Object leftValue = readNativeValue(valueType, leftBlock, leftMapIndex);
+                    boolean leftValueNull = leftValue == null;
+                    if (leftValueNull) {
                         leftValue = defaultValue(valueType.getJavaType());
                     }
-                    Object rightValue = readNativeValue(valueType, rightMapBlock, rightMapIndex);
-                    boolean rightNull = rightValue == null;
-                    if (rightNull) {
+                    Object rightValue = readNativeValue(valueType, rightBlock, rightMapIndex);
+                    boolean rightValueNull = rightValue == null;
+                    if (rightValueNull) {
                         rightValue = defaultValue(valueType.getJavaType());
                     }
-                    return !(boolean) valueDistinctFromFunction.invoke(leftValue, leftNull, rightValue, rightNull);
+                    return (boolean) valueNotDistinctFromFunction.invoke(leftValue, leftNull, rightValue, rightNull);
                 }
         );
+        // Should not be null, but make IntelliJ happy.
+        return result != null && result;
     }
 }

@@ -32,7 +32,8 @@ public enum OperatorType
     SUBSCRIPT("[]"),
     HASH_CODE("HASH CODE"),
     SATURATED_FLOOR_CAST("SATURATED FLOOR CAST"),
-    IS_DISTINCT_FROM("IS DISTINCT FROM");
+    IS_DISTINCT_FROM("IS DISTINCT FROM"),
+    IS_NOT_DISTINCT_FROM("IS NOT DISTINCT FROM");
 
     private final String operator;
 

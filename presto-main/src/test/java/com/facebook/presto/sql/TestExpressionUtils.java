@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.sql.ExpressionUtils.normalize;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static org.testng.Assert.assertEquals;
 
@@ -65,8 +66,12 @@ public class TestExpressionUtils
         assertNormalize(
                 new NotExpression(new ComparisonExpression(NOT_EQUAL, name("a"), new LongLiteral("1"))),
                 new ComparisonExpression(EQUAL, name("a"), new LongLiteral("1")));
-        // Cannot normalize IS DISTINCT FROM yet
-        assertNormalize(new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, name("a"), new LongLiteral("1"))));
+        assertNormalize(
+                new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, name("a"), new LongLiteral("1"))),
+                new ComparisonExpression(IS_NOT_DISTINCT_FROM, name("a"), new LongLiteral("1")));
+        assertNormalize(
+                new NotExpression(new ComparisonExpression(IS_NOT_DISTINCT_FROM, name("a"), new LongLiteral("1"))),
+                new ComparisonExpression(IS_DISTINCT_FROM, name("a"), new LongLiteral("1")));
     }
 
     private static void assertNormalize(Expression expression)

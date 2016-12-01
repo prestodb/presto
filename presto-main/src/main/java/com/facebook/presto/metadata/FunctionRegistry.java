@@ -230,7 +230,8 @@ import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_ROUND_FU
 import static com.facebook.presto.operator.scalar.MathFunctions.DECIMAL_TRUNCATE_FUNCTION;
 import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
 import static com.facebook.presto.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
-import static com.facebook.presto.operator.scalar.RowDistinctFromOperator.ROW_DISTINCT_FROM;
+import static com.facebook.presto.operator.scalar.RowDistinctFromOperators.ROW_DISTINCT_FROM;
+import static com.facebook.presto.operator.scalar.RowDistinctFromOperators.ROW_NOT_DISTINCT_FROM;
 import static com.facebook.presto.operator.scalar.RowEqualOperator.ROW_EQUAL;
 import static com.facebook.presto.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
 import static com.facebook.presto.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
@@ -274,6 +275,7 @@ import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_GREATE
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR;
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OPERATOR;
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_NOT_DISTINCT_FROM_OPERATOR;
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_NOT_EQUAL_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_ADD_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
@@ -489,10 +491,10 @@ public class FunctionRegistry
                 .scalar(ArrayEqualOperator.class)
                 .scalar(ArrayHashCodeOperator.class)
                 .scalar(ArrayIntersectFunction.class)
-                .scalar(ArrayDistinctFromOperator.class)
+                .scalars(ArrayDistinctFromOperator.class)
                 .scalar(ArrayUnionFunction.class)
                 .scalar(ArraySliceFunction.class)
-                .scalar(MapDistinctFromOperator.class)
+                .scalars(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
                 .scalar(MapNotEqualOperator.class)
                 .scalar(MapKeys.class)
@@ -528,6 +530,7 @@ public class FunctionRegistry
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .function(DECIMAL_BETWEEN_OPERATOR)
                 .function(DECIMAL_DISTINCT_FROM_OPERATOR)
+                .function(DECIMAL_NOT_DISTINCT_FROM_OPERATOR)
                 .function(HISTOGRAM)
                 .function(CHECKSUM_AGGREGATION)
                 .function(IDENTITY_CAST)
@@ -536,7 +539,7 @@ public class FunctionRegistry
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
-                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
+                .functions(ROW_HASH_CODE, ROW_TO_JSON, ROW_DISTINCT_FROM, ROW_NOT_DISTINCT_FROM, ROW_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST)
                 .function(CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))

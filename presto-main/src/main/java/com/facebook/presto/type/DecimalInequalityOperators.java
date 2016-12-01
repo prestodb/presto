@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
@@ -63,6 +64,7 @@ public class DecimalInequalityOperators
     public static final SqlScalarFunction DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR = binaryOperator(GREATER_THAN_OR_EQUAL, IS_RESULT_GREATER_THAN_OR_EQUAL);
     public static final SqlScalarFunction DECIMAL_BETWEEN_OPERATOR = betweenOperator();
     public static final SqlScalarFunction DECIMAL_DISTINCT_FROM_OPERATOR = binaryOperatorNullable(IS_DISTINCT_FROM, IS_RESULT_NOT_EQUAL);
+    public static final SqlScalarFunction DECIMAL_NOT_DISTINCT_FROM_OPERATOR = binaryOperatorNullable(IS_NOT_DISTINCT_FROM, IS_RESULT_EQUAL);
 
     private DecimalInequalityOperators() {}
 

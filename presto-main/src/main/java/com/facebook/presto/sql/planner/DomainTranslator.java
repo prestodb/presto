@@ -442,9 +442,17 @@ public final class DomainTranslator
                         return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
 
                     case IS_DISTINCT_FROM:
-                        Domain domain = complementIfNecessary(Domain.notNull(type), complement);
                         return new ExtractionResult(
-                                TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        column,
+                                        complementIfNecessary(Domain.notNull(type), complement))),
+                                TRUE_LITERAL);
+
+                    case IS_NOT_DISTINCT_FROM:
+                        return new ExtractionResult(
+                                TupleDomain.withColumnDomains(ImmutableMap.of(
+                                        column,
+                                        complementIfNecessary(Domain.onlyNull(type), complement))),
                                 TRUE_LITERAL);
 
                     default:
@@ -487,6 +495,8 @@ public final class DomainTranslator
                 case IS_DISTINCT_FROM:
                     // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
                     return complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement);
+                case IS_NOT_DISTINCT_FROM:
+                    return complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false), complement);
                 default:
                     throw new AssertionError("Unhandled type: " + comparisonType);
             }
@@ -503,6 +513,8 @@ public final class DomainTranslator
                 case IS_DISTINCT_FROM:
                     // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
                     return complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement);
+                case IS_NOT_DISTINCT_FROM:
+                    return complementIfNecessary(Domain.create(ValueSet.of(type, value), false), complement);
                 default:
                     throw new AssertionError("Unhandled type: " + comparisonType);
             }
@@ -580,6 +592,12 @@ public final class DomainTranslator
                         return new ComparisonExpression(comparisonType, fieldReference, coercedLiteral);
                     }
                     return TRUE_LITERAL;
+                }
+                case IS_NOT_DISTINCT_FROM: {
+                    if (coercedValueIsEqualToOriginal) {
+                        return new ComparisonExpression(comparisonType, fieldReference, coercedLiteral);
+                    }
+                    return FALSE_LITERAL;
                 }
             }
 

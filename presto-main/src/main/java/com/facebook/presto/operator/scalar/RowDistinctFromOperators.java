@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -31,40 +32,56 @@ import java.util.List;
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Defaults.defaultValue;
 
-public class RowDistinctFromOperator
-        extends SqlOperator
+public class RowDistinctFromOperators
 {
-    public static final RowDistinctFromOperator ROW_DISTINCT_FROM = new RowDistinctFromOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowDistinctFromOperator.class, "isDistinctFrom", Type.class, List.class, Block.class, Block.class);
+    private RowDistinctFromOperators() {}
 
-    private RowDistinctFromOperator()
-    {
-        super(IS_DISTINCT_FROM,
-                ImmutableList.of(comparableWithVariadicBound("T", "row")),
-                ImmutableList.of(),
-                parseTypeSignature(StandardTypes.BOOLEAN),
-                ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
-    }
+    public static final SqlOperator ROW_DISTINCT_FROM = new GenericDistinctFromOperator(
+            IS_DISTINCT_FROM,
+            methodHandle(RowDistinctFromOperators.class, "isDistinctFrom", Type.class, List.class, Block.class, Block.class));
+    public static final SqlOperator ROW_NOT_DISTINCT_FROM = new GenericDistinctFromOperator(
+            IS_NOT_DISTINCT_FROM,
+            methodHandle(RowDistinctFromOperators.class, "isNotDistinctFrom", Type.class, List.class, Block.class, Block.class));
 
-    @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    private static class GenericDistinctFromOperator
+            extends SqlOperator
     {
-        ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
-        Type type = boundVariables.getTypeVariable("T");
-        for (Type parameterType : type.getTypeParameters()) {
-            Signature signature = functionRegistry.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle());
+        private final OperatorType operatorType;
+        private final MethodHandle methodHandle;
+
+        private GenericDistinctFromOperator(OperatorType operatorType, MethodHandle methodHandle)
+        {
+            super(operatorType,
+                    ImmutableList.of(comparableWithVariadicBound("T", "row")),
+                    ImmutableList.of(),
+                    parseTypeSignature(StandardTypes.BOOLEAN),
+                    ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+
+            this.operatorType = operatorType;
+            this.methodHandle = methodHandle;
         }
-        return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(true, true),
-                METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()),
-                isDeterministic());
+
+        @Override
+        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        {
+            ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
+            Type type = boundVariables.getTypeVariable("T");
+            for (Type parameterType : type.getTypeParameters()) {
+                Signature signature = functionRegistry.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+                argumentMethods.add(functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle());
+            }
+            return new ScalarFunctionImplementation(
+                    false,
+                    ImmutableList.of(true, true),
+                    methodHandle.bindTo(type).bindTo(argumentMethods.build()),
+                    isDeterministic());
+        }
     }
 
     public static boolean isDistinctFrom(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, Block rightRow)
@@ -107,5 +124,10 @@ public class RowDistinctFromOperator
             }
         }
         return false;
+    }
+
+    public static boolean isNotDistinctFrom(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, Block rightRow)
+    {
+        return !isDistinctFrom(rowType, argumentMethods, leftRow, rightRow);
     }
 }

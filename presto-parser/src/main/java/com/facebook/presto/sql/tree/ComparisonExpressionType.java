@@ -21,7 +21,8 @@ public enum ComparisonExpressionType
     LESS_THAN_OR_EQUAL("<="),
     GREATER_THAN(">"),
     GREATER_THAN_OR_EQUAL(">="),
-    IS_DISTINCT_FROM("IS DISTINCT FROM");
+    IS_DISTINCT_FROM("IS DISTINCT FROM"),
+    IS_NOT_DISTINCT_FROM("IS NOT DISTINCT FROM");
 
     private final String value;
 
@@ -52,6 +53,8 @@ public enum ComparisonExpressionType
                 return LESS_THAN_OR_EQUAL;
             case IS_DISTINCT_FROM:
                 return IS_DISTINCT_FROM;
+            case IS_NOT_DISTINCT_FROM:
+                return IS_NOT_DISTINCT_FROM;
             default:
                 throw new IllegalArgumentException("Unsupported comparison: " + this);
         }
@@ -72,6 +75,10 @@ public enum ComparisonExpressionType
                 return LESS_THAN_OR_EQUAL;
             case GREATER_THAN_OR_EQUAL:
                 return LESS_THAN;
+            case IS_DISTINCT_FROM:
+                return IS_NOT_DISTINCT_FROM;
+            case IS_NOT_DISTINCT_FROM:
+                return IS_DISTINCT_FROM;
             default:
                 throw new IllegalArgumentException("Unsupported comparison: " + this);
         }

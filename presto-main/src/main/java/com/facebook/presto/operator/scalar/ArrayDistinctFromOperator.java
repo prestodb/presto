@@ -28,14 +28,15 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.spi.function.OperatorType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.google.common.base.Defaults.defaultValue;
 
-@ScalarOperator(IS_DISTINCT_FROM)
 public final class ArrayDistinctFromOperator
 {
     private ArrayDistinctFromOperator() {}
 
+    @ScalarOperator(IS_DISTINCT_FROM)
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
@@ -83,5 +84,19 @@ public final class ArrayDistinctFromOperator
             }
         }
         return false;
+    }
+
+    @ScalarOperator(IS_NOT_DISTINCT_FROM)
+    @TypeParameter("E")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNotDistinctFrom(
+            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = StandardTypes.BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle function,
+            @TypeParameter("E") Type type,
+            @SqlType("array(E)") Block left,
+            @IsNull boolean leftNull,
+            @SqlType("array(E)") Block right,
+            @IsNull boolean rightNull)
+    {
+        return !isDistinctFrom(function, type, left, leftNull, right, rightNull);
     }
 }
