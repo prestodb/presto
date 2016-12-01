@@ -1736,7 +1736,7 @@ public class TestSqlParser
         SQL_PARSER.createStatement("SHOW STATS FOR (SELECT sin(x) FROM t1)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*Only literals, column references, comparators and logical operators are allowed in WHERE of SHOW STATS SELECT clause")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = ".*Only literals, column references, comparators, is \\(not\\) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause")
     public void testShowStatsWithWhereFunctionCallFails()
     {
         SQL_PARSER.createStatement("SHOW STATS FOR (SELECT x FROM t1 WHERE sin(x) > 0)");

@@ -708,11 +708,11 @@ class AstBuilder
     }
 
     public static final List<Class<? extends Expression>> ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES = ImmutableList.of(
-            Literal.class, QualifiedNameReference.class, ComparisonExpression.class, LogicalBinaryExpression.class, NotExpression.class);
+            Literal.class, QualifiedNameReference.class, ComparisonExpression.class, LogicalBinaryExpression.class, NotExpression.class, IsNullPredicate.class, IsNotNullPredicate.class);
 
     void validateShowStatsWhereExpression(Expression expression, ParserRuleContext context)
     {
-        check(ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES.stream().anyMatch(clazz -> clazz.isInstance(expression)), "Only literals, column references, comparators and logical operators are allowed in WHERE of SHOW STATS SELECT clause", context);
+        check(ALLOWED_SHOW_STATS_WHERE_EXPRESSION_TYPES.stream().anyMatch(clazz -> clazz.isInstance(expression)), "Only literals, column references, comparators, is (not) null and logical operators are allowed in WHERE of SHOW STATS SELECT clause", context);
 
         if (expression instanceof NotExpression) {
             validateShowStatsWhereExpression(((NotExpression) expression).getValue(), context);
@@ -724,6 +724,12 @@ class AstBuilder
         else if (expression instanceof ComparisonExpression) {
             validateShowStatsWhereExpression(((ComparisonExpression) expression).getLeft(), context);
             validateShowStatsWhereExpression(((ComparisonExpression) expression).getRight(), context);
+        }
+        else if (expression instanceof IsNullPredicate) {
+            validateShowStatsWhereExpression(((IsNullPredicate) expression).getValue(), context);
+        }
+        else if (expression instanceof IsNotNullPredicate) {
+            validateShowStatsWhereExpression(((IsNotNullPredicate) expression).getValue(), context);
         }
     }
 
