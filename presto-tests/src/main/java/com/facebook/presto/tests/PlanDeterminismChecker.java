@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanPrinter;
@@ -43,8 +44,13 @@ public class PlanDeterminismChecker
 
     public void checkPlanIsDeterministic(String sql)
     {
+        checkPlanIsDeterministic(localQueryRunner.getDefaultSession(), sql);
+    }
+
+    public void checkPlanIsDeterministic(Session session, String sql)
+    {
         IntStream.range(1, MINIMUM_SUBSEQUENT_SAME_PLANS)
-                .mapToObj(attempt -> getPlanText(sql))
+                .mapToObj(attempt -> getPlanText(session, sql))
                 .map(planEquivalenceFunction)
                 .reduce((previous, current) -> {
                     assertEquals(previous, current);
@@ -52,11 +58,11 @@ public class PlanDeterminismChecker
                 });
     }
 
-    private String getPlanText(String sql)
+    private String getPlanText(Session session, String sql)
     {
-        return localQueryRunner.inTransaction(session -> {
-            Plan plan = localQueryRunner.createPlan(session, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
-            return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), localQueryRunner.getMetadata(), session);
+        return localQueryRunner.inTransaction(session, transactionSession -> {
+            Plan plan = localQueryRunner.createPlan(transactionSession, sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+            return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), localQueryRunner.getMetadata(), transactionSession);
         });
     }
 }
