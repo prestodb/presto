@@ -44,6 +44,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -56,6 +57,7 @@ public class TestQueues
     // Copy of TestQueues with tests for db reconfiguration of resource groups
     private static final String NAME = "h2";
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
+    private static final String HUGE_MEMORY_QUERY = "SELECT COUNT(*) FROM lineitem a join lineitem b on a.orderkey = b.orderkey";
 
     @Test(timeOut = 60_000)
     public void testRunningQuery()
@@ -233,6 +235,101 @@ public class TestQueues
         }
     }
 
+    @Test(timeOut = 240_000)
+    public void testHardMemoryLimit()
+        throws Exception
+    {
+        String dbConfigUrl = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
+        try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
+            dao.updateResourceGroup(5, "dashboard-${USER}", "8kB", "10kB", 1, 1, null, null, null, null, null, "5s", null, 3L);
+            QueryId firstDashboardQuery = createQuery(queryRunner, newDashboardSession(), HUGE_MEMORY_QUERY);
+            waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
+            waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
+            assertEquals(EXCEEDED_MEMORY_LIMIT.toErrorCode(), queryRunner.getCoordinator().getQueryManager().getQueryInfo(firstDashboardQuery).getErrorCode());
+        }
+    }
+
+    @Test(timeOut = 240_000)
+    public void testWeightedFifoSchedulingPolicy()
+            throws Exception
+    {
+        String dbConfigUrl = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
+        try (DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl, dao)) {
+            setupWeightedFifo(queryRunner, dao);
+            // Create 2 filler queries so other queries can be queued
+            QueryId filler1 = createQuery(queryRunner, newSessionWithSource("etl-hi"), LONG_LASTING_QUERY);
+            QueryId filler2 = createQuery(queryRunner, newSessionWithSource("etl-hi"), LONG_LASTING_QUERY);
+            waitForQueryState(queryRunner, filler1, RUNNING);
+            waitForQueryState(queryRunner, filler2, RUNNING);
+            // Create 2 queries for each resource group
+            QueryId etlLo1 = createQuery(queryRunner, newSessionWithSource("etl-lo"), LONG_LASTING_QUERY);
+            QueryId etlLo2 = createQuery(queryRunner, newSessionWithSource("etl-lo"), LONG_LASTING_QUERY);
+            QueryId etlMed1 = createQuery(queryRunner, newSessionWithSource("etl-med"), LONG_LASTING_QUERY);
+            QueryId etlMed2 = createQuery(queryRunner, newSessionWithSource("etl-med"), LONG_LASTING_QUERY);
+            QueryId etlHi1 = createQuery(queryRunner, newSessionWithSource("etl-hi"), LONG_LASTING_QUERY);
+            QueryId etlHi2 = createQuery(queryRunner, newSessionWithSource("etl-hi"), LONG_LASTING_QUERY);
+            // Wait for filler queries to run
+            waitForQueryState(queryRunner, filler1, RUNNING);
+            waitForQueryState(queryRunner, filler2, RUNNING);
+            // Verify all other queries are queued
+            waitForQueryState(queryRunner, etlLo1, QUEUED);
+            waitForQueryState(queryRunner, etlLo2, QUEUED);
+            waitForQueryState(queryRunner, etlMed1, QUEUED);
+            waitForQueryState(queryRunner, etlMed2, QUEUED);
+            waitForQueryState(queryRunner, etlHi1, QUEUED);
+            waitForQueryState(queryRunner, etlHi2, QUEUED);
+            //Cancel filler queries and wait for etlHi to begin
+            cancelQuery(queryRunner, filler1);
+            cancelQuery(queryRunner, filler2);
+            waitForQueryState(queryRunner, filler1, FAILED);
+            waitForQueryState(queryRunner, filler2, FAILED);
+            waitForQueryState(queryRunner, etlHi1, RUNNING);
+            waitForQueryState(queryRunner, etlHi2, RUNNING);
+            // Verify other queries are queued
+            waitForQueryState(queryRunner, etlLo1, QUEUED);
+            waitForQueryState(queryRunner, etlLo2, QUEUED);
+            waitForQueryState(queryRunner, etlMed1, QUEUED);
+            waitForQueryState(queryRunner, etlMed2, QUEUED);
+            // Cancel etlHi queries
+            cancelQuery(queryRunner, etlHi1);
+            cancelQuery(queryRunner, etlHi2);
+            waitForQueryState(queryRunner, etlHi1, FAILED);
+            waitForQueryState(queryRunner, etlHi2, FAILED);
+            // Wait for etlMed queries to run
+            waitForQueryState(queryRunner, etlMed1, RUNNING);
+            waitForQueryState(queryRunner, etlMed2, RUNNING);
+            // Verify etlLo queries are still queued
+            waitForQueryState(queryRunner, etlLo1, QUEUED);
+            waitForQueryState(queryRunner, etlLo2, QUEUED);
+            // Cancel etlMed queries
+            cancelQuery(queryRunner, etlMed1);
+            cancelQuery(queryRunner, etlMed2);
+            waitForQueryState(queryRunner, etlMed1, FAILED);
+            waitForQueryState(queryRunner, etlMed2, FAILED);
+            // Wait for etlLo queries to run
+            waitForQueryState(queryRunner, etlLo1, RUNNING);
+            waitForQueryState(queryRunner, etlLo2, RUNNING);
+        }
+    }
+
+    private static void setupWeightedFifo(DistributedQueryRunner queryRunner, H2ResourceGroupsDao dao)
+            throws Exception
+    {
+        dao.insertResourceGroup(6, "bi", "1MB", "1GB", 100, 2, "weighted_fifo", null, null, null, null, null, null, null);
+        dao.insertResourceGroup(7, "etl-hi", "1MB", "1GB", 100, 2, "weighted_fifo", 100, null, null, null, null, null, 6L);
+        dao.insertResourceGroup(8, "etl-med", "1MB", "1GB", 100, 2, "weighted_fifo", 50, null, null, null, null, null, 6L);
+        dao.insertResourceGroup(9, "etl-lo", "1MB", "1GB", 100, 2, "weighted_fifo", 20, null, null, null, null, null, 6L);
+        dao.insertSelector(7, "user.*", "etl-hi");
+        dao.insertSelector(8, "user.*", "etl-med");
+        dao.insertSelector(9, "user.*", "etl-lo");
+        // Selectors are loaded last
+        do {
+            MILLISECONDS.sleep(500);
+        } while (getSelectors(queryRunner).size() != 6);
+    }
+
     private static Session newSession()
     {
         return testSessionBuilder()
@@ -257,6 +354,15 @@ public class TestQueues
                 .setCatalog("tpch")
                 .setSchema("sf100000")
                 .setSource("reject")
+                .build();
+    }
+
+    private static Session newSessionWithSource(String source)
+    {
+        return testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource(source)
                 .build();
     }
 

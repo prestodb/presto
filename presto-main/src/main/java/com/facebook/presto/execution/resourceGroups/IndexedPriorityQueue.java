@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.IntUnaryOperator;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -39,6 +40,16 @@ final class IndexedPriorityQueue<E>
     });
 
     private long generation;
+
+    public void updateAllPriorities(IntUnaryOperator deltaFunction)
+    {
+        for (Map.Entry<E, Entry<E>> entry : index.entrySet()) {
+            queue.remove(entry.getValue());
+            Entry<E> newEntry = new Entry<>(entry.getKey(), deltaFunction.applyAsInt(entry.getValue().getPriority()), entry.getValue().getGeneration());
+            queue.add(newEntry);
+            index.put(entry.getKey(), newEntry);
+        }
+    }
 
     @Override
     public boolean addOrUpdate(E element, int priority)

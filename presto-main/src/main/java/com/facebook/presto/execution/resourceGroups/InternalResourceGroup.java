@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupInfo;
@@ -47,9 +48,11 @@ import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_QUEUE;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.CAN_RUN;
 import static com.facebook.presto.spi.resourceGroups.ResourceGroupState.FULL;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_MEMORY_LIMIT;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.FAIR;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.QUERY_PRIORITY;
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
+import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED_FIFO;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -58,6 +61,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
@@ -70,7 +74,8 @@ public class InternalResourceGroup
         implements ResourceGroup
 {
     public static final int DEFAULT_WEIGHT = 1;
-
+    private static final Duration DEFAULT_QUEUED_DEADLINE = new Duration(0, SECONDS);
+    public static final Duration DEFAULT_PRIORITY_UPDATE_INTERVAL = new Duration(5, SECONDS);
     private final InternalResourceGroup root;
     private final Optional<InternalResourceGroup> parent;
     private final ResourceGroupId id;
@@ -124,7 +129,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private Duration queuedTimeout = new Duration(Long.MAX_VALUE, MILLISECONDS);
     @GuardedBy("root")
-    private Duration runningTimeout = new Duration(Long.MAX_VALUE, MILLISECONDS);;
+    private Duration runningTimeout = new Duration(Long.MAX_VALUE, MILLISECONDS);
 
     protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
@@ -384,8 +389,13 @@ public class InternalResourceGroup
                 return;
             }
 
-            if (parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
-                checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
+            if (parent.isPresent()) {
+                if (parent.get().schedulingPolicy == QUERY_PRIORITY) {
+                    checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
+                }
+                else if (parent.get().schedulingPolicy == WEIGHTED_FIFO) {
+                    checkArgument(policy == WEIGHTED_FIFO, "Parent of %s uses deadline scheduling, so %s must also", id, id);
+                }
             }
 
             // Switch to the appropriate queue implementation to implement the desired policy
@@ -407,6 +417,14 @@ public class InternalResourceGroup
                     }
                     queue = new IndexedPriorityQueue<>();
                     queryQueue = new IndexedPriorityQueue<>();
+                    break;
+                case WEIGHTED_FIFO:
+                    // Like query priority but with a deadline
+                    for (InternalResourceGroup group : subGroups.values()) {
+                        group.setSchedulingPolicy(WEIGHTED_FIFO);
+                    }
+                    queue = new IndexedPriorityQueue<>();
+                    queryQueue = new FifoQueue<>();
                     break;
                 default:
                     throw new UnsupportedOperationException("Unsupported scheduling policy: " + policy);
@@ -661,7 +679,7 @@ public class InternalResourceGroup
                             .filter(queryExecution -> queryExecution.getTotalMemoryReservation() > hardMemoryLimitBytes)
                             .forEach(queryExecution -> {
                                 memoryReclaimed.addAndGet(queryExecution.getTotalMemoryReservation());
-                                queryExecution.cancelQuery();
+                                queryExecution.fail(new PrestoException(EXCEEDED_MEMORY_LIMIT, "Query exceeded hard memory limit"));
                             });
                     // Kill queries in order of priority, then newest to oldest until hard memory limit is not exceeded
                     if (cachedMemoryUsageBytes - memoryReclaimed.get() > hardMemoryLimitBytes) {
@@ -672,7 +690,8 @@ public class InternalResourceGroup
                                 cachedMemoryUsageBytes - memoryReclaimed.get() > hardMemoryLimitBytes && queryIterator.hasNext(); ) {
                             QueryExecution query = queryIterator.next();
                             memoryReclaimed.addAndGet(query.getTotalMemoryReservation());
-                            query.cancelQuery();
+                            query.fail(new PrestoException(EXCEEDED_MEMORY_LIMIT, "Query exceeded hard memory limit"));
+                            //query.cancelQuery();
                         }
                     }
                     cachedMemoryUsageBytes -= memoryReclaimed.get();

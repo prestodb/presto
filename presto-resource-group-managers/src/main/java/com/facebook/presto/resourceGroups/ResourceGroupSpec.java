@@ -51,7 +51,6 @@ public class ResourceGroupSpec
     private final Optional<Duration> hardCpuLimit;
     private final Optional<Duration> queuedTimeout;
     private final Optional<Duration> runningTimeout;
-
     @JsonCreator
     public ResourceGroupSpec(
             @JsonProperty("name") ResourceGroupNameTemplate name,
