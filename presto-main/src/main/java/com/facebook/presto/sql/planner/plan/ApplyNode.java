@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.Expression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -37,22 +39,30 @@ public class ApplyNode
      */
     private final List<Symbol> correlation;
 
+    /**
+     * Assignments that operate on subqueries (e.g: "expr IN (SELECT 1)")
+     */
+    private final Map<Symbol, Expression> subqueryAssignments;
+
     @JsonCreator
     public ApplyNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
+            @JsonProperty("subqueryAssignments") Map<Symbol, Expression> subqueryAssignments,
             @JsonProperty("correlation") List<Symbol> correlation)
     {
         super(id);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
+        requireNonNull(subqueryAssignments, "assignments is null");
         requireNonNull(correlation, "correlation is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
 
         this.input = input;
         this.subquery = subquery;
+        this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
     }
 
@@ -66,6 +76,12 @@ public class ApplyNode
     public PlanNode getSubquery()
     {
         return subquery;
+    }
+
+    @JsonProperty("subqueryAssignments")
+    public Map<Symbol, Expression> getSubqueryAssignments()
+    {
+        return subqueryAssignments;
     }
 
     @JsonProperty("correlation")
@@ -86,7 +102,7 @@ public class ApplyNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(input.getOutputSymbols())
-                .addAll(subquery.getOutputSymbols())
+                .addAll(subqueryAssignments.keySet())
                 .build();
     }
 

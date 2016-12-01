@@ -743,13 +743,7 @@ public class PlanPrinter
         {
             print(indent, "- Project => [%s]", formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
-                    // skip identity assignments
-                    continue;
-                }
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
-            }
+            printAssignments(node.getAssignments(), indent + 2);
 
             return processChildren(node, indent + 1);
         }
@@ -932,6 +926,7 @@ public class PlanPrinter
         {
             print(indent, "- Apply[%s] => [%s]", node.getCorrelation(), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
+            printAssignments(node.getSubqueryAssignments(), indent + 4);
 
             return processChildren(node, indent + 1);
         }
@@ -949,6 +944,17 @@ public class PlanPrinter
             }
 
             return null;
+        }
+
+        private void printAssignments(Map<Symbol, Expression> assignments, int indent)
+        {
+            for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
+                    // skip identity assignments
+                    continue;
+                }
+                print(indent, "%s := %s", entry.getKey(), entry.getValue());
+            }
         }
 
         private String formatOutputs(Iterable<Symbol> symbols)
