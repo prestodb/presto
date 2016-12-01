@@ -27,13 +27,15 @@ public class QueryOutputMetadata
     private final String table;
 
     private final Optional<String> connectorOutputMetadata;
+    private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    public QueryOutputMetadata(String connectorId, String schema, String table, Optional<String> connectorOutputMetadata)
+    public QueryOutputMetadata(String connectorId, String schema, String table, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.connectorOutputMetadata = requireNonNull(connectorOutputMetadata, "connectorOutputMetadata is null");
+        this.jsonLengthLimitExceeded = requireNonNull(jsonLengthLimitExceeded, "jsonLengthLimitExceeded is null");
     }
 
     @JsonProperty
@@ -58,5 +60,11 @@ public class QueryOutputMetadata
     public Optional<String> getConnectorOutputMetadata()
     {
         return connectorOutputMetadata;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> getJsonLengthLimitExceeded()
+    {
+        return jsonLengthLimitExceeded;
     }
 }

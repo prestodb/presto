@@ -19,25 +19,34 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 
 import java.util.Optional;
+
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TableFinishInfo
         implements OperatorInfo
 {
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final int JSON_LENGTH_LIMIT = Math.toIntExact(new DataSize(10, MEGABYTE).toBytes());
+    private static final JsonCodec<Object> INFO_CODEC = jsonCodec(Object.class);
+    private static final JsonCodec<JsonNode> JSON_NODE_CODEC = jsonCodec(JsonNode.class);
 
     private String connectorOutputMetadata = null;
+    private boolean jsonLengthLimitExceeded = false;
 
-    public TableFinishInfo(Optional<ConnectorOutputMetadata> connectorOutputMetadata)
+    public TableFinishInfo(Optional<ConnectorOutputMetadata> metadata)
     {
-        try {
-            if (connectorOutputMetadata.isPresent()) {
-                this.connectorOutputMetadata = MAPPER.writeValueAsString(connectorOutputMetadata.get().getInfo());
+        if (metadata.isPresent()) {
+            Optional<String> serializedMetadata = INFO_CODEC.toJsonWithLengthLimit(metadata.get().getInfo(), JSON_LENGTH_LIMIT);
+            if (!serializedMetadata.isPresent()) {
+                jsonLengthLimitExceeded = true;
             }
-        }
-        catch (JsonProcessingException ignored) {
+            else {
+                connectorOutputMetadata = serializedMetadata.get();
+            }
         }
     }
 
@@ -45,7 +54,7 @@ public class TableFinishInfo
     public TableFinishInfo(@JsonProperty("connectorOutputMetadata") JsonNode connectorOutputMetadata)
             throws JsonProcessingException
     {
-        this.connectorOutputMetadata = MAPPER.writeValueAsString(connectorOutputMetadata);
+        this.connectorOutputMetadata = JSON_NODE_CODEC.toJson(connectorOutputMetadata);
     }
 
     @Override
@@ -59,5 +68,11 @@ public class TableFinishInfo
     public String getConnectorOutputMetadata()
     {
         return connectorOutputMetadata;
+    }
+
+    @JsonProperty
+    public boolean isJsonLengthLimitExceeded()
+    {
+        return jsonLengthLimitExceeded;
     }
 }

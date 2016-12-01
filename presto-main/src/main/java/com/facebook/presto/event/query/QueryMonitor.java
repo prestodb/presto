@@ -151,19 +151,19 @@ public class QueryMonitor
 
             Optional<QueryOutputMetadata> output = Optional.empty();
             if (queryInfo.getOutput().isPresent()) {
-                Optional<String> outputMetadata = queryStats.getOperatorSummaries().stream()
+                Optional<TableFinishInfo> tableFinishInfo = queryStats.getOperatorSummaries().stream()
                         .map(OperatorStats::getInfo)
                         .filter(TableFinishInfo.class::isInstance)
                         .map(TableFinishInfo.class::cast)
-                        .findFirst()
-                        .map(TableFinishInfo::getConnectorOutputMetadata);
+                        .findFirst();
 
                 output = Optional.of(
                         new QueryOutputMetadata(
                                 queryInfo.getOutput().get().getConnectorId().getCatalogName(),
                                 queryInfo.getOutput().get().getSchema(),
                                 queryInfo.getOutput().get().getTable(),
-                                outputMetadata));
+                                tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
+                                tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
             }
 
             eventListenerManager.queryCompleted(
