@@ -14,16 +14,28 @@
 package com.facebook.presto.hdfs;
 
 import com.facebook.presto.hdfs.metaserver.MetaServer;
-import com.facebook.presto.spi.*;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayout;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutResult;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -70,7 +82,7 @@ implements ConnectorMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         Optional<HDFSTableHandle> table = metaServer.getTable(tableName.getSchemaName(), tableName.getTableName());
-        return new HDFSTableHandle(connectorId, table.get());
+        return new HDFSTableHandle(connectorId, table.get().getSchemaName(), table.get().getTableName());
     }
 
     /**
@@ -159,7 +171,19 @@ implements ConnectorMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return null;
+        Map<SchemaTableName, List<ColumnMetadata>> tableColumns = new HashMap<>();
+        List<SchemaTableName> tableNames = metaServer.listTables(prefix);
+        for (SchemaTableName table : tableNames) {
+            List<ColumnMetadata> columnMetadatas = new ArrayList<>();
+            HDFSTableHandle t = metaServer.getTable(table.getSchemaName(), table.getTableName()).get();
+            List<HDFSColumnHandle> columns = t.getColumns();
+            for (HDFSColumnHandle col : columns) {
+                ColumnMetadata metadata = new ColumnMetadata(col.getName(), col.getType(), col.getComment(), false);
+                columnMetadatas.add(metadata);
+            }
+            tableColumns.putIfAbsent(table, columnMetadatas);
+        }
+        return tableColumns;
     }
 
     /**
@@ -218,6 +242,37 @@ implements ConnectorMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        String tableName = tableMetadata.getTable().getTableName();
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        String comment = (String) tableMetadata.getProperties().get("comment");
+        String location = (String) tableMetadata.getProperties().get("location");
+        String owner = (String) tableMetadata.getProperties().get("owner");
+        StorageFormat storageFormat = (StorageFormat) tableMetadata.getProperties().get("storageFormat");
+        HDFSColumnHandle fiberCol = (HDFSColumnHandle) tableMetadata.getProperties().get("fiberCol");
+        HDFSColumnHandle timeCol = (HDFSColumnHandle) tableMetadata.getProperties().get("timeCol");
+        String fiberFunc = (String) tableMetadata.getProperties().get("fiberFunc");
+
+        List<HDFSColumnHandle> columns = new ArrayList<>();
+        for (ColumnMetadata colMetadata : tableMetadata.getColumns()) {
+            HDFSColumnHandle column = new HDFSColumnHandle(colMetadata.getName(),
+                    colMetadata.getType(),
+                    colMetadata.getComment());
+            columns.add(column);
+        }
+
+        HDFSTableHandle table = new HDFSTableHandle(connectorId,
+                tableName,
+                schemaName,
+                comment,
+                location,
+                owner,
+                storageFormat,
+                columns,
+                fiberCol,
+                timeCol,
+                fiberFunc);
+
+        metaServer.createTable(session, table);
     }
 
     /**
@@ -230,6 +285,11 @@ implements ConnectorMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (tableHandle == null) {
+            throw new RuntimeException("tableHandle is null");
+        }
+        HDFSTableHandle table = (HDFSTableHandle) tableHandle;
+        metaServer.dropTable(session, table.getSchemaName(), table.getTableName());
     }
 
     /**
@@ -238,10 +298,19 @@ implements ConnectorMetadata
      * @param session
      * @param tableHandle
      * @param newTableName
+     * @throws RuntimeException if the table can not be renamed or table handle is no longer valid
      */
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
+        if (tableHandle == null) {
+            throw new RuntimeException("tableHandle is null");
+        }
+        HDFSTableHandle table = (HDFSTableHandle) tableHandle;
+        metaServer.renameTable(session, table.getSchemaName(),
+                table.getTableName(),
+                newTableName.getSchemaName(),
+                newTableName.getTableName());
     }
 
     /**

@@ -16,9 +16,9 @@ package com.facebook.presto.hdfs.metaserver;
 import com.facebook.presto.hdfs.HDFSDatabase;
 import com.facebook.presto.hdfs.HDFSTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +32,8 @@ public interface MetaServer
     public Optional<HDFSDatabase> getDatabase(String databaseName);
 
     public Optional<List<String>> getAllTables(String databaseName);
+
+    public List<SchemaTableName> listTables(SchemaTablePrefix prefix);
 
     public Optional<HDFSTableHandle> getTable(String databaseName, String tableName);
 
