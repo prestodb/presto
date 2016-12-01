@@ -96,8 +96,7 @@ than the ``SHOW STATS`` will return no statistic which will be represented as in
      NULL
     (1 row)
 
-Note, that currently providing ``column_list`` instead of ``*`` in ``SELECT`` will not influence the output table. This mimics
-Presto internal behavior.
+Note, that currently providing ``column_list`` instead of ``*`` in ``SELECT`` will not influence the output table.
 
 For example:
 
