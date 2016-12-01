@@ -302,7 +302,6 @@ public class TestSqlTask
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE),
-                true);
+                new DataSize(32, MEGABYTE));
     }
 }

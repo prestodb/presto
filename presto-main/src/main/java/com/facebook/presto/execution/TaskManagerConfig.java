@@ -34,7 +34,8 @@ import java.util.concurrent.TimeUnit;
         "task.max-memory",
         "task.http-notification-threads",
         "task.info-refresh-max-wait",
-        "task.operator-pre-allocated-memory"})
+        "task.operator-pre-allocated-memory",
+        "sink.new-implementation"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
@@ -49,7 +50,6 @@ public class TaskManagerConfig
 
     private DataSize sinkMaxBufferSize = new DataSize(32, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = new DataSize(32, Unit.MEGABYTE);
-    private boolean newSinkBufferImplementation;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
@@ -240,19 +240,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPagePartitioningBufferSize(DataSize size)
     {
         this.maxPagePartitioningBufferSize = size;
-        return this;
-    }
-
-    public boolean isNewSinkBufferImplementation()
-    {
-        return newSinkBufferImplementation;
-    }
-
-    @Config("sink.new-implementation")
-    @ConfigDescription("Experimental: use new output buffer implementations")
-    public TaskManagerConfig setNewSinkBufferImplementation(boolean newSinkBufferImplementation)
-    {
-        this.newSinkBufferImplementation = newSinkBufferImplementation;
         return this;
     }
 

@@ -21,7 +21,6 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
-import com.facebook.presto.execution.buffer.SharedOutputBuffer;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
@@ -80,8 +79,7 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             final Function<SqlTask, ?> onDone,
-            DataSize maxBufferSize,
-            boolean newSinkBufferImplementation)
+            DataSize maxBufferSize)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = UUID.randomUUID().toString();
@@ -92,12 +90,7 @@ public class SqlTask
         requireNonNull(onDone, "onDone is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
-        if (newSinkBufferImplementation) {
-            outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
-        }
-        else {
-            outputBuffer = new SharedOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
-        }
+        outputBuffer = new LazyOutputBuffer(taskId, taskInstanceId, taskNotificationExecutor, maxBufferSize, new UpdateSystemMemory(queryContext));
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
         taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
         {
