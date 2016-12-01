@@ -27,6 +27,8 @@ Hive Changes
 * Add hidden ``$bucket`` column for bucketed tables that
   contains the bucket number for the current row.
 * Prevent inserting into non-managed (i.e., external) tables.
+* Add configurable size limit to Hive metastore cache to avoid using too much
+  coordinator memory.
 
 Cassandra Changes
 -----------------
