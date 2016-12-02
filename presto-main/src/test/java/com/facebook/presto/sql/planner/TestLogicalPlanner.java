@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,12 +50,15 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.fail;
 
 public class TestLogicalPlanner
@@ -157,36 +161,37 @@ public class TestLogicalPlanner
 
     private static int countOfMatchingNodes(Plan plan, Predicate<PlanNode> predicate)
     {
-        PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(predicate);
-        plan.getRoot().accept(planNodeExtractor, null);
-        return planNodeExtractor.getNodes().size();
+        return searchFrom(plan.getRoot()).where(predicate).count();
     }
 
     @Test
     public void testSubqueryPruning()
     {
-        List<String> subqueries = ImmutableList.of(
+        List<QueryTemplate.Parameter> subqueries = new QueryTemplate.Parameter("subquery").of(
                 "orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)",
                 "EXISTS(SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)",
                 "0 = (SELECT orderkey FROM lineitem WHERE orderkey % 2 = 0)");
 
-        for (String subquery : subqueries) {
-            // Apply can be rewritten to *join so we expect no join here as well
-            assertPlanContainsNoApplyOrJoin("SELECT COUNT(*) FROM (SELECT " + subquery + " FROM orders)");
-            // TODO enable when pruning apply nodes works for this kind of query
-            // assertPlanContainsNoApplyOrJoin("SELECT * FROM orders WHERE true OR " + subquery);
-        }
+        queryTemplate("SELECT COUNT(*) FROM (SELECT %subquery% FROM orders)")
+                .replaceAll(subqueries)
+                .forEach(this::assertPlanContainsNoApplyOrJoin);
+
+        queryTemplate("SELECT * FROM orders WHERE true OR %subquery%")
+                .replaceAll(subqueries)
+                .forEach(this::assertPlanContainsNoApplyOrJoin);
+
+        queryTemplate("SELECT true OR %subquery% FROM orders")
+                .replaceAll(subqueries)
+                .forEach(this::assertPlanContainsNoApplyOrJoin);
     }
 
     private void assertPlanContainsNoApplyOrJoin(String sql)
     {
-        PlanNodeExtractor planNodeExtractor = new PlanNodeExtractor(
-                planNode -> planNode instanceof ApplyNode
-                        || planNode instanceof JoinNode
-                        || planNode instanceof IndexJoinNode
-                        || planNode instanceof SemiJoinNode);
-        plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot().accept(planNodeExtractor, null);
-        assertEquals(planNodeExtractor.getNodes().size(), 0, "Unexpected node for query: " + sql);
+        assertFalse(
+                searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                        .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class))
+                        .matches(),
+                "Unexpected node for query: " + sql);
     }
 
     @Test
@@ -424,31 +429,5 @@ public class TestLogicalPlanner
                                         node(AggregationNode.class,
                                                 node(ValuesNode.class)).withSymbol(function, functionAlias)
                                 )))));
-    }
-
-    private static final class PlanNodeExtractor
-            extends SimplePlanVisitor<Void>
-    {
-        private final Predicate<PlanNode> predicate;
-        private ImmutableList.Builder<PlanNode> nodes = ImmutableList.builder();
-
-        public PlanNodeExtractor(Predicate<PlanNode> predicate)
-        {
-            this.predicate = requireNonNull(predicate, "predicate is null");
-        }
-
-        @Override
-        protected Void visitPlan(PlanNode node, Void context)
-        {
-            if (predicate.test(node)) {
-                nodes.add(node);
-            }
-            return super.visitPlan(node, null);
-        }
-
-        public List<PlanNode> getNodes()
-        {
-            return nodes.build();
-        }
     }
 }

@@ -75,6 +75,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -7704,19 +7705,13 @@ public abstract class AbstractTestQueries
                 "nationkey IN (SELECT 1) OR TRUE",
                 "EXISTS(SELECT 1) OR TRUE");
 
-        QueryTemplate queryTemplate = new QueryTemplate("SELECT %projection% FROM nation WHERE %condition%");
-        for (QueryTemplate.Parameter projection : projections) {
-            for (QueryTemplate.Parameter condition : conditions) {
-                assertQuery(queryTemplate.replace(projection, condition));
-            }
-        }
+        queryTemplate("SELECT %projection% FROM nation WHERE %condition%")
+                .replaceAll(projections, conditions)
+                .forEach(this::assertQuery);
 
-        queryTemplate = new QueryTemplate("SELECT %projection% FROM nation WHERE (%condition%) AND nationkey <3");
-        for (QueryTemplate.Parameter projection : projections) {
-            for (QueryTemplate.Parameter condition : conditions) {
-                assertQuery(queryTemplate.replace(projection, condition));
-            }
-        }
+        queryTemplate("SELECT %projection% FROM nation WHERE (%condition%) AND nationkey <3")
+                .replaceAll(projections, conditions)
+                .forEach(this::assertQuery);
 
         assertQuery(
                 "SELECT count(*) FROM nation WHERE (SELECT true FROM (SELECT 1) t(a) WHERE a = nationkey) OR TRUE",

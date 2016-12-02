@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.DeterminismEvaluator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
@@ -58,6 +59,7 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.OR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
@@ -108,24 +110,58 @@ public class SimplifyExpressions
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
+            Set<Symbol> symbols = extractSymbols(node.getAssignments());
+
             Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), this::simplifyExpression));
+            Set<Symbol> simplifiedSymbols = extractSymbols(assignments);
+            for (Symbol symbol : symbols) {
+                if (!simplifiedSymbols.contains(symbol)) {
+                    source = pruneApplyNode(source, symbol);
+                }
+            }
+
             return new ProjectNode(node.getId(), source, assignments);
+        }
+
+        private Set<Symbol> extractSymbols(Map<Symbol, Expression> assignments)
+        {
+            return assignments.values().stream()
+                    .flatMap(expression -> DependencyExtractor.extractUnique(expression).stream())
+                    .collect(toImmutableSet());
         }
 
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            Expression simplified = simplifyExpression(node.getPredicate());
-            if (simplified.equals(TRUE_LITERAL)) {
+            Expression predicate = node.getPredicate();
+            Set<Symbol> symbols = DependencyExtractor.extractUnique(predicate);
+
+            Expression simplifiedPredicate = simplifyExpression(predicate);
+            Set<Symbol> simplifiedSymbols = DependencyExtractor.extractUnique(simplifiedPredicate);
+
+            for (Symbol symbol : symbols) {
+                if (!simplifiedSymbols.contains(symbol)) {
+                    source = pruneApplyNode(source, symbol);
+                }
+            }
+
+            if (simplifiedPredicate.equals(TRUE_LITERAL)) {
                 return source;
             }
             // TODO: this needs to check whether the boolean expression coerces to false in a more general way.
             // E.g., simplify() not always produces a literal when the expression is constant
-            else if (simplified.equals(FALSE_LITERAL) || simplified instanceof NullLiteral) {
+            else if (simplifiedPredicate.equals(FALSE_LITERAL) || simplifiedPredicate instanceof NullLiteral) {
                 return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
             }
-            return new FilterNode(node.getId(), source, simplified);
+            return new FilterNode(node.getId(), source, simplifiedPredicate);
+        }
+
+        private PlanNode pruneApplyNode(PlanNode source, Symbol symbol)
+        {
+            UnusedApplyRemover unusedApplyRemover = new UnusedApplyRemover(symbol.toSymbolReference());
+            source = SimplePlanRewriter.rewriteWith(unusedApplyRemover, source, null);
+            return source;
         }
 
         @Override
