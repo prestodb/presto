@@ -28,6 +28,11 @@ class Renamer
 {
     private final Map<Symbol, Symbol> renames;
 
+    public static Renamer empty()
+    {
+        return new Renamer(ImmutableMap.of());
+    }
+
     public static Renamer from(ProjectNode node)
     {
         ImmutableMap.Builder<Symbol, Symbol> result = ImmutableMap.builder();
