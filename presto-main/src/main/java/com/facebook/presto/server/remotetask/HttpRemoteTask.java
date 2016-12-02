@@ -149,6 +149,8 @@ public final class HttpRemoteTask
 
     private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
+    private final AtomicBoolean aborting = new AtomicBoolean(false);
+
     public HttpRemoteTask(Session session,
             TaskId taskId,
             String nodeId,
@@ -599,6 +601,16 @@ public final class HttpRemoteTask
 
     private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
     {
+        if (!aborting.compareAndSet(false, true)) {
+            // Do not initiate another round of cleanup requests if one had been initiated.
+            // Otherwise, we can get into an asynchronous recursion here. For example, when aborting a task after REMOTE_TASK_MISMATCH.
+            return;
+        }
+        doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
+    }
+
+    private void doScheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
+    {
         Futures.addCallback(httpClient.executeAsync(request, createFullJsonResponseHandler(taskInfoCodec)), new FutureCallback<JsonResponse<TaskInfo>>()
         {
             @Override
@@ -631,10 +643,10 @@ public final class HttpRemoteTask
                 // reschedule
                 long delayNanos = cleanupBackoff.getBackoffDelayNanos();
                 if (delayNanos == 0) {
-                    scheduleAsyncCleanupRequest(cleanupBackoff, request, action);
+                    doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
                 }
                 else {
-                    errorScheduledExecutor.schedule(() -> scheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
+                    errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
                 }
             }
         }, executor);
