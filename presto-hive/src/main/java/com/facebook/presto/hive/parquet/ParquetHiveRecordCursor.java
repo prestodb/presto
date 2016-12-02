@@ -57,7 +57,6 @@ import parquet.schema.PrimitiveType;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -345,20 +344,18 @@ public class ParquetHiveRecordCursor
             MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
 
             LongArrayList offsets = new LongArrayList(blocks.size());
-            List<BlockMetaData> splitGroup = new ArrayList<>();
             for (BlockMetaData block : blocks) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if (firstDataPage >= start && firstDataPage < start + length) {
                     if (predicatePushdownEnabled) {
                         ParquetPredicate parquetPredicate = buildParquetPredicate(columns, effectivePredicate, fileMetaData.getSchema(), typeManager);
                         if (predicateMatches(parquetPredicate, block, dataSource, requestedSchema, effectivePredicate)) {
-                            splitGroup.add(block);
+                            offsets.add(block.getStartingPos());
                         }
                     }
                     else {
-                        splitGroup.add(block);
+                        offsets.add(block.getStartingPos());
                     }
-                    offsets.add(block.getStartingPos());
                 }
             }
 
