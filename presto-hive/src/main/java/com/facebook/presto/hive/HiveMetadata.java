@@ -1044,11 +1044,7 @@ public class HiveMetadata
     {
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
-        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint.getSummary());
-
-        List<HivePartition> partitions = hivePartitionResult.getPartitions().stream()
-                .filter(partition -> constraint.predicate().test(partition.getKeys()))
-                .collect(toList());
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
 
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
@@ -1056,7 +1052,7 @@ public class HiveMetadata
                         new HiveTableLayoutHandle(
                                 handle.getClientId(),
                                 ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
-                                partitions,
+                                hivePartitionResult.getPartitions(),
                                 hivePartitionResult.getEnforcedConstraint(),
                                 hivePartitionResult.getBucketHandle())),
                 hivePartitionResult.getUnenforcedConstraint()));
@@ -1131,7 +1127,7 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, TupleDomain.all());
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, Constraint.alwaysTrue());
         if (!hivePartitionResult.getBucketHandle().isPresent()) {
             return Optional.empty();
         }
