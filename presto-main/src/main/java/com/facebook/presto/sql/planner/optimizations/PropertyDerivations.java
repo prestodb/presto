@@ -493,13 +493,13 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignmentsMap());
 
             ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
 
             // Extract additional constants
             Map<Symbol, NullableValue> constants = new HashMap<>();
-            for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
+            for (Map.Entry<Symbol, Expression> assignment : node.getAssignmentsMap().entrySet()) {
                 Expression expression = assignment.getValue();
 
                 IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList() /* parameters already replaced */);

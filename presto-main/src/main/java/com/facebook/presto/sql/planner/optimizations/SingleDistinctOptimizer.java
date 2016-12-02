@@ -19,11 +19,11 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanRewriter;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.google.common.collect.ImmutableList;
@@ -128,19 +128,15 @@ public class SingleDistinctOptimizer
                     node.getHashSymbol(),
                     Optional.empty());
 
-            ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
-            for (Symbol symbol : aggregationNode.getOutputSymbols()) {
-                outputSymbols.put(symbol, symbol.toSymbolReference());
-            }
-
-            // add null assignment for mask
-            // unused mask will be removed by PruneUnreferencedOutputs
-            outputSymbols.put(mask.get(), new NullLiteral());
+            Assignments assignments = Assignments.builder()
+                    .putIdentities(aggregationNode.getOutputSymbols())
+                    .put(mask.get(), new NullLiteral()) // add null assignment for mask
+                    .build();
             return new Result(
                     new ProjectNode(
                             idAllocator.getNextId(),
                             aggregationNode,
-                            outputSymbols.build()),
+                            assignments),
                     true);
         }
     }
