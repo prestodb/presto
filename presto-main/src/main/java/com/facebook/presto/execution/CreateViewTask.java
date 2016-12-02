@@ -51,7 +51,6 @@ public class CreateViewTask
     public CreateViewTask(
             JsonCodec<ViewDefinition> codec,
             SqlParser sqlParser,
-            AccessControl accessControl,
             FeaturesConfig featuresConfig)
     {
         this.codec = requireNonNull(codec, "codec is null");

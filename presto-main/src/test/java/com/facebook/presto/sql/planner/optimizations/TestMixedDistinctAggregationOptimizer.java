@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
@@ -103,7 +102,7 @@ public class TestMixedDistinctAggregationOptimizer
                 new PruneUnreferencedOutputs());
 
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, new FeaturesConfig(), optimizerProvider);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizerProvider);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, expectedPlanPattern);
             return null;
         });

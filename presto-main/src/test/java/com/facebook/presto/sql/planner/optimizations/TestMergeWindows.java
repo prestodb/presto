@@ -473,16 +473,13 @@ public class TestMergeWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
                 new MergeWindows(),
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
@@ -491,14 +488,11 @@ public class TestMergeWindows
     private Plan unitPlan(@Language("SQL") String sql)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = ImmutableList.of(
                         new UnaliasSymbolReferences(),
                         new PruneIdentityProjections(),
                         new MergeWindows(),
                         new PruneUnreferencedOutputs());
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers));
+        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, optimizers));
     }
 }
