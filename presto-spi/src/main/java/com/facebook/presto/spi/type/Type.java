@@ -146,8 +146,14 @@ public interface Type
     boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
 
     /**
+     * This is used in GROUP BY and JOIN code.
+     */
+    boolean isNotDistinct(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
+
+    /**
      * Calculates the hash code of the value at the specified position in the
      * specified block.
+     * Hash code should be consistent with both equalTo and isNotDistinct.
      */
     long hash(Block block, int position);
 

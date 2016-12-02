@@ -87,6 +87,31 @@ public class ArrayType
     }
 
     @Override
+    protected boolean isNotDistinctNonNull(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
+        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
+
+        if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
+            return false;
+        }
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            if (leftArray.isNull(i) || rightArray.isNull(i)) {
+                if (leftArray.isNull(i) ^ rightArray.isNull(i)) {
+                    return false;
+                }
+                continue;
+            }
+            if (!elementType.isNotDistinct(leftArray, i, rightArray, i)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
     public long hash(Block block, int position)
     {
         Block array = getObject(block, position);

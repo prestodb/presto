@@ -199,6 +199,28 @@ public class RowType
     }
 
     @Override
+    protected boolean isNotDistinctNonNull(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        Block leftRow = leftBlock.getObject(leftPosition, Block.class);
+        Block rightRow = rightBlock.getObject(rightPosition, Block.class);
+
+        for (int i = 0; i < leftRow.getPositionCount(); i++) {
+            if (leftRow.isNull(i) || leftRow.isNull(i)) {
+                if (leftRow.isNull(i) ^ leftRow.isNull(i)) {
+                    return false;
+                }
+                continue;
+            }
+            Type fieldType = fields.get(i).getType();
+            if (!fieldType.isNotDistinct(leftRow, i, rightRow, i)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
     public long hash(Block block, int position)
     {
         Block arrayBlock = block.getObject(position, Block.class);

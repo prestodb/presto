@@ -122,8 +122,44 @@ public class MapType
             int rightValuePosition = position + 1;
             checkElementNotNull(leftMapBlock.isNull(leftValuePosition), MAP_NULL_ELEMENT_MSG);
             checkElementNotNull(rightMapBlock.isNull(rightValuePosition), MAP_NULL_ELEMENT_MSG);
-
             if (!valueType.equalTo(leftMapBlock, leftValuePosition, rightMapBlock, rightValuePosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean isNotDistinctNonNull(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        Block leftMapBlock = leftBlock.getObject(leftPosition, Block.class);
+        Block rightMapBlock = rightBlock.getObject(rightPosition, Block.class);
+
+        if (leftMapBlock.getPositionCount() != rightMapBlock.getPositionCount()) {
+            return false;
+        }
+
+        Map<KeyWrapper, Integer> wrappedLeftMap = new HashMap<>();
+        for (int position = 0; position < leftMapBlock.getPositionCount(); position += 2) {
+            wrappedLeftMap.put(new KeyWrapper(keyType, leftMapBlock, position), position + 1);
+        }
+
+        for (int position = 0; position < rightMapBlock.getPositionCount(); position += 2) {
+            KeyWrapper key = new KeyWrapper(keyType, rightMapBlock, position);
+            Integer leftValuePosition = wrappedLeftMap.get(key);
+            if (leftValuePosition == null) {
+                return false;
+            }
+            int rightValuePosition = position + 1;
+            boolean leftValueNull = leftMapBlock.isNull(leftValuePosition);
+            boolean rightValueNull = rightMapBlock.isNull(rightValuePosition);
+            if (leftValueNull || rightValueNull) {
+                if (leftValueNull != rightValueNull) {
+                    return false;
+                }
+                continue;
+            }
+            if (!valueType.isNotDistinct(leftMapBlock, leftValuePosition, rightMapBlock, rightValuePosition)) {
                 return false;
             }
         }

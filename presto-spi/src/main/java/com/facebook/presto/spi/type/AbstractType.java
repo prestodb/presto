@@ -82,6 +82,20 @@ public abstract class AbstractType
     }
 
     @Override
+    public boolean isNotDistinct(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (leftBlock.isNull(leftPosition) || rightBlock.isNull(rightPosition)) {
+            return leftBlock.isNull(leftPosition) == rightBlock.isNull(rightPosition);
+        }
+        return isNotDistinctNonNull(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    protected boolean isNotDistinctNonNull(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        return equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
