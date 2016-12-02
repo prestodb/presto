@@ -46,6 +46,7 @@ import java.util.Optional;
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketNumbers;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -53,6 +54,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
@@ -65,6 +67,7 @@ public class HivePartitionManager
     private final String connectorId;
     private final DateTimeZone timeZone;
     private final boolean assumeCanonicalPartitionKeys;
+    private final int maxPartitions;
     private final int domainCompactionThreshold;
     private final TypeManager typeManager;
 
@@ -78,6 +81,7 @@ public class HivePartitionManager
                 typeManager,
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
+                hiveClientConfig.getMaxPartitionsPerScan(),
                 hiveClientConfig.getDomainCompactionThreshold());
     }
 
@@ -86,11 +90,14 @@ public class HivePartitionManager
             TypeManager typeManager,
             DateTimeZone timeZone,
             boolean assumeCanonicalPartitionKeys,
+            int maxPartitions,
             int domainCompactionThreshold)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
+        this.maxPartitions = maxPartitions;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -129,11 +136,19 @@ public class HivePartitionManager
         List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
 
         // do a final pass to filter based on fields that could not be used to filter the partitions
+        int partitionCount = 0;
         ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
         for (String partitionName : partitionNames) {
             Optional<Map<ColumnHandle, NullableValue>> values = parseValuesAndFilterPartition(partitionName, partitionColumns, partitionTypes, constraint);
 
             if (values.isPresent()) {
+                if (partitionCount == maxPartitions) {
+                    throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                            "Query over table '%s' can potentially read more than %s partitions",
+                            hiveTableHandle.getSchemaTableName(),
+                            maxPartitions));
+                }
+                partitionCount++;
                 partitions.add(new HivePartition(tableName, compactEffectivePredicate, partitionName, values.get(), buckets));
             }
         }
