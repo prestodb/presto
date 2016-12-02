@@ -44,7 +44,7 @@ class PlanBuilder
 
     public TranslationMap copyTranslations()
     {
-        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis());
+        TranslationMap translations = new TranslationMap(getRelationPlan(), getAnalysis(), getTranslations().getLambdaDeclarationToSymbolMap());
         translations.copyMappingsFrom(getTranslations());
         return translations;
     }

@@ -31,5 +31,6 @@ public class HashRedisDecoderModule
         bindRowDecoder(binder, HashRedisRowDecoder.class);
 
         bindFieldDecoder(binder, HashRedisFieldDecoder.class);
+        bindFieldDecoder(binder, ISO8601HashRedisFieldDecoder.class);
     }
 }

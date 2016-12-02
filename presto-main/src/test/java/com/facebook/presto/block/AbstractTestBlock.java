@@ -93,6 +93,9 @@ public abstract class AbstractTestBlock
         assertPositionValue(block.getRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.getRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedValue);
+        assertPositionValue(copyBlock(block.getRegion(position, 1)), 0, expectedValue);
+        assertPositionValue(copyBlock(block.getRegion(0, position + 1)), position, expectedValue);
+        assertPositionValue(copyBlock(block.getRegion(position, block.getPositionCount() - position)), 0, expectedValue);
         assertPositionValue(block.copyRegion(position, 1), 0, expectedValue);
         assertPositionValue(block.copyRegion(0, position + 1), position, expectedValue);
         assertPositionValue(block.copyRegion(position, block.getPositionCount() - position), 0, expectedValue);

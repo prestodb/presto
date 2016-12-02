@@ -114,6 +114,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -332,6 +333,10 @@ public final class HiveWriteUtils
 
     public static void checkTableIsWritable(Table table)
     {
+        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
+        }
+
         checkWritable(
                 new SchemaTableName(table.getDatabaseName(), table.getTableName()),
                 Optional.empty(),
@@ -364,12 +369,18 @@ public final class HiveWriteUtils
 
         // verify online
         if (protectMode.offline) {
-            throw new TableOfflineException(tableName, format("%s is offline", tablePartitionDescription));
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
+            }
+            throw new TableOfflineException(tableName, false, null);
         }
 
         String prestoOffline = parameters.get(PRESTO_OFFLINE);
         if (!isNullOrEmpty(prestoOffline)) {
-            throw new TableOfflineException(tableName, format("%s is offline for Presto: %s", tablePartitionDescription, prestoOffline));
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
+            }
+            throw new TableOfflineException(tableName, true, prestoOffline);
         }
 
         // verify not read only

@@ -39,6 +39,7 @@ public class HiveMetadataFactory
     private final boolean bucketWritingEnabled;
     private final boolean skipDeletionForAlter;
     private final HiveStorageFormat defaultStorageFormat;
+    private final long perTransactionCacheMaximumSize;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
@@ -79,6 +80,7 @@ public class HiveMetadataFactory
                 hiveClientConfig.isBucketExecutionEnabled(),
                 hiveClientConfig.isBucketWritingEnabled(),
                 hiveClientConfig.getHiveStorageFormat(),
+                hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 typeManager,
                 locationService,
                 tableParameterCodec,
@@ -101,6 +103,7 @@ public class HiveMetadataFactory
             boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
             HiveStorageFormat defaultStorageFormat,
+            long perTransactionCacheMaximumSize,
             TypeManager typeManager,
             LocationService locationService,
             TableParameterCodec tableParameterCodec,
@@ -117,6 +120,7 @@ public class HiveMetadataFactory
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
+        this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -145,7 +149,7 @@ public class HiveMetadataFactory
                 connectorId,
                 new SemiTransactionalHiveMetastore(
                         hdfsEnvironment,
-                        CachingHiveMetastore.memoizeMetastore(metastore), // per-transaction cache
+                        CachingHiveMetastore.memoizeMetastore(metastore, perTransactionCacheMaximumSize), // per-transaction cache
                         renameExecution,
                         skipDeletionForAlter),
                 hdfsEnvironment,

@@ -54,6 +54,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.PhasedExecutionPolicy;
+import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.ForMemoryManager;
 import com.facebook.presto.operator.ForScheduler;
@@ -71,6 +72,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -209,6 +211,8 @@ public class CoordinatorModule
         MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
                 new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecutionFactory<?>>() {});
 
+        binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Query.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Explain.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
@@ -225,6 +229,7 @@ public class CoordinatorModule
         executionBinder.addBinding(Insert.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(Delete.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         executionBinder.addBinding(DescribeInput.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
+        executionBinder.addBinding(DescribeOutput.class).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(DataDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
         bindDataDefinitionTask(binder, executionBinder, CreateSchema.class, CreateSchemaTask.class);

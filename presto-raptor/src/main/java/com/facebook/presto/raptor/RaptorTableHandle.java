@@ -37,6 +37,7 @@ public final class RaptorTableHandle
     private final OptionalLong distributionId;
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
+    private final boolean organized;
     private final OptionalLong transactionId;
     private final boolean delete;
 
@@ -49,6 +50,7 @@ public final class RaptorTableHandle
             @JsonProperty("distributionId") OptionalLong distributionId,
             @JsonProperty("distributionName") Optional<String> distributionName,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("organized") boolean organized,
             @JsonProperty("transactionId") OptionalLong transactionId,
             @JsonProperty("delete") boolean delete)
     {
@@ -62,6 +64,7 @@ public final class RaptorTableHandle
         this.distributionName = requireNonNull(distributionName, "distributionName is null");
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.organized = organized;
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
 
         this.delete = delete;
@@ -107,6 +110,12 @@ public final class RaptorTableHandle
     public OptionalInt getBucketCount()
     {
         return bucketCount;
+    }
+
+    @JsonProperty
+    public boolean isOrganized()
+    {
+        return organized;
     }
 
     @JsonProperty

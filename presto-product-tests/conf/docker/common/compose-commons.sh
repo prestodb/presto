@@ -5,7 +5,8 @@ function export_canonical_path() {
     # make the path start with '/' or './'. Otherwise the result for 'foo.txt' is an absolute path.
     local PATH_REFERENCE=$1
     # when ref=var; var=value; then ${!ref} returns value
-    local PATH=${!PATH_REFERENCE}
+    # echo the variable to resolve any wildcards in paths
+    local PATH=$( echo ${!PATH_REFERENCE} )
     if [[ ${PATH} != /* ]] ; then
       PATH=./${PATH}
     fi

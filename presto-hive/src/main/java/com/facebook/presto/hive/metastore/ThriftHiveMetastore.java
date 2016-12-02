@@ -83,13 +83,21 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 public class ThriftHiveMetastore
         implements HiveMetastore
 {
-    private final ThriftHiveMetastoreStats stats = new ThriftHiveMetastoreStats();
-    protected final HiveCluster clientProvider;
+    private final ThriftHiveMetastoreStats stats;
+    private final HiveCluster clientProvider;
+    private final Function<Exception, Exception> exceptionMapper;
 
     @Inject
     public ThriftHiveMetastore(HiveCluster hiveCluster)
     {
+        this(hiveCluster, new ThriftHiveMetastoreStats(), identity());
+    }
+
+    ThriftHiveMetastore(HiveCluster hiveCluster, ThriftHiveMetastoreStats stats, Function<Exception, Exception> exceptionMapper)
+    {
         this.clientProvider = requireNonNull(hiveCluster, "hiveCluster is null");
+        this.stats = requireNonNull(stats, "stats is null");
+        this.exceptionMapper = requireNonNull(exceptionMapper, "exceptionMapper is null");
     }
 
     @Managed
@@ -97,12 +105,6 @@ public class ThriftHiveMetastore
     public ThriftHiveMetastoreStats getStats()
     {
         return stats;
-    }
-
-    @Override
-    @Managed
-    public void flushCache()
-    {
     }
 
     @Override
@@ -811,13 +813,8 @@ public class ThriftHiveMetastore
     private RetryDriver retry()
     {
         return RetryDriver.retry()
-                .exceptionMapper(getExceptionMapper())
+                .exceptionMapper(exceptionMapper)
                 .stopOn(PrestoException.class);
-    }
-
-    protected Function<Exception, Exception> getExceptionMapper()
-    {
-        return identity();
     }
 
     private RuntimeException propagate(Throwable throwable)

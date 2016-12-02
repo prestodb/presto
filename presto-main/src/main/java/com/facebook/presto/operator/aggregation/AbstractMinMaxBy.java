@@ -89,7 +89,7 @@ public abstract class AbstractMinMaxBy
                 stateFactory,
                 valueType);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, valueType, true, factory);
     }
 

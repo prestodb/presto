@@ -17,6 +17,9 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.google.common.collect.ImmutableSet;
 
@@ -34,6 +37,9 @@ public class ExpressionAnalysis
     private final Set<InPredicate> subqueryInPredicates;
     private final Set<SubqueryExpression> scalarSubqueries;
     private final Set<ExistsPredicate> existsSubqueries;
+    private final Set<QuantifiedComparisonExpression> quantifiedComparisons;
+    // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
+    private final IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences;
 
     public ExpressionAnalysis(
             IdentityHashMap<Expression, Type> expressionTypes,
@@ -42,7 +48,9 @@ public class ExpressionAnalysis
             Set<SubqueryExpression> scalarSubqueries,
             Set<ExistsPredicate> existsSubqueries,
             Set<Expression> columnReferences,
-            Set<Expression> typeOnlyCoercions)
+            Set<Expression> typeOnlyCoercions,
+            Set<QuantifiedComparisonExpression> quantifiedComparisons,
+            IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences)
     {
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
@@ -51,6 +59,8 @@ public class ExpressionAnalysis
         this.subqueryInPredicates = requireNonNull(subqueryInPredicates, "subqueryInPredicates is null");
         this.scalarSubqueries = requireNonNull(scalarSubqueries, "subqueryInPredicates is null");
         this.existsSubqueries = requireNonNull(existsSubqueries, "existsSubqueries is null");
+        this.quantifiedComparisons = requireNonNull(quantifiedComparisons, "quantifiedComparisons is null");
+        this.lambdaArgumentReferences = requireNonNull(lambdaArgumentReferences, "lambdaArgumentReferences is null");
     }
 
     public Type getType(Expression expression)
@@ -66,6 +76,11 @@ public class ExpressionAnalysis
     public Type getCoercion(Expression expression)
     {
         return expressionCoercions.get(expression);
+    }
+
+    public LambdaArgumentDeclaration getLambdaArgumentReference(QualifiedNameReference qualifiedNameReference)
+    {
+        return lambdaArgumentReferences.get(qualifiedNameReference);
     }
 
     public boolean isTypeOnlyCoercion(Expression expression)
@@ -91,5 +106,10 @@ public class ExpressionAnalysis
     public Set<ExistsPredicate> getExistsSubqueries()
     {
         return existsSubqueries;
+    }
+
+    public Set<QuantifiedComparisonExpression> getQuantifiedComparisons()
+    {
+        return quantifiedComparisons;
     }
 }

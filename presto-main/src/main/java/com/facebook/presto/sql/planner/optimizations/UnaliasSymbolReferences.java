@@ -82,8 +82,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -109,13 +111,19 @@ public class UnaliasSymbolReferences
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(types), plan);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private final Map<Symbol, Symbol> mapping = new HashMap<>();
+        private final Map<Symbol, Type> types;
+
+        private Rewriter(Map<Symbol, Type> types)
+        {
+            this.types = types;
+        }
 
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
@@ -272,6 +280,8 @@ public class UnaliasSymbolReferences
                     .map(context::rewrite)
                     .collect(toImmutableList());
 
+            mapExchangeNodeSymbols(node);
+
             List<List<Symbol>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
                 inputs.add(new ArrayList<>());
@@ -297,6 +307,52 @@ public class UnaliasSymbolReferences
                     node.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
+        }
+
+        private void mapExchangeNodeSymbols(ExchangeNode node)
+        {
+            if (node.getInputs().size() == 1) {
+                mapExchangeNodeOutputToInputSymbols(node);
+                return;
+            }
+
+            // Mapping from list [node.getInput(0).get(symbolIndex), node.getInput(1).get(symbolIndex), ...] to node.getOutputSymbols(symbolIndex).
+            // All symbols are canonical.
+            Map<List<Symbol>, Symbol> inputsToOutputs = new HashMap<>();
+            // Map each same list of input symbols [I1, I2, ..., In] to the same output symbol O
+            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
+                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
+                List<Symbol> canonicalInputs = canonicalizeExchangeNodeInputs(node, symbolIndex);
+                Symbol output = inputsToOutputs.get(canonicalInputs);
+
+                if (output == null || canonicalOutput.equals(output)) {
+                    inputsToOutputs.put(canonicalInputs, canonicalOutput);
+                }
+                else {
+                    map(canonicalOutput, output);
+                }
+            }
+        }
+
+        private void mapExchangeNodeOutputToInputSymbols(ExchangeNode node)
+        {
+            checkState(node.getInputs().size() == 1);
+
+            for (int symbolIndex = 0; symbolIndex < node.getOutputSymbols().size(); symbolIndex++) {
+                Symbol canonicalOutput = canonicalize(node.getOutputSymbols().get(symbolIndex));
+                Symbol canonicalInput = canonicalize(node.getInputs().get(0).get(symbolIndex));
+
+                if (!canonicalOutput.equals(canonicalInput)) {
+                    map(canonicalOutput, canonicalInput);
+                }
+            }
+        }
+
+        private List<Symbol> canonicalizeExchangeNodeInputs(ExchangeNode node, int symbolIndex)
+        {
+            return node.getInputs().stream()
+                    .map(input -> canonicalize(input.get(symbolIndex)))
+                    .collect(toImmutableList());
         }
 
         @Override
@@ -484,7 +540,18 @@ public class UnaliasSymbolReferences
             PlanNode left = context.rewrite(node.getLeft());
             PlanNode right = context.rewrite(node.getRight());
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalizeJoinCriteria(node.getCriteria()), node.getFilter().map(this::canonicalize), canonicalize(node.getLeftHashSymbol()), canonicalize(node.getRightHashSymbol()));
+            List<JoinNode.EquiJoinClause> canonicalCriteria = canonicalizeJoinCriteria(node.getCriteria());
+            Optional<Expression> canonicalFilter = node.getFilter().map(this::canonicalize);
+            Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
+            Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
+
+            if (node.getType().equals(INNER)) {
+                canonicalCriteria.stream()
+                        .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
+                        .forEach(clause -> map(clause.getRight(), clause.getLeft()));
+            }
+
+            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol);
         }
 
         @Override
@@ -529,7 +596,7 @@ public class UnaliasSymbolReferences
             return new ExceptNode(node.getId(), rewriteSources(node, context).build(), canonicalizeSetOperationSymbolMap(node.getSymbolMapping()), canonicalize(node.getOutputSymbols()));
         }
 
-        private ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)
+        private static ImmutableList.Builder<PlanNode> rewriteSources(SetOperationNode node, RewriteContext<Void> context)
         {
             ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();
             for (PlanNode source : node.getSources()) {

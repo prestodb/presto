@@ -43,6 +43,7 @@ import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.Principal;
@@ -53,6 +54,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.io.ByteStreams.copy;
+import static com.google.common.io.ByteStreams.nullOutputStream;
 import static java.lang.String.format;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
@@ -174,7 +177,7 @@ public class SpnegoFilter
             }
         }
 
-        sendChallenge(response, includeRealm, requestSpnegoToken);
+        sendChallenge(request, response, includeRealm, requestSpnegoToken);
     }
 
     private Optional<Result> authenticate(String token)
@@ -211,9 +214,17 @@ public class SpnegoFilter
         return Optional.empty();
     }
 
-    private static void sendChallenge(HttpServletResponse response, boolean includeRealm, String invalidSpnegoToken)
+    private static void sendChallenge(HttpServletRequest request, HttpServletResponse response, boolean includeRealm, String invalidSpnegoToken)
         throws IOException
     {
+        // If we send the challenge without consuming the body of the request,
+        // the Jetty server will close the connection after sending the response.
+        // The client interprets this as a failed request and does not resend
+        // the request with the authentication header.
+        // We can avoid this behavior in the Jetty client by reading and discarding
+        // the entire body of the unauthenticated request before sending the response.
+        skipRequestBody(request);
+
         if (invalidSpnegoToken != null) {
             response.sendError(SC_UNAUTHORIZED, format("Authentication failed for token %s", invalidSpnegoToken));
         }
@@ -221,6 +232,14 @@ public class SpnegoFilter
             response.setStatus(SC_UNAUTHORIZED);
         }
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, formatAuthenticationHeader(includeRealm, Optional.empty()));
+    }
+
+    private static void skipRequestBody(HttpServletRequest request)
+            throws IOException
+    {
+        try (InputStream inputStream = request.getInputStream()) {
+            copy(inputStream, nullOutputStream());
+        }
     }
 
     private static String formatAuthenticationHeader(boolean includeRealm, Optional<byte[]> token)

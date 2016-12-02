@@ -37,6 +37,7 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -261,7 +262,7 @@ public class LocalQueryRunner
                 executor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
-        this.splitManager = new SplitManager();
+        this.splitManager = new SplitManager(new QueryManagerConfig());
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
                 featuresConfig,
@@ -541,7 +542,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
         }
 
-        SubPlan subplan = new PlanFragmenter().createSubPlans(session, metadata, plan);
+        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -737,7 +738,7 @@ public class LocalQueryRunner
         };
     }
 
-    public OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
+    public static OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
     {
         ImmutableList.Builder<ProjectionFunction> projectionFunctions = ImmutableList.builder();
         for (int i = 0; i < columnTypes.size(); i++) {

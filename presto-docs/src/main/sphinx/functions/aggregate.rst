@@ -97,6 +97,14 @@ General Aggregate Functions
 
     Returns the sum of all input values.
 
+.. function:: bitwise_and_agg(x) -> [same as input]
+
+    Returns the bitwise "and" of all input values. The binary representation of integers is two's complement.
+
+.. function:: bitwise_or_agg(x) -> [same as input]
+
+    Returns the bitwise "or" of all input values. The binary representation of integers is two's complement.
+
 Map Aggregate Functions
 -----------------------
 

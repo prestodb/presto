@@ -87,7 +87,7 @@ public class AggregationCompiler
         ImmutableList.Builder<BindableAggregationFunction> builder = ImmutableList.builder();
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
-            AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
+            AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateClass, classLoader);
 
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {

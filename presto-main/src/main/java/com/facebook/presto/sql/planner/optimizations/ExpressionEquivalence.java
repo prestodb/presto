@@ -23,10 +23,11 @@ import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -96,7 +97,7 @@ public class ExpressionEquivalence
     private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, Map<Integer, Type> inputTypes)
     {
         // replace qualified names with input references since row expressions do not support these
-        Expression expressionWithInputReferences = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolInput), expression);
+        Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
 
         // determine the type of every expression
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
@@ -203,6 +204,18 @@ public class ExpressionEquivalence
         public RowExpression visitInputReference(InputReferenceExpression node, Void context)
         {
             return node;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return reference;
         }
     }
 

@@ -154,7 +154,7 @@ public class PagesIndexOrdering
     /**
      * Swaps x[a .. (a+n-1)] with x[b .. (b+n-1)].
      */
-    private void vectorSwap(PagesIndex pagesIndex, int from, int l, int s)
+    private static void vectorSwap(PagesIndex pagesIndex, int from, int l, int s)
     {
         for (int i = 0; i < s; i++, from++, l++) {
             pagesIndex.swap(from, l);

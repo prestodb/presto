@@ -40,9 +40,11 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
@@ -66,6 +68,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,6 +79,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.HIDDEN;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -85,13 +89,16 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
+import static com.facebook.presto.hive.HiveTableProperties.getExternalLocation;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
@@ -117,6 +124,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
@@ -126,6 +134,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 
 public class HiveMetadata
         implements ConnectorMetadata
@@ -231,6 +241,9 @@ public class HiveMetadata
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (table.get().getTableType().equals(EXTERNAL_TABLE.name())) {
+            properties.put(EXTERNAL_LOCATION_PROPERTY, table.get().getStorage().getLocation());
+        }
         try {
             HiveStorageFormat format = extractHiveStorageFormat(table.get());
             properties.put(STORAGE_FORMAT_PROPERTY, format);
@@ -396,12 +409,48 @@ public class HiveMetadata
 
         hiveStorageFormat.validateColumns(columnHandles);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
-        Path targetPath = locationService.targetPathRoot(locationHandle);
+        Path targetPath;
+        boolean external;
+        String externalLocation = getExternalLocation(tableMetadata.getProperties());
+        if (externalLocation != null) {
+            external = true;
+            targetPath = getExternalPath(session.getUser(), externalLocation);
+        }
+        else {
+            external = false;
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session.getUser(), session.getQueryId(), schemaName, tableName);
+            targetPath = locationService.targetPathRoot(locationHandle);
+        }
 
-        Table table = buildTableObject(session.getQueryId(), schemaName, tableName, session.getUser(), columnHandles, hiveStorageFormat, partitionedBy, bucketProperty, additionalTableParameters, targetPath, prestoVersion);
+        Table table = buildTableObject(
+                session.getQueryId(),
+                schemaName,
+                tableName,
+                session.getUser(),
+                columnHandles,
+                hiveStorageFormat,
+                partitionedBy,
+                bucketProperty,
+                additionalTableParameters,
+                targetPath,
+                external,
+                prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
         metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
+    }
+
+    private Path getExternalPath(String user, String location)
+    {
+        try {
+            Path path = new Path(location);
+            if (!hdfsEnvironment.getFileSystem(user, path).isDirectory(path)) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
+            }
+            return path;
+        }
+        catch (IllegalArgumentException | IOException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
+        }
     }
 
     private static Table buildTableObject(
@@ -415,6 +464,7 @@ public class HiveMetadata
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
             Path targetPath,
+            boolean external,
             String prestoVersion)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
@@ -442,7 +492,7 @@ public class HiveMetadata
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setOwner(tableOwner)
-                .setTableType(TableType.MANAGED_TABLE.name())
+                .setTableType((external ? EXTERNAL_TABLE : MANAGED_TABLE).name())
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
                 .setParameters(ImmutableMap.<String, String>builder()
@@ -514,6 +564,10 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
+        if (getExternalLocation(tableMetadata.getProperties()) != null) {
+            throw new PrestoException(NOT_SUPPORTED, "External tables cannot be created using CREATE TABLE AS");
+        }
+
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
@@ -579,6 +633,7 @@ public class HiveMetadata
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
                 targetPath,
+                false,
                 prestoVersion);
         PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
 
@@ -1012,17 +1067,16 @@ public class HiveMetadata
     {
         HiveTableLayoutHandle hiveLayoutHandle = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
         List<ColumnHandle> partitionColumns = hiveLayoutHandle.getPartitionColumns();
-        List<TupleDomain<ColumnHandle>> partitionDomains = hiveLayoutHandle.getPartitions().get().stream()
-                .map(HivePartition::getTupleDomain)
-                .collect(toList());
+        List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 
-        TupleDomain<ColumnHandle> predicate = TupleDomain.none();
-        if (!partitionDomains.isEmpty()) {
-            predicate = TupleDomain.columnWiseUnion(partitionDomains);
-        }
+        TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
 
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
         if (!partitionColumns.isEmpty()) {
+            // Do not create tuple domains for every partition at the same time!
+            // There can be a huge number of partitions so use an iterable so
+            // all domains do not need to be in memory at the same time.
+            Iterable<TupleDomain<ColumnHandle>> partitionDomains = Iterables.transform(partitions, (hivePartition) -> TupleDomain.fromFixedValues(hivePartition.getKeys()));
             discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
         }
 
@@ -1048,6 +1102,30 @@ public class HiveMetadata
                 Optional.empty(),
                 discretePredicates,
                 ImmutableList.of());
+    }
+
+    private static TupleDomain<ColumnHandle> createPredicate(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
+    {
+        if (partitions.isEmpty()) {
+            return TupleDomain.none();
+        }
+
+        Map<ColumnHandle, Domain> domains = new HashMap<>(partitionColumns.size());
+
+        for (HivePartition partition : partitions) {
+            Map<ColumnHandle, NullableValue> partitionValues = partition.getKeys();
+            for (ColumnHandle column : partitionColumns) {
+                NullableValue nullableValue = partitionValues.get(column);
+                if (nullableValue == null) {
+                    throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does now have a value for partition column %s", partition, column));
+                }
+
+                Type type = nullableValue.getType();
+                Domain domain = nullableValue.isNull() ? Domain.onlyNull(type) : Domain.singleValue(type, nullableValue.getValue());
+                domains.merge(column, domain, Domain::union);
+            }
+        }
+        return withColumnDomains(domains);
     }
 
     @Override
@@ -1153,6 +1231,21 @@ public class HiveMetadata
         throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serde));
     }
 
+    private static void validateBucketColumns(ConnectorTableMetadata tableMetadata)
+    {
+        Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        if (!bucketProperty.isPresent()) {
+            return;
+        }
+        Set<String> allColumns = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toSet());
+        List<String> bucketedBy = bucketProperty.get().getBucketedBy();
+        if (!allColumns.containsAll(bucketedBy)) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), ImmutableSet.copyOf(allColumns))));
+        }
+    }
+
     private static void validatePartitionColumns(ConnectorTableMetadata tableMetadata)
     {
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
@@ -1177,6 +1270,7 @@ public class HiveMetadata
     private static List<HiveColumnHandle> getColumnHandles(String connectorId, ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)
     {
         validatePartitionColumns(tableMetadata);
+        validateBucketColumns(tableMetadata);
 
         ImmutableList.Builder<HiveColumnHandle> columnHandles = ImmutableList.builder();
         int ordinal = 0;
@@ -1225,8 +1319,11 @@ public class HiveMetadata
                 builder.put(field.getName(), Optional.empty());
             }
         }
-        // add hidden column
+        // add hidden columns
         builder.put(PATH_COLUMN_NAME, Optional.empty());
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            builder.put(BUCKET_COLUMN_NAME, Optional.empty());
+        }
 
         Map<String, Optional<String>> columnComment = builder.build();
 

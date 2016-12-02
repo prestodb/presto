@@ -24,7 +24,10 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -75,6 +78,7 @@ public class Analysis
     private final ListMultimap<Node, InPredicate> inPredicatesSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, SubqueryExpression> scalarSubqueries = ArrayListMultimap.create();
     private final ListMultimap<Node, ExistsPredicate> existsSubqueries = ArrayListMultimap.create();
+    private final ListMultimap<Node, QuantifiedComparisonExpression> quantifiedComparisonSubqueries = ArrayListMultimap.create();
 
     private final IdentityHashMap<Table, TableHandle> tables = new IdentityHashMap<>();
 
@@ -83,6 +87,7 @@ public class Analysis
     private final Set<Expression> typeOnlyCoercions = newIdentityHashSet();
     private final IdentityHashMap<Relation, Type[]> relationCoercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, Signature> functionSignature = new IdentityHashMap<>();
+    private final IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences = new IdentityHashMap<>();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
 
@@ -193,6 +198,21 @@ public class Analysis
         return coercions.get(expression);
     }
 
+    public void addLambdaArgumentReferences(IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences)
+    {
+        this.lambdaArgumentReferences.putAll(lambdaArgumentReferences);
+    }
+
+    public LambdaArgumentDeclaration getLambdaArgumentReference(QualifiedNameReference qualifiedNameReference)
+    {
+        return lambdaArgumentReferences.get(qualifiedNameReference);
+    }
+
+    public Map<QualifiedNameReference, LambdaArgumentDeclaration> getLambdaArgumentReferences()
+    {
+        return lambdaArgumentReferences;
+    }
+
     public void setGroupingSets(QuerySpecification node, List<List<Expression>> expressions)
     {
         groupByExpressions.put(node, expressions);
@@ -258,6 +278,7 @@ public class Analysis
         this.inPredicatesSubqueries.putAll(node, expressionAnalysis.getSubqueryInPredicates());
         this.scalarSubqueries.putAll(node, expressionAnalysis.getScalarSubqueries());
         this.existsSubqueries.putAll(node, expressionAnalysis.getExistsSubqueries());
+        this.quantifiedComparisonSubqueries.putAll(node, expressionAnalysis.getQuantifiedComparisons());
     }
 
     public List<InPredicate> getInPredicateSubqueries(Node node)
@@ -280,6 +301,14 @@ public class Analysis
     {
         if (existsSubqueries.containsKey(node)) {
             return existsSubqueries.get(node);
+        }
+        return ImmutableList.of();
+    }
+
+    public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
+    {
+        if (quantifiedComparisonSubqueries.containsKey(node)) {
+            return quantifiedComparisonSubqueries.get(node);
         }
         return ImmutableList.of();
     }

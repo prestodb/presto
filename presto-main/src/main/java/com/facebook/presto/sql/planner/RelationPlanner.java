@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
@@ -49,6 +50,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -73,6 +75,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -94,24 +97,33 @@ class RelationPlanner
     private final Analysis analysis;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
+    private final IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap;
     private final Metadata metadata;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
 
-    RelationPlanner(Analysis analysis, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+    RelationPlanner(
+            Analysis analysis,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            IdentityHashMap<LambdaArgumentDeclaration, Symbol> lambdaDeclarationToSymbolMap,
+            Metadata metadata,
+            Session session)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
+        requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(session, "session is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
+        this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
         this.metadata = metadata;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session, analysis.getParameters());
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session, analysis.getParameters());
     }
 
     @Override
@@ -213,7 +225,7 @@ class RelationPlanner
 
             List<Expression> leftComparisonExpressions = new ArrayList<>();
             List<Expression> rightComparisonExpressions = new ArrayList<>();
-            List<ComparisonExpression.Type> joinConditionComparisonTypes = new ArrayList<>();
+            List<ComparisonExpressionType> joinConditionComparisonTypes = new ArrayList<>();
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts(criteria)) {
                 conjunct = ExpressionUtils.normalize(conjunct);
@@ -226,7 +238,7 @@ class RelationPlanner
                 if (conjunct instanceof ComparisonExpression) {
                     Expression firstExpression = ((ComparisonExpression) conjunct).getLeft();
                     Expression secondExpression = ((ComparisonExpression) conjunct).getRight();
-                    ComparisonExpression.Type comparisonType = ((ComparisonExpression) conjunct).getType();
+                    ComparisonExpressionType comparisonType = ((ComparisonExpression) conjunct).getType();
                     Set<QualifiedName> firstDependencies = DependencyExtractor.extractNames(firstExpression, analysis.getColumnReferences());
                     Set<QualifiedName> secondDependencies = DependencyExtractor.extractNames(secondExpression, analysis.getColumnReferences());
 
@@ -258,7 +270,7 @@ class RelationPlanner
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
-                if (joinConditionComparisonTypes.get(i) == ComparisonExpression.Type.EQUAL) {
+                if (joinConditionComparisonTypes.get(i) == ComparisonExpressionType.EQUAL) {
                     Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
                     Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
 
@@ -295,7 +307,7 @@ class RelationPlanner
         }
 
         RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputSymbols);
-        TranslationMap translationMap = new TranslationMap(intermediateRootRelationPlan, analysis);
+        TranslationMap translationMap = new TranslationMap(intermediateRootRelationPlan, analysis, lambdaDeclarationToSymbolMap);
         translationMap.setFieldMappings(outputSymbols);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
@@ -334,9 +346,9 @@ class RelationPlanner
         return new RelationPlan(root, analysis.getScope(node), outputSymbols);
     }
 
-    private boolean isEqualComparisonExpression(Expression conjunct)
+    private static boolean isEqualComparisonExpression(Expression conjunct)
     {
-        return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getType() == ComparisonExpression.Type.EQUAL;
+        return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getType() == ComparisonExpressionType.EQUAL;
     }
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)
@@ -397,14 +409,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, metadata, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
                 .plan(node);
     }
 
@@ -522,7 +534,13 @@ class RelationPlanner
                 newSymbols.add(outputSymbol);
             }
             Field oldField = oldDescriptor.getFieldByIndex(i);
-            newFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), targetColumnTypes[i], oldField.isHidden());
+            newFields[i] = new Field(
+                    oldField.getRelationAlias(),
+                    oldField.getName(),
+                    targetColumnTypes[i],
+                    oldField.isHidden(),
+                    oldField.getOriginTable(),
+                    oldField.isAliased());
         }
         ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
         return new RelationPlan(projectNode, Scope.builder().withRelationType(new RelationType(newFields)).build(), newSymbols.build());
@@ -609,7 +627,7 @@ class RelationPlanner
 
     private PlanBuilder initializePlanBuilder(RelationPlan relationPlan)
     {
-        TranslationMap translations = new TranslationMap(relationPlan, analysis);
+        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the underlying tuple directly

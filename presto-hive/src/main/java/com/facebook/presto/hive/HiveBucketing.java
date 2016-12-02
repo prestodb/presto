@@ -16,8 +16,12 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
+import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -45,6 +49,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
 import static com.facebook.presto.hive.util.Types.checkType;
@@ -53,6 +59,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.String.format;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -192,16 +199,59 @@ final class HiveBucketing
         Map<String, HiveColumnHandle> map = getRegularColumnHandles(connectorId, table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
-        List<HiveColumnHandle> bucketColumns = hiveBucketProperty.get().getBucketedBy().stream()
-                .map(map::get)
-                .collect(Collectors.toList());
+        ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
+        for (String bucketColumnName : hiveBucketProperty.get().getBucketedBy()) {
+            HiveColumnHandle bucketColumnHandle = map.get(bucketColumnName);
+            if (bucketColumnHandle == null) {
+                throw new PrestoException(
+                        HIVE_INVALID_METADATA,
+                        format("Table '%s.%s' is bucketed on non-existent column '%s'", table.getDatabaseName(), table.getTableName(), bucketColumnName));
+            }
+            bucketColumns.add(bucketColumnHandle);
+        }
 
-        return Optional.of(new HiveBucketHandle(bucketColumns, hiveBucketProperty.get().getBucketCount()));
+        return Optional.of(new HiveBucketHandle(bucketColumns.build(), hiveBucketProperty.get().getBucketCount()));
     }
 
-    public static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
+    public static List<HiveBucket> getHiveBucketNumbers(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (!table.getStorage().getBucketProperty().isPresent() || bindings.isEmpty()) {
+        if (!table.getStorage().getBucketProperty().isPresent()) {
+            return ImmutableList.of();
+        }
+
+        Optional<Map<ColumnHandle, NullableValue>> bindings = TupleDomain.extractFixedValues(effectivePredicate);
+        if (!bindings.isPresent()) {
+            return ImmutableList.of();
+        }
+        Optional<HiveBucket> singleBucket = getHiveBucket(table, bindings.get());
+        if (singleBucket.isPresent()) {
+            return ImmutableList.of(singleBucket.get());
+        }
+
+        if (!effectivePredicate.getDomains().isPresent()) {
+            return ImmutableList.of();
+        }
+        Optional<Domain> domain = effectivePredicate.getDomains().get().entrySet().stream()
+                .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
+                .findFirst()
+                .map(Entry::getValue);
+        if (!domain.isPresent()) {
+            return ImmutableList.of();
+        }
+        ValueSet values = domain.get().getValues();
+        ImmutableList.Builder<HiveBucket> builder = ImmutableList.builder();
+        int bucketCount = table.getStorage().getBucketProperty().get().getBucketCount();
+        for (int i = 0; i < bucketCount; i++) {
+            if (values.containsValue((long) i)) {
+                builder.add(new HiveBucket(i, bucketCount));
+            }
+        }
+        return builder.build();
+    }
+
+    private static Optional<HiveBucket> getHiveBucket(Table table, Map<ColumnHandle, NullableValue> bindings)
+    {
+        if (bindings.isEmpty()) {
             return Optional.empty();
         }
 

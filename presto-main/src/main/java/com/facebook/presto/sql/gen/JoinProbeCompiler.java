@@ -197,7 +197,7 @@ public class JoinProbeCompiler
         return defineClass(classDefinition, JoinProbe.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateConstructor(ClassDefinition classDefinition,
+    private static void generateConstructor(ClassDefinition classDefinition,
             List<Integer> probeChannels,
             Optional<Integer> probeHashChannel,
             FieldDefinition lookupSourceField,
@@ -278,7 +278,7 @@ public class JoinProbeCompiler
         constructor.ret();
     }
 
-    private void generateGetChannelCountMethod(ClassDefinition classDefinition, int channelCount)
+    private static void generateGetChannelCountMethod(ClassDefinition classDefinition, int channelCount)
     {
         classDefinition.declareMethod(
                 a(PUBLIC),
@@ -289,7 +289,7 @@ public class JoinProbeCompiler
                 .retInt();
     }
 
-    private void generateAppendToMethod(
+    private static void generateAppendToMethod(
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             List<Type> types, List<FieldDefinition> blockFields,
@@ -316,7 +316,7 @@ public class JoinProbeCompiler
                 .ret();
     }
 
-    private void generateAdvanceNextPosition(ClassDefinition classDefinition, FieldDefinition positionField, FieldDefinition positionCountField)
+    private static void generateAdvanceNextPosition(ClassDefinition classDefinition, FieldDefinition positionField, FieldDefinition positionCountField)
     {
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -350,7 +350,7 @@ public class JoinProbeCompiler
                 .retBoolean();
     }
 
-    private void generateGetCurrentJoinPosition(ClassDefinition classDefinition,
+    private static void generateGetCurrentJoinPosition(ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             FieldDefinition lookupSourceField,
             FieldDefinition probePageField,
@@ -390,7 +390,7 @@ public class JoinProbeCompiler
         }
     }
 
-    private void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeBlockFields, FieldDefinition positionField)
+    private static void generateCurrentRowContainsNull(ClassDefinition classDefinition, List<FieldDefinition> probeBlockFields, FieldDefinition positionField)
     {
         MethodDefinition method = classDefinition.declareMethod(
                 a(PRIVATE),
@@ -413,7 +413,7 @@ public class JoinProbeCompiler
                 .retInt();
     }
 
-    private void generateGetPosition(ClassDefinition classDefinition, FieldDefinition positionField)
+    private static void generateGetPosition(ClassDefinition classDefinition, FieldDefinition positionField)
     {
         // dummy implementation for now
         // compiled class is used only in usecase case when result of this method is ignored.
@@ -427,7 +427,7 @@ public class JoinProbeCompiler
                 .retInt();
     }
 
-    private void generateGetPage(ClassDefinition classDefinition, FieldDefinition pageField)
+    private static void generateGetPage(ClassDefinition classDefinition, FieldDefinition pageField)
     {
         // dummy implementation for now
         // compiled class is used only in usecase case when result of this method is ignored.

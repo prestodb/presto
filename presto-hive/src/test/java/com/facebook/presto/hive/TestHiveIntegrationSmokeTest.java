@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -33,11 +32,14 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -45,7 +47,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
@@ -68,6 +72,8 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.io.Files.createTempDir;
+import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -80,6 +86,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
+import static org.testng.FileAssert.assertFile;
 
 public class TestHiveIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -106,9 +113,9 @@ public class TestHiveIntegrationSmokeTest
         this.typeManager = new TypeRegistry();
     }
 
-    protected List<?> getPartitions(ConnectorTableLayoutHandle tableLayoutHandle)
+    protected List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
     {
-        return ((HiveTableLayoutHandle) tableLayoutHandle).getPartitions().get();
+        return tableLayoutHandle.getPartitions().get();
     }
 
     @Test
@@ -726,6 +733,57 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateInvalidBucketedTable()
+            throws Exception
+    {
+        testCreateInvalidBucketedTable(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testCreateInvalidBucketedTable(HiveStorageFormat storageFormat)
+            throws Exception
+    {
+        String tableName = "test_create_invalid_bucketed_table";
+
+        try {
+            computeActual("" +
+                    "CREATE TABLE " + tableName + " (" +
+                    "  a BIGINT," +
+                    "  b DOUBLE," +
+                    "  p VARCHAR" +
+                    ") WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "partitioned_by = ARRAY[ 'p' ], " +
+                    "bucketed_by = ARRAY[ 'a', 'c' ], " +
+                    "bucket_count = 11 " +
+                    ")");
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "Bucketing columns [c] not present in schema");
+        }
+
+        try {
+            computeActual("" +
+                    "CREATE TABLE " + tableName + " " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                    "bucketed_by = ARRAY[ 'custkey', 'custkey3' ], " +
+                    "bucket_count = 11 " +
+                    ") " +
+                    "AS " +
+                    "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
+                    "FROM tpch.tiny.orders");
+            fail();
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), "INSERT must write all distribution columns: [custkey, custkey3]");
+        }
+
+        assertFalse(queryRunner.tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testInsertPartitionedBucketedTableFewRows()
             throws Exception
     {
@@ -1242,7 +1300,7 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
-    private List<?> getPartitions(String tableName)
+    private Object getHiveTableProperty(String tableName, Function<HiveTableLayoutHandle, Object> propertyGetter)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata();
@@ -1255,8 +1313,18 @@ public class TestHiveIntegrationSmokeTest
 
                     List<TableLayoutResult> layouts = metadata.getLayouts(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
                     TableLayout layout = getOnlyElement(layouts).getLayout();
-                    return getPartitions(layout.getHandle().getConnectorHandle());
+                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle());
                 });
+    }
+
+    private List<?> getPartitions(String tableName)
+    {
+        return (List<?>) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> getPartitions(table));
+    }
+
+    private int getBucketCount(String tableName)
+    {
+        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getBucketCount());
     }
 
     @Test
@@ -1472,6 +1540,41 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateExternalTable()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+        File dataFile = new File(tempDir, "test.txt");
+        Files.write("hello\nworld\n", dataFile, UTF_8);
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_create_external (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   external_location = '%s',\n" +
+                        "   format = 'TEXTFILE'\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                new Path(tempDir.toURI().toASCIIString()).toString());
+
+        assertUpdate(createTableSql);
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+
+        actual = computeActual("SELECT name FROM test_create_external");
+        assertEquals(actual.getOnlyColumnAsSet(), ImmutableSet.of("hello", "world"));
+
+        assertUpdate("DROP TABLE test_create_external");
+
+        // file should still exist after drop
+        assertFile(dataFile);
+
+        deleteRecursively(tempDir);
+    }
+
+    @Test
     public void testPathHiddenColumn()
             throws Exception
     {
@@ -1534,6 +1637,60 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(session, "DROP TABLE test_path");
         assertFalse(queryRunner.tableExists(session, "test_path"));
+    }
+
+    @Test
+    public void testBucketHiddenColumn()
+            throws Exception
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_bucket_hidden_column " +
+                "WITH (" +
+                "bucketed_by = ARRAY['col0']," +
+                "bucket_count = 2" +
+                ") AS " +
+                "SELECT * FROM (VALUES " +
+                "(0, 11), (1, 12), (2, 13), " +
+                "(3, 14), (4, 15), (5, 16), " +
+                "(6, 17), (7, 18), (8, 19)" +
+                " ) t (col0, col1) ";
+        assertUpdate(createTable, 9);
+        assertTrue(queryRunner.tableExists(getSession(), "test_bucket_hidden_column"));
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_bucket_hidden_column");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("col0"));
+        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 2);
+
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME);
+        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        assertEquals(columnMetadatas.size(), columnNames.size());
+        for (int i = 0; i < columnMetadatas.size(); i++) {
+            ColumnMetadata columnMetadata = columnMetadatas.get(i);
+            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            if (columnMetadata.getName().equals(BUCKET_COLUMN_NAME)) {
+                // $bucket_number should be hidden column
+                assertTrue(columnMetadata.isHidden());
+            }
+        }
+        assertEquals(getBucketCount("test_bucket_hidden_column"), 2);
+
+        MaterializedResult results = computeActual(format("SELECT *, \"%1$s\" FROM test_bucket_hidden_column WHERE \"%1$s\" = 1",
+                BUCKET_COLUMN_NAME));
+        for (int i = 0; i < results.getRowCount(); i++) {
+            MaterializedRow row = results.getMaterializedRows().get(i);
+            int col0 = (int) row.getField(0);
+            int col1 = (int) row.getField(1);
+            int bucket = (int) row.getField(2);
+
+            assertEquals(col1, col0 + 11);
+            assertTrue(col1 % 2 == 0);
+
+            // Because Hive's hash function for integer n is h(n) = n.
+            assertEquals(bucket, col0 % 2);
+        }
+        assertEquals(results.getRowCount(), 4);
+
+        assertUpdate("DROP TABLE test_bucket_hidden_column");
+        assertFalse(queryRunner.tableExists(getSession(), "test_bucket_hidden_column"));
     }
 
     @Test

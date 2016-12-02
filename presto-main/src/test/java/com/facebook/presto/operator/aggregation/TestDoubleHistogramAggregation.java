@@ -130,7 +130,7 @@ public class TestDoubleHistogramAggregation
         return (Map<Double, Double>) mapType.getObjectValue(null, block, 0);
     }
 
-    private Page makeInput(int numberOfBuckets)
+    private static Page makeInput(int numberOfBuckets)
     {
         PageBuilder builder = new PageBuilder(ImmutableList.of(BIGINT, DOUBLE, DOUBLE));
 

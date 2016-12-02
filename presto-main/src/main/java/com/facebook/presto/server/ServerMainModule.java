@@ -398,11 +398,12 @@ public class ServerMainModule
 
         // Spiller
         binder.bind(SpillerFactory.class).to(BinarySpillerFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(SpillerFactory.class).withGeneratedName();
     }
 
     @Provides
     @Singleton
-    public ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig)
+    public static ServerInfo createServerInfo(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig)
     {
         return new ServerInfo(nodeVersion, nodeInfo.getEnvironment(), serverConfig.isCoordinator());
     }
@@ -410,7 +411,7 @@ public class ServerMainModule
     @Provides
     @Singleton
     @ForExchange
-    public ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
+    public static ScheduledExecutorService createExchangeExecutor(ExchangeClientConfig config)
     {
         return newScheduledThreadPool(config.getClientThreads(), daemonThreadsNamed("exchange-client-%s"));
     }

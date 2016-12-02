@@ -15,11 +15,9 @@ package com.facebook.presto.redis;
 
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.spi.SchemaTableName;
-import com.google.common.base.Supplier;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 
@@ -29,8 +27,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +57,7 @@ public class RedisTableDescriptionSupplier
         try {
             for (File file : listFiles(redisConnectorConfig.getTableDescriptionDir())) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
-                    RedisTableDescription table = tableDescriptionCodec.fromJson(Files.toByteArray(file));
+                    RedisTableDescription table = tableDescriptionCodec.fromJson(readAllBytes(file.toPath()));
                     String schemaName = firstNonNull(table.getSchemaName(), redisConnectorConfig.getDefaultSchema());
                     log.debug("Redis table %s.%s: %s", schemaName, table.getTableName(), table);
                     builder.put(new SchemaTableName(schemaName, table.getTableName()), table);

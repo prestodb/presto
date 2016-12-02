@@ -254,6 +254,13 @@ public class TestDecimalCasts
         assertInvalidCast("CAST(DOUBLE '1000.01' AS DECIMAL(5,2))", "Cannot cast DOUBLE '1000.01' to DECIMAL(5, 2)");
         assertInvalidCast("CAST(DOUBLE '-234.0' AS DECIMAL(2,0))", "Cannot cast DOUBLE '-234.0' to DECIMAL(2, 0)");
         assertInvalidCast("CAST(DOUBLE '12345678901.1' AS DECIMAL(20, 10))", "Cannot cast DOUBLE '1.23456789011E10' to DECIMAL(20, 10)");
+
+        assertInvalidCast("CAST(nan() AS DECIMAL(10,5))", "Cannot cast floating point NaN to DECIMAL(10, 5)");
+        assertInvalidCast("CAST(infinity() AS DECIMAL(10,1))", "Cannot cast floating point Infinity to DECIMAL(10, 1)");
+        assertInvalidCast("CAST(-infinity() AS DECIMAL(1,1))", "Cannot cast floating point -Infinity to DECIMAL(1, 1)");
+        assertInvalidCast("CAST(nan() AS DECIMAL(38,10))", "Cannot cast floating point NaN to DECIMAL(38, 10)");
+        assertInvalidCast("CAST(infinity() AS DECIMAL(38,2))", "Cannot cast floating point Infinity to DECIMAL(38, 2)");
+        assertInvalidCast("CAST(-infinity() AS DECIMAL(38,1))", "Cannot cast floating point -Infinity to DECIMAL(38, 1)");
     }
 
     @Test
@@ -293,6 +300,13 @@ public class TestDecimalCasts
         assertInvalidCast("CAST(REAL '1000.01' AS DECIMAL(5,2))", "Cannot cast REAL '1000.01' to DECIMAL(5, 2)");
         assertInvalidCast("CAST(REAL '-234.0' AS DECIMAL(2,0))", "Cannot cast REAL '-234.0' to DECIMAL(2, 0)");
         assertInvalidCast("CAST(REAL '98765430784.0' AS DECIMAL(20, 10))", "Cannot cast REAL '9.8765431E10' to DECIMAL(20, 10)");
+
+        assertInvalidCast("CAST(CAST(nan() as REAL) AS DECIMAL(10,5))", "Cannot cast floating point NaN to DECIMAL(10, 5)");
+        assertInvalidCast("CAST(CAST(infinity() as REAL) AS DECIMAL(10,1))", "Cannot cast floating point Infinity to DECIMAL(10, 1)");
+        assertInvalidCast("CAST(CAST(-infinity() as REAL) AS DECIMAL(1,1))", "Cannot cast floating point -Infinity to DECIMAL(1, 1)");
+        assertInvalidCast("CAST(CAST(nan() as REAL) AS DECIMAL(38,10))", "Cannot cast floating point NaN to DECIMAL(38, 10)");
+        assertInvalidCast("CAST(CAST(infinity() as REAL) AS DECIMAL(38,2))", "Cannot cast floating point Infinity to DECIMAL(38, 2)");
+        assertInvalidCast("CAST(CAST(-infinity() as REAL) AS DECIMAL(38,1))", "Cannot cast floating point -Infinity to DECIMAL(38, 1)");
     }
 
     @Test

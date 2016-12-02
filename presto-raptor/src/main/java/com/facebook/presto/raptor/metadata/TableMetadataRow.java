@@ -34,8 +34,16 @@ public class TableMetadataRow
     private final OptionalLong temporalColumnId;
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
+    private final boolean organized;
 
-    public TableMetadataRow(long tableId, String schemaName, String tableName, OptionalLong temporalColumnId, Optional<String> distributionName, OptionalInt bucketCount)
+    public TableMetadataRow(
+            long tableId,
+            String schemaName,
+            String tableName,
+            OptionalLong temporalColumnId,
+            Optional<String> distributionName,
+            OptionalInt bucketCount,
+            boolean organized)
     {
         this.tableId = tableId;
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -43,6 +51,7 @@ public class TableMetadataRow
         this.temporalColumnId = requireNonNull(temporalColumnId, "temporalColumnId is null");
         this.distributionName = requireNonNull(distributionName, "distributionName is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.organized = organized;
     }
 
     public long getTableId()
@@ -75,6 +84,11 @@ public class TableMetadataRow
         return bucketCount;
     }
 
+    public boolean isOrganized()
+    {
+        return organized;
+    }
+
     public static class Mapper
             implements ResultSetMapper<TableMetadataRow>
     {
@@ -88,7 +102,8 @@ public class TableMetadataRow
                     rs.getString("table_name"),
                     getOptionalLong(rs, "temporal_column_id"),
                     Optional.ofNullable(rs.getString("distribution_name")),
-                    getOptionalInt(rs, "bucket_count"));
+                    getOptionalInt(rs, "bucket_count"),
+                    rs.getBoolean("organization_enabled"));
         }
     }
 }

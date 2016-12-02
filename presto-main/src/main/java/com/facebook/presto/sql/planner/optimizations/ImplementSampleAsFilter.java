@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -58,7 +59,7 @@ public class ImplementSampleAsFilter
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
 
                 ComparisonExpression expression = new ComparisonExpression(
-                        ComparisonExpression.Type.LESS_THAN,
+                        ComparisonExpressionType.LESS_THAN,
                         new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of()),
                         new DoubleLiteral(Double.toString(node.getSampleRatio())));
                 return new FilterNode(node.getId(), rewrittenSource, expression);

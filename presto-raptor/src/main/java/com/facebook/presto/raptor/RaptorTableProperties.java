@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -37,6 +38,7 @@ public class RaptorTableProperties
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String BUCKETED_ON_PROPERTY = "bucketed_on";
     public static final String DISTRIBUTION_NAME_PROPERTY = "distribution_name";
+    public static final String ORGANIZED_PROPERTY = "organized";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -63,6 +65,11 @@ public class RaptorTableProperties
                 .add(lowerCaseStringSessionProperty(
                         DISTRIBUTION_NAME_PROPERTY,
                         "Shared distribution name for colocated tables"))
+                .add(booleanSessionProperty(
+                        ORGANIZED_PROPERTY,
+                        "Keep the table organized using the sort order",
+                        null,
+                        false))
                 .build();
     }
 
@@ -95,6 +102,12 @@ public class RaptorTableProperties
     public static String getDistributionName(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(DISTRIBUTION_NAME_PROPERTY);
+    }
+
+    public static boolean isOrganized(Map<String, Object> tableProperties)
+    {
+        Boolean value = (Boolean) tableProperties.get(ORGANIZED_PROPERTY);
+        return (value == null) ? false : value;
     }
 
     public static PropertyMetadata<String> lowerCaseStringSessionProperty(String name, String description)

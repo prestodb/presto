@@ -73,6 +73,7 @@ public class HiveClientModule
     {
         binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
+        binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
 
         binder.bind(HdfsConfigurationUpdater.class).in(Scopes.SINGLETON);
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
@@ -90,6 +91,8 @@ public class HiveClientModule
             binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
             binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(BridgingHiveMetastore.class).in(Scopes.SINGLETON);
             binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(HiveMetastore.class)
+                    .as(generatedNameOf(ThriftHiveMetastore.class, connectorId));
             newExporter(binder).export(ExtendedHiveMetastore.class)
                     .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
         }

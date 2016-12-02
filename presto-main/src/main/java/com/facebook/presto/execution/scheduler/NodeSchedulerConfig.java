@@ -14,14 +14,13 @@
 package com.facebook.presto.execution.scheduler;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-@DefunctConfig("node-scheduler.location-aware-scheduling-enabled")
+@DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
 public class NodeSchedulerConfig
 {
     public static class NetworkTopologyType
@@ -33,9 +32,8 @@ public class NodeSchedulerConfig
 
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
-    private boolean multipleTasksPerNode;
     private int maxSplitsPerNode = 100;
-    private int maxPendingSplitsPerNodePerStage = 10;
+    private int maxPendingSplitsPerTask = 10;
     private String networkTopology = NetworkTopologyType.LEGACY;
 
     @NotNull
@@ -48,19 +46,6 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setNetworkTopology(String networkTopology)
     {
         this.networkTopology = networkTopology;
-        return this;
-    }
-
-    public boolean isMultipleTasksPerNodeEnabled()
-    {
-        return multipleTasksPerNode;
-    }
-
-    @ConfigDescription("Allow nodes to be selected multiple times by the node scheduler, in a single stage")
-    @Config("node-scheduler.multiple-tasks-per-node-enabled")
-    public NodeSchedulerConfig setMultipleTasksPerNodeEnabled(boolean multipleTasksPerNode)
-    {
-        this.multipleTasksPerNode = multipleTasksPerNode;
         return this;
     }
 
@@ -89,17 +74,17 @@ public class NodeSchedulerConfig
         return this;
     }
 
-    @Config("node-scheduler.max-pending-splits-per-node-per-stage")
-    @LegacyConfig("node-scheduler.max-pending-splits-per-node-per-task")
-    public NodeSchedulerConfig setMaxPendingSplitsPerNodePerStage(int maxPendingSplitsPerNodePerStage)
+    @Config("node-scheduler.max-pending-splits-per-task")
+    @LegacyConfig({"node-scheduler.max-pending-splits-per-node-per-task", "node-scheduler.max-pending-splits-per-node-per-stage"})
+    public NodeSchedulerConfig setMaxPendingSplitsPerTask(int maxPendingSplitsPerTask)
     {
-        this.maxPendingSplitsPerNodePerStage = maxPendingSplitsPerNodePerStage;
+        this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         return this;
     }
 
-    public int getMaxPendingSplitsPerNodePerStage()
+    public int getMaxPendingSplitsPerTask()
     {
-        return maxPendingSplitsPerNodePerStage;
+        return maxPendingSplitsPerTask;
     }
 
     public int getMaxSplitsPerNode()

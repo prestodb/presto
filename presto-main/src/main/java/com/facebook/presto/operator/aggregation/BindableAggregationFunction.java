@@ -98,10 +98,10 @@ public class BindableAggregationFunction
         DynamicClassLoader classLoader = new DynamicClassLoader(definitionClass.getClassLoader(), getClass().getClassLoader());
 
         AggregationMetadata metadata;
-        AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
+        AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateClass, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
         Method combineFunction = AggregationCompiler.getCombineFunction(definitionClass, stateClass);
-        AccumulatorStateFactory<?> stateFactory = new StateCompiler().generateStateFactory(stateClass, classLoader);
+        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         try {
             MethodHandle inputHandle = lookup().unreflect(inputFunction);

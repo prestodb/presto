@@ -56,11 +56,6 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void flushCache()
-    {
-    }
-
-    @Override
     public Optional<Database> getDatabase(String databaseName)
     {
         return delegate.getDatabase(databaseName);
@@ -109,6 +104,12 @@ public class BridgingHiveMetastore
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
         database.setName(newDatabaseName);
         delegate.alterDatabase(databaseName, database);
+
+        delegate.getDatabase(databaseName).ifPresent(newDatabase -> {
+            if (newDatabase.getName().equals(databaseName)) {
+                throw new PrestoException(NOT_SUPPORTED, "Hive metastore does not support renaming schemas");
+            }
+        });
     }
 
     @Override

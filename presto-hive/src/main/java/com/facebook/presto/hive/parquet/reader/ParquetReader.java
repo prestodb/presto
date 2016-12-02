@@ -16,53 +16,65 @@ package com.facebook.presto.hive.parquet.reader;
 import com.facebook.presto.hive.parquet.ParquetCorruptionException;
 import com.facebook.presto.hive.parquet.ParquetDataSource;
 import com.facebook.presto.hive.parquet.RichColumnDescriptor;
+import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.InterleavedBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignatureParameter;
 import parquet.column.ColumnDescriptor;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.ColumnChunkMetaData;
 import parquet.hadoop.metadata.ColumnPath;
+import parquet.io.PrimitiveColumnIO;
 import parquet.schema.MessageType;
-import parquet.schema.PrimitiveType;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getColumns;
+import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
+import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.google.common.primitives.Ints.checkedCast;
+import static java.lang.Math.min;
 
 public class ParquetReader
         implements Closeable
 {
-    public static final int MAX_VECTOR_LENGTH = 1024;
+    private static final int MAX_VECTOR_LENGTH = 1024;
 
+    private final MessageType fileSchema;
     private final MessageType requestedSchema;
     private final List<BlockMetaData> blocks;
     private final ParquetDataSource dataSource;
+    private final TypeManager typeManager;
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
-    private long fileRowCount;
     private long currentPosition;
     private long currentGroupRowCount;
     private long nextRowInGroup;
-    private Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
+    private int batchSize;
+    private final Map<ColumnDescriptor, ParquetColumnReader> columnReadersMap = new HashMap<>();
 
-    public ParquetReader(MessageType requestedSchema,
+    public ParquetReader(MessageType fileSchema,
+            MessageType requestedSchema,
             List<BlockMetaData> blocks,
-            ParquetDataSource dataSource)
-            throws IOException
+            ParquetDataSource dataSource,
+            TypeManager typeManager)
     {
+        this.fileSchema = fileSchema;
         this.requestedSchema = requestedSchema;
         this.blocks = blocks;
         this.dataSource = dataSource;
-        for (BlockMetaData block : blocks) {
-            fileRowCount += block.getRowCount();
-        }
+        this.typeManager = typeManager;
         initializeColumnReaders();
     }
 
@@ -73,34 +85,24 @@ public class ParquetReader
         dataSource.close();
     }
 
-    public float getProgress()
-            throws IOException, InterruptedException
-    {
-        if (fileRowCount == 0) {
-            return 0.0f;
-        }
-        return (float) currentPosition / fileRowCount;
-    }
-
     public long getPosition()
     {
         return currentPosition;
     }
 
     public int nextBatch()
-            throws IOException, InterruptedException
     {
-        if (nextRowInGroup >= currentGroupRowCount) {
-            if (!advanceToNextRowGroup()) {
-                return -1;
-            }
+        if (nextRowInGroup >= currentGroupRowCount && !advanceToNextRowGroup()) {
+            return -1;
         }
 
-        int batchSize = Ints.checkedCast(Math.min(MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
+        batchSize = checkedCast(min(MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
 
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
-        for (ColumnDescriptor column : getColumns(requestedSchema)) {
+        for (PrimitiveColumnIO columnIO : getColumns(fileSchema, requestedSchema)) {
+            ColumnDescriptor descriptor = columnIO.getColumnDescriptor();
+            RichColumnDescriptor column = new RichColumnDescriptor(descriptor.getPath(), columnIO.getType().asPrimitiveType(), descriptor.getMaxRepetitionLevel(), descriptor.getMaxDefinitionLevel());
             ParquetColumnReader columnReader = columnReadersMap.get(column);
             columnReader.prepareNextRead(batchSize);
         }
@@ -108,7 +110,6 @@ public class ParquetReader
     }
 
     private boolean advanceToNextRowGroup()
-            throws InterruptedException
     {
         if (currentBlock == blocks.size()) {
             return false;
@@ -123,22 +124,56 @@ public class ParquetReader
         return true;
     }
 
-    public Block readBlock(ColumnDescriptor columnDescriptor, Type type)
+    public Block readStruct(Type type, List<String> path)
+            throws IOException
+    {
+        List<TypeSignatureParameter> parameters = type.getTypeSignature().getParameters();
+        Block[] blocks = new Block[parameters.size()];
+        for (int i = 0; i < parameters.size(); i++) {
+            NamedTypeSignature namedTypeSignature = parameters.get(i).getNamedTypeSignature();
+            Type fieldType = typeManager.getType(namedTypeSignature.getTypeSignature());
+            String name = namedTypeSignature.getName();
+            path.add(name);
+            Optional<RichColumnDescriptor> columnDescriptor = getDescriptor(fileSchema, requestedSchema, path);
+            if (!columnDescriptor.isPresent()) {
+                path.remove(name);
+                blocks[i] = RunLengthEncodedBlock.create(type, null, batchSize);
+                continue;
+            }
+
+            if (ROW.equals(fieldType.getTypeSignature().getBase())) {
+                blocks[i] = readStruct(fieldType, path);
+            }
+            else {
+                blocks[i] = readPrimitive(columnDescriptor.get(), fieldType);
+            }
+            path.remove(name);
+        }
+
+        InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
+        int[] offsets = new int[batchSize + 1];
+        for (int i = 1; i < offsets.length; i++) {
+            offsets[i] = i * parameters.size();
+        }
+        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, interleavedBlock);
+    }
+
+    public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)
             throws IOException
     {
         ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
         if (columnReader.getPageReader() == null) {
-            validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group having 0 rows");
+            validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
-            int totalSize = Ints.checkedCast(metadata.getTotalSize());
+            int totalSize = checkedCast(metadata.getTotalSize());
             byte[] buffer = new byte[totalSize];
             dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
-        return columnReader.readBlock(type);
+        return columnReader.readPrimitive(type);
     }
 
     private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
@@ -154,23 +189,10 @@ public class ParquetReader
 
     private void initializeColumnReaders()
     {
-        for (RichColumnDescriptor column : getColumns(requestedSchema)) {
+        for (PrimitiveColumnIO columnIO : getColumns(fileSchema, requestedSchema)) {
+            ColumnDescriptor descriptor = columnIO.getColumnDescriptor();
+            RichColumnDescriptor column = new RichColumnDescriptor(descriptor.getPath(), columnIO.getType().asPrimitiveType(), descriptor.getMaxRepetitionLevel(), descriptor.getMaxDefinitionLevel());
             columnReadersMap.put(column, ParquetColumnReader.createReader(column));
         }
-    }
-
-    private List<RichColumnDescriptor> getColumns(MessageType schema)
-    {
-        List<String[]> paths = schema.getPaths();
-        List<RichColumnDescriptor> columns = new ArrayList<>(paths.size());
-        for (String[] path : paths) {
-            PrimitiveType primitiveType = schema.getType(path).asPrimitiveType();
-            columns.add(new RichColumnDescriptor(
-                    path,
-                    primitiveType,
-                    schema.getMaxRepetitionLevel(path),
-                    schema.getMaxDefinitionLevel(path)));
-        }
-        return columns;
     }
 }

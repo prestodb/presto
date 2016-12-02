@@ -28,7 +28,6 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.redis.RedisHandleResolver.convertColumnHandle;
@@ -78,7 +78,7 @@ public class RedisMetadata
 
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
 
-        this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier);
+        this.redisTableDescriptionSupplier = Suppliers.memoize(redisTableDescriptionSupplier::get)::get;
         this.internalFieldDescriptions = requireNonNull(internalFieldDescriptions, "internalFieldDescriptions is null");
     }
 

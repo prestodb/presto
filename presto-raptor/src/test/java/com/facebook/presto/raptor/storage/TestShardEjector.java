@@ -40,6 +40,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
@@ -121,7 +122,7 @@ public class TestShardEjector
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
 
-        shardManager.createTable(tableId, columns, false);
+        shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);

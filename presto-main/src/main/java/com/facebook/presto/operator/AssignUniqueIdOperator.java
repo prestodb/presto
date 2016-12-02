@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class AssignUniqueIdOperator
@@ -106,7 +107,7 @@ public class AssignUniqueIdOperator
         this.rowIdPool = requireNonNull(rowIdPool, "rowIdPool is null");
 
         TaskId fullTaskId = operatorContext.getDriverContext().getTaskId();
-        uniqueValueMask = (fullTaskId.getStageId().getId() << 54L) | ((long) fullTaskId.getId() << 40L);
+        uniqueValueMask = (((long) fullTaskId.getStageId().getId()) << 54) | (((long) fullTaskId.getId()) << 40);
         inputPageChannelCount = types.size() - 1;
 
         requestValues();
@@ -188,7 +189,9 @@ public class AssignUniqueIdOperator
             if (rowIdCounter >= maxRowIdCounterValue) {
                 requestValues();
             }
-            BIGINT.writeLong(block, uniqueValueMask | rowIdCounter++);
+            long rowId = rowIdCounter++;
+            verify((rowId & uniqueValueMask) == 0, "RowId and uniqueValue mask overlaps");
+            BIGINT.writeLong(block, uniqueValueMask | rowId);
         }
         return block.build();
     }

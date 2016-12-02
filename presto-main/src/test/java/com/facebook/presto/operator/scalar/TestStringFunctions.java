@@ -420,7 +420,7 @@ public class TestStringFunctions
         assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters to trim: 2�");
     }
 
-    private SqlVarbinary varbinary(int... bytesAsInts)
+    private static SqlVarbinary varbinary(int... bytesAsInts)
     {
         byte[] bytes = new byte[bytesAsInts.length];
         for (int i = 0; i < bytes.length; i++) {

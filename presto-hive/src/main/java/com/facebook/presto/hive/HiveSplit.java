@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Properties;
 
@@ -45,6 +46,7 @@ public class HiveSplit
     private final TupleDomain<HiveColumnHandle> effectivePredicate;
     private final OptionalInt bucketNumber;
     private final boolean forceLocalScheduling;
+    private final Map<Integer, HiveType> columnCoercions;
 
     @JsonCreator
     public HiveSplit(
@@ -60,7 +62,8 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
+            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate,
+            @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions)
     {
         requireNonNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
@@ -74,6 +77,7 @@ public class HiveSplit
         requireNonNull(addresses, "addresses is null");
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(effectivePredicate, "tupleDomain is null");
+        requireNonNull(columnCoercions, "columnCoercions is null");
 
         this.clientId = clientId;
         this.database = database;
@@ -88,6 +92,7 @@ public class HiveSplit
         this.bucketNumber = bucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
         this.effectivePredicate = effectivePredicate;
+        this.columnCoercions = columnCoercions;
     }
 
     @JsonProperty
@@ -167,6 +172,12 @@ public class HiveSplit
     public boolean isForceLocalScheduling()
     {
         return forceLocalScheduling;
+    }
+
+    @JsonProperty
+    public Map<Integer, HiveType> getColumnCoercions()
+    {
+        return columnCoercions;
     }
 
     @Override

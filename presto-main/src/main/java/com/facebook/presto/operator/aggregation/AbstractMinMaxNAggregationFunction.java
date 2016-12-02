@@ -69,6 +69,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         this.typeToComparator = typeToComparator;
     }
 
+    @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("E");
@@ -102,7 +103,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 new MinMaxNStateFactory(),
                 outputType);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, outputType, true, factory);
     }
 

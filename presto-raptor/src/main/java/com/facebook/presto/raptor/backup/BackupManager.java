@@ -75,9 +75,11 @@ public class BackupManager
             return completedFuture(null);
         }
 
+        // TODO: decrement when the running task is finished (not immediately on cancel)
         pendingBackups.incrementAndGet();
-        return runAsync(new BackgroundBackup(uuid, source), executorService)
-                .whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
+        CompletableFuture<?> future = runAsync(new BackgroundBackup(uuid, source), executorService);
+        future.whenComplete((none, throwable) -> pendingBackups.decrementAndGet());
+        return future;
     }
 
     private class BackgroundBackup

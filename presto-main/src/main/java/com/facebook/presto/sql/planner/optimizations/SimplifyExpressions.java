@@ -55,7 +55,7 @@ import static com.facebook.presto.sql.ExpressionUtils.extractPredicates;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.IS_DISTINCT_FROM;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.OR;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Collections.emptyList;
@@ -222,7 +222,7 @@ public class SimplifyExpressions
             List<List<Expression>> subPredicates = getSubPredicates(predicates);
 
             Set<Expression> commonPredicates = ImmutableSet.copyOf(subPredicates.stream()
-                    .map(this::filterDeterministicPredicates)
+                    .map(ExtractCommonPredicatesExpressionRewriter::filterDeterministicPredicates)
                     .reduce(Sets::intersection)
                     .orElse(emptySet()));
 
@@ -249,7 +249,7 @@ public class SimplifyExpressions
                     .build());
         }
 
-        private List<List<Expression>> getSubPredicates(List<Expression> predicates)
+        private static List<List<Expression>> getSubPredicates(List<Expression> predicates)
         {
             return predicates.stream()
                     .map(predicate -> predicate instanceof LogicalBinaryExpression ?
@@ -257,7 +257,7 @@ public class SimplifyExpressions
                     .collect(toImmutableList());
         }
 
-        private Set<Expression> filterDeterministicPredicates(List<Expression> predicates)
+        private static Set<Expression> filterDeterministicPredicates(List<Expression> predicates)
         {
             return predicates.stream()
                     .filter(DeterminismEvaluator::isDeterministic)

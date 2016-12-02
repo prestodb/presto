@@ -15,10 +15,14 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.spi.type.Type;
+import org.weakref.jmx.Managed;
 
 import java.util.List;
 
 public interface SpillerFactory
 {
     Spiller create(List<Type> types);
+
+    @Managed
+    long getSpilledBytes();
 }

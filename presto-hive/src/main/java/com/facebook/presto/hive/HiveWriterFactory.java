@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -55,6 +56,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -278,6 +280,26 @@ public class HiveWriterFactory
                 throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Hive partitions are immutable");
             }
             isNew = false;
+
+            // Check the column types in partition schema match the column types in table schema
+            List<Column> tableColumns = table.getDataColumns();
+            List<Column> existingPartitionColumns = partition.get().getColumns();
+            for (int i = 0; i < min(existingPartitionColumns.size(), tableColumns.size()); i++) {
+                HiveType tableType = tableColumns.get(i).getType();
+                HiveType partitionType = existingPartitionColumns.get(i).getType();
+                if (!tableType.equals(partitionType)) {
+                    throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                                    "There is a mismatch between the table and partition schemas. " +
+                                    "The column '%s' in table '%s' is declared as type '%s', " +
+                                    "but partition '%s' declared column '%s' as type '%s'.",
+                            tableColumns.get(i).getName(),
+                            tableName,
+                            tableType,
+                            partitionName,
+                            existingPartitionColumns.get(i).getName(),
+                            partitionType));
+                }
+            }
 
             // Append to an existing partition
             HiveWriteUtils.checkPartitionIsWritable(partitionName.get(), partition.get());

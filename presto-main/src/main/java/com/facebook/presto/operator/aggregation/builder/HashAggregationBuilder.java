@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.builder;
 import com.facebook.presto.spi.Page;
 
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 
 public interface HashAggregationBuilder
         extends AutoCloseable
@@ -25,6 +26,10 @@ public interface HashAggregationBuilder
     Iterator<Page> buildResult();
 
     boolean isFull();
+
+    CompletableFuture<?> isBlocked();
+
+    void updateMemory();
 
     @Override
     void close();

@@ -74,6 +74,7 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -417,14 +418,14 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                joinExpressions.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
                         clause.getLeft().toSymbolReference(),
                         clause.getRight().toSymbolReference()));
             }
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
             // Check if the node is actually a cross join node
-            if (node.getType() == JoinNode.Type.INNER && node.getCriteria().isEmpty()) {
+            if (node.getType() == JoinNode.Type.INNER && joinExpressions.isEmpty()) {
                 print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
             }
             else {
@@ -475,7 +476,7 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                joinExpressions.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
                         clause.getProbe().toSymbolReference(),
                         clause.getIndex().toSymbolReference()));
             }

@@ -170,12 +170,24 @@ public class RelationType
             Field field = allFields.get(i);
             Optional<String> columnAlias = field.getName();
             if (columnAliases == null) {
-                fieldsBuilder.add(Field.newQualified(QualifiedName.of(relationAlias), columnAlias, field.getType(), field.isHidden()));
+                fieldsBuilder.add(Field.newQualified(
+                        QualifiedName.of(relationAlias),
+                        columnAlias,
+                        field.getType(),
+                        field.isHidden(),
+                        field.getOriginTable(),
+                        field.isAliased()));
             }
             else if (!field.isHidden()) {
                 // hidden fields are not exposed when there are column aliases
                 columnAlias = Optional.of(columnAliases.get(i));
-                fieldsBuilder.add(Field.newQualified(QualifiedName.of(relationAlias), columnAlias, field.getType(), false));
+                fieldsBuilder.add(Field.newQualified(
+                        QualifiedName.of(relationAlias),
+                        columnAlias,
+                        field.getType(),
+                        false,
+                        field.getOriginTable(),
+                        field.isAliased()));
             }
         }
 

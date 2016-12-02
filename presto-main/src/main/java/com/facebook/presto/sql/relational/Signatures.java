@@ -20,7 +20,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
-import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.type.LikePatternType;
 import com.facebook.presto.type.RowType;
@@ -118,7 +118,7 @@ public final class Signatures
         return internalScalarFunction(ARRAY_CONSTRUCTOR, returnType, argumentTypes);
     }
 
-    public static Signature comparisonExpressionSignature(ComparisonExpression.Type expressionType, Type leftType, Type rightType)
+    public static Signature comparisonExpressionSignature(ComparisonExpressionType expressionType, Type leftType, Type rightType)
     {
         for (OperatorType operatorType : OperatorType.values()) {
             if (operatorType.name().equals(expressionType.name())) {

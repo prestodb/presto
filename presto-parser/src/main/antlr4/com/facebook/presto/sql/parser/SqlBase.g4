@@ -84,6 +84,7 @@ statement
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
     | DESCRIBE INPUT identifier                                        #describeInput
+    | DESCRIBE OUTPUT identifier                                       #describeOutput
     ;
 
 query
@@ -250,6 +251,7 @@ predicated
 
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression                            #comparison
+    | comparisonOperator comparisonQuantifier '(' query ')'               #quantifiedComparison
     | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
     | NOT? IN '(' expression (',' expression)* ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
@@ -278,7 +280,10 @@ primaryExpression
     | BINARY_LITERAL                                                                      #binaryLiteral
     | '?'                                                                                 #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
-    | '(' expression (',' expression)+ ')'                                                #rowConstructor
+    // This case handles both an implicit row constructor or a simple parenthesized
+    // expression. We can't make the two separate alternatives because it needs
+    // unbounded look-ahead to figure out which one to take while it looks for the comma
+    | '(' expression (',' expression)* ')'                                                #implicitRowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')'
@@ -304,7 +309,6 @@ primaryExpression
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
-    | '(' expression ')'                                                                  #parenthesizedExpression
     ;
 
 nullTreatment
@@ -319,6 +323,10 @@ timeZoneSpecifier
 
 comparisonOperator
     : EQ | NEQ | LT | LTE | GT | GTE
+    ;
+
+comparisonQuantifier
+    : ALL | SOME | ANY
     ;
 
 booleanValue
@@ -451,7 +459,7 @@ nonReserved
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
-    | INPUT
+    | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
     | IGNORE | RESPECT
     ;
@@ -622,6 +630,7 @@ EXECUTE: 'EXECUTE';
 IGNORE: 'IGNORE';
 RESPECT: 'RESPECT';
 INPUT: 'INPUT';
+OUTPUT: 'OUTPUT';
 CASCADE: 'CASCADE';
 RESTRICT: 'RESTRICT';
 INCLUDING: 'INCLUDING';

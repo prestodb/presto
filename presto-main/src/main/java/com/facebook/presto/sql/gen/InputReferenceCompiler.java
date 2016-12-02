@@ -22,7 +22,9 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
@@ -36,18 +38,15 @@ class InputReferenceCompiler
 {
     private final BiFunction<Scope, Integer, BytecodeExpression> blockResolver;
     private final BiFunction<Scope, Integer, BytecodeExpression> positionResolver;
-    private final Variable wasNullVariable;
     private final CallSiteBinder callSiteBinder;
 
     public InputReferenceCompiler(
             BiFunction<Scope, Integer, BytecodeExpression> blockResolver,
             BiFunction<Scope, Integer, BytecodeExpression> positionResolver,
-            Variable wasNullVariable,
             CallSiteBinder callSiteBinder)
     {
         this.blockResolver = requireNonNull(blockResolver, "blockResolver is null");
         this.positionResolver = requireNonNull(positionResolver, "positionResolver is null");
-        this.wasNullVariable = requireNonNull(wasNullVariable, "wasNullVariable is null");
         this.callSiteBinder = requireNonNull(callSiteBinder, "callSiteBinder is null");
     }
 
@@ -59,6 +58,7 @@ class InputReferenceCompiler
 
         BytecodeExpression block = blockResolver.apply(scope, field);
         BytecodeExpression position = positionResolver.apply(scope, field);
+        Variable wasNullVariable = scope.getVariable("wasNull");
 
         Class<?> javaType = type.getJavaType();
         if (!javaType.isPrimitive() && javaType != Slice.class) {
@@ -88,5 +88,17 @@ class InputReferenceCompiler
     public BytecodeNode visitConstant(ConstantExpression literal, Scope scope)
     {
         throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
+    public BytecodeNode visitLambda(LambdaDefinitionExpression lambda, Scope context)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Scope context)
+    {
+        throw new UnsupportedOperationException();
     }
 }

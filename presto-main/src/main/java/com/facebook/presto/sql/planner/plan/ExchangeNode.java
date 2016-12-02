@@ -79,6 +79,7 @@ public class ExchangeNode
         requireNonNull(partitioningScheme, "partitioningScheme is null");
         requireNonNull(inputs, "inputs is null");
 
+        checkArgument(!inputs.isEmpty(), "inputs is empty");
         checkArgument(inputs.stream().allMatch(inputSymbols -> inputSymbols.size() == partitioningScheme.getOutputLayout().size()), "Input symbols do not match output symbols");
         checkArgument(inputs.size() == sources.size(), "Must have same number of input lists as sources");
         for (int i = 0; i < inputs.size(); i++) {

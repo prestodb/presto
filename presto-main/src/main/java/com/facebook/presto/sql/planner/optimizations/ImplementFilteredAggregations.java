@@ -24,32 +24,36 @@ import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Type.AND;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Generate masks to mask rows if filter clauses exist in aggregation
- * <p>
- * The optimizer goes through all FunctionCall in an AggregationNode to check if they have
- * filters associated with.  If so, the filter expression symbol will be put into masks.
- * In case the FunctionCall already has masks, the optimizer will generate a boolean expression
- * which is AND of filter expression and existing marker expression and put that one
- * into masks.
- * <p>
- * The final output has two cases:
- * <ol>
- * <li>The input AggregationNode has no existing masks, the output is a new AggregationNode
- * with filter expressions as masks.</li>
- * <li>The input AggregationNode has existing masks, A ProjectNode will be created to output the
- * new boolean expression and a new AggregationNode with new masks will be created over the ProjectNode.</li>
- * </ol>
+ * Implements filtered aggregations by transforming plans of the following shape:
+ *
+ * <pre>
+ * - Aggregation
+ *        F1(...) FILTER (WHERE C1(...)),
+ *        F2(...) FILTER (WHERE C2(...))
+ *     - X
+ * </pre>
+ *
+ * into
+ *
+ * <pre>
+ * - Aggregation
+ *        F1(...) mask ($0)
+ *        F2(...) mask ($1)
+ *     - Project
+ *            &lt;identity projections for existing fields&gt;
+ *            $0 = C1(...)
+ *            $1 = C2(...)
+ *         - X
+ * </pre>
  */
 public class ImplementFilteredAggregations
         implements PlanOptimizer
@@ -75,33 +79,36 @@ public class ImplementFilteredAggregations
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Optional<Symbol>> context)
         {
-            boolean hasFilters = node.getAggregations().values().stream()
-                    .map(FunctionCall::getFilter)
-                    .anyMatch(Optional::isPresent);
+            boolean hasFilters = false;
+            for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
+                Symbol output = entry.getKey();
+                FunctionCall call = entry.getValue();
+
+                if (call.getFilter().isPresent()) {
+                    if (node.getMasks().containsKey(output)) {
+                        // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
+                        return context.defaultRewrite(node, Optional.empty());
+                    }
+
+                    hasFilters = true;
+                }
+            }
 
             if (!hasFilters) {
                 return context.defaultRewrite(node, Optional.empty());
             }
 
             ImmutableMap.Builder<Symbol, Expression> newProjections = ImmutableMap.builder();
-            ImmutableMap.Builder<Symbol, Symbol> newMasks = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.<Symbol, Symbol>builder()
+                    .putAll(node.getMasks());
+
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Symbol output = entry.getKey();
                 if (entry.getValue().getFilter().isPresent()) {
                     Expression filter = entry.getValue().getFilter().get();
-
-                    if (node.getMasks().containsKey(output)) {
-                        // filtered aggregation already has a mask, so we'll need to pre-project an AND expression
-                        // to combine them
-                        filter = new LogicalBinaryExpression(
-                                AND,
-                                filter,
-                                node.getMasks().get(output).toSymbolReference());
-                    }
-
                     Symbol symbol = symbolAllocator.newSymbol(filter, BOOLEAN);
                     newProjections.put(symbol, filter);
-                    newMasks.put(output, symbol);
+                    masks.put(output, symbol);
                 }
             }
 
@@ -131,7 +138,7 @@ public class ImplementFilteredAggregations
                             newProjections.build()),
                     calls.build(),
                     node.getFunctions(),
-                    newMasks.build(),
+                    masks.build(),
                     node.getGroupingSets(),
                     node.getStep(),
                     node.getHashSymbol(),

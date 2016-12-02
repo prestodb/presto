@@ -555,4 +555,13 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return null;
     }
+
+    @Override
+    protected R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getSubquery(), context);
+
+        return null;
+    }
 }

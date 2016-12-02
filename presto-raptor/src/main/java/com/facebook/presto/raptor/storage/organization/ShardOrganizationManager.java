@@ -44,8 +44,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.createOrganizationSet;
+import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
-import static com.facebook.presto.raptor.storage.organization.ShardOrganizerUtil.toShardIndexInfo;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -188,7 +188,7 @@ public class ShardOrganizationManager
                 .filter(shard -> !organizer.inProgress(shard.getShardUuid()))
                 .collect(toSet());
 
-        Collection<ShardIndexInfo> indexInfos = toShardIndexInfo(dbi, metadataDao, tableInfo, filteredShards, true);
+        Collection<ShardIndexInfo> indexInfos = getOrganizationEligibleShards(dbi, metadataDao, tableInfo, filteredShards, true);
         Set<OrganizationSet> organizationSets = createOrganizationSets(tableInfo, indexInfos);
 
         if (organizationSets.isEmpty()) {
@@ -243,11 +243,11 @@ public class ShardOrganizationManager
         // Sort by low marker for the range
         List<ShardIndexInfo> sortedShards = shards.stream()
                 .sorted((o1, o2) -> {
-                    ShardRange shardRange1 = o1.getSortRange().get();
-                    ShardRange shardRange2 = o2.getSortRange().get();
+                    ShardRange sortRange1 = o1.getSortRange().get();
+                    ShardRange sortRange2 = o2.getSortRange().get();
                     return ComparisonChain.start()
-                            .compare(shardRange1.getMinTuple(), shardRange2.getMinTuple())
-                            .compare(shardRange2.getMaxTuple(), shardRange1.getMaxTuple())
+                            .compare(sortRange1.getMinTuple(), sortRange2.getMinTuple())
+                            .compare(sortRange2.getMaxTuple(), sortRange1.getMaxTuple())
                             .result();
                 })
                 .collect(toList());
@@ -259,12 +259,12 @@ public class ShardOrganizationManager
         int previousRange = 0;
         int nextRange = previousRange + 1;
         while (nextRange < sortedShards.size()) {
-            ShardRange shardRange1 = sortedShards.get(previousRange).getSortRange().get();
-            ShardRange shardRange2 = sortedShards.get(nextRange).getSortRange().get();
+            ShardRange sortRange1 = sortedShards.get(previousRange).getSortRange().get();
+            ShardRange sortRange2 = sortedShards.get(nextRange).getSortRange().get();
 
-            if (shardRange1.overlaps(shardRange2) && !shardRange1.adjacent(shardRange2)) {
+            if (sortRange1.overlaps(sortRange2) && !sortRange1.adjacent(sortRange2)) {
                 builder.add(sortedShards.get(nextRange));
-                if (!shardRange1.encloses(shardRange2)) {
+                if (!sortRange1.encloses(sortRange2)) {
                     previousRange = nextRange;
                 }
             }

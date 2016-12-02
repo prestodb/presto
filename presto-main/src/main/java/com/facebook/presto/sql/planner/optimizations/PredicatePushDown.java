@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -81,7 +82,6 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
@@ -346,7 +346,7 @@ public class PredicatePushDown
             newJoinPredicate = simplifyExpression(newJoinPredicate);
             // TODO: find a better way to directly optimize FALSE LITERAL in join predicate
             if (newJoinPredicate.equals(BooleanLiteral.FALSE_LITERAL)) {
-                newJoinPredicate = new ComparisonExpression(ComparisonExpression.Type.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
+                newJoinPredicate = new ComparisonExpression(ComparisonExpressionType.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
             }
 
             PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
@@ -378,10 +378,15 @@ public class PredicatePushDown
                         Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                         Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
-                        Symbol leftSymbol = symbolAllocator.newSymbol(leftExpression, extractType(leftExpression));
-                        leftProjections.put(leftSymbol, leftExpression);
-                        Symbol rightSymbol = symbolAllocator.newSymbol(rightExpression, extractType(rightExpression));
-                        rightProjections.put(rightSymbol, rightExpression);
+                        Symbol leftSymbol = symbolForExpression(leftExpression);
+                        if (!node.getLeft().getOutputSymbols().contains(leftSymbol)) {
+                            leftProjections.put(leftSymbol, leftExpression);
+                        }
+
+                        Symbol rightSymbol = symbolForExpression(rightExpression);
+                        if (!node.getRight().getOutputSymbols().contains(rightSymbol)) {
+                            rightProjections.put(rightSymbol, rightExpression);
+                        }
 
                         joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                     }
@@ -406,7 +411,16 @@ public class PredicatePushDown
             return output;
         }
 
-        private OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)
+        private Symbol symbolForExpression(Expression expression)
+        {
+            if (expression instanceof SymbolReference) {
+                return Symbol.from(expression);
+            }
+
+            return symbolAllocator.newSymbol(expression, extractType(expression));
+        }
+
+        private static OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)
         {
             checkArgument(Iterables.all(DependencyExtractor.extractUnique(outerEffectivePredicate), in(outerSymbols)), "outerEffectivePredicate must only contain symbols from outerSymbols");
             checkArgument(Iterables.all(DependencyExtractor.extractUnique(innerEffectivePredicate), not(in(outerSymbols))), "innerEffectivePredicate must not contain symbols from outerSymbols");
@@ -527,7 +541,7 @@ public class PredicatePushDown
             }
         }
 
-        private InnerJoinPushDownResult processInnerJoin(Expression inheritedPredicate, Expression leftEffectivePredicate, Expression rightEffectivePredicate, Expression joinPredicate, Collection<Symbol> leftSymbols)
+        private static InnerJoinPushDownResult processInnerJoin(Expression inheritedPredicate, Expression leftEffectivePredicate, Expression rightEffectivePredicate, Expression joinPredicate, Collection<Symbol> leftSymbols)
         {
             checkArgument(Iterables.all(DependencyExtractor.extractUnique(leftEffectivePredicate), in(leftSymbols)), "leftEffectivePredicate must only contain symbols from leftSymbols");
             checkArgument(Iterables.all(DependencyExtractor.extractUnique(rightEffectivePredicate), not(in(leftSymbols))), "rightEffectivePredicate must not contain symbols from leftSymbols");
@@ -607,18 +621,7 @@ public class PredicatePushDown
             rightPushDownConjuncts.addAll(allInferenceWithoutRightInferred.generateEqualitiesPartitionedBy(not(in(leftSymbols))).getScopeEqualities());
             joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(in(leftSymbols)).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
 
-            // Since we only currently support equality in join conjuncts, factor out the non-equality conjuncts to a post-join filter
-            List<Expression> joinConjunctsList = joinConjuncts.build();
-
-            List<Expression> postJoinConjuncts = joinConjunctsList.stream()
-                    .filter(joinEqualityExpression(leftSymbols).negate())
-                    .collect(toImmutableList());
-
-            joinConjunctsList = joinConjunctsList.stream()
-                    .filter(joinEqualityExpression(leftSymbols))
-                    .collect(toImmutableList());
-
-            return new InnerJoinPushDownResult(combineConjuncts(leftPushDownConjuncts.build()), combineConjuncts(rightPushDownConjuncts.build()), combineConjuncts(joinConjunctsList), combineConjuncts(postJoinConjuncts));
+            return new InnerJoinPushDownResult(combineConjuncts(leftPushDownConjuncts.build()), combineConjuncts(rightPushDownConjuncts.build()), combineConjuncts(joinConjuncts.build()), BooleanLiteral.TRUE_LITERAL);
         }
 
         private static class InnerJoinPushDownResult
@@ -669,7 +672,7 @@ public class PredicatePushDown
 
         private static Expression equalsExpression(Symbol symbol1, Symbol symbol2)
         {
-            return new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+            return new ComparisonExpression(ComparisonExpressionType.EQUAL,
                     symbol1.toSymbolReference(),
                     symbol2.toSymbolReference());
         }
@@ -763,7 +766,7 @@ public class PredicatePushDown
                 // At this point in time, our join predicates need to be deterministic
                 if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
                     ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getType() == ComparisonExpression.Type.EQUAL) {
+                    if (comparison.getType() == ComparisonExpressionType.EQUAL) {
                         Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
                         Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
                         if (symbols1.isEmpty() || symbols2.isEmpty()) {

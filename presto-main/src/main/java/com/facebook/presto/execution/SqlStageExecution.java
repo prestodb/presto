@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -55,10 +54,8 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.concurrent.MoreFutures.firstCompletedFuture;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 @ThreadSafe
 public final class SqlStageExecution
@@ -271,20 +268,6 @@ public final class SqlStageExecution
         return tasks.values().stream()
                 .flatMap(Set::stream)
                 .collect(toImmutableList());
-    }
-
-    public synchronized CompletableFuture<?> getTaskStateChange()
-    {
-        List<RemoteTask> allTasks = getAllTasks();
-        if (allTasks.isEmpty()) {
-            return completedFuture(null);
-        }
-
-        List<CompletableFuture<TaskStatus>> stateChangeFutures = allTasks.stream()
-                .map(task -> task.getStateChange(task.getTaskStatus()))
-                .collect(toImmutableList());
-
-        return firstCompletedFuture(stateChangeFutures, true);
     }
 
     public synchronized RemoteTask scheduleTask(Node node, int partition)

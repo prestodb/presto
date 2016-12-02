@@ -26,7 +26,6 @@ import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -163,7 +162,7 @@ public class PageProcessorBenchmark
     private RowExpression rowExpression(String expression, Type type)
     {
         SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
-        Expression inputReferenceExpression = ExpressionTreeRewriter.rewriteWith(symbolToInputRewriter, createExpression(expression, METADATA, symbolTypes));
+        Expression inputReferenceExpression = symbolToInputRewriter.rewrite(createExpression(expression, METADATA, symbolTypes));
 
         ImmutableMap.Builder<Integer, Type> builder = ImmutableMap.builder();
         for (int i = 0; i < columnCount; i++) {

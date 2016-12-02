@@ -72,6 +72,26 @@ public class AggregationNode
         {
             return outputPartial;
         }
+
+        public static Step partialOutput(Step step)
+        {
+            if (step.isInputRaw()) {
+                return Step.PARTIAL;
+            }
+            else {
+                return Step.INTERMEDIATE;
+            }
+        }
+
+        public static Step partialInput(Step step)
+        {
+            if (step.isOutputPartial()) {
+                return Step.INTERMEDIATE;
+            }
+            else {
+                return Step.FINAL;
+            }
+        }
     }
 
     @JsonCreator

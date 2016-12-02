@@ -294,7 +294,7 @@ public class TestTypeRegistry
         return builder.build();
     }
 
-    private void assertCommonSuperType(Type firstType, Type secondType, Type expected)
+    private static void assertCommonSuperType(Type firstType, Type secondType, Type expected)
     {
         TypeRegistry typeManager = new TypeRegistry();
         assertEquals(typeManager.getCommonSuperType(firstType, secondType), Optional.ofNullable(expected));

@@ -30,9 +30,12 @@ import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.relational.CallExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.Signatures;
 import com.google.common.base.Throwables;
+import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -44,7 +47,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -57,8 +59,11 @@ import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.sql.gen.LambdaAndTryExpressionExtractor.extractLambdaAndTryExpressions;
 import static com.facebook.presto.sql.gen.TryCodeGenerator.defineTryMethod;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler
@@ -128,7 +133,7 @@ public class JoinFilterFunctionCompiler
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
     }
 
-    private void generateConstructor(ClassDefinition classDefinition, FieldDefinition sessionField, CachedInstanceBinder cachedInstanceBinder)
+    private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition sessionField, CachedInstanceBinder cachedInstanceBinder)
     {
         Parameter sessionParameter = arg("session", ConnectorSession.class);
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), sessionParameter);
@@ -149,7 +154,7 @@ public class JoinFilterFunctionCompiler
 
     private void generateFilterMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, CachedInstanceBinder cachedInstanceBinder, RowExpression filter, int leftBlocksSize, FieldDefinition sessionField)
     {
-        Map<CallExpression, MethodDefinition> tryMethodMap = generateTryMethods(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
+        PreGeneratedExpressions preGeneratedExpressions = generateMethodsForLambdaAndTry(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
 
         // int leftPosition, Block[] leftBlocks, int rightPosition, Block[] rightBlocks
         Parameter leftPosition = arg("leftPosition", int.class);
@@ -178,9 +183,9 @@ public class JoinFilterFunctionCompiler
         BytecodeExpressionVisitor visitor = new BytecodeExpressionVisitor(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize, wasNullVariable),
+                fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
                 metadata.getFunctionRegistry(),
-                tryMethodMap);
+                preGeneratedExpressions);
 
         BytecodeNode visitorBody = filter.accept(visitor, scope);
 
@@ -193,58 +198,75 @@ public class JoinFilterFunctionCompiler
                         .ifFalse(result.ret()));
     }
 
-    private Map<CallExpression, MethodDefinition> generateTryMethods(
+    private PreGeneratedExpressions generateMethodsForLambdaAndTry(
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             int leftBlocksSize,
             RowExpression filter)
     {
-        TryExpressionExtractor tryExtractor = new TryExpressionExtractor();
-        filter.accept(tryExtractor, null);
-        List<CallExpression> tryExpressions = tryExtractor.getTryExpressionsPreOrder();
-
+        List<RowExpression> lambdaAndTryExpressions = extractLambdaAndTryExpressions(filter);
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
+        ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
 
-        int methodId = 0;
-        for (CallExpression tryExpression : tryExpressions) {
-            Parameter session = arg("session", ConnectorSession.class);
-            Parameter leftPosition = arg("leftPosition", int.class);
-            Parameter leftBlocks = arg("leftBlocks", Block[].class);
-            Parameter rightPosition = arg("rightPosition", int.class);
-            Parameter rightBlocks = arg("rightBlocks", Block[].class);
-            Parameter wasNullVariable = arg("wasNull", boolean.class);
+        for (int i = 0; i < lambdaAndTryExpressions.size(); i++) {
+            RowExpression expression = lambdaAndTryExpressions.get(i);
 
-            BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize, wasNullVariable),
-                    metadata.getFunctionRegistry(),
-                    tryMethodMap.build());
+            if (expression instanceof CallExpression) {
+                CallExpression tryExpression = (CallExpression) expression;
+                verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
 
-            List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
-                    .add(session)
-                    .add(leftPosition)
-                    .add(leftBlocks)
-                    .add(rightPosition)
-                    .add(rightBlocks)
-                    .add(wasNullVariable)
-                    .build();
+                Parameter session = arg("session", ConnectorSession.class);
+                Parameter leftPosition = arg("leftPosition", int.class);
+                Parameter leftBlocks = arg("leftBlocks", Block[].class);
+                Parameter rightPosition = arg("rightPosition", int.class);
+                Parameter rightBlocks = arg("rightBlocks", Block[].class);
 
-            MethodDefinition tryMethod = defineTryMethod(
-                    innerExpressionVisitor,
-                    containerClassDefinition,
-                    "try_" + methodId,
-                    inputParameters,
-                    Primitives.wrap(tryExpression.getType().getJavaType()),
-                    tryExpression,
-                    callSiteBinder);
+                BytecodeExpressionVisitor innerExpressionVisitor = new BytecodeExpressionVisitor(
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        fieldReferenceCompiler(callSiteBinder, leftPosition, leftBlocks, rightPosition, rightBlocks, leftBlocksSize),
+                        metadata.getFunctionRegistry(),
+                        new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build()));
 
-            tryMethodMap.put(tryExpression, tryMethod);
-            methodId++;
+                List<Parameter> inputParameters = ImmutableList.<Parameter>builder()
+                        .add(session)
+                        .add(leftPosition)
+                        .add(leftBlocks)
+                        .add(rightPosition)
+                        .add(rightBlocks)
+                        .build();
+
+                MethodDefinition tryMethod = defineTryMethod(
+                        innerExpressionVisitor,
+                        containerClassDefinition,
+                        "try_" + i,
+                        inputParameters,
+                        Primitives.wrap(tryExpression.getType().getJavaType()),
+                        tryExpression,
+                        callSiteBinder);
+
+                tryMethodMap.put(tryExpression, tryMethod);
+            }
+            else if (expression instanceof LambdaDefinitionExpression) {
+                LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
+                PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
+                FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+                        lambdaExpression,
+                        "lambda_" + i,
+                        containerClassDefinition,
+                        preGeneratedExpressions,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        metadata.getFunctionRegistry());
+                lambdaFieldMap.put(lambdaExpression, methodHandleField);
+            }
+            else {
+                throw new VerifyException(format("unexpected expression: %s", expression.toString()));
+            }
         }
 
-        return tryMethodMap.build();
+        return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
@@ -268,13 +290,11 @@ public class JoinFilterFunctionCompiler
             final Variable leftBlocks,
             final Variable rightPosition,
             final Variable rightBlocks,
-            final int leftBlocksSize,
-            final Variable wasNullVariable)
+            final int leftBlocksSize)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> field < leftBlocksSize ? leftBlocks.getElement(field) : rightBlocks.getElement(field - leftBlocksSize),
                 (scope, field) -> field < leftBlocksSize ? leftPosition : rightPosition,
-                wasNullVariable,
                 callSiteBinder);
     }
 

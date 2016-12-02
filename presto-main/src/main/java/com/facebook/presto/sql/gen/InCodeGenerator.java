@@ -271,7 +271,7 @@ public class InCodeGenerator
         return value == (int) value;
     }
 
-    private BytecodeBlock buildInCase(BytecodeGeneratorContext generatorContext,
+    private static BytecodeBlock buildInCase(BytecodeGeneratorContext generatorContext,
             Scope scope,
             Type type,
             LabelNode caseLabel,

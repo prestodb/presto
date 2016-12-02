@@ -23,7 +23,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
@@ -121,15 +120,15 @@ public class StructStreamReader
         }
 
         // Build offsets for array block (null valued have no positions)
-        int[] offsets = new int[nextBatchSize];
-        offsets[0] = (nullVector[0] ? 0 : typeParameters.size());
-        for (int i = 1; i < nextBatchSize; i++) {
-            offsets[i] = offsets[i - 1] + (nullVector[i] ? 0 : typeParameters.size());
+        int[] offsets = new int[nextBatchSize + 1];
+        for (int i = 1; i < offsets.length; i++) {
+            int length = nullVector[i - 1] ? 0 : typeParameters.size();
+            offsets[i] = offsets[i - 1] + length;
         }
 
         // Struct is represented as an array block holding an interleaved block
         InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
-        ArrayBlock arrayBlock = new ArrayBlock(interleavedBlock, Slices.wrappedIntArray(offsets), 0, Slices.wrappedBooleanArray(nullVector));
+        ArrayBlock arrayBlock = new ArrayBlock(nextBatchSize, nullVector, offsets, interleavedBlock);
 
         readOffset = 0;
         nextBatchSize = 0;
