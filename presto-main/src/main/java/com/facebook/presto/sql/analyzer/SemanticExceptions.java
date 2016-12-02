@@ -25,26 +25,26 @@ public final class SemanticExceptions
 {
     private SemanticExceptions() {}
 
-    public static SemanticException throwMissingAttributeException(Expression node, QualifiedName name)
+    public static SemanticException missingAttributeException(Expression node, QualifiedName name)
     {
         throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", name);
     }
 
     /**
-     * Use {@link #throwMissingAttributeException(Expression, QualifiedName)} instead.
+     * Use {@link #missingAttributeException(Expression, QualifiedName)} instead.
      */
     @Deprecated
-    public static SemanticException throwMissingAttributeException(Expression node)
+    public static SemanticException missingAttributeException(Expression node)
     {
         throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node);
     }
 
-    public static SemanticException throwAmbiguousAttributeException(Expression node, QualifiedName name)
+    public static SemanticException ambiguousAttributeException(Expression node, QualifiedName name)
     {
         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", name);
     }
 
-    public static SemanticException throwNotSupportedException(Node node, String notSupportedFeatureDescription)
+    public static SemanticException notSupportedException(Node node, String notSupportedFeatureDescription)
     {
         throw new SemanticException(NOT_SUPPORTED, node, notSupportedFeatureDescription + " is not supported");
     }

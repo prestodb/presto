@@ -128,7 +128,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwMissingAttributeException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -370,7 +370,7 @@ public class ExpressionAnalyzer
                         return handleResolvedField(node, resolvedField.get());
                     }
                     if (!scope.isColumnReference(qualifiedName)) {
-                        throwMissingAttributeException(node, qualifiedName);
+                        throw missingAttributeException(node, qualifiedName);
                     }
                 }
             }
@@ -390,7 +390,7 @@ public class ExpressionAnalyzer
                 }
             }
             if (rowFieldType == null) {
-                throwMissingAttributeException(node);
+                throw missingAttributeException(node);
             }
 
             expressionTypes.put(node, rowFieldType);
