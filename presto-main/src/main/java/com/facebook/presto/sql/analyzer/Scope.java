@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwAmbiguousAttributeException;
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwMissingAttributeException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -67,7 +67,7 @@ public class Scope
 
     public ResolvedField resolveField(Expression expression, QualifiedName name)
     {
-        return tryResolveField(expression, name).orElseThrow(() -> throwMissingAttributeException(expression, name));
+        return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
     }
 
     public Optional<ResolvedField> tryResolveField(Expression expression)
@@ -100,7 +100,7 @@ public class Scope
     {
         List<Field> matches = relation.resolveFields(name);
         if (matches.size() > 1) {
-            throw throwAmbiguousAttributeException(node, name);
+            throw ambiguousAttributeException(node, name);
         }
         else if (matches.size() == 1) {
             return Optional.of(asResolvedField(getOnlyElement(matches), local));
