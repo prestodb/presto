@@ -20,18 +20,16 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
 
-public class PruneValuesColumns
+public class PruneTableScanColumns
         implements Rule
 {
     @Override
@@ -43,12 +41,12 @@ public class PruneValuesColumns
 
         ProjectNode parent = (ProjectNode) node;
 
-        PlanNode child = lookup.resolve(parent.getSource());
-        if (!(child instanceof ValuesNode)) {
+        PlanNode source = lookup.resolve(parent.getSource());
+        if (!(source instanceof TableScanNode)) {
             return Optional.empty();
         }
 
-        ValuesNode values = (ValuesNode) child;
+        TableScanNode child = (TableScanNode) source;
 
         Optional<List<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
         if (!dependencies.isPresent()) {
@@ -56,24 +54,18 @@ public class PruneValuesColumns
         }
 
         List<Symbol> newOutputs = dependencies.get();
-
-        // for each output of project, the corresponding column in the values node
-        int[] mapping = new int[newOutputs.size()];
-        for (int i = 0; i < mapping.length; i++) {
-            mapping[i] = values.getOutputSymbols().indexOf(newOutputs.get(i));
-        }
-
-        ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-        for (List<Expression> row : values.getRows()) {
-            rowsBuilder.add(Arrays.stream(mapping)
-                    .mapToObj(row::get)
-                    .collect(Collectors.toList()));
-        }
-
         return Optional.of(
                 new ProjectNode(
                         parent.getId(),
-                        new ValuesNode(values.getId(), newOutputs, rowsBuilder.build()),
+                        new TableScanNode(
+                                child.getId(),
+                                child.getTable(),
+                                newOutputs,
+                                newOutputs.stream()
+                                        .collect(Collectors.toMap(Function.identity(), e -> child.getAssignments().get(e))),
+                                child.getLayout(),
+                                child.getCurrentConstraint(),
+                                child.getOriginalConstraint()),
                         parent.getAssignments()));
     }
 }
