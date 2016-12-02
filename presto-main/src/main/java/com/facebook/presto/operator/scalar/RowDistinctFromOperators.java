@@ -88,11 +88,8 @@ public class RowDistinctFromOperators
     {
         boolean leftNull = leftRow == null;
         boolean rightNull = rightRow == null;
-        if (leftNull != rightNull) {
-            return true;
-        }
-        if (leftNull) {
-            return false;
+        if (leftNull || rightNull) {
+            return leftNull != rightNull;
         }
         List<Type> fieldTypes = rowType.getTypeParameters();
         for (int i = 0; i < leftRow.getPositionCount(); i++) {

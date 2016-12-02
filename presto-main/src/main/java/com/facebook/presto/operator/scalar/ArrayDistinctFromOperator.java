@@ -47,11 +47,8 @@ public final class ArrayDistinctFromOperator
             @SqlType("array(E)") Block right,
             @IsNull boolean rightNull)
     {
-        if (leftNull != rightNull) {
-            return true;
-        }
-        if (leftNull) {
-            return false;
+        if (leftNull || rightNull) {
+            return leftNull != rightNull;
         }
         if (left.getPositionCount() != right.getPositionCount()) {
             return true;

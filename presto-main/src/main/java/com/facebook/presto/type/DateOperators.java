@@ -163,11 +163,8 @@ public final class DateOperators
             @SqlType(StandardTypes.DATE) long right,
             @IsNull boolean rightNull)
     {
-        if (leftNull != rightNull) {
-            return true;
-        }
-        if (leftNull) {
-            return false;
+        if (leftNull || rightNull) {
+            return leftNull != rightNull;
         }
         return notEqual(left, right);
     }

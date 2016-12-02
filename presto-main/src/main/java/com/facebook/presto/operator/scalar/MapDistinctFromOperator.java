@@ -72,11 +72,8 @@ public final class MapDistinctFromOperator
     {
         boolean leftNull = leftBlock == null;
         boolean rightNull = rightBlock == null;
-        if (leftNull != rightNull) {
-            return false;
-        }
-        if (leftNull) {
-            return true;
+        if (leftNull || rightNull) {
+            return leftNull == rightNull;
         }
         // Note that we compare to NOT distinct here and so negate the result.
         Boolean result = MapGenericEquality.genericEqual(

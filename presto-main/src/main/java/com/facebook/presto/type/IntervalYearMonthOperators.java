@@ -178,11 +178,8 @@ public final class IntervalYearMonthOperators
             @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right,
             @IsNull boolean rightNull)
     {
-        if (leftNull != rightNull) {
-            return true;
-        }
-        if (leftNull) {
-            return false;
+        if (leftNull || rightNull) {
+            return leftNull != rightNull;
         }
         return notEqual(left, right);
     }
