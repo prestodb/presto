@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
@@ -86,10 +87,10 @@ public final class SymbolAliases
         return alias.toLowerCase();
     }
 
-    private Map<String, SymbolReference> getUpdatedAssignments(Map<Symbol, Expression> assignments)
+    private Map<String, SymbolReference> getUpdatedAssignments(Assignments assignments)
     {
         ImmutableMap.Builder<String, SymbolReference> mapUpdate = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
+        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
             for (Map.Entry<String, SymbolReference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
@@ -126,7 +127,7 @@ public final class SymbolAliases
      * returns a new
      * SymbolAliases = { "ALIAS1": SymbolReference("baz"), "ALIAS2": SymbolReference("bar")}
      */
-    public SymbolAliases updateAssignments(Map<Symbol, Expression> assignments)
+    public SymbolAliases updateAssignments(Assignments assignments)
     {
         return builder()
                 .putAll(this)
@@ -164,7 +165,7 @@ public final class SymbolAliases
      * SymbolAliases.map should be
      * { "RK": SymbolReference("value3") }
      */
-    public SymbolAliases replaceAssignments(Map<Symbol, Expression> assignments)
+    public SymbolAliases replaceAssignments(Assignments assignments)
     {
         return new SymbolAliases(getUpdatedAssignments(assignments));
     }

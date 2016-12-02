@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -50,7 +51,6 @@ import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -95,7 +95,7 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                 return context.defaultRewrite(node);
             }
 
-            Expression expression = getOnlyElement(node.getSubqueryAssignments().values());
+            Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
             if (!(expression instanceof QuantifiedComparisonExpression)) {
                 return context.defaultRewrite(node);
             }
@@ -155,15 +155,15 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    ImmutableMap.of(minValue, minValue.toSymbolReference(), maxValue, maxValue.toSymbolReference()),
+                    Assignments.of(minValue, minValue.toSymbolReference(), maxValue, maxValue.toSymbolReference()),
                     node.getCorrelation());
 
-            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().keySet());
+            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
             LogicalBinaryExpression valueComparedToSubquery = new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
                     new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
                     new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), minValue.toSymbolReference())
             );
-            return projectExpressions(applyNode, ImmutableMap.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
         private PlanNode rewriteQuantifiedOrderableApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
@@ -191,25 +191,24 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    ImmutableMap.of(subValue, subValue.toSymbolReference()),
+                    Assignments.of(subValue, subValue.toSymbolReference()),
                     node.getCorrelation());
 
             ComparisonExpression valueComparedToSubquery = new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), subValue.toSymbolReference());
-            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().keySet());
-            return projectExpressions(applyNode, ImmutableMap.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
+            return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
-        private ProjectNode projectExpressions(PlanNode input, Map<Symbol, Expression> expressions)
+        private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
         {
-            Map<Symbol, Expression> identityProjections = input.getOutputSymbols().stream()
-                    .collect(toImmutableMap(symbol -> symbol, Symbol::toSymbolReference));
+            Assignments assignments = Assignments.builder()
+                    .putIdentities(input.getOutputSymbols())
+                    .putAll(subqueryAssignments)
+                    .build();
             return new ProjectNode(
                     idAllocator.getNextId(),
                     input,
-                    ImmutableMap.<Symbol, Expression>builder()
-                            .putAll(identityProjections)
-                            .putAll(expressions)
-                            .build());
+                    assignments);
         }
 
         private static QualifiedName chooseAggregationFunction(QuantifiedComparisonExpression quantifiedComparison)

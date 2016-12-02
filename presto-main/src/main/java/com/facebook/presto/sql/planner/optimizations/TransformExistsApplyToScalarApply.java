@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -92,7 +93,7 @@ public class TransformExistsApplyToScalarApply
                 return context.defaultRewrite(node);
             }
 
-            Expression expression = getOnlyElement(node.getSubqueryAssignments().values());
+            Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
             if (!(expression instanceof ExistsPredicate)) {
                 return context.defaultRewrite(node);
             }
@@ -118,17 +119,17 @@ public class TransformExistsApplyToScalarApply
 
             ComparisonExpression countGreaterThanZero = new ComparisonExpression(GREATER_THAN, count.toSymbolReference(), new Cast(new LongLiteral("0"), BIGINT.toString()));
 
-            Symbol existsSymbol = getOnlyElement(node.getSubqueryAssignments().keySet());
+            Symbol existsSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
             subquery = new ProjectNode(
                     idAllocator.getNextId(),
                     subquery,
-                    ImmutableMap.of(existsSymbol, countGreaterThanZero));
+                    Assignments.of(existsSymbol, countGreaterThanZero));
 
             return new ApplyNode(
                     node.getId(),
                     input,
                     subquery,
-                    ImmutableMap.of(existsSymbol, existsSymbol.toSymbolReference()),
+                    Assignments.of(existsSymbol, existsSymbol.toSymbolReference()),
                     node.getCorrelation());
         }
     }

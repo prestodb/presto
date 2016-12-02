@@ -15,13 +15,13 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 public class TestVerifyOnlyOneOutputNode
@@ -39,7 +39,7 @@ public class TestVerifyOnlyOneOutputNode
                                 new ValuesNode(
                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()
                                 ),
-                                ImmutableMap.of()
+                                Assignments.of()
                         ), ImmutableList.of(), ImmutableList.of()
                 );
         new VerifyOnlyOneOutputNode().validate(root, null, null, null, null);
@@ -58,7 +58,7 @@ public class TestVerifyOnlyOneOutputNode
                                                 new ValuesNode(
                                                         idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of()
                                                 ),
-                                                ImmutableMap.of()
+                                                Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
                                 ), new Symbol("a")
                         ),

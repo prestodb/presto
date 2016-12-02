@@ -104,7 +104,7 @@ public class CountConstantOptimizer
 
             if (argument instanceof SymbolReference) {
                 Symbol argumentSymbol = Symbol.from(argument);
-                Expression argumentExpression = projectNode.getAssignments().get(argumentSymbol);
+                Expression argumentExpression = projectNode.getAssignmentsMap().get(argumentSymbol);
                 return (argumentExpression instanceof Literal) && (!(argumentExpression instanceof NullLiteral));
             }
 
