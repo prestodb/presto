@@ -36,6 +36,7 @@ public class SemiJoinNode
     private final Symbol filteringSourceJoinSymbol;
     private final Symbol semiJoinOutput;
     private final Optional<Symbol> sourceHashSymbol;
+    private final Optional<Symbol> filteringSourceNullSymbol;
     private final Optional<Symbol> filteringSourceHashSymbol;
 
     @JsonCreator
@@ -46,6 +47,7 @@ public class SemiJoinNode
             @JsonProperty("filteringSourceJoinSymbol") Symbol filteringSourceJoinSymbol,
             @JsonProperty("semiJoinOutput") Symbol semiJoinOutput,
             @JsonProperty("sourceHashSymbol") Optional<Symbol> sourceHashSymbol,
+            @JsonProperty("filteringSourceNullSymbol") Optional<Symbol> filteringSourceNullSymbol,
             @JsonProperty("filteringSourceHashSymbol") Optional<Symbol> filteringSourceHashSymbol)
     {
         super(id);
@@ -55,6 +57,7 @@ public class SemiJoinNode
         this.filteringSourceJoinSymbol = requireNonNull(filteringSourceJoinSymbol, "filteringSourceJoinSymbol is null");
         this.semiJoinOutput = requireNonNull(semiJoinOutput, "semiJoinOutput is null");
         this.sourceHashSymbol = requireNonNull(sourceHashSymbol, "sourceHashSymbol is null");
+        this.filteringSourceNullSymbol = requireNonNull(filteringSourceNullSymbol, "filteringSourceNullSymbol is null");
         this.filteringSourceHashSymbol = requireNonNull(filteringSourceHashSymbol, "filteringSourceHashSymbol is null");
 
         checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
@@ -95,6 +98,12 @@ public class SemiJoinNode
     public Optional<Symbol> getSourceHashSymbol()
     {
         return sourceHashSymbol;
+    }
+
+    @JsonProperty("filteringSourceNullSymbol")
+    public Optional<Symbol> getFilteringSourceNullSymbol()
+    {
+        return filteringSourceNullSymbol;
     }
 
     @JsonProperty("filteringSourceHashSymbol")

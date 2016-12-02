@@ -15,16 +15,22 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.operator.SetBuilderOperator.SetSupplier;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
@@ -43,10 +49,17 @@ public class HashSemiJoinOperator
         private final SetSupplier setSupplier;
         private final List<Type> probeTypes;
         private final int probeJoinChannel;
+        private final MethodHandle probeIndeterminateFunction;
         private final List<Type> types;
         private boolean closed;
 
-        public HashSemiJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, SetSupplier setSupplier, List<? extends Type> probeTypes, int probeJoinChannel)
+        public HashSemiJoinOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                SetSupplier setSupplier,
+                List<? extends Type> probeTypes,
+                int probeJoinChannel,
+                MethodHandle probeIndeterminateFunction)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -54,6 +67,7 @@ public class HashSemiJoinOperator
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
             this.probeJoinChannel = probeJoinChannel;
+            this.probeIndeterminateFunction = requireNonNull(probeIndeterminateFunction, "probeIndeterminateFunction is null");
 
             this.types = ImmutableList.<Type>builder()
                     .addAll(probeTypes)
@@ -72,7 +86,7 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashSemiJoinOperator.class.getSimpleName());
-            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperator(operatorContext, setSupplier, probeTypes, probeJoinChannel, probeIndeterminateFunction);
         }
 
         @Override
@@ -84,11 +98,12 @@ public class HashSemiJoinOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel);
+            return new HashSemiJoinOperatorFactory(operatorId, planNodeId, setSupplier, probeTypes, probeJoinChannel, probeIndeterminateFunction);
         }
     }
 
     private final int probeJoinChannel;
+    private final MethodHandle probeIndeterminateFunction;
     private final List<Type> types;
     private final ListenableFuture<ChannelSet> channelSetFuture;
 
@@ -96,17 +111,24 @@ public class HashSemiJoinOperator
     private Page outputPage;
     private boolean finishing;
 
-    public HashSemiJoinOperator(OperatorContext operatorContext, SetSupplier channelSetFuture, List<Type> probeTypes, int probeJoinChannel)
+    public HashSemiJoinOperator(
+            OperatorContext operatorContext,
+            SetSupplier channelSetFuture,
+            List<Type> probeTypes,
+            int probeJoinChannel,
+            MethodHandle probeIndeterminateFunction)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
         // todo pass in desired projection
         requireNonNull(channelSetFuture, "hashProvider is null");
         requireNonNull(probeTypes, "probeTypes is null");
+        requireNonNull(probeIndeterminateFunction, "probeIndeterminateFunction is null");
         checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
         this.channelSetFuture = channelSetFuture.getChannelSet();
         this.probeJoinChannel = probeJoinChannel;
+        this.probeIndeterminateFunction = probeIndeterminateFunction;
 
         this.types = ImmutableList.<Type>builder()
                 .addAll(probeTypes)
@@ -173,12 +195,24 @@ public class HashSemiJoinOperator
 
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {
-            if (probeJoinPage.getBlock(0).isNull(position)) {
-                blockBuilder.appendNull();
+            boolean isIndeterminate;
+            try {
+                isIndeterminate = probeJoinPage.getBlock(0).isNull(position) ||
+                        (boolean) probeIndeterminateFunction.invoke(readNativeValue(types.get(probeJoinChannel), probeJoinPage.getBlock(0), position), false);
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            }
+            if (isIndeterminate) {
+                // forbid the indeterminate values in probe side
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "indeterminate values are not allowed in probe side");
             }
             else {
-                boolean contains = channelSet.contains(position, probeJoinPage);
-                if (!contains && channelSet.containsNull()) {
+                boolean contains = channelSet.containsExact(position, probeJoinPage);
+                if (!contains && channelSet.containsIndeterminate(position, probeJoinPage)) {
                     blockBuilder.appendNull();
                 }
                 else {

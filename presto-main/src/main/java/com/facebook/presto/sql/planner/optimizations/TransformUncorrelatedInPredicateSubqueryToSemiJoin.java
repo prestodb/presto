@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -26,7 +27,10 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.NullIfExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,9 +41,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -246,13 +252,27 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 Symbol valueList = Symbol.from(inPredicate.getValueList());
                 checkState(!semiJoinSymbol.isPresent(), "Semi join symbol is already set");
                 semiJoinSymbol = Optional.of(symbolAllocator.newSymbol("semijoin_result", BOOLEAN));
+                PlanNode subqueryPlan = node.getSubquery();
+
+                Expression nullExpression = new FunctionCall(QualifiedName.of(FunctionRegistry.mangleOperatorName(INDETERMINATE)), ImmutableList.of(valueList.toSymbolReference()));
+                nullExpression = new NullIfExpression(nullExpression, TRUE_LITERAL);
+                Optional<Symbol> nullSymbol = Optional.of(symbolAllocator.newSymbol(nullExpression, BOOLEAN));
+
+                ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+                for (Symbol symbol : subqueryPlan.getOutputSymbols()) {
+                    assignments.put(symbol, symbol.toSymbolReference());
+                }
+                assignments.put(nullSymbol.get(), nullExpression);
+                subqueryPlan = new ProjectNode(idAllocator.getNextId(), subqueryPlan, assignments.build());
+
                 return new SemiJoinNode(idAllocator.getNextId(),
                         node.getInput(),
-                        node.getSubquery(),
+                        subqueryPlan,
                         value,
                         valueList,
                         semiJoinSymbol.get(),
                         Optional.empty(),
+                        nullSymbol,
                         Optional.empty()
                 );
             }

@@ -17,6 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
@@ -196,5 +197,27 @@ public class TestJsonOperators
         assertFunction("cast(cast (null as varchar) as JSON)", JSON, null);
         assertFunction("cast('abc' as JSON)", JSON, "\"abc\"");
         assertFunction("cast('\"a\":2' as JSON)", JSON, "\"\\\"a\\\":2\"");
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as JSON)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "JSON '128'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'true'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'false'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"test\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"null\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'true'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'false'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"True\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"true\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '123.456'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'true'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON 'false'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"NaN\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"Infinity\"'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "JSON '\"-Infinity\"'", BOOLEAN, false);
     }
 }

@@ -43,6 +43,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -812,6 +813,31 @@ public class TestArrayOperators
         assertFunction("ARRAY_REMOVE(ARRAY [TRUE, FALSE, TRUE], FALSE)", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
         assertFunction("ARRAY_REMOVE(ARRAY [NULL, FALSE, TRUE], TRUE)", new ArrayType(BOOLEAN), asList(null, false));
         assertFunction("ARRAY_REMOVE(ARRAY [ARRAY ['foo'], ARRAY ['bar'], ARRAY ['baz']], ARRAY ['bar'])", new ArrayType(new ArrayType(createVarcharType(3))), ImmutableList.of(ImmutableList.of("foo"), ImmutableList.of("baz")));
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as array(bigint))", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[1,2,3]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[1,2,3,null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array['test1', 'test2', 'test3', 'test4']", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array['test1', 'test2', 'test3', null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array['test1', null, 'test2', 'test3']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, 'test1', 'test2', 'test3']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, time '12:34:56', time '01:23:45']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, timestamp '2016-01-02 12:34:56', timestamp '2016-12-23 01:23:45']", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[null, null, null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[row(1), row(2), row(3)]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[cast(row(1) as row(a bigint)), cast(null as row(a bigint)), cast(row(3) as row(a bigint))]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[cast(row(1) as row(a bigint)), cast(row(null) as row(a bigint)), cast(row(3) as row(a bigint))]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[map(array[2], array[-2]), map(array[1], array[-1])]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[map(array[2], array[-2]), null]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[map(array[2], array[-2]), map(array[1], array[null])]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[array[1], array[2], array[3]]", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "array[array[1], array[null], array[3]]", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "array[array[1], array[2], null]", BOOLEAN, true);
     }
 
     @Test

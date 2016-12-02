@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -234,5 +235,14 @@ public class TestDoubleOperators
         assertFunction("37 IS DISTINCT FROM 37.8", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 37.7", BOOLEAN, true);
         assertFunction("37.7 IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertOperator(INDETERMINATE, "cast(null as double)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "1.2", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1.2 as double)", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "cast(1 as double)", BOOLEAN, false);
     }
 }

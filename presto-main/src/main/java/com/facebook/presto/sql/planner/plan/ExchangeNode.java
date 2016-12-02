@@ -100,10 +100,10 @@ public class ExchangeNode
 
     public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns)
     {
-        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false);
+        return partitionedExchange(id, scope, child, partitioningColumns, hashColumns, false, Optional.empty());
     }
 
-    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, boolean nullsReplicated)
+    public static ExchangeNode partitionedExchange(PlanNodeId id, Scope scope, PlanNode child, List<Symbol> partitioningColumns, Optional<Symbol> hashColumns, boolean nullsReplicated, Optional<Symbol> nullColumn)
     {
         return partitionedExchange(
                 id,
@@ -114,6 +114,7 @@ public class ExchangeNode
                         child.getOutputSymbols(),
                         hashColumns,
                         nullsReplicated,
+                        nullColumn,
                         Optional.empty()));
     }
 

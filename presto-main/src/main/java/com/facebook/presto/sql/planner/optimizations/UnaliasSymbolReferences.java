@@ -304,6 +304,7 @@ public class UnaliasSymbolReferences
                     outputs.build(),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
                     node.getPartitioningScheme().isReplicateNulls(),
+                    node.getPartitioningScheme().getNullColumn(),
                     node.getPartitioningScheme().getBucketToPartition());
 
             return new ExchangeNode(node.getId(), node.getType(), node.getScope(), partitioningScheme, sources, inputs);
@@ -560,7 +561,7 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
             PlanNode filteringSource = context.rewrite(node.getFilteringSource());
 
-            return new SemiJoinNode(node.getId(), source, filteringSource, canonicalize(node.getSourceJoinSymbol()), canonicalize(node.getFilteringSourceJoinSymbol()), canonicalize(node.getSemiJoinOutput()), canonicalize(node.getSourceHashSymbol()), canonicalize(node.getFilteringSourceHashSymbol()));
+            return new SemiJoinNode(node.getId(), source, filteringSource, canonicalize(node.getSourceJoinSymbol()), canonicalize(node.getFilteringSourceJoinSymbol()), canonicalize(node.getSemiJoinOutput()), canonicalize(node.getSourceHashSymbol()), canonicalize(node.getFilteringSourceNullSymbol()), canonicalize(node.getFilteringSourceHashSymbol()));
         }
 
         @Override
@@ -752,6 +753,7 @@ public class UnaliasSymbolReferences
                     outputs.build(),
                     canonicalize(scheme.getHashColumn()),
                     scheme.isReplicateNulls(),
+                    scheme.getNullColumn(),
                     scheme.getBucketToPartition());
         }
     }

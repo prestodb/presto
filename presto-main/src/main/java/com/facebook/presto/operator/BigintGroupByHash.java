@@ -158,7 +158,7 @@ public class BigintGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page, int[] hashChannels)
+    public boolean containsExact(int position, Page page, int[] hashChannels)
     {
         Block block = page.getBlock(hashChannel);
         if (block.isNull(position)) {
@@ -181,6 +181,12 @@ public class BigintGroupByHash
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
         }
+    }
+
+    @Override
+    public boolean containsIndeterminate(int position, Page page, int[] hashChannels)
+    {
+        return nullGroupId >= 0;
     }
 
     @Override

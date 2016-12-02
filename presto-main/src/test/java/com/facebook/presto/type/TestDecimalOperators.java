@@ -19,6 +19,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class TestDecimalOperators
@@ -677,5 +678,15 @@ public class TestDecimalOperators
         assertFunction("37 IS DISTINCT FROM 38", BOOLEAN, true);
         assertFunction("NULL IS DISTINCT FROM 37", BOOLEAN, true);
         assertFunction("37 IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
+
+    @Test
+    public void testIndeterminate()
+            throws Exception
+    {
+        assertOperator(INDETERMINATE, "cast(null as DECIMAL)", BOOLEAN, true);
+        assertOperator(INDETERMINATE, "DECIMAL '.999'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '18'", BOOLEAN, false);
+        assertOperator(INDETERMINATE, "DECIMAL '9.0'", BOOLEAN, false);
     }
 }
