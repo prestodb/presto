@@ -119,11 +119,6 @@ public class PluginManager
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
-    public boolean arePluginsLoaded()
-    {
-        return pluginsLoaded.get();
-    }
-
     public void loadPlugins()
             throws Exception
     {
