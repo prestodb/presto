@@ -203,7 +203,6 @@ public class LocalQueryRunner
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
     private final TestingAccessControlManager accessControl;
-    private final TestingEventListenerManager eventListener;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final PageSourceManager pageSourceManager;
@@ -273,7 +272,6 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 transactionManager);
         this.accessControl = new TestingAccessControlManager(transactionManager);
-        this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
 
         this.expressionCompiler = new ExpressionCompiler(metadata);
