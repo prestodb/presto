@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -283,7 +284,7 @@ public class OptimizeMixedDistinctAggregations
                 Symbol groupSymbol,
                 Map<Symbol, Symbol> aggregationOuputSymbolsMap)
         {
-            ImmutableMap.Builder<Symbol, Expression> outputSymbols = ImmutableMap.builder();
+            Assignments.Builder outputSymbols = Assignments.builder();
             ImmutableMap.Builder<Symbol, Symbol> outputNonDistinctAggregateSymbols = ImmutableMap.builder();
             for (Symbol symbol : source.getOutputSymbols()) {
                 if (distinctSymbol.equals(symbol)) {

@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionMatcher
-    implements RvalueMatcher
+        implements RvalueMatcher
 {
     private final String sql;
     private final Expression expression;
@@ -80,11 +80,11 @@ public class ExpressionMatcher
     {
         if (node instanceof ProjectNode) {
             ProjectNode projectNode = (ProjectNode) node;
-            return projectNode.getAssignments();
+            return projectNode.getAssignments().getMap();
         }
         else if (node instanceof ApplyNode) {
             ApplyNode applyNode = (ApplyNode) node;
-            return applyNode.getSubqueryAssignments();
+            return applyNode.getSubqueryAssignments().getMap();
         }
         else {
             return null;

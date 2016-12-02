@@ -19,6 +19,7 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.planner.optimizations.Predicates;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -187,7 +188,7 @@ class SubqueryPlanner
         subPlan.getTranslations().put(parametersReplaced, inPredicateSubquerySymbol);
         subPlan.getTranslations().put(inPredicate, inPredicateSubquerySymbol);
 
-        return appendApplyNode(subPlan, inPredicate, subquery, ImmutableMap.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
+        return appendApplyNode(subPlan, inPredicate, subquery, Assignments.of(inPredicateSubquerySymbol, inPredicateSubqueryExpression), correlationAllowed);
     }
 
     private PlanBuilder appendScalarSubqueryApplyNodes(PlanBuilder builder, Set<SubqueryExpression> scalarSubqueries, boolean correlationAllowed)
@@ -211,7 +212,7 @@ class SubqueryPlanner
                 subPlan,
                 scalarSubquery.getQuery(),
                 subqueryNode,
-                identityAssigments(subqueryNode),
+                Assignments.identity(subqueryNode.getOutputSymbols()),
                 correlationAllowed);
     }
 
@@ -252,7 +253,7 @@ class SubqueryPlanner
                 subPlan,
                 existsPredicate.getSubquery(),
                 subqueryPlan,
-                ImmutableMap.of(exists, existsPredicate),
+                Assignments.of(exists, existsPredicate),
                 correlationAllowed);
     }
 
@@ -343,7 +344,7 @@ class SubqueryPlanner
                 subPlan,
                 quantifiedComparison.getSubquery(),
                 subqueryPlan,
-                ImmutableMap.of(subqueryQuantifiedComparisonSymbol, subqueryQuantifiedComparison),
+                Assignments.of(subqueryQuantifiedComparisonSymbol, subqueryQuantifiedComparison),
                 correlationAllowed);
     }
 
@@ -358,7 +359,12 @@ class SubqueryPlanner
                 .orElse(false);
     }
 
-    private PlanBuilder appendApplyNode(PlanBuilder subPlan, Node subquery, PlanNode subqueryNode, Map<Symbol, Expression> subqueryAssignments, boolean correlationAllowed)
+    private PlanBuilder appendApplyNode(
+            PlanBuilder subPlan,
+            Node subquery,
+            PlanNode subqueryNode,
+            Assignments subqueryAssignments,
+            boolean correlationAllowed)
     {
         Map<Expression, Symbol> correlation = extractCorrelation(subPlan, subqueryNode);
         if (!correlationAllowed && !correlation.isEmpty()) {
@@ -376,12 +382,6 @@ class SubqueryPlanner
                         subqueryAssignments,
                         ImmutableList.copyOf(correlation.values())),
                 analysis.getParameters());
-    }
-
-    private Map<Symbol, Expression> identityAssigments(PlanNode node)
-    {
-        return node.getOutputSymbols().stream()
-                .collect(toImmutableMap(symbol -> symbol, Symbol::toSymbolReference));
     }
 
     private Map<Expression, Symbol> extractCorrelation(PlanBuilder subPlan, PlanNode subquery)
@@ -500,14 +500,10 @@ class SubqueryPlanner
         {
             ProjectNode rewrittenNode = (ProjectNode) context.defaultRewrite(node);
 
-            ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Expression> assignment : rewrittenNode.getAssignments().entrySet()) {
-                Expression expression = assignment.getValue();
-                Expression rewritten = replaceExpression(expression, mapping);
-                assignments.put(assignment.getKey(), rewritten);
-            }
+            Assignments assignments = rewrittenNode.getAssignments()
+                    .rewrite(expression -> replaceExpression(expression, mapping));
 
-            return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments.build());
+            return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
         }
 
         @Override

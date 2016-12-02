@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -24,7 +25,6 @@ import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -180,7 +180,7 @@ public class TestEliminateCrossJoins
         return new ProjectNode(
                 idAllocator.getNextId(),
                 source,
-                ImmutableMap.of(new Symbol(symbol), expression));
+                Assignments.of(new Symbol(symbol), expression));
     }
 
     private String symbol(String name)

@@ -39,9 +39,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
@@ -108,8 +106,7 @@ public class SimplifyExpressions
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), this::simplifyExpression));
-            return new ProjectNode(node.getId(), source, assignments);
+            return new ProjectNode(node.getId(), source, node.getAssignments().rewrite(this::simplifyExpression));
         }
 
         @Override

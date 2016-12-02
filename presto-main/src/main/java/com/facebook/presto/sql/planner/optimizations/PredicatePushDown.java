@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -54,7 +55,6 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
@@ -205,7 +205,7 @@ public class PredicatePushDown
 
             // Push down conjuncts from the inherited predicate that don't depend on non-deterministic assignments
             PlanNode rewrittenNode = context.defaultRewrite(node,
-                    ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getAssignments()), combineConjuncts(conjuncts.get(true))));
+                    ExpressionTreeRewriter.rewriteWith(new ExpressionSymbolInliner(node.getAssignments().getMap()), combineConjuncts(conjuncts.get(true))));
 
             // All non-deterministic conjuncts, if any, will be in the filter node.
             if (!conjuncts.get(false).isEmpty()) {
@@ -357,12 +357,12 @@ public class PredicatePushDown
                     rightSource != node.getRight() ||
                     !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
                 // Create identity projections for all existing symbols
-                ImmutableMap.Builder<Symbol, Expression> leftProjections = ImmutableMap.builder();
+                Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()
                         .getOutputSymbols().stream()
                         .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));
 
-                ImmutableMap.Builder<Symbol, Expression> rightProjections = ImmutableMap.builder();
+                Assignments.Builder rightProjections = Assignments.builder();
                 rightProjections.putAll(node.getRight()
                         .getOutputSymbols().stream()
                         .collect(Collectors.toMap(key -> key, Symbol::toSymbolReference)));

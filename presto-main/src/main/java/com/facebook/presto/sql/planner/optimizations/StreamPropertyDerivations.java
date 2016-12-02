@@ -289,7 +289,7 @@ final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., identity projections)
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
             return properties.translate(column -> Optional.ofNullable(identities.get(column)));
         }
 

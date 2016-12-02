@@ -46,7 +46,7 @@ public abstract class ApplyNodeRewriter
     {
         Expression expression = replaceExpression(
                 reference,
-                mapAssignmentSymbolsToExpression(node.getAssignments()));
+                mapAssignmentSymbolsToExpression(node.getAssignments().getMap()));
 
         if (expression instanceof SymbolReference) {
             reference = (SymbolReference) expression;
