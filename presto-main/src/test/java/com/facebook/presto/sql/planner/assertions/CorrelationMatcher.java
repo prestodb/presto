@@ -21,7 +21,10 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class CorrelationMatcher
@@ -29,28 +32,35 @@ public class CorrelationMatcher
 {
     private final List<String> correlation;
 
-    public CorrelationMatcher(List<String> correlation)
+    CorrelationMatcher(List<String> correlation)
     {
         this.correlation = requireNonNull(correlation, "correlation is null");
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean shapeMatches(PlanNode node)
     {
-        if (node instanceof ApplyNode) {
-            ApplyNode applyNode = (ApplyNode) node;
+        return node instanceof ApplyNode;
+    }
 
-            if (correlation.size() != applyNode.getCorrelation().size()) {
-                return false;
-            }
+    @Override
+    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    {
+        checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
-            int i = 0;
-            for (String alias : correlation) {
-                expressionAliases.put(alias, applyNode.getCorrelation().get(i++).toSymbolReference());
-            }
-            return true;
+        ApplyNode applyNode = (ApplyNode) node;
+
+        if (correlation.size() != applyNode.getCorrelation().size()) {
+            return NO_MATCH;
         }
-        return false;
+
+        int i = 0;
+        for (String alias : correlation) {
+            if (!symbolAliases.get(alias).equals(applyNode.getCorrelation().get(i++).toSymbolReference())) {
+                return NO_MATCH;
+            }
+        }
+        return match();
     }
 
     @Override

@@ -22,7 +22,10 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
+import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 
 public class GroupIdMatcher
     implements Matcher
@@ -37,31 +40,35 @@ public class GroupIdMatcher
     }
 
     @Override
-    public boolean matches(PlanNode node, Session session, Metadata metadata, ExpressionAliases expressionAliases)
+    public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof GroupIdNode)) {
-            return false;
-        }
+        return node instanceof GroupIdNode;
+    }
+
+    @Override
+    public MatchResult detailMatches(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    {
+        checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         GroupIdNode groudIdNode = (GroupIdNode) node;
         List<List<Symbol>> actualGroups = groudIdNode.getGroupingSets();
         Map<Symbol, Symbol> actualArgumentMappings = groudIdNode.getArgumentMappings();
 
         if (actualGroups.size() != groups.size()) {
-            return false;
+            return NO_MATCH;
         }
 
         for (int i = 0; i < actualGroups.size(); i++) {
             if (!AggregationMatcher.matches(actualGroups.get(i), groups.get(i))) {
-                return false;
+                return NO_MATCH;
             }
         }
 
         if (!AggregationMatcher.matches(identityMappings.keySet(), actualArgumentMappings.keySet())) {
-            return false;
+            return NO_MATCH;
         }
 
-        return true;
+        return match();
     }
 
     @Override
