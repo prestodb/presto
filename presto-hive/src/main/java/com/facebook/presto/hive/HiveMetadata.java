@@ -1044,7 +1044,7 @@ public class HiveMetadata
     {
         HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
 
-        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(session, metastore, tableHandle, constraint.getSummary());
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint.getSummary());
 
         List<HivePartition> partitions = hivePartitionResult.getPartitions().stream()
                 .filter(partition -> constraint.predicate().test(partition.getKeys()))
@@ -1131,7 +1131,7 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(session, metastore, tableHandle, TupleDomain.all());
+        HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, TupleDomain.all());
         if (!hivePartitionResult.getBucketHandle().isPresent()) {
             return Optional.empty();
         }

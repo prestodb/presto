@@ -16,7 +16,6 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -97,7 +96,7 @@ public class HivePartitionManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    public HivePartitionResult getPartitions(ConnectorSession session, SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
+    public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
     {
         HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
         requireNonNull(effectivePredicate, "effectivePredicate is null");
