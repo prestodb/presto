@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAs
 import com.facebook.presto.sql.planner.iterative.rule.ImplementIntersectAndExcept;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.MergeIntersections;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.MergeUnions;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
@@ -123,7 +124,8 @@ public class PlanOptimizers
                         new PruneTableScanColumns(),
                         new PruneValuesColumns(),
 
-                        new PushLimitThroughProject()
+                        new PushLimitThroughProject(),
+                        new MergeLimits()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
