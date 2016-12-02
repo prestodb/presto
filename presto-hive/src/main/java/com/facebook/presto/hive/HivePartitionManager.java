@@ -77,7 +77,6 @@ public class HivePartitionManager
         this(connectorId,
                 typeManager,
                 hiveClientConfig.getDateTimeZone(),
-                hiveClientConfig.getMaxOutstandingSplits(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
                 hiveClientConfig.getDomainCompactionThreshold());
     }
@@ -86,13 +85,11 @@ public class HivePartitionManager
             HiveConnectorId connectorId,
             TypeManager typeManager,
             DateTimeZone timeZone,
-            int maxOutstandingSplits,
             boolean assumeCanonicalPartitionKeys,
             int domainCompactionThreshold)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
-        checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
