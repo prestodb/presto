@@ -18,6 +18,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
+import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantProjections;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasFilter;
@@ -104,7 +105,8 @@ public class PlanOptimizers
                         new UnaliasTopN(),
                         new UnaliasSetOperation(),
 
-                        new RemoveRedundantProjections()
+                        new RemoveRedundantProjections(),
+                        new InlineProjections()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
