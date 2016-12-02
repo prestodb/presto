@@ -134,6 +134,12 @@ public class TestMapOperators
     }
 
     @Test
+    public void testEmptyMapConstructor()
+    {
+        assertFunction("MAP()", new MapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
+    }
+
+    @Test
     public void testCardinality()
             throws Exception
     {

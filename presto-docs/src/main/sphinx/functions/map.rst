@@ -22,6 +22,12 @@ Map Functions
 
     Returns value for given ``key``, or ``NULL`` if the key is not contained in the map.
 
+.. function:: map() -> map<unknown, unknown>
+
+    Returns an empty map. ::
+
+        SELECT map(); -- {}
+
 .. function:: map(array<K>, array<V>) -> map<K,V>
 
     Returns a map created using the given key/value arrays. ::
