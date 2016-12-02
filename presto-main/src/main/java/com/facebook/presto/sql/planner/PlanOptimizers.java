@@ -19,6 +19,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
+import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasAggregation;
@@ -108,7 +109,9 @@ public class PlanOptimizers
 
                         new RemoveRedundantProjections(),
                         new InlineProjections(),
-                        new SingleMarkDistinctToGroupBy()
+                        new SingleMarkDistinctToGroupBy(),
+
+                        new PruneTableScanColumns()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
