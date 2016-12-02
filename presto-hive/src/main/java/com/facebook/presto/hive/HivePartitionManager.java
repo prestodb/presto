@@ -25,6 +25,7 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -53,6 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 
 public class HivePartitionManager
@@ -123,12 +125,16 @@ public class HivePartitionManager
                     hiveBucketHandle);
         }
 
+        List<Type> partitionTypes = partitionColumns.stream()
+                .map(column -> typeManager.getType(column.getTypeSignature()))
+                .collect(toList());
+
         List<String> partitionNames = getFilteredPartitionNames(metastore, tableName, partitionColumns, effectivePredicate);
 
         // do a final pass to filter based on fields that could not be used to filter the partitions
         ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
         for (String partitionName : partitionNames) {
-            Optional<Map<ColumnHandle, NullableValue>> values = parseValuesAndFilterPartition(partitionName, partitionColumns, constraint);
+            Optional<Map<ColumnHandle, NullableValue>> values = parseValuesAndFilterPartition(partitionName, partitionColumns, partitionTypes, constraint);
 
             if (values.isPresent()) {
                 partitions.add(new HivePartition(tableName, compactEffectivePredicate, partitionName, values.get(), buckets));
@@ -160,7 +166,7 @@ public class HivePartitionManager
         return TupleDomain.withColumnDomains(builder.build());
     }
 
-    private Optional<Map<ColumnHandle, NullableValue>> parseValuesAndFilterPartition(String partitionName, List<HiveColumnHandle> partitionColumns, Constraint<ColumnHandle> constraint)
+    private Optional<Map<ColumnHandle, NullableValue>> parseValuesAndFilterPartition(String partitionName, List<HiveColumnHandle> partitionColumns, List<Type> partitionTypes, Constraint<ColumnHandle> constraint)
     {
         List<String> partitionValues = extractPartitionKeyValues(partitionName);
 
@@ -168,7 +174,7 @@ public class HivePartitionManager
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), typeManager.getType(column.getTypeSignature()), timeZone);
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionTypes.get(i), timeZone);
 
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(parsedValue.getValue())) {
