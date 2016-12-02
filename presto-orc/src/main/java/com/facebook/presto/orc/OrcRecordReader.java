@@ -453,9 +453,11 @@ public class OrcRecordReader
 
         ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
         for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
-            ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
-            if (element != null) {
-                statistics.put(ordinal, element);
+            if (fileStats.size() > ordinal) {
+                ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
+                if (element != null) {
+                    statistics.put(ordinal, element);
+                }
             }
         }
         return statistics.build();

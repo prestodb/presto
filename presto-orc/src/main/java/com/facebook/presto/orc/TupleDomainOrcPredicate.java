@@ -210,10 +210,10 @@ public class TupleDomainOrcPredicate<C>
                 return Domain.create(ValueSet.of(BOOLEAN, false), hasNullValue);
             }
         }
-        else if (isShortDecimal(type)) {
+        else if (isShortDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, (DecimalType) type).unscaledValue().longValue());
         }
-        else if (isLongDecimal(type)) {
+        else if (isLongDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> encodeUnscaledValue(rescale(value, (DecimalType) type).unscaledValue()));
         }
         else if (isCharType(type) && columnStatistics.getStringStatistics() != null) {
