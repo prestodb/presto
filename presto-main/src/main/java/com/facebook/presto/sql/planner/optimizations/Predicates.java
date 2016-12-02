@@ -20,7 +20,7 @@ public class Predicates
 {
     private Predicates() {}
 
-    public static Predicate isInstanceOfAny(Class... classes)
+    public static <T> Predicate<T> isInstanceOfAny(Class... classes)
     {
         Predicate predicate = alwaysFalse();
         for (Class clazz : classes) {
