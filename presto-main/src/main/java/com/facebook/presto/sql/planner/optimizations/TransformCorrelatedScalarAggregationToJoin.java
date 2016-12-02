@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.util.ImmutableRelaxedMapBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -205,7 +206,7 @@ public class TransformCorrelatedScalarAggregationToJoin
                     .findFirst();
 
             if (subqueryProjection.isPresent()) {
-                Map<Symbol, Expression> assignments = ImmutableMap.<Symbol, Expression>builder()
+                Map<Symbol, Expression> assignments = ImmutableRelaxedMapBuilder.<Symbol, Expression>builder()
                         .putAll(toAssignments(aggregationNode.get().getOutputSymbols()))
                         .putAll(subqueryProjection.get().getAssignments())
                         .build();
