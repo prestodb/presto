@@ -55,6 +55,11 @@ public class PlanNodeSearcher
         return this;
     }
 
+    public boolean matches()
+    {
+        return findFirst().isPresent();
+    }
+
     public <T extends PlanNode> Optional<T> findFirst()
     {
         return findFirstRecursive(node);

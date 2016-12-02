@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 
@@ -53,7 +54,7 @@ public class TransformUncorrelatedScalarToJoin
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.getSubquery() instanceof EnforceSingleRowNode) {
+            if (rewrittenNode.getCorrelation().isEmpty() && subqueryEnforcesSingleRow(node)) {
                 return new JoinNode(
                         idAllocator.getNextId(),
                         JoinNode.Type.INNER,
@@ -65,6 +66,14 @@ public class TransformUncorrelatedScalarToJoin
                         Optional.empty());
             }
             return rewrittenNode;
+        }
+
+        private boolean subqueryEnforcesSingleRow(ApplyNode node)
+        {
+            return PlanNodeSearcher.searchFrom(node.getSubquery())
+                    .skipOnlyWhen(ProjectNode.class::isInstance)
+                    .where(EnforceSingleRowNode.class::isInstance)
+                    .matches();
         }
     }
 }
