@@ -59,16 +59,24 @@ public class RcFileFileWriterFactory
 
     @Inject
     public RcFileFileWriterFactory(
-            HiveClientConfig hiveClientConfig,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            HiveClientConfig hiveClientConfig)
     {
-        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
-        this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
+        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone());
+    }
+
+    public RcFileFileWriterFactory(
+            HdfsEnvironment hdfsEnvironment,
+            TypeManager typeManager,
+            NodeVersion nodeVersion,
+            DateTimeZone hiveStorageTimeZone)
+    {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
     }
 
     @Override

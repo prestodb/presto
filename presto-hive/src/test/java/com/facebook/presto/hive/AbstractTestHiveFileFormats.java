@@ -14,7 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.block.BlockSerdeUtil;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -59,11 +63,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveCharObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
-import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTime;
@@ -86,11 +87,13 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.HdfsConfigurationUpdater.configureCompression;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.CharType.createCharType;
@@ -118,6 +121,7 @@ import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -134,8 +138,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
-import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
-import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_TYPE;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -276,7 +278,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_decimal_precision_17", DECIMAL_INSPECTOR_PRECISION_17, WRITE_DECIMAL_PRECISION_17, EXPECTED_DECIMAL_PRECISION_17))
             .add(new TestColumn("t_decimal_precision_18", DECIMAL_INSPECTOR_PRECISION_18, WRITE_DECIMAL_PRECISION_18, EXPECTED_DECIMAL_PRECISION_18))
             .add(new TestColumn("t_decimal_precision_38", DECIMAL_INSPECTOR_PRECISION_38, WRITE_DECIMAL_PRECISION_38, EXPECTED_DECIMAL_PRECISION_38))
-            .add(new TestColumn("t_binary", javaByteArrayObjectInspector, Slices.utf8Slice("test2"), Slices.utf8Slice("test2")))
+            .add(new TestColumn("t_binary", javaByteArrayObjectInspector, Slices.utf8Slice("test2").getBytes(), Slices.utf8Slice("test2")))
             .add(new TestColumn("t_map_string",
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
                     ImmutableMap.of("test", "test"),
@@ -491,14 +493,75 @@ public abstract class AbstractTestHiveFileFormats
         return columns;
     }
 
-    public static FileSplit createTestFile(String filePath,
-            HiveOutputFormat<?, ?> outputFormat,
-            @SuppressWarnings("deprecation") SerDe serDe,
-            String compressionCodec,
+    public static FileSplit createTestFile(
+            String filePath,
+            HiveStorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
+            List<TestColumn> testColumns,
+            ConnectorSession session,
+            int numRows,
+            HiveFileWriterFactory fileWriterFactory)
+            throws Exception
+    {
+        // filter out partition keys, which are not written to the file
+        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
+
+        List<Type> types = testColumns.stream()
+                .map(TestColumn::getType)
+                .map(HiveType::valueOf)
+                .map(type -> type.getType(TYPE_MANAGER))
+                .collect(toList());
+
+        PageBuilder pageBuilder = new PageBuilder(types);
+
+        for (int rowNumber = 0; rowNumber < numRows; rowNumber++) {
+            pageBuilder.declarePosition();
+            for (int columnNumber = 0; columnNumber < testColumns.size(); columnNumber++) {
+                serializeObject(
+                        types.get(columnNumber),
+                        pageBuilder.getBlockBuilder(columnNumber),
+                        testColumns.get(columnNumber).getWriteValue(),
+                        testColumns.get(columnNumber).getObjectInspector(),
+                        false);
+            }
+        }
+        Page page = pageBuilder.build();
+
+        JobConf jobConf = new JobConf();
+        configureCompression(jobConf, compressionCodec);
+
+        Properties tableProperties = new Properties();
+        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
+        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
+
+        Optional<HiveFileWriter> fileWriter = fileWriterFactory.createFileWriter(
+                new Path(filePath),
+                testColumns.stream()
+                        .map(TestColumn::getName)
+                        .collect(toList()),
+                StorageFormat.fromHiveStorageFormat(storageFormat),
+                tableProperties,
+                jobConf,
+                session);
+
+        HiveFileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
+        hiveFileWriter.appendRows(page);
+        hiveFileWriter.commit();
+
+        return new FileSplit(new Path(filePath), 0, new File(filePath).length(), new String[0]);
+    }
+
+    public static FileSplit createTestFile(
+            String filePath,
+            HiveStorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             List<TestColumn> testColumns,
             int numRows)
             throws Exception
     {
+        HiveOutputFormat<?, ?> outputFormat = newInstance(storageFormat.getOutputFormat(), HiveOutputFormat.class);
+        @SuppressWarnings("deprecation") SerDe serDe = newInstance(storageFormat.getSerDe(), SerDe.class);
+
         // filter out partition keys, which are not written to the file
         testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
 
@@ -508,19 +571,13 @@ public abstract class AbstractTestHiveFileFormats
         serDe.initialize(new Configuration(), tableProperties);
 
         JobConf jobConf = new JobConf();
-        if (compressionCodec != null) {
-            CompressionCodec codec = new CompressionCodecFactory(new Configuration()).getCodecByName(compressionCodec);
-            jobConf.set(COMPRESS_CODEC, codec.getClass().getName());
-            jobConf.set(COMPRESS_TYPE, SequenceFile.CompressionType.BLOCK.toString());
-            jobConf.set("parquet.compression", compressionCodec);
-            jobConf.set("parquet.enable.dictionary", "true");
-        }
+        configureCompression(jobConf, compressionCodec);
 
         RecordWriter recordWriter = outputFormat.getHiveRecordWriter(
                 jobConf,
                 new Path(filePath),
                 Text.class,
-                compressionCodec != null,
+                compressionCodec != HiveCompressionCodec.NONE,
                 tableProperties,
                 () -> {
                 }
@@ -554,10 +611,17 @@ public abstract class AbstractTestHiveFileFormats
             recordWriter.close(false);
         }
 
+        // todo to test with compression, the file must be renamed with the compression extension
         Path path = new Path(filePath);
         path.getFileSystem(new Configuration()).setVerifyChecksum(true);
         File file = new File(filePath);
         return new FileSplit(path, 0, file.length(), new String[0]);
+    }
+
+    private static <T> T newInstance(String className, Class<T> superType)
+            throws ReflectiveOperationException
+    {
+        return HiveStorageFormat.class.getClassLoader().loadClass(className).asSubclass(superType).newInstance();
     }
 
     protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int rowCount)

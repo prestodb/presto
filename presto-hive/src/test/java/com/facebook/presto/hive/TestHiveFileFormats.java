@@ -35,10 +35,6 @@ import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
-import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -48,7 +44,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import org.apache.hadoop.mapred.FileSplit;
-import org.apache.hadoop.mapred.InputFormat;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -80,6 +75,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -105,6 +101,8 @@ public class TestHiveFileFormats
     private static TestingConnectorSession parquetCursorPushdownSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(false).setParquetPredicatePushdownEnabled(true)).getSessionProperties());
     private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(false)).getSessionProperties());
     private static TestingConnectorSession parquetPageSourcePushdown = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(true)).getSessionProperties());
+
+    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("Asia/Katmandu");
 
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
@@ -198,6 +196,28 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
+    public void testRcTextOptimizedWriter(int rowCount)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                // t_map_null_key_* must be disabled because Presto can not produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
+                .collect(toImmutableList());
+
+        TestingConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true).setRcfileOptimizedReaderEnabled(true)).getSessionProperties());
+
+        assertThatFileFormat(RCTEXT)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .withSession(session)
+                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
+                .isReadableByRecordCursor(new ColumnarTextHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT));
+    }
+
+    @Test(dataProvider = "rowCount")
     public void testRCBinary(int rowCount)
             throws Exception
     {
@@ -220,11 +240,8 @@ public class TestHiveFileFormats
     {
         // RCBinary does not support complex type as key of a map and interprets empty VARCHAR as nulls
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(testColumn -> {
-                    String name = testColumn.getName();
-                    return !name.equals("t_map_null_key_complex_key_value") &&
-                            !name.equals("t_empty_varchar");
-                }).collect(toList());
+                .filter(testColumn -> !testColumn.getName().equals("t_empty_varchar"))
+                .collect(toList());
 
         TestingConnectorSession session = new TestingConnectorSession(
                 new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedReaderEnabled(true)).getSessionProperties());
@@ -233,6 +250,30 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT));
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testRcBinaryOptimizedWriter(int rowCount)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                // RCBinary interprets empty VARCHAR as nulls
+                .filter(testColumn -> !testColumn.getName().equals("t_empty_varchar"))
+                // t_map_null_key_* must be disabled because Presto can not produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
+                .collect(toList());
+
+        TestingConnectorSession session = new TestingConnectorSession(
+                new HiveSessionProperties(new HiveClientConfig().setRcfileOptimizedWriterEnabled(true).setRcfileOptimizedReaderEnabled(true)).getSessionProperties());
+
+        assertThatFileFormat(RCBINARY)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .withSession(session)
+                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
+                .isReadableByRecordCursor(new ColumnarBinaryHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT));
     }
 
@@ -444,13 +485,10 @@ public class TestHiveFileFormats
                 )
         );
 
-        InputFormat<?, ?> inputFormat = new MapredParquetInputFormat();
-        @SuppressWarnings("deprecation")
-        SerDe serde = new ParquetHiveSerDe();
         File file = new File(this.getClass().getClassLoader().getResource("addressbook.parquet").getPath());
         FileSplit split = new FileSplit(new Path(file.getAbsolutePath()), 0, file.length(), new String[0]);
         HiveRecordCursorProvider cursorProvider = new ParquetRecordCursorProvider(false, HDFS_ENVIRONMENT);
-        testCursorProvider(cursorProvider, split, inputFormat, serde, testColumns, 1);
+        testCursorProvider(cursorProvider, split, PARQUET, testColumns, 1);
     }
 
     @Test(dataProvider = "rowCount")
@@ -583,15 +621,14 @@ public class TestHiveFileFormats
 
     private void testCursorProvider(HiveRecordCursorProvider cursorProvider,
             FileSplit split,
-            InputFormat<?, ?> inputFormat,
-            @SuppressWarnings("deprecation") SerDe serde,
+            HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,
             int rowCount)
             throws IOException
     {
         Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, inputFormat.getClass().getName());
-        splitProperties.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+        splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
+        splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
         splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
 
@@ -625,16 +662,15 @@ public class TestHiveFileFormats
 
     private void testPageSourceFactory(HivePageSourceFactory sourceFactory,
             FileSplit split,
-            InputFormat<?, ?> inputFormat,
-            SerDe serde,
+            HiveStorageFormat storageFormat,
             List<TestColumn> testColumns,
             ConnectorSession session,
             int rowCount)
             throws IOException
     {
         Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, inputFormat.getClass().getName());
-        splitProperties.setProperty(SERIALIZATION_LIB, serde.getClass().getName());
+        splitProperties.setProperty(FILE_INPUT_FORMAT, storageFormat.getInputFormat());
+        splitProperties.setProperty(SERIALIZATION_LIB, storageFormat.getSerDe());
         splitProperties.setProperty("columns", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getName)));
         splitProperties.setProperty("columns.types", Joiner.on(',').join(transform(filter(testColumns, not(TestColumn::isPartitionKey)), TestColumn::getType)));
 
@@ -700,53 +736,52 @@ public class TestHiveFileFormats
         throw new IllegalArgumentException("Unknown object inspector type " + objectInspector);
     }
 
+    private static boolean withoutNullMapKeyTests(TestColumn testColumn)
+    {
+        String name = testColumn.getName();
+        return !name.equals("t_map_null_key") &&
+                !name.equals("t_map_null_key_complex_key_value") &&
+                !name.equals("t_map_null_key_complex_value");
+    }
+
     private FileFormatAssertion assertThatFileFormat(HiveStorageFormat hiveStorageFormat)
             throws Exception
     {
         return new FileFormatAssertion(hiveStorageFormat.name())
-                .withInputFormat((InputFormat<?, ?>) Class.forName(hiveStorageFormat.getInputFormat()).newInstance())
-                .withOutputFormat((HiveOutputFormat<?, ?>) Class.forName(hiveStorageFormat.getOutputFormat()).newInstance())
-                .withSerde((SerDe) Class.forName(hiveStorageFormat.getSerDe()).newInstance());
+                .withStorageFormat(hiveStorageFormat);
     }
 
     private class FileFormatAssertion
     {
         private final String formatName;
-        private HiveOutputFormat<?, ?> outputFormat;
-        private InputFormat<?, ?> inputFormat;
-        private SerDe serde;
-        private Optional<String> compressionCodec = Optional.empty();
+        private HiveStorageFormat storageFormat;
+        private HiveCompressionCodec compressionCodec = HiveCompressionCodec.NONE;
         private List<TestColumn> writeColumns;
         private List<TestColumn> readColumns;
         private ConnectorSession session = SESSION;
         private int rowsCount = 1000;
+        private HiveFileWriterFactory fileWriterFactory;
 
         private FileFormatAssertion(String formatName)
         {
             this.formatName = requireNonNull(formatName, "formatName is null");
         }
 
-        public FileFormatAssertion withOutputFormat(HiveOutputFormat<?, ?> outputFormat)
+        public FileFormatAssertion withStorageFormat(HiveStorageFormat storageFormat)
         {
-            this.outputFormat = requireNonNull(outputFormat, "outputFormat is null");
+            this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
             return this;
         }
 
-        public FileFormatAssertion withInputFormat(InputFormat<?, ?> inputFormat)
+        public FileFormatAssertion withCompressionCodec(HiveCompressionCodec compressionCodec)
         {
-            this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
+            this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
             return this;
         }
 
-        public FileFormatAssertion withSerde(SerDe serde)
+        public FileFormatAssertion withFileWriterFactory(HiveFileWriterFactory fileWriterFactory)
         {
-            this.serde = requireNonNull(serde, "serde is null");
-            return this;
-        }
-
-        public FileFormatAssertion withCompressionCodec(String compressionCodec)
-        {
-            this.compressionCodec = Optional.of(requireNonNull(compressionCodec, "compressionCodec is null"));
+            this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
             return this;
         }
 
@@ -812,9 +847,7 @@ public class TestHiveFileFormats
         private void assertRead(Optional<HivePageSourceFactory> pageSourceFactory, Optional<HiveRecordCursorProvider> cursorProvider)
                 throws Exception
         {
-            assertNotNull(outputFormat, "outputFormat must be specified");
-            assertNotNull(inputFormat, "inputFormat must be specified");
-            assertNotNull(serde, "serde must be specified");
+            assertNotNull(storageFormat, "storageFormat must be specified");
             assertNotNull(writeColumns, "writeColumns must be specified");
             assertNotNull(readColumns, "readColumns must be specified");
             assertNotNull(session, "session must be specified");
@@ -823,12 +856,18 @@ public class TestHiveFileFormats
             File file = File.createTempFile("presto_test", formatName);
             file.delete();
             try {
-                FileSplit split = createTestFile(file.getAbsolutePath(), outputFormat, serde, compressionCodec.orElse(null), writeColumns, rowsCount);
+                FileSplit split;
+                if (fileWriterFactory != null) {
+                    split = createTestFile(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
+                }
+                else {
+                    split = createTestFile(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
+                }
                 if (pageSourceFactory.isPresent()) {
-                    testPageSourceFactory(pageSourceFactory.get(), split, inputFormat, serde, readColumns, session, rowsCount);
+                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, rowsCount);
                 }
                 if (cursorProvider.isPresent()) {
-                    testCursorProvider(cursorProvider.get(), split, inputFormat, serde, readColumns, rowsCount);
+                    testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, rowsCount);
                 }
             }
             finally {

@@ -29,6 +29,7 @@ import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
@@ -79,6 +80,14 @@ public final class SerDeUtils
 
     public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
     {
+        return serializeObject(type, builder, object, inspector, true);
+    }
+
+    // This version supports optionally disabling the filtering of null map key, which should only be used for building test data sets
+    // that contain null map keys.  For production, null map keys are not allowed.
+    @VisibleForTesting
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys)
+    {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
                 serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector);
@@ -86,7 +95,7 @@ public final class SerDeUtils
             case LIST:
                 return serializeList(type, builder, object, (ListObjectInspector) inspector);
             case MAP:
-                return serializeMap(type, builder, object, (MapObjectInspector) inspector);
+                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
             case STRUCT:
                 return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
         }
@@ -192,7 +201,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector)
+    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -216,7 +225,7 @@ public final class SerDeUtils
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
-            if (entry.getKey() != null) {
+            if (!filterNullMapKeys || entry.getKey() != null) {
                 serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector);
                 serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector);
             }
