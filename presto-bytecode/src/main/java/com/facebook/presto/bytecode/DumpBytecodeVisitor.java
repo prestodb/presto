@@ -246,7 +246,7 @@ public class DumpBytecodeVisitor
     public Void visitStoreVariable(BytecodeNode parent, StoreVariableInstruction storeVariableInstruction)
     {
         Variable variable = storeVariableInstruction.getVariable();
-        printLine("store %s)", variable.getName());
+        printLine("store %s", variable.getName());
         return null;
     }
 
