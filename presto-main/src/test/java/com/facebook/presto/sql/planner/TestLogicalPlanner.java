@@ -197,11 +197,37 @@ public class TestLogicalPlanner
                 anyTree(
                         filter("3 = X",
                                 apply(ImmutableList.of("X"),
+                                        ImmutableMap.of(),
                                         tableScan("orders", ImmutableMap.of("X", "orderkey")),
                                         node(EnforceSingleRowNode.class,
                                                 project(
                                                         node(ValuesNode.class)
                                                 ))))));
+    }
+
+    @Test
+    public void testDoubleNestedCorrelatedSubqueries()
+    {
+        assertPlan(
+                "SELECT orderkey FROM orders o " +
+                        "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
+                LogicalPlanner.Stage.OPTIMIZED,
+                anyTree(
+                        filter("OUTER_FILTER",
+                                apply(ImmutableList.of("C", "O"),
+                                        ImmutableMap.of("OUTER_FILTER", expression("THREE IN (C)")),
+                                        project(ImmutableMap.of("THREE", expression("3")),
+                                                tableScan("orders", ImmutableMap.of(
+                                                        "O", "orderkey",
+                                                        "C", "custkey"))),
+                                        anyTree(
+                                                apply(ImmutableList.of("L"),
+                                                        ImmutableMap.of(),
+                                                        tableScan("lineitem", ImmutableMap.of("L", "orderkey")),
+                                                        node(EnforceSingleRowNode.class,
+                                                                project(
+                                                                        node(ValuesNode.class)
+                                                                ))))))));
     }
 
     @Test

@@ -219,9 +219,13 @@ public final class PlanMatchPattern
         return node(FilterNode.class, source).with(new FilterMatcher(expectedPredicate));
     }
 
-    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, ExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
     {
-        return node(ApplyNode.class, inputPattern, subqueryPattern).with(new CorrelationMatcher(correlationSymbolAliases));
+        PlanMatchPattern result = node(ApplyNode.class, inputPattern, subqueryPattern)
+                .with(new CorrelationMatcher(correlationSymbolAliases));
+        subqueryAssignments.entrySet().forEach(
+                assignment -> result.withAlias(assignment.getKey(), assignment.getValue()));
+        return result;
     }
 
     public static PlanMatchPattern groupingSet(List<List<Symbol>> groups, PlanMatchPattern source)
