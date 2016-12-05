@@ -484,15 +484,4 @@ public class TestMergeWindows
             return null;
         });
     }
-
-    private Plan unitPlan(@Language("SQL") String sql)
-    {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        List<PlanOptimizer> optimizers = ImmutableList.of(
-                        new UnaliasSymbolReferences(),
-                        new PruneIdentityProjections(),
-                        new MergeWindows(),
-                        new PruneUnreferencedOutputs());
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, optimizers));
-    }
 }
