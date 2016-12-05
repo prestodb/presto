@@ -120,7 +120,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, SMOKE})
+    @Test(groups = {HIVE_CONNECTOR, SMOKE, QUARANTINE})
     public void testSelectAllDatatypesTextFile()
             throws SQLException
     {
@@ -184,7 +184,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(RcfileRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR})
+    @Test(groups = {HIVE_CONNECTOR, QUARANTINE})
     public void testSelectAllDatatypesRcfile()
             throws SQLException
     {
@@ -283,7 +283,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1})
+    @Test(groups = {HIVE_CONNECTOR, POST_HIVE_1_0_1, QUARANTINE})
     public void testSelectAllDatatypesParquetFile()
             throws SQLException
     {
