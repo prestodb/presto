@@ -53,14 +53,6 @@ implements ConnectorMetadata
         this.metaServer = requireNonNull(metaServer, "metaServer is null");
     }
 
-    public void commit()
-    {
-    }
-
-    public void rollback()
-    {
-    }
-
     /**
      * Returns the schemas provided by this connector.
      *
@@ -82,7 +74,7 @@ implements ConnectorMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         Optional<HDFSTableHandle> table = metaServer.getTable(tableName.getSchemaName(), tableName.getTableName());
-        return new HDFSTableHandle(connectorId, table.get().getSchemaName(), table.get().getTableName());
+        return table.get();
     }
 
     /**
@@ -98,12 +90,21 @@ implements ConnectorMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
+        // get table name from ConnectorTableHandle
+        // query tbl_params, and get fiber_col, timestamp_col and fiber_func
+        // create HDFSTableLayoutHandle
+        // ConnectorTableLayout layout = new ConnectorTableLayout(HDFSTableLayoutHandle)
+        // return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()))
         return null;
     }
 
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
+        // get table name from ConnectorTableHandle
+        // query tbl_params, and get fiber_col, timestamp_col and fiber_func
+        // create HDFSTableLayoutHandle
+        // ConnectorTableLayout layout = new ConnectorTableLayout(HDFSTableLayoutHandle)
         return null;
     }
 
@@ -119,6 +120,7 @@ implements ConnectorMetadata
     {
         HDFSTableHandle tableHandle = (HDFSTableHandle) table;
         SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
+        // new ConnectorTableMetadata(SchemaTableName tableName, List<ColumnMetadata> metadata)
         return null;
     }
 

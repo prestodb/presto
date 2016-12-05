@@ -87,25 +87,25 @@ implements Connector
         return transactionHandle;
     }
 
-    @Override
-    public void commit(ConnectorTransactionHandle transactionHandle)
-    {
-        HDFSMetadata metadata = (HDFSMetadata) transactionManager.remove(transactionHandle);
-        checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.commit();
-        }
-    }
+//    @Override
+//    public void commit(ConnectorTransactionHandle transactionHandle)
+//    {
+//        HDFSMetadata metadata = (HDFSMetadata) transactionManager.remove(transactionHandle);
+//        checkArgument(metadata != null, "no such transaction: %s", transactionHandle);
+//        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+//            metadata.commit();
+//        }
+//    }
 
-    @Override
-    public void rollback(ConnectorTransactionHandle transactionHandle)
-    {
-        HDFSMetadata metadata = (HDFSMetadata) transactionManager.remove(transactionHandle);
-        checkArgument(metadata != null, "no such transaction %s", transactionHandle);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            metadata.rollback();
-        }
-    }
+//    @Override
+//    public void rollback(ConnectorTransactionHandle transactionHandle)
+//    {
+//        HDFSMetadata metadata = (HDFSMetadata) transactionManager.remove(transactionHandle);
+//        checkArgument(metadata != null, "no such transaction %s", transactionHandle);
+//        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+//            metadata.rollback();
+//        }
+//    }
 
     /**
      * Guaranteed to be called at most once per transaction. The returned metadata will only be accessed

@@ -21,7 +21,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.LinkedList;
+
+import java.util.ArrayList;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -77,22 +78,26 @@ public class JDBCDriver
         }
     }
 
-    public List<Object> executreQuery(String sql)
+    public List<JDBCRecord> executreQuery(String sql, String[] fields)
     {
-        List<Object> resultL = new LinkedList<>();
+        List<JDBCRecord> recordList = new ArrayList<>();
         try (
                 PreparedStatement statement = connection.prepareStatement(sql);
                 ResultSet resultSet = statement.executeQuery()) {
             while (resultSet != null && resultSet.next()) {
-                resultL.add(resultSet.getString(0));
+                JDBCRecord record = new JDBCRecord();
+                for (String field : fields) {
+                    record.put(field, resultSet.getString(field));
+                }
+                recordList.add(record);
             }
         } catch (SQLException e) {
             log.error(e, "Sql prepare error.");
         }
-        return resultL;
+        return recordList;
     }
 
-    public int executeDDL(String sql)
+    public int executeUpdate(String sql)
     {
         try (
                 PreparedStatement statement = connection.prepareStatement(sql)

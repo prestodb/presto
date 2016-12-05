@@ -26,18 +26,21 @@ import static java.util.Objects.requireNonNull;
 public class HDFSTableLayoutHandle
 implements ConnectorTableLayoutHandle
 {
-    private final ConnectorTableLayout layout;
+    private final HDFSTableHandle table;
+    private HDFSColumnHandle fiberColumn;
+    private HDFSColumnHandle timestampColumn;
+    private String fiberFunc;
 
     @JsonCreator
     public HDFSTableLayoutHandle(
-            @JsonProperty("layout") ConnectorTableLayout layout)
+            @JsonProperty("layout") HDFSTableHandle table)
     {
-        this.layout = requireNonNull(layout, "layout is null");
+        this.table = requireNonNull(table, "table is null");
     }
 
     @JsonProperty
-    public ConnectorTableLayout getLayout()
+    public HDFSTableHandle getLayout()
     {
-        return layout;
+        return table;
     }
 }

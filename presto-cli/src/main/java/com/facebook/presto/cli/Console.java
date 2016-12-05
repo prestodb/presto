@@ -274,6 +274,7 @@ public class Console
 
     private static boolean isSessionParameterChange(Object statement)
     {
+        // if this is a USE statement
         return statement instanceof Use;
     }
 

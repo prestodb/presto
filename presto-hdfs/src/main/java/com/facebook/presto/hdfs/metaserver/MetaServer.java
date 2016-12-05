@@ -41,17 +41,13 @@ public interface MetaServer
 
     public boolean isDatabaseEmpty(ConnectorSession session, String databaseName);
 
-    public void dropDatabase(ConnectorSession session, String databaseName);
+//    public void dropDatabase(ConnectorSession session, String databaseName);
 
-    public void renameDatabase(ConnectorSession session, String source, String target);
+//    public void renameDatabase(ConnectorSession session, String source, String target);
 
     public void createTable(ConnectorSession session, HDFSTableHandle table);
 
-    public void dropTable(ConnectorSession session, String databaseName, String tableName);
+//    public void dropTable(ConnectorSession session, String databaseName, String tableName);
 
-    public void renameTable(ConnectorSession session, String databaseName, String tableName, String newDatabaseName, String newTableName);
-
-    public void commit();
-
-    public void rollback();
+//    public void renameTable(ConnectorSession session, String databaseName, String tableName, String newDatabaseName, String newTableName);
 }
