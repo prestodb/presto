@@ -11,32 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.metadata;
-
-import java.math.BigDecimal;
+package com.facebook.presto.orc.metadata.statistics;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DecimalStatistics
-        implements RangeStatistics<BigDecimal>
+public class DoubleStatistics
+        implements RangeStatistics<Double>
 {
-    private final BigDecimal minimum;
-    private final BigDecimal maximum;
+    private final Double minimum;
+    private final Double maximum;
 
-    public DecimalStatistics(BigDecimal minimum, BigDecimal maximum)
+    public DoubleStatistics(Double minimum, Double maximum)
     {
         this.minimum = minimum;
         this.maximum = maximum;
     }
 
     @Override
-    public BigDecimal getMin()
+    public Double getMin()
     {
         return minimum;
     }
 
     @Override
-    public BigDecimal getMax()
+    public Double getMax()
     {
         return maximum;
     }
@@ -45,8 +43,8 @@ public class DecimalStatistics
     public String toString()
     {
         return toStringHelper(this)
-                .add("minimum", minimum)
-                .add("maximum", maximum)
+                .add("min", minimum)
+                .add("max", maximum)
                 .toString();
     }
 }

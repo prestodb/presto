@@ -11,32 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.metadata;
+package com.facebook.presto.orc.metadata.statistics;
 
-import io.airlift.slice.Slice;
+import java.math.BigDecimal;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class StringStatistics
-        implements RangeStatistics<Slice>
+public class DecimalStatistics
+        implements RangeStatistics<BigDecimal>
 {
-    private final Slice minimum;
-    private final Slice maximum;
+    private final BigDecimal minimum;
+    private final BigDecimal maximum;
 
-    public StringStatistics(Slice minimum, Slice maximum)
+    public DecimalStatistics(BigDecimal minimum, BigDecimal maximum)
     {
         this.minimum = minimum;
         this.maximum = maximum;
     }
 
     @Override
-    public Slice getMin()
+    public BigDecimal getMin()
     {
         return minimum;
     }
 
     @Override
-    public Slice getMax()
+    public BigDecimal getMax()
     {
         return maximum;
     }
@@ -45,8 +45,8 @@ public class StringStatistics
     public String toString()
     {
         return toStringHelper(this)
-                .add("min", minimum)
-                .add("max", maximum)
+                .add("minimum", minimum)
+                .add("maximum", maximum)
                 .toString();
     }
 }

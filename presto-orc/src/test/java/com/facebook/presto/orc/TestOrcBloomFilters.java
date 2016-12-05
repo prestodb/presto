@@ -14,10 +14,10 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
-import com.facebook.presto.orc.metadata.ColumnStatistics;
-import com.facebook.presto.orc.metadata.HiveBloomFilter;
-import com.facebook.presto.orc.metadata.IntegerStatistics;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
+import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.facebook.presto.spi.predicate.Domain;

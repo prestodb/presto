@@ -14,8 +14,8 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.IntegerStatistics;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
+import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;

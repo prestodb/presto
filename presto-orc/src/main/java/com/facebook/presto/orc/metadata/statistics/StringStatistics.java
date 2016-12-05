@@ -11,30 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.metadata;
+package com.facebook.presto.orc.metadata.statistics;
+
+import io.airlift.slice.Slice;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class DoubleStatistics
-        implements RangeStatistics<Double>
+public class StringStatistics
+        implements RangeStatistics<Slice>
 {
-    private final Double minimum;
-    private final Double maximum;
+    private final Slice minimum;
+    private final Slice maximum;
 
-    public DoubleStatistics(Double minimum, Double maximum)
+    public StringStatistics(Slice minimum, Slice maximum)
     {
         this.minimum = minimum;
         this.maximum = maximum;
     }
 
     @Override
-    public Double getMin()
+    public Slice getMin()
     {
         return minimum;
     }
 
     @Override
-    public Double getMax()
+    public Slice getMax()
     {
         return maximum;
     }

@@ -11,19 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.metadata;
+package com.facebook.presto.orc.metadata.statistics;
 
-public class BooleanStatistics
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
+import static java.util.Objects.requireNonNull;
+
+public class StripeStatistics
 {
-    private final long trueValueCount;
+    private final List<ColumnStatistics> columnStatistics;
 
-    public BooleanStatistics(long trueValueCount)
+    public StripeStatistics(List<ColumnStatistics> columnStatistics)
     {
-        this.trueValueCount = trueValueCount;
+        this.columnStatistics = ImmutableList.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
     }
 
-    public long getTrueValueCount()
+    public List<ColumnStatistics> getColumnStatistics()
     {
-        return trueValueCount;
+        return columnStatistics;
     }
 }

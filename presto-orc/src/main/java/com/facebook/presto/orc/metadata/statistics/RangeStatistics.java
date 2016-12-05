@@ -11,25 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.metadata;
+package com.facebook.presto.orc.metadata.statistics;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
-
-import static java.util.Objects.requireNonNull;
-
-public class StripeStatistics
+public interface RangeStatistics<T>
 {
-    private final List<ColumnStatistics> columnStatistics;
+    T getMin();
 
-    public StripeStatistics(List<ColumnStatistics> columnStatistics)
-    {
-        this.columnStatistics = ImmutableList.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
-    }
-
-    public List<ColumnStatistics> getColumnStatistics()
-    {
-        return columnStatistics;
-    }
+    T getMax();
 }
