@@ -54,7 +54,7 @@ public class ClientOptions
     @Option(name = "--krb5-config-path", title = "krb5 config path", description = "Kerberos config file path (default: /etc/krb5.conf)")
     public String krb5ConfigPath = "/etc/krb5.conf";
 
-    @Option(name = "--krb5-keytab-path", title = "krb5 keytab path", description = "Kerberos key table path")
+    @Option(name = "--krb5-keytab-path", title = "krb5 keytab path", description = "Kerberos key table path (default: /etc/krb5.keytab)")
     public String krb5KeytabPath = "/etc/krb5.keytab";
 
     @Option(name = "--krb5-credential-cache-path", title = "krb5 credential cache path", description = "Kerberos credential cache path")
@@ -96,7 +96,7 @@ public class ClientOptions
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
-    @Option(name = "--log-levels-file", title = "log levels", description = "Configure log levels for debugging")
+    @Option(name = "--log-levels-file", title = "log levels file", description = "Configure log levels for debugging using this file")
     public String logLevelsFile;
 
     @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
