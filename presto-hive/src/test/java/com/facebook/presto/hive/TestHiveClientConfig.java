@@ -110,7 +110,8 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab(null)
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
-                .setBucketWritingEnabled(true));
+                .setBucketWritingEnabled(true)
+                .setFileSystemMaxCacheSize(1000));
     }
 
     @Test
@@ -192,6 +193,7 @@ public class TestHiveClientConfig
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
+                .put("hive.fs.cache.max-size", "1010")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -269,7 +271,8 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab("/tmp/presto.keytab")
                 .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
-                .setBucketWritingEnabled(false);
+                .setBucketWritingEnabled(false)
+                .setFileSystemMaxCacheSize(1010);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
