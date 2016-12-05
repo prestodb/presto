@@ -59,6 +59,8 @@ import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -125,6 +127,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
@@ -1227,37 +1230,11 @@ class StatementAnalyzer
         ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
 
         if (!items.isEmpty()) {
-            // Compute aliased output terms so we can resolve order by expressions against them first
-            ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
-            for (SelectItem item : node.getSelect().getSelectItems()) {
-                if (item instanceof SingleColumn) {
-                    Optional<String> alias = ((SingleColumn) item).getAlias();
-                    if (alias.isPresent()) {
-                        byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
-                    }
-                }
-            }
-            Multimap<QualifiedName, Expression> byAlias = byAliasBuilder.build();
-
             for (SortItem item : items) {
                 Expression expression = item.getSortKey();
 
-                Expression orderByExpression = null;
-                if (expression instanceof QualifiedNameReference && !((QualifiedNameReference) expression).getName().getPrefix().isPresent()) {
-                    // if this is a simple name reference, try to resolve against output columns
-
-                    QualifiedName name = ((QualifiedNameReference) expression).getName();
-                    Collection<Expression> expressions = byAlias.get(name);
-                    if (expressions.size() > 1) {
-                        throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
-                    }
-                    if (expressions.size() == 1) {
-                        orderByExpression = Iterables.getOnlyElement(expressions);
-                    }
-
-                    // otherwise, couldn't resolve name against output aliases, so fall through...
-                }
-                else if (expression instanceof LongLiteral) {
+                Expression orderByExpression;
+                if (expression instanceof LongLiteral) {
                     // this is an ordinal in the output tuple
 
                     long ordinal = ((LongLiteral) expression).getValue();
@@ -1273,10 +1250,8 @@ class StatementAnalyzer
 
                     orderByExpression = outputExpressions.get(field);
                 }
-
-                // otherwise, just use the expression as is
-                if (orderByExpression == null) {
-                    orderByExpression = expression;
+                else {
+                    orderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node)), expression);
                 }
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
@@ -1298,6 +1273,62 @@ class StatementAnalyzer
             throw new SemanticException(ORDER_BY_MUST_BE_IN_SELECT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
         }
         return orderByExpressions;
+    }
+
+    private static Multimap<QualifiedName, Expression> extractNamedOutputExpressions(QuerySpecification node)
+    {
+        // Compute aliased output terms so we can resolve order by expressions against them first
+        ImmutableMultimap.Builder<QualifiedName, Expression> assignments = ImmutableMultimap.builder();
+        for (SelectItem item : node.getSelect().getSelectItems()) {
+            if (item instanceof SingleColumn) {
+                SingleColumn column = (SingleColumn) item;
+                Optional<String> alias = column.getAlias();
+                if (alias.isPresent()) {
+                    assignments.put(QualifiedName.of(alias.get()), column.getExpression()); // TODO: need to know if alias was quoted
+                }
+                else if (column.getExpression() instanceof QualifiedNameReference) {
+                    assignments.put(((QualifiedNameReference) column.getExpression()).getName(), column.getExpression());
+                }
+            }
+        }
+
+        return assignments.build();
+    }
+
+    private static class OrderByExpressionRewriter
+            extends ExpressionRewriter<Void>
+    {
+        private final Multimap<QualifiedName, Expression> assignments;
+
+        public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
+        {
+            this.assignments = assignments;
+        }
+
+        @Override
+        public Expression rewriteQualifiedNameReference(QualifiedNameReference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            if (reference.getName().getPrefix().isPresent()) {
+                return reference;
+            }
+
+            // if this is a simple name reference, try to resolve against output columns
+            QualifiedName name = reference.getName();
+            Set<Expression> expressions = assignments.get(name)
+                    .stream()
+                    .collect(Collectors.toSet());
+
+            if (expressions.size() > 1) {
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name.getSuffix());
+            }
+
+            if (expressions.size() == 1) {
+                return Iterables.getOnlyElement(expressions);
+            }
+
+            // otherwise, couldn't resolve name against output aliases, so fall through...
+            return reference;
+        }
     }
 
     private List<List<Expression>> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
