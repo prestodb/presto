@@ -189,6 +189,12 @@ public final class SymbolAliases
             requireNonNull(symbolReference, "symbolReference is null");
 
             alias = toKey(alias);
+
+            // Special case to allow identity binding (i.e. "ALIAS" -> expression("ALIAS"))
+            if (bindings.containsKey(alias) && bindings.get(alias).equals(symbolReference)) {
+                return this;
+            }
+
             checkState(!bindings.containsKey(alias), "Alias '%s' already bound to expression '%s'. Tried to rebind to '%s'", alias, bindings.get(alias), symbolReference);
             checkState(!bindings.values().contains(symbolReference), "Expression '%s' is already bound in %s. Tried to rebind as '%s'.", symbolReference, bindings, alias);
             bindings.put(alias, symbolReference);
