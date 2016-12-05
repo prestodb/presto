@@ -80,6 +80,7 @@ import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ProjectionFunctions;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.security.AccessControlConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -272,7 +273,7 @@ public class LocalQueryRunner
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        this.accessControl = new TestingAccessControlManager(transactionManager);
+        this.accessControl = new TestingAccessControlManager(transactionManager, new AccessControlConfig());
         this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
 

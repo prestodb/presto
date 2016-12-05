@@ -59,7 +59,7 @@ public class TestAccessControlManager
     public void testInitializing()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), new AccessControlConfig());
         accessControlManager.checkCanSetUser(null, "foo");
     }
 
@@ -67,7 +67,7 @@ public class TestAccessControlManager
     public void testNoneSystemAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), new AccessControlConfig());
         accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
         accessControlManager.checkCanSetUser(null, USER_NAME);
     }
@@ -76,7 +76,7 @@ public class TestAccessControlManager
     public void testSetAccessControl()
             throws Exception
     {
-        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
+        AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager(), new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -92,7 +92,7 @@ public class TestAccessControlManager
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -110,7 +110,7 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
@@ -131,7 +131,7 @@ public class TestAccessControlManager
     {
         CatalogManager catalogManager = new CatalogManager();
         TransactionManager transactionManager = createTestTransactionManager(catalogManager);
-        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("test");
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);

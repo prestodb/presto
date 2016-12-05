@@ -34,9 +34,8 @@ Configuration
 
 After a plugin that implements ``SystemAccessControl`` and
 ``SystemAccessControlFactory`` has been installed on the coordinator, it is
-configured using an ``etc/access-control.properties`` file. All of the properties
-other than ``access-control.name`` are specific to the ``SystemAccessControl``
-implementation.
+configured using a file specified in ``access-control.config-path`` property of ``config.properties`` (by default it points to ``etc/access-control.properties`` file).
+All of the properties other than ``access-control.name`` are specific to the ``SystemAccessControl`` implementation.
 
 The ``access-control.name`` property is used by Presto to find a registered
 ``SystemAccessControlFactory`` based on the name returned by
