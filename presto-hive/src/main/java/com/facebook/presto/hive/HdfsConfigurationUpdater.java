@@ -70,6 +70,7 @@ public class HdfsConfigurationUpdater
     private final boolean pinS3ClientToCurrentRegion;
     private final String s3UserAgentPrefix;
     private final HiveCompressionCodec compressionCodec;
+    private final int fileSystemMaxCacheSize;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
@@ -106,6 +107,7 @@ public class HdfsConfigurationUpdater
         this.pinS3ClientToCurrentRegion = hiveClientConfig.isPinS3ClientToCurrentRegion();
         this.s3UserAgentPrefix = hiveClientConfig.getS3UserAgentPrefix();
         this.compressionCodec = hiveClientConfig.getHiveCompressionCodec();
+        this.fileSystemMaxCacheSize = hiveClientConfig.getFileSystemMaxCacheSize();
     }
 
     public void updateConfiguration(Configuration config)
@@ -160,6 +162,8 @@ public class HdfsConfigurationUpdater
         if (s3SignerType != null) {
             config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, s3SignerType.getSignerType());
         }
+
+        config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
 
         configureCompression(config, compressionCodec);
 
