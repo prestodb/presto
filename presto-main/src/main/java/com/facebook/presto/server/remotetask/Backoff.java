@@ -24,7 +24,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
-class Backoff
+public class Backoff
 {
     private final long minFailureIntervalNanos;
     private final long maxFailureIntervalNanos;
@@ -33,6 +33,7 @@ class Backoff
     private final long createTime;
 
     private long lastSuccessTime;
+    private long firstRequestAfterSuccessTime;
     private long lastFailureTime;
     private long failureCount;
 
@@ -66,6 +67,7 @@ class Backoff
         }
 
         this.lastSuccessTime = this.ticker.read();
+        this.firstRequestAfterSuccessTime = Long.MIN_VALUE;
         this.createTime = this.ticker.read();
     }
 
@@ -79,6 +81,13 @@ class Backoff
         long lastSuccessfulRequest = this.lastSuccessTime;
         long value = ticker.read() - lastSuccessfulRequest;
         return new Duration(value, NANOSECONDS).convertToMostSuccinctTimeUnit();
+    }
+
+    public synchronized void startRequest()
+    {
+        if (firstRequestAfterSuccessTime < lastSuccessTime) {
+            firstRequestAfterSuccessTime = ticker.read();
+        }
     }
 
     public synchronized void success()
@@ -100,7 +109,6 @@ class Backoff
 
         failureCount++;
 
-        long timeSinceLastSuccess = now - lastSuccessfulRequest;
         long failureInterval;
         if (lastSuccessfulRequest - createTime > maxFailureIntervalNanos) {
             failureInterval = maxFailureIntervalNanos;
@@ -108,7 +116,16 @@ class Backoff
         else {
             failureInterval = Math.max(lastSuccessfulRequest - createTime, minFailureIntervalNanos);
         }
-        return timeSinceLastSuccess >= failureInterval;
+        long failureDuration;
+        if (firstRequestAfterSuccessTime < lastSuccessTime) {
+            // If user didn't call startRequest(), use the time of the last success
+            failureDuration = now - lastSuccessfulRequest;
+        }
+        else {
+            // Otherwise only count the time since the first request that started failing
+            failureDuration = now - firstRequestAfterSuccessTime;
+        }
+        return failureDuration >= failureInterval;
     }
 
     public synchronized long getBackoffDelayNanos()
