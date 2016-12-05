@@ -61,6 +61,7 @@ public class ExchangeClient
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
+    private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final ScheduledExecutorService executor;
 
@@ -99,6 +100,7 @@ public class ExchangeClient
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
+            Duration maxErrorDuration,
             HttpClient httpClient,
             ScheduledExecutorService executor,
             SystemMemoryUsageListener systemMemoryUsageListener)
@@ -108,6 +110,7 @@ public class ExchangeClient
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.minErrorDuration = minErrorDuration;
+        this.maxErrorDuration = maxErrorDuration;
         this.httpClient = httpClient;
         this.executor = executor;
         this.systemMemoryUsageListener = systemMemoryUsageListener;
@@ -270,6 +273,7 @@ public class ExchangeClient
                         httpClient,
                         maxResponseSize,
                         minErrorDuration,
+                        maxErrorDuration,
                         location,
                         new ExchangeClientCallback(),
                         blockEncodingSerde,

@@ -51,6 +51,31 @@ public class TestBackoff
     }
 
     @Test
+    public void testStartRequest()
+    {
+        TestingTicker ticker = new TestingTicker();
+        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
+        ticker.increment(10, MICROSECONDS);
+
+        assertEquals(backoff.getFailureCount(), 0);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 0);
+
+        ticker.increment(14, SECONDS);
+        backoff.startRequest();
+        ticker.increment(14, SECONDS);
+
+        assertFalse(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 1);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 28);
+
+        ticker.increment(1, SECONDS);
+
+        assertTrue(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 2);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 29);
+    }
+
+    @Test
     public void testMaxFailureInterval()
     {
         TestingTicker ticker = new TestingTicker();
