@@ -18,6 +18,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementIntersectAndExcept;
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
@@ -97,6 +98,7 @@ public class PlanOptimizers
                 new IterativeOptimizer(ImmutableSet.of(
                         new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
                         new ImplementBernoulliSampleAsFilter(),
+                        new ImplementIntersectAndExcept(),
 
                         new UnaliasProject(),
                         new UnaliasFilter(),
