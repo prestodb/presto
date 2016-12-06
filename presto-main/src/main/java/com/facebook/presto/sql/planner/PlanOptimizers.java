@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.iterative.rule.ImplementIntersectAndExcep
 import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
 import com.facebook.presto.sql.planner.iterative.rule.MergeIntersections;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.MergeUnions;
@@ -131,7 +132,8 @@ public class PlanOptimizers
                         new PushLimitThroughMarkDistinct(),
                         new MergeLimits(),
                         new MergeLimitWithDistinct(),
-                        new MergeLimitWithTopN()
+                        new MergeLimitWithTopN(),
+                        new MergeLimitWithSort()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
