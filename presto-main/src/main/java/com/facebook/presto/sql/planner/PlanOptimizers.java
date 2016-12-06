@@ -87,7 +87,8 @@ public class PlanOptimizers
                 new CanonicalizeExpressions(),
                 new IterativeOptimizer(ImmutableSet.of(
                         new SimplifyCountOverConstant(),
-                        new ImplementBernoulliSampleAsFilter()
+                        new ImplementBernoulliSampleAsFilter(),
+                        new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),

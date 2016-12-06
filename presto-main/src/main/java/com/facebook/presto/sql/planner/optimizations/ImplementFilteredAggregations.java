@@ -56,6 +56,7 @@ import static java.util.Objects.requireNonNull;
  *         - X
  * </pre>
  */
+@Deprecated
 public class ImplementFilteredAggregations
         implements PlanOptimizer
 {
