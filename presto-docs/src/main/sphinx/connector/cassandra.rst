@@ -174,3 +174,60 @@ This table can be described in Presto::
 This table can then be queried in Presto::
 
     SELECT * FROM cassandra.mykeyspace.users;
+
+Data types
+----------
+
+The data types mappings are as follows:
+
+================  ======
+Cassandra         Presto
+================  ======
+ASCII             VARCHAR
+BIGINT            BIGINT
+BLOB              VARBINARY
+BOOLEAN           BOOLEAN
+DECIMAL           DOUBLE
+DOUBLE            DOUBLE
+FLOAT             DOUBLE
+INET              VARCHAR(45)
+INT               INTEGER
+LIST<?>           VARCHAR
+MAP<?, ?>         VARCHAR
+SET<?>            VARCHAR
+TEXT              VARCHAR
+TIMESTAMP         TIMESTAMP
+TIMEUUID          VARCHAR
+VARCHAR           VARCHAR
+VARIANT           VARCHAR
+================  ======
+
+Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
+mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
+
+Types not mentioned in the table above are not supported (e.g. tuple or UDT).
+
+Partition keys can only be of the following types:
+| ASCII
+| TEXT
+| VARCHAR
+| BIGINT
+| BOOLEAN
+| DOUBLE
+| INET
+| INT
+| FLOAT
+| DECIMAL
+| TIMESTAMP
+| UUID
+| TIMEUUID
+
+Limitations
+-----------
+
+* Queries without filters containing the partition key result in fetching all partitions.
+  This causes a full scan of the entire data set, therefore it's much slower compared to a similar
+  query with a partition key as a filter.
+* ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
+* Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.
+* Non-equality predicates on clustering keys are not pushed down (only ``=`` and ``IN`` are pushed down) .
