@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,6 +62,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.unwrapCompletionException;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
@@ -748,14 +748,5 @@ public class QueryStateMachine
     private Duration nanosSince(long start)
     {
         return succinctNanos(tickerNanos() - start);
-    }
-
-    // TODO: move to Airlift MoreFutures
-    private static Throwable unwrapCompletionException(Throwable throwable)
-    {
-        if (throwable instanceof CompletionException) {
-            return throwable.getCause();
-        }
-        return throwable;
     }
 }
