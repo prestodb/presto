@@ -72,6 +72,12 @@ public class TestApplyFunction
     }
 
     @Test
+    public void testUnreferencedLambdaArgument()
+    {
+        assertFunction("apply(5, x -> 6)", INTEGER, 6);
+    }
+
+    @Test
     public void testSessionDependent()
             throws Exception
     {

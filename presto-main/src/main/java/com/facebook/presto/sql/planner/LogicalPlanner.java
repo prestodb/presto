@@ -384,11 +384,15 @@ public class LogicalPlanner
     private static IdentityHashMap<LambdaArgumentDeclaration, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
         IdentityHashMap<LambdaArgumentDeclaration, Symbol> resultMap = new IdentityHashMap<>();
-        for (LambdaArgumentDeclaration lambdaArgumentDeclaration : analysis.getLambdaArgumentReferences().values()) {
+        for (Map.Entry<Expression, Type> entry : analysis.getTypes().entrySet()) {
+            if (!(entry.getKey() instanceof LambdaArgumentDeclaration)) {
+                continue;
+            }
+            LambdaArgumentDeclaration lambdaArgumentDeclaration = (LambdaArgumentDeclaration) entry.getKey();
             if (resultMap.containsKey(lambdaArgumentDeclaration)) {
                 continue;
             }
-            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration, analysis.getType(lambdaArgumentDeclaration)));
+            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration, entry.getValue()));
         }
         return resultMap;
     }
