@@ -39,6 +39,8 @@ Property Value                                     Description
                                                    :doc:`/sql/revoke` commands.
 ================================================== ============================================================
 
+Ensure that authentication has been enabled when enabling authorization checks.
+
 Authentication
 ==============
 

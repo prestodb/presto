@@ -26,6 +26,10 @@ The optional ``WITH GRANT OPTION`` clause allows the grantee to grant these same
 
 For ``GRANT`` statement to succeed, the user executing it should possess the specified privileges as well as the ``GRANT OPTION`` for those privileges.
 
+.. note::
+
+    Ensure that authentication has been enabled before running any of the authorization commands.
+
 Examples
 --------
 
