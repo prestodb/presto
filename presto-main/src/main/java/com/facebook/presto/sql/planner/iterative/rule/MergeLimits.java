@@ -46,6 +46,6 @@ public class MergeLimits
                         parent.getId(),
                         child.getSource(),
                         Math.min(parent.getCount(), child.getCount()),
-                        parent.isPartial()));
+                        parent.getStep()));
     }
 }

@@ -495,15 +495,20 @@ public class AddExchanges
 
             if (!child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
-                        new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount(), true),
+                        new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount(), LimitNode.Step.PARTIAL),
                         child.getProperties());
 
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
-            }
 
-            return rebaseAndDeriveProperties(node, child);
+                return withDerivedProperties(
+                        new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount(), LimitNode.Step.FINAL),
+                        child.getProperties());
+            }
+            else {
+                return rebaseAndDeriveProperties(node, child);
+            }
         }
 
         @Override

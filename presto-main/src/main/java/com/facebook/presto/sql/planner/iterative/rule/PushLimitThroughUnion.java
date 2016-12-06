@@ -17,14 +17,16 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-public class MergeLimitWithTopN
-    implements Rule
+public class PushLimitThroughUnion
+        implements Rule
 {
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
@@ -35,24 +37,27 @@ public class MergeLimitWithTopN
 
         LimitNode parent = (LimitNode) node;
 
+        if (parent.getStep() == LimitNode.Step.FINAL) {
+            return Optional.empty();
+        }
+
         PlanNode source = lookup.resolve(parent.getSource());
-        if (!(source instanceof TopNNode)) {
+        if (!(source instanceof UnionNode)) {
             return Optional.empty();
         }
 
-        TopNNode child = (TopNNode) source;
+        UnionNode child = (UnionNode) source;
 
-        if (parent.getCount() < 1) {
-            return Optional.empty();
+        PlanNode result = ChildReplacer.replaceChildren(
+                child,
+                child.getSources().stream()
+                        .map(s -> new LimitNode(idAllocator.getNextId(), s, parent.getCount(), LimitNode.Step.PARTIAL))
+                        .collect(Collectors.toList()));
+
+        if (parent.getStep() != LimitNode.Step.PARTIAL) {
+            result = new LimitNode(parent.getId(), result, parent.getCount(), LimitNode.Step.FINAL);
         }
 
-        return Optional.of(
-                new TopNNode(
-                        parent.getId(),
-                        child.getSource(),
-                        Math.min(parent.getCount(), child.getCount()),
-                        child.getOrderBy(),
-                        child.getOrderings(),
-                        parent.getStep() == LimitNode.Step.PARTIAL));
+        return Optional.of(result);
     }
 }
