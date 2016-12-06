@@ -40,6 +40,16 @@ public class TestArrayFilterFunction
     }
 
     @Test
+    public void testEmpty()
+            throws Exception
+    {
+        assertFunction("filter(ARRAY [], x -> true)", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("filter(ARRAY [], x -> false)", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("filter(ARRAY [], x -> CAST (null AS BOOLEAN))", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("filter(CAST (ARRAY [] AS ARRAY(INTEGER)), x -> true)", new ArrayType(INTEGER), ImmutableList.of());
+    }
+
+    @Test
     public void testNull()
             throws Exception
     {
