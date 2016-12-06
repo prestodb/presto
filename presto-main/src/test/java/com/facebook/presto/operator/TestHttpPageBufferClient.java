@@ -98,8 +98,7 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -183,8 +182,7 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -223,8 +221,7 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -291,8 +288,7 @@ public class TestHttpPageBufferClient
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
