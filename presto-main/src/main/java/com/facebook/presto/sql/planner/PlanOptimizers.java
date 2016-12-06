@@ -18,6 +18,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasProject;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -82,7 +83,9 @@ public class PlanOptimizers
                 new CanonicalizeExpressions(),
                 new IterativeOptimizer(ImmutableSet.of(
                         new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
-                        new ImplementBernoulliSampleAsFilter()
+                        new ImplementBernoulliSampleAsFilter(),
+
+                        new UnaliasProject()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
