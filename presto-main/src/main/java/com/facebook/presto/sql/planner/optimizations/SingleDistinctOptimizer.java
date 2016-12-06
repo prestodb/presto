@@ -52,6 +52,7 @@ import static java.util.Objects.requireNonNull;
  * All unused mask will be removed by PruneUnreferencedOutputs
  * Remove Distincts in the original AggregationNode
  */
+@Deprecated
 public class SingleDistinctOptimizer
         implements PlanOptimizer
 {
