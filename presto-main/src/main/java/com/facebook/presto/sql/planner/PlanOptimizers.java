@@ -79,7 +79,9 @@ public class PlanOptimizers
         builder.add(
                 new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new CanonicalizeExpressions(),
-                new IterativeOptimizer(ImmutableSet.of()),
+                new IterativeOptimizer(ImmutableSet.of(
+                        new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations()
+                )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
                 new SimplifyExpressions(metadata, sqlParser),
