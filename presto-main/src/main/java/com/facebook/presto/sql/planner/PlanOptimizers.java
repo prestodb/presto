@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
@@ -94,6 +95,7 @@ public class PlanOptimizers
                         new PushLimitThroughProject(),
                         new MergeLimits(),
                         new MergeLimitWithSort(),
+                        new MergeLimitWithTopN(),
 
                         new PruneValuesColumns(),
                         new PruneTableScanColumns(),
