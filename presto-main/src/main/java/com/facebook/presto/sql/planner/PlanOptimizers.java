@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
+import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -94,7 +95,8 @@ public class PlanOptimizers
                         new PruneValuesColumns(),
                         new SimplifyCountOverConstant(),
                         new ImplementBernoulliSampleAsFilter(),
-                        new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations()
+                        new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
+                        new SingleMarkDistinctToGroupBy()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
