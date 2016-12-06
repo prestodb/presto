@@ -17,7 +17,11 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+<<<<<<< d8ee2c6658af0c6ee81d33427fd9bcb977565e38
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
+=======
+import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
+>>>>>>> Migrate ImplementSampleAsFilter to iterative optimizer
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -82,7 +86,8 @@ public class PlanOptimizers
                 new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new CanonicalizeExpressions(),
                 new IterativeOptimizer(ImmutableSet.of(
-                        new SimplifyCountOverConstant()
+                        new SimplifyCountOverConstant(),
+                        new ImplementBernoulliSampleAsFilter()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
