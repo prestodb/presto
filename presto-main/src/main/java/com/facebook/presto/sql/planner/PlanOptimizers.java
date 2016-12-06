@@ -76,9 +76,9 @@ public class PlanOptimizers
 
         builder.add(
                 new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
+                new CanonicalizeExpressions(),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
-                new CanonicalizeExpressions(),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
