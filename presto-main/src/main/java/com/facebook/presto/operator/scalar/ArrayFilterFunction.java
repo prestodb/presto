@@ -97,8 +97,7 @@ public final class ArrayFilterFunction
                 throw Throwables.propagate(throwable);
             }
             if (TRUE.equals(keep)) {
-                block.writePositionTo(position, resultBuilder);
-                resultBuilder.closeEntry();
+                type.appendTo(block, position, resultBuilder);
             }
         }
         return resultBuilder.build();
