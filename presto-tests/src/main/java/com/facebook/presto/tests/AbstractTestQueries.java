@@ -1679,6 +1679,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (VALUES 1, 2) " +
                         "INTERSECT SELECT * FROM (VALUES 1.0, 2)",
                 "VALUES 1.0, 2.0");
+        assertQuery("SELECT NULL, NULL INTERSECT SELECT NULL, NULL FROM nation");
 
         MaterializedResult emptyResult = computeActual("SELECT 100 INTERSECT (SELECT regionkey FROM nation WHERE nationkey <10)");
         assertEquals(emptyResult.getMaterializedRows().size(), 0);
@@ -1737,6 +1738,7 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT * FROM (VALUES 1, 2) " +
                         "EXCEPT SELECT * FROM (VALUES 3.0, 2)");
+        assertQuery("SELECT NULL, NULL EXCEPT SELECT NULL, NULL FROM nation");
 
         MaterializedResult emptyResult = computeActual("SELECT 0 EXCEPT (SELECT regionkey FROM nation WHERE nationkey <10)");
         assertEquals(emptyResult.getMaterializedRows().size(), 0);
@@ -5226,6 +5228,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders UNION SELECT custkey FROM orders");
         assertQuery("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123");
         assertQuery("SELECT NULL UNION SELECT NULL");
+        assertQuery("SELECT NULL, NULL UNION ALL SELECT NULL, NULL FROM nation");
 
         // mixed single-node vs fixed vs source-distributed
         assertQuery("SELECT orderkey FROM orders UNION ALL SELECT 123 UNION ALL (SELECT custkey FROM orders GROUP BY custkey)");
