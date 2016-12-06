@@ -214,7 +214,7 @@ public class TestHiveCoercion
     {
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
-        executeHiveQuery(format("INSERT INTO %s " +
+        executeHiveQuery(format("INSERT INTO TABLE %s " +
                 "PARTITION (id=1) " +
                 "VALUES" +
                 "(-1, 2, -3, 100, -101, 2323, 12345, '-1025', 0.5)," +
