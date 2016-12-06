@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeIntersections;
 import com.facebook.presto.sql.planner.iterative.rule.MergeUnions;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasAggregation;
@@ -120,7 +121,9 @@ public class PlanOptimizers
                         new MergeIntersections(),
 
                         new PruneTableScanColumns(),
-                        new PruneValuesColumns()
+                        new PruneValuesColumns(),
+
+                        new PushLimitThroughProject()
                 )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
