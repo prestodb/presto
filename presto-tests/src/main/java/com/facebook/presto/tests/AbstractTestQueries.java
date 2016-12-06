@@ -2682,6 +2682,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT x FROM (VALUES 2) t(x) where MAP(ARRAY[8589934592], ARRAY[x]) IN (VALUES MAP(ARRAY[8589934592],ARRAY[2]))",
                 "SELECT 2");
+        assertQuery(
+                "SELECT a IN (VALUES 2), a FROM (VALUES (2)) t(a)",
+                "SELECT TRUE, 2");
     }
 
     @Test
