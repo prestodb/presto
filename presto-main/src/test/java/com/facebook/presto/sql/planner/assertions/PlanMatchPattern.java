@@ -50,6 +50,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
@@ -173,6 +174,11 @@ public final class PlanMatchPattern
         PlanMatchPattern result = output(source);
         result.withOutputs(outputs);
         return result;
+    }
+
+    public static PlanMatchPattern strictOutput(List<String> outputs, PlanMatchPattern source)
+    {
+        return output(outputs, source).with(new StrictSymbolsMatcher(actualOutputs(), outputs));
     }
 
     public static PlanMatchPattern project(PlanMatchPattern source)

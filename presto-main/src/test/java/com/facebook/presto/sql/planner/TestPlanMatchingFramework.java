@@ -31,9 +31,11 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictOutput;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static org.testng.Assert.fail;
 
 public class TestPlanMatchingFramework
         extends BasePlanTest
@@ -66,6 +68,15 @@ public class TestPlanMatchingFramework
                          */
                         anyTree(
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+    }
+
+    @Test
+    public void testStrictOutput()
+    {
+        assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+                strictOutput(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
+                        tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                                "EXTENDEDPRICE", "extendedprice"))));
     }
 
     @Test
@@ -167,6 +178,20 @@ public class TestPlanMatchingFramework
         assertMinimallyOptimizedPlan("SELECT orderkey FROM lineitem",
                 output(ImmutableList.of("NXALIAS"),
                         tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))));
+    }
+
+    @Test
+    public void testStrictOutputFail()
+    {
+        try {
+            assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+                    strictOutput(ImmutableList.of("ORDERKEY"),
+                            tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
+                                    "EXTENDEDPRICE", "extendedprice"))));
+            fail("Plans should not have matched!");
+        } catch (AssertionError e) {
+            //ignored
+        }
     }
 
     @Test(expectedExceptions = { IllegalStateException.class }, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
