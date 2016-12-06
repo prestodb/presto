@@ -8101,4 +8101,147 @@ public abstract class AbstractTestQueries
                         "WHERE a = 1)",
                 "VALUES 3008750");
     }
+    @Test
+    public void testJoinIsNotDistinctArray()
+    {
+        assertQuery(
+                "SELECT x.a[1], x.a[2], x.p, y.p FROM (\n" +
+                        "  VALUES\n" +
+                        "    (ARRAY[2, 5],       1),\n" +
+                        "    (ARRAY[1, NULL],    2),\n" +
+                        "    (ARRAY[NULL, 6],    3),\n" +
+                        "    (ARRAY[NULL, NULL], 4)\n" +
+                        ") AS x(a, p)\n" +
+                        "JOIN (\n" +
+                        "  VALUES\n" +
+                        "    (ARRAY[2, 5],       1),\n" +
+                        "    (ARRAY[1, NULL],    2),\n" +
+                        "    (ARRAY[1, NULL],    3),\n" +
+                        "    (ARRAY[1, 3],       4),\n" +
+                        "    (ARRAY[NULL, NULL], 5),\n" +
+                        "    (ARRAY[NULL, 7],    6),\n" +
+                        "    (ARRAY[2, 6],       7)\n" +
+                        ") AS y(a, p)\n" +
+                        "ON x.a IS NOT DISTINCT FROM y.a\n" +
+                        "ORDER BY x.p, y.p\n",
+                "SELECT * FROM VALUES\n" +
+                        "(2, 5,       1, 1),\n" +
+                        "(1, NULL,    2, 2),\n" +
+                        "(1, NULL,    2, 3),\n" +
+                        "(NULL, NULL, 4, 5)\n"
+        );
+    }
+
+    @Test
+    public void testJoinIsNotDistinctVarchar()
+    {
+        assertQuery(
+                "SELECT x.s, x.p, y.p FROM (\n" +
+                        "  VALUES\n" +
+                        "    ('cat', 1),\n" +
+                        "    ('dog', 2),\n" +
+                        "    (NULL,  3)\n" +
+                        ") AS x(s, p)\n" +
+                        "JOIN (\n" +
+                        "  VALUES\n" +
+                        "    ('cat', 1),\n" +
+                        "    ('cat', 2),\n" +
+                        "    ('fox', 3),\n" +
+                        "    (NULL,  4),\n" +
+                        "    (NULL,  5)\n" +
+                        ") AS y(s, p)\n" +
+                        "ON x.s IS NOT DISTINCT FROM y.s\n" +
+                        "ORDER BY x.p, y.p\n",
+                "SELECT * FROM VALUES\n" +
+                        "('cat', 1, 1),\n" +
+                        "('cat', 1, 2),\n" +
+                        "(NULL,  3, 4),\n" +
+                        "(NULL,  3, 5)\n"
+        );
+    }
+
+    @Test
+    public void testJoinIsNotDistinctInteger()
+    {
+        assertQuery(
+                "SELECT x.i, x.p, y.p FROM (\n" +
+                        "  VALUES\n" +
+                        "    (1000, 1),\n" +
+                        "    (2000, 2),\n" +
+                        "    (NULL, 3)\n" +
+                        ") AS x(i, p)\n" +
+                        "JOIN (\n" +
+                        "  VALUES\n" +
+                        "    (1000, 1),\n" +
+                        "    (1000, 2),\n" +
+                        "    (3000, 3),\n" +
+                        "    (NULL, 4),\n" +
+                        "    (NULL, 5)\n" +
+                        ") AS y(i, p)\n" +
+                        "ON x.i IS NOT DISTINCT FROM y.i\n" +
+                        "ORDER BY x.p, y.p\n",
+                "SELECT * FROM VALUES\n" +
+                        "(1000, 1, 1),\n" +
+                        "(1000, 1, 2),\n" +
+                        "(NULL, 3, 4),\n" +
+                        "(NULL, 3, 5)\n"
+        );
+    }
+
+    @Test
+    public void testJoinIsNotDistinctTwoColumns()
+    {
+        assertQuery(
+                "SELECT x.a[1], x.a[2], x.i, x.p, y.p FROM (\n" +
+                        "  VALUES\n" +
+                        "    (ARRAY[1, NULL],    5, 11),\n" +
+                        "    (ARRAY[7, NULL],    5, 12),\n" +
+                        "    (ARRAY[1, 2],       5, 13),\n" +
+                        "    (ARRAY[1, 7],       5, 14),\n" +
+                        "    (ARRAY[2, 7],       5, 15),\n" +
+                        "    (ARRAY[NULL, NULL], 5, 16),\n" +
+                        "    (ARRAY[NULL, 2],    5, 17),\n" +
+                        "    (ARRAY[NULL, 7],    5, 18),\n" +
+                        "    (ARRAY[1, NULL],    NULL, 21),\n" +
+                        "    (ARRAY[7, NULL],    NULL, 22),\n" +
+                        "    (ARRAY[1, 2],       NULL, 23),\n" +
+                        "    (ARRAY[1, 7],       NULL, 24),\n" +
+                        "    (ARRAY[2, 7],       NULL, 25),\n" +
+                        "    (ARRAY[NULL, NULL], NULL, 26),\n" +
+                        "    (ARRAY[NULL, 2],    NULL, 27),\n" +
+                        "    (ARRAY[NULL, 7],    NULL, 28),\n" +
+                        "    (ARRAY[1, NULL],    8, 31),\n" +
+                        "    (ARRAY[7, NULL],    8, 32),\n" +
+                        "    (ARRAY[1, 2],       8, 33),\n" +
+                        "    (ARRAY[1, 7],       8, 34),\n" +
+                        "    (ARRAY[2, 7],       8, 35),\n" +
+                        "    (ARRAY[NULL, NULL], 8, 36),\n" +
+                        "    (ARRAY[NULL, 2],    8, 37),\n" +
+                        "    (ARRAY[NULL, 7],    8, 38)\n" +
+                        ") AS x(a, i, p)\n" +
+                        "JOIN (\n" +
+                        "  VALUES\n" +
+                        "    (ARRAY[1,    NULL], 5, 1),\n" +
+                        "    (ARRAY[1,    2],    5, 2),\n" +
+                        "    (ARRAY[NULL, NULL], 5, 3),\n" +
+                        "    (ARRAY[NULL, 7],    5, 4),\n" +
+                        "    (ARRAY[7,    NULL], NULL, 1),\n" +
+                        "    (ARRAY[1,    7],    NULL, 2),\n" +
+                        "    (ARRAY[NULL, NULL], NULL, 3),\n" +
+                        "    (ARRAY[NULL, 2],    NULL, 4)\n" +
+                        ") AS y(a, i, p)\n" +
+                        "ON x.a IS NOT DISTINCT FROM y.a AND\n" +
+                        "   x.i IS NOT DISTINCT FROM y.i\n" +
+                        "ORDER BY x.p, y.p\n",
+                "SELECT * FROM VALUES\n" +
+                        "(1, NULL,    5, 11, 1),\n" +
+                        "(1, 2,       5, 13, 2),\n" +
+                        "(NULL, NULL, 5, 16, 3),\n" +
+                        "(NULL, 7,    5, 18, 4),\n" +
+                        "(7, NULL,    NULL, 22, 1),\n" +
+                        "(1, 7,       NULL, 24, 2),\n" +
+                        "(NULL, NULL, NULL, 26, 3),\n" +
+                        "(NULL, 2,    NULL, 27, 4)\n"
+        );
+    }
 }

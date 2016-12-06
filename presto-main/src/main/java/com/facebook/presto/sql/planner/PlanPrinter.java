@@ -496,7 +496,8 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
+                joinExpressions.add(new ComparisonExpression(
+                        clause.getComparison(),
                         clause.getLeft().toSymbolReference(),
                         clause.getRight().toSymbolReference()));
             }

@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static com.facebook.presto.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
@@ -252,7 +253,7 @@ public final class PlanMatchPattern
 
     public static ExpectedValueProvider<JoinNode.EquiJoinClause> equiJoinClause(String left, String right)
     {
-        return new EquiJoinClauseProvider(new SymbolAlias(left), new SymbolAlias(right));
+        return new EquiJoinClauseProvider(new SymbolAlias(left), new SymbolAlias(right), EQUAL);
     }
 
     public static SymbolAlias symbol(String alias)

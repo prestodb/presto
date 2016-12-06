@@ -25,8 +25,10 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Ints;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.AfterMethod;
@@ -45,6 +47,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -84,7 +87,7 @@ public class TestJoinProbeCompiler
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, DOUBLE);
         ImmutableList<Type> outputTypes = ImmutableList.of(VARCHAR);
         List<Integer> outputChannels = ImmutableList.of(0);
-        LookupSourceSupplierFactory lookupSourceSupplierFactory = joinCompiler.compileLookupSourceFactory(types, Ints.asList(0));
+        LookupSourceSupplierFactory lookupSourceSupplierFactory = joinCompiler.compileLookupSourceFactory(types, nCopies(1, ComparisonExpressionType.EQUAL), Ints.asList(0));
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
         List<Block> varcharChannel = ImmutableList.of(
@@ -130,6 +133,7 @@ public class TestJoinProbeCompiler
                 types,
                 outputChannels,
                 Ints.asList(0),
+                Booleans.asList(false),
                 hashChannel);
 
         Page page = SequencePageBuilder.createSequencePage(types, 10, 10, 10);

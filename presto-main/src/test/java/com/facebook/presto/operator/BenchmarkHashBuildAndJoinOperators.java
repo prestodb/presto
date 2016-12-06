@@ -18,6 +18,7 @@ import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFacto
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,6 +53,7 @@ import static com.facebook.presto.util.Threads.checkNotSameThreadExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -276,6 +278,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 outputChannels,
                 ImmutableMap.of(),
                 buildContext.getHashChannels(),
+                nCopies(buildContext.getHashChannels().size(), ComparisonExpressionType.EQUAL),
                 buildContext.getHashChannel(),
                 false,
                 Optional.empty(),
@@ -306,6 +309,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 lookupSourceFactory,
                 joinContext.getTypes(),
                 joinContext.getHashChannels(),
+                nCopies(joinContext.getHashChannels().size(), Boolean.FALSE),
                 joinContext.getHashChannel(),
                 Optional.of(joinContext.getOutputChannels()));
 

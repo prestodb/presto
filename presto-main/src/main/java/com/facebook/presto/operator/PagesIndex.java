@@ -24,6 +24,7 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -306,20 +307,20 @@ public class PagesIndex
         return orderingCompiler.compilePagesIndexOrdering(sortTypes, sortChannels, sortOrders);
     }
 
-    public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
+    public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels, List<ComparisonExpressionType> comparisons)
     {
-        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, comparisons, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, List<ComparisonExpressionType> comparisons, Optional<Integer> hashChannel)
     {
-        return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
+        return createPagesHashStrategy(joinChannels, comparisons, hashChannel, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<Integer> hashChannel, Optional<List<Integer>> outputChannels)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, List<ComparisonExpressionType> comparisons, Optional<Integer> hashChannel, Optional<List<Integer>> outputChannels)
     {
         try {
-            return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
+            return joinCompiler.compilePagesHashStrategyFactory(types, comparisons, joinChannels, outputChannels)
                     .createPagesHashStrategy(ImmutableList.copyOf(channels), hashChannel);
         }
         catch (Exception e) {
@@ -333,15 +334,17 @@ public class PagesIndex
     public Supplier<LookupSource> createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
+            List<ComparisonExpressionType> comparisons,
             Optional<Integer> hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, comparisons, hashChannel, filterFunctionFactory, Optional.empty());
     }
 
     public Supplier<LookupSource> createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
+            List<ComparisonExpressionType> comparisons,
             Optional<Integer> hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<List<Integer>> outputChannels)
@@ -353,7 +356,7 @@ public class PagesIndex
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
-                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, outputChannels);
+                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, comparisons, joinChannels, outputChannels);
                 return lookupSourceFactory.createLookupSourceSupplier(
                         session.toConnectorSession(),
                         valueAddresses,

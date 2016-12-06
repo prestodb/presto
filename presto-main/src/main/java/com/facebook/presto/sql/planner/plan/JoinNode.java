@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Join;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -22,12 +23,15 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -234,12 +238,17 @@ public class JoinNode
     {
         private final Symbol left;
         private final Symbol right;
+        private final ComparisonExpressionType comparison;
 
         @JsonCreator
-        public EquiJoinClause(@JsonProperty("left") Symbol left, @JsonProperty("right") Symbol right)
+        public EquiJoinClause(@JsonProperty("left") Symbol left, @JsonProperty("right") Symbol right, @JsonProperty("comparison") ComparisonExpressionType comparison)
         {
             this.left = requireNonNull(left, "left is null");
             this.right = requireNonNull(right, "right is null");
+            this.comparison = requireNonNull(comparison, "comparisonType is null");
+            if (!EnumSet.of(EQUAL, IS_NOT_DISTINCT_FROM).contains(comparison)) {
+                throw new IllegalArgumentException(comparison + ", only EQUAL or IS_NOT_DISTINCT_FROM allowed in EquiJoinClause");
+            }
         }
 
         @JsonProperty("left")
@@ -252,6 +261,12 @@ public class JoinNode
         public Symbol getRight()
         {
             return right;
+        }
+
+        @JsonProperty("comparison")
+        public ComparisonExpressionType getComparison()
+        {
+            return comparison;
         }
 
         @Override
@@ -268,13 +283,14 @@ public class JoinNode
             EquiJoinClause other = (EquiJoinClause) obj;
 
             return Objects.equals(this.left, other.left) &&
-                    Objects.equals(this.right, other.right);
+                    Objects.equals(this.right, other.right) &&
+                    Objects.equals(this.comparison, other.comparison);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(left, right);
+            return Objects.hash(left, right, comparison);
         }
     }
 }

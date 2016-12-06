@@ -414,8 +414,8 @@ public class TestEffectivePredicateExtractor
             throws Exception
     {
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteriaBuilder = ImmutableList.builder();
-        criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D));
-        criteriaBuilder.add(new JoinNode.EquiJoinClause(B, E));
+        criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D, ComparisonExpressionType.EQUAL));
+        criteriaBuilder.add(new JoinNode.EquiJoinClause(B, E, ComparisonExpressionType.EQUAL));
         List<JoinNode.EquiJoinClause> criteria = criteriaBuilder.build();
 
         Map<Symbol, ColumnHandle> leftAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C)));
@@ -473,8 +473,8 @@ public class TestEffectivePredicateExtractor
             throws Exception
     {
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteriaBuilder = ImmutableList.builder();
-        criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D));
-        criteriaBuilder.add(new JoinNode.EquiJoinClause(B, E));
+        criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D, ComparisonExpressionType.EQUAL));
+        criteriaBuilder.add(new JoinNode.EquiJoinClause(B, E, ComparisonExpressionType.EQUAL));
         List<JoinNode.EquiJoinClause> criteria = criteriaBuilder.build();
 
         Map<Symbol, ColumnHandle> leftAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C)));
@@ -531,7 +531,7 @@ public class TestEffectivePredicateExtractor
     public void testLeftJoinWithFalseInner()
             throws Exception
     {
-        List<JoinNode.EquiJoinClause> criteria = ImmutableList.of(new JoinNode.EquiJoinClause(A, D));
+        List<JoinNode.EquiJoinClause> criteria = ImmutableList.of(new JoinNode.EquiJoinClause(A, D, ComparisonExpressionType.EQUAL));
 
         Map<Symbol, ColumnHandle> leftAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C)));
         TableScanNode leftScan = new TableScanNode(
@@ -582,8 +582,8 @@ public class TestEffectivePredicateExtractor
             throws Exception
     {
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteriaBuilder = ImmutableList.builder();
-        criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D));
-        criteriaBuilder.add(new JoinNode.EquiJoinClause(B, E));
+        criteriaBuilder.add(new JoinNode.EquiJoinClause(A, D, ComparisonExpressionType.EQUAL));
+        criteriaBuilder.add(new JoinNode.EquiJoinClause(B, E, ComparisonExpressionType.EQUAL));
         List<JoinNode.EquiJoinClause> criteria = criteriaBuilder.build();
 
         Map<Symbol, ColumnHandle> leftAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C)));
@@ -640,7 +640,7 @@ public class TestEffectivePredicateExtractor
     public void testRightJoinWithFalseInner()
             throws Exception
     {
-        List<JoinNode.EquiJoinClause> criteria = ImmutableList.of(new JoinNode.EquiJoinClause(A, D));
+        List<JoinNode.EquiJoinClause> criteria = ImmutableList.of(new JoinNode.EquiJoinClause(A, D, ComparisonExpressionType.EQUAL));
 
         Map<Symbol, ColumnHandle> leftAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C)));
         TableScanNode leftScan = new TableScanNode(

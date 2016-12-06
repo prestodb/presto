@@ -35,6 +35,7 @@ import com.google.common.collect.SetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +43,9 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_NOT_DISTINCT_FROM;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
@@ -73,18 +77,23 @@ public class EqualityInference
     });
 
     private final SetMultimap<Expression, Expression> equalitySets; // Indexed by canonical expression
+    private final Map<Expression, ComparisonExpressionType> equalitySetComparisons;  // Canonical expression => set comparison
     private final Map<Expression, Expression> canonicalMap; // Map each known expression to canonical expression
     private final Set<Expression> derivedExpressions;
 
-    private EqualityInference(Iterable<Set<Expression>> equalityGroups, Set<Expression> derivedExpressions)
+    private EqualityInference(List<EquivalentSet> comparisonEquivalentSets, Set<Expression> derivedExpressions)
     {
         ImmutableSetMultimap.Builder<Expression, Expression> setBuilder = ImmutableSetMultimap.builder();
-        for (Set<Expression> equalityGroup : equalityGroups) {
-            if (!equalityGroup.isEmpty()) {
-                setBuilder.putAll(CANONICAL_ORDERING.min(equalityGroup), equalityGroup);
+        ImmutableMap.Builder<Expression, ComparisonExpressionType> setComparisonsBuilder = ImmutableMap.builder();
+        for (EquivalentSet equalityGroup : comparisonEquivalentSets) {
+            if (!equalityGroup.set.isEmpty()) {
+                Expression canonical = CANONICAL_ORDERING.min(equalityGroup.set);
+                setBuilder.putAll(canonical, equalityGroup.set);
+                setComparisonsBuilder.put(canonical, equalityGroup.comparison);
             }
         }
         equalitySets = setBuilder.build();
+        equalitySetComparisons = setComparisonsBuilder.build();
 
         ImmutableMap.Builder<Expression, Expression> mapBuilder = ImmutableMap.builder();
         for (Map.Entry<Expression, Expression> entry : equalitySets.entries()) {
@@ -167,7 +176,10 @@ public class EqualityInference
         Set<Expression> scopeComplementEqualities = new HashSet<>();
         Set<Expression> scopeStraddlingEqualities = new HashSet<>();
 
-        for (Collection<Expression> equalitySet : equalitySets.asMap().values()) {
+        for (Map.Entry<Expression, Collection<Expression>> entry : equalitySets.asMap().entrySet()) {
+            Collection<Expression> equalitySet = entry.getValue();
+            ComparisonExpressionType comparison = equalitySetComparisons.get(entry.getKey());
+
             Set<Expression> scopeExpressions = new HashSet<>();
             Set<Expression> scopeComplementExpressions = new HashSet<>();
             Set<Expression> scopeStraddlingExpressions = new HashSet<>();
@@ -190,13 +202,13 @@ public class EqualityInference
             Expression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
                 for (Expression expression : filter(scopeExpressions, not(equalTo(matchingCanonical)))) {
-                    scopeEqualities.add(new ComparisonExpression(ComparisonExpressionType.EQUAL, matchingCanonical, expression));
+                    scopeEqualities.add(new ComparisonExpression(comparison, matchingCanonical, expression));
                 }
             }
             Expression complementCanonical = getCanonical(scopeComplementExpressions);
             if (scopeComplementExpressions.size() >= 2) {
                 for (Expression expression : filter(scopeComplementExpressions, not(equalTo(complementCanonical)))) {
-                    scopeComplementEqualities.add(new ComparisonExpression(ComparisonExpressionType.EQUAL, complementCanonical, expression));
+                    scopeComplementEqualities.add(new ComparisonExpression(comparison, complementCanonical, expression));
                 }
             }
 
@@ -209,7 +221,7 @@ public class EqualityInference
             Expression connectingCanonical = getCanonical(connectingExpressions);
             if (connectingCanonical != null) {
                 for (Expression expression : filter(connectingExpressions, not(equalTo(connectingCanonical)))) {
-                    scopeStraddlingEqualities.add(new ComparisonExpression(ComparisonExpressionType.EQUAL, connectingCanonical, expression));
+                    scopeStraddlingEqualities.add(new ComparisonExpression(comparison, connectingCanonical, expression));
                 }
             }
         }
@@ -256,7 +268,7 @@ public class EqualityInference
             expression = normalizeInPredicateToEquality(expression);
             if (expression instanceof ComparisonExpression && DeterminismEvaluator.isDeterministic(expression) && !NullabilityAnalyzer.mayReturnNullOnNonNullInput(expression)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
-                if (comparison.getType() == ComparisonExpressionType.EQUAL) {
+                if (comparison.getType() == EQUAL || comparison.getType() == IS_NOT_DISTINCT_FROM) {
                     // We should only consider equalities that have distinct left and right components
                     return !comparison.getLeft().equals(comparison.getRight());
                 }
@@ -275,7 +287,7 @@ public class EqualityInference
             if (inPredicate.getValueList() instanceof InListExpression) {
                 InListExpression valueList = (InListExpression) inPredicate.getValueList();
                 if (valueList.getValues().size() == 1) {
-                    return new ComparisonExpression(ComparisonExpressionType.EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
+                    return new ComparisonExpression(EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
                 }
             }
         }
@@ -332,6 +344,7 @@ public class EqualityInference
     {
         private final DisjointSet<Expression> equalities = new DisjointSet<>();
         private final Set<Expression> derivedExpressions = new HashSet<>();
+        private final HashMap<Expression, ComparisonExpressionType> equalitySetComparisons = new HashMap<>();
 
         public Builder extractInferenceCandidates(Expression expression)
         {
@@ -351,17 +364,47 @@ public class EqualityInference
             expression = normalizeInPredicateToEquality(expression);
             checkArgument(isInferenceCandidate().apply(expression), "Expression must be a simple equality: " + expression);
             ComparisonExpression comparison = (ComparisonExpression) expression;
-            addEquality(comparison.getLeft(), comparison.getRight());
+            addComparison(comparison.getLeft(), comparison.getRight(), comparison.getType());
             return this;
         }
 
         public Builder addEquality(Expression expression1, Expression expression2)
         {
+            return addComparison(expression1, expression2, EQUAL);
+        }
+
+        public Builder addComparison(Expression expression1, Expression expression2, ComparisonExpressionType comparison)
+        {
             checkArgument(!expression1.equals(expression2), "Need to provide equality between different expressions");
             checkArgument(DeterminismEvaluator.isDeterministic(expression1), "Expression must be deterministic: " + expression1);
             checkArgument(DeterminismEvaluator.isDeterministic(expression2), "Expression must be deterministic: " + expression2);
+            if (!EnumSet.of(EQUAL, IS_NOT_DISTINCT_FROM).contains(comparison)) {
+                throw new IllegalArgumentException("Only EQUAL and IS_NOT_DISTINCT_FROM");
+            }
+            return addComparisonPrivate(expression1, expression2, comparison);
+        }
 
+        private Builder addComparisonPrivate(Expression expression1, Expression expression2, ComparisonExpressionType comparison)
+        {
+            Expression root1 = equalities.find(expression1);
+            Expression root2 = equalities.find(expression2);
+            ComparisonExpressionType comparison1 = equalitySetComparisons.getOrDefault(root1, comparison);
+            ComparisonExpressionType comparison2 = equalitySetComparisons.getOrDefault(root2, comparison);
+            if (comparison1 != comparison2) {
+                // EQUAL/IS NOT DISTINCT FROM pair becomes EQUAL pair
+                comparison = EQUAL;
+            }
+            else {
+                comparison = comparison1;
+                if (comparison == null) {
+                    // Might happen only because of a bug.
+                    throw new IllegalStateException("comparison of united disjoint set can not be null");
+                }
+            }
             equalities.findAndUnion(expression1, expression2);
+            equalitySetComparisons.remove(root1);
+            equalitySetComparisons.remove(root2);
+            equalitySetComparisons.put(equalities.find(expression1), comparison);
             return this;
         }
 
@@ -387,7 +430,8 @@ public class EqualityInference
                         if (equivalentSubExpressions != null) {
                             for (Expression equivalentSubExpression : filter(equivalentSubExpressions, not(equalTo(subExpression)))) {
                                 Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(ImmutableMap.of(subExpression, equivalentSubExpression)), expression);
-                                equalities.findAndUnion(expression, rewritten);
+                                // Both expressions should be in the disjoint set, so passing null
+                                addComparisonPrivate(expression, rewritten, null);
                                 derivedExpressions.add(rewritten);
                             }
                         }
@@ -396,10 +440,31 @@ public class EqualityInference
             }
         }
 
+        private ComparisonExpressionType getExpressionClassComparison(Expression expression)
+        {
+            return equalitySetComparisons.get(equalities.find(expression));
+        }
+
         public EqualityInference build()
         {
             generateMoreEquivalences();
-            return new EqualityInference(equalities.getEquivalentClasses(), derivedExpressions);
+            List<EquivalentSet> comparisonEquivalentSets = equalities.getEquivalentClasses().stream()
+                    .filter(equivalentSet -> !equivalentSet.isEmpty())
+                    .map(equivalentSet -> new EquivalentSet(getExpressionClassComparison(equivalentSet.iterator().next()), equivalentSet))
+                    .collect(toImmutableList());
+            return new EqualityInference(comparisonEquivalentSets, derivedExpressions);
+        }
+    }
+
+    private static class EquivalentSet
+    {
+        private final ComparisonExpressionType comparison;
+        private final Set<Expression> set;
+
+        EquivalentSet(ComparisonExpressionType comparison, Set<Expression> set)
+        {
+            this.comparison = requireNonNull(comparison, "comparison is null");
+            this.set = set;
         }
     }
 }

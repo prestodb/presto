@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins.isOriginalOrder;
 import static com.facebook.presto.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -194,7 +195,7 @@ public class TestEliminateCrossJoins
         ImmutableList.Builder<JoinNode.EquiJoinClause> criteria = ImmutableList.builder();
 
         for (int i = 0; i < symbols.length; i += 2) {
-            criteria.add(new JoinNode.EquiJoinClause(new Symbol(symbols[i]), new Symbol(symbols[i + 1])));
+            criteria.add(new JoinNode.EquiJoinClause(new Symbol(symbols[i]), new Symbol(symbols[i + 1]), EQUAL));
         }
 
         return new JoinNode(

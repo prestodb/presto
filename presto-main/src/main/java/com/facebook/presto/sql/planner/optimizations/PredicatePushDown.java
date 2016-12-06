@@ -371,7 +371,8 @@ public class PredicatePushDown
                 ImmutableList.Builder<JoinNode.EquiJoinClause> joinConditionBuilder = ImmutableList.builder();
                 ImmutableList.Builder<Expression> joinFilterBuilder = ImmutableList.builder();
                 for (Expression conjunct : extractConjuncts(newJoinPredicate)) {
-                    if (joinEqualityExpression(node.getLeft().getOutputSymbols()).test(conjunct)) {
+                    ComparisonExpressionType equiComparison = getJoinEqualityComparison(conjunct, node.getLeft().getOutputSymbols());
+                    if (equiComparison != null) {
                         ComparisonExpression equality = (ComparisonExpression) conjunct;
 
                         boolean alignedComparison = Iterables.all(DependencyExtractor.extractUnique(equality.getLeft()), in(node.getLeft().getOutputSymbols()));
@@ -388,7 +389,7 @@ public class PredicatePushDown
                             rightProjections.put(rightSymbol, rightExpression);
                         }
 
-                        joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                        joinConditionBuilder.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol, equiComparison));
                     }
                     else {
                         joinFilterBuilder.add(conjunct);
@@ -760,24 +761,27 @@ public class PredicatePushDown
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
 
-        private static Predicate<Expression> joinEqualityExpression(final Collection<Symbol> leftSymbols)
+        private static boolean eitherSymbolSetIn(Set<Symbol> s1, Set<Symbol> s2, final Collection<Symbol> symbols)
         {
-            return expression -> {
-                // At this point in time, our join predicates need to be deterministic
-                if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
-                    ComparisonExpression comparison = (ComparisonExpression) expression;
-                    if (comparison.getType() == ComparisonExpressionType.EQUAL) {
-                        Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
-                        Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
-                        if (symbols1.isEmpty() || symbols2.isEmpty()) {
-                            return false;
-                        }
-                        return (Iterables.all(symbols1, in(leftSymbols)) && Iterables.all(symbols2, not(in(leftSymbols)))) ||
-                                (Iterables.all(symbols2, in(leftSymbols)) && Iterables.all(symbols1, not(in(leftSymbols))));
+            return (Iterables.all(s1, in(symbols)) && Iterables.all(s2, not(in(symbols)))) ||
+                    (Iterables.all(s2, in(symbols)) && Iterables.all(s1, not(in(symbols))));
+        }
+
+        private static ComparisonExpressionType getJoinEqualityComparison(Expression expression, final Collection<Symbol> leftSymbols)
+        {
+            // At this point in time, our join predicates need to be deterministic
+            if (isDeterministic(expression) && expression instanceof ComparisonExpression) {
+                ComparisonExpression comparison = (ComparisonExpression) expression;
+                if (comparison.getType() == ComparisonExpressionType.IS_NOT_DISTINCT_FROM || comparison.getType() == ComparisonExpressionType.EQUAL) {
+                    Set<Symbol> symbols1 = DependencyExtractor.extractUnique(comparison.getLeft());
+                    Set<Symbol> symbols2 = DependencyExtractor.extractUnique(comparison.getRight());
+                    if (symbols1.isEmpty() || symbols2.isEmpty()) {
+                        return null;
                     }
+                    return eitherSymbolSetIn(symbols1, symbols2, leftSymbols) ? comparison.getType() : null;
                 }
-                return false;
-            };
+            }
+            return null;
         }
 
         @Override

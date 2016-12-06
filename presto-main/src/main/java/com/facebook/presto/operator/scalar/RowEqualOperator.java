@@ -15,51 +15,96 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 
 import static com.facebook.presto.metadata.Signature.comparableWithVariadicBound;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
 public class RowEqualOperator
         extends SqlOperator
 {
-    public static final RowEqualOperator ROW_EQUAL = new RowEqualOperator();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowEqualOperator.class, "equals", Type.class, Block.class, Block.class);
+    public static final RowEqualOperator ROW_EQUAL = new RowEqualOperator(EQUAL, true);
+    public static final RowEqualOperator ROW_NOT_EQUAL = new RowEqualOperator(NOT_EQUAL, false);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowEqualOperator.class, "testEquals", Type.class, List.class, Boolean.class, Block.class, Block.class);
+    private final Boolean testEqualsTo;
 
-    private RowEqualOperator()
+    RowEqualOperator(OperatorType operatorType, Boolean testEqualsTo)
     {
-        super(EQUAL,
+        super(operatorType,
                 ImmutableList.of(comparableWithVariadicBound("T", "row")),
                 ImmutableList.of(),
                 parseTypeSignature(StandardTypes.BOOLEAN),
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
+        this.testEqualsTo = testEqualsTo;
     }
 
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
+        ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         Type type = boundVariables.getTypeVariable("T");
-        return new ScalarFunctionImplementation(false, ImmutableList.of(false, false), METHOD_HANDLE.bindTo(type), isDeterministic());
+        for (Type parameterType : type.getTypeParameters()) {
+            Signature signature = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(parameterType, parameterType));
+            argumentMethods.add(functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle());
+        }
+        return new ScalarFunctionImplementation(
+                false,
+                ImmutableList.of(false, false),
+                METHOD_HANDLE.bindTo(type).bindTo(argumentMethods.build()).bindTo(testEqualsTo),
+                isDeterministic());
     }
 
-    public static boolean equals(Type rowType, Block leftRow, Block rightRow)
+    public static boolean testEquals(Type rowType, List<MethodHandle> argumentMethods, Boolean testEqualsTo, Block leftRow, Block rightRow)
     {
-        // TODO: Fix this. It feels very inefficient and unnecessary to wrap and unwrap with Block
-        BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(new BlockBuilderStatus(), 1);
-        rowType.writeObject(leftBlockBuilder, leftRow);
-        rowType.writeObject(rightBlockBuilder, rightRow);
-        return rowType.equalTo(leftBlockBuilder.build(), 0, rightBlockBuilder.build(), 0);
+        return equals(rowType, argumentMethods, leftRow, rightRow) == testEqualsTo;
+    }
+
+    private static boolean equals(Type rowType, List<MethodHandle> argumentMethods, Block leftRow, Block rightRow)
+    {
+        List<Type> fieldTypes = rowType.getTypeParameters();
+        for (int i = 0; i < leftRow.getPositionCount(); i++) {
+            checkElementNotNull(leftRow.isNull(i));
+            checkElementNotNull(rightRow.isNull(i));
+            Type type = fieldTypes.get(i);
+            Object leftValue = readNativeValue(type, leftRow, i);
+            Object rightValue = readNativeValue(type, rightRow, i);
+            try {
+                if (!(boolean) argumentMethods.get(i).invoke(leftValue, rightValue)) {
+                    return false;
+                }
+            }
+            catch (Throwable t) {
+                Throwables.propagateIfInstanceOf(t, Error.class);
+                Throwables.propagateIfInstanceOf(t, PrestoException.class);
+
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            }
+        }
+        return true;
+    }
+
+    private static void checkElementNotNull(boolean isNull)
+    {
+        if (isNull) {
+            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
+        }
     }
 }

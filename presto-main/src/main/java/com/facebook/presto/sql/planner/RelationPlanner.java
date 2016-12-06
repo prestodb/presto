@@ -280,11 +280,12 @@ class RelationPlanner
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
-                if (joinConditionComparisonTypes.get(i) == ComparisonExpressionType.EQUAL) {
+                if (joinConditionComparisonTypes.get(i) == ComparisonExpressionType.EQUAL ||
+                        joinConditionComparisonTypes.get(i) == ComparisonExpressionType.IS_NOT_DISTINCT_FROM) {
                     Symbol leftSymbol = leftPlanBuilder.translate(leftComparisonExpressions.get(i));
                     Symbol rightSymbol = rightPlanBuilder.translate(rightComparisonExpressions.get(i));
 
-                    equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
+                    equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol, joinConditionComparisonTypes.get(i)));
                 }
                 else {
                     Expression leftExpression = leftPlanBuilder.rewrite(leftComparisonExpressions.get(i));
@@ -359,7 +360,11 @@ class RelationPlanner
 
     private static boolean isEqualComparisonExpression(Expression conjunct)
     {
-        return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getType() == ComparisonExpressionType.EQUAL;
+        if (conjunct instanceof ComparisonExpression) {
+            ComparisonExpressionType comparisonType = ((ComparisonExpression) conjunct).getType();
+            return comparisonType == ComparisonExpressionType.EQUAL || comparisonType == ComparisonExpressionType.IS_NOT_DISTINCT_FROM;
+        }
+        return false;
     }
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)

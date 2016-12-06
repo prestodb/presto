@@ -18,6 +18,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -50,6 +51,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_NOT_DISTINCT_FROM;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Predicates.not;
 import static org.testng.Assert.assertEquals;
@@ -63,15 +65,22 @@ public class TestEqualityInference
     public void testTransitivity()
             throws Exception
     {
+        templateTransitivity(EQUAL);
+        templateTransitivity(IS_NOT_DISTINCT_FROM);
+    }
+
+    private void templateTransitivity(ComparisonExpressionType comparison)
+            throws Exception
+    {
         EqualityInference.Builder builder = new EqualityInference.Builder();
         addEquality("a1", "b1", builder);
         addEquality("b1", "c1", builder);
-        addEquality("d1", "c1", builder);
+        addComparison("d1", "c1", builder, comparison);
 
         addEquality("a2", "b2", builder);
-        addEquality("b2", "a2", builder);
+        addComparison("b2", "a2", builder, comparison);
         addEquality("b2", "c2", builder);
-        addEquality("d2", "b2", builder);
+        addComparison("d2", "b2", builder, comparison);
         addEquality("c2", "d2", builder);
 
         EqualityInference inference = builder.build();
@@ -279,6 +288,71 @@ public class TestEqualityInference
     }
 
     @Test
+    public void testEqualitySetsWithComparison()
+            throws Exception
+    {
+        EqualityInference.Builder builder = new EqualityInference.Builder();
+        addEquality("a1", "b1", builder);
+        addEquality("b1", "c1", builder);
+        addEquality("c1", "d1", builder);
+
+        addComparison("a2", "b2", builder, IS_NOT_DISTINCT_FROM);
+        addComparison("b2", "c2", builder, IS_NOT_DISTINCT_FROM);
+        addComparison("c2", "d2", builder, IS_NOT_DISTINCT_FROM);
+
+        EqualityInference inference = builder.build();
+
+        // Generating equalities for disjoint groups
+        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(symbolBeginsWith("a", "b"));
+
+        // Scope
+        assertTrue(ImmutableList.of(
+                isNotDistinct("a2", "b2"),
+                isNotDistinct("b2", "a2")).contains(findComparison(IS_NOT_DISTINCT_FROM, equalityPartition.getScopeEqualities())));
+        assertTrue(ImmutableList.of(
+                equals("a1", "b1"),
+                equals("b1", "a1")).contains(findComparison(EQUAL, equalityPartition.getScopeEqualities())));
+
+        // Complement scope
+        assertTrue(ImmutableList.of(
+                isNotDistinct("c2", "d2"),
+                isNotDistinct("d2", "c2")).contains(findComparison(IS_NOT_DISTINCT_FROM, equalityPartition.getScopeComplementEqualities())));
+        assertTrue(ImmutableList.of(
+                equals("c1", "d1"),
+                equals("d1", "c1")).contains(findComparison(EQUAL, equalityPartition.getScopeComplementEqualities())));
+
+        // Scope straddling
+        assertTrue(ImmutableList.of(
+                isNotDistinct("a2", "c2"),
+                isNotDistinct("c2", "a2"),
+                isNotDistinct("a2", "d2"),
+                isNotDistinct("d2", "a2"),
+                isNotDistinct("b2", "c2"),
+                isNotDistinct("c2", "b2"),
+                isNotDistinct("b2", "d2"),
+                isNotDistinct("d2", "b2")).contains(findComparison(IS_NOT_DISTINCT_FROM, equalityPartition.getScopeStraddlingEqualities())));
+        assertTrue(ImmutableList.of(
+                equals("a1", "c1"),
+                equals("c1", "a1"),
+                equals("a1", "d1"),
+                equals("d1", "a1"),
+                equals("b1", "c1"),
+                equals("c1", "b1"),
+                equals("b1", "d1"),
+                equals("d1", "b1")).contains(findComparison(EQUAL, equalityPartition.getScopeStraddlingEqualities())));
+    }
+
+    private static Expression findComparison(ComparisonExpressionType comparison, List<Expression> expressions)
+    {
+        for (Expression expression : expressions) {
+            if (((ComparisonExpression) expression).getType() == comparison) {
+                return expression;
+            }
+        }
+        throw new IllegalStateException("comparison not found");
+    }
+
+    @Test
     public void testSubExpressionRewrites()
             throws Exception
     {
@@ -322,6 +396,7 @@ public class TestEqualityInference
         assertTrue(equalityPartition.getScopeStraddlingEqualities().isEmpty());
     }
 
+    // xxx fails
     @Test
     public void testEqualityGeneration()
             throws Exception
@@ -334,6 +409,35 @@ public class TestEqualityInference
 
         Expression scopedCanonical = inference.getScopedCanonical(nameReference("e1"), symbolBeginsWith("a"));
         assertEquals(scopedCanonical, nameReference("a1"));
+    }
+
+    @Test
+    public void testIsNotDistinctGeneration()
+            throws Exception
+    {
+        EqualityInference.Builder builder = new EqualityInference.Builder();
+        builder.addEquality(nameReference("a1"), add("b", "c")); // a1 = b + c
+        builder.addEquality(nameReference("e1"), add("b", "d")); // e1 = b + d
+        addComparison("c", "d", builder, IS_NOT_DISTINCT_FROM);
+        EqualityInference inference = builder.build();
+
+        assertEquals(nameReference("a1"),
+                inference.getScopedCanonical(nameReference("e1"), symbolBeginsWith("a")));
+    }
+
+    @Test
+    public void testEqualityAndIsNotDistinctOnSameGeneration()
+            throws Exception
+    {
+        EqualityInference.Builder builder = new EqualityInference.Builder();
+        builder.addEquality(nameReference("a1"), add("b", "c")); // a1 = b + c
+        builder.addEquality(nameReference("e1"), add("b", "d")); // e1 = b + d
+        addComparison("c", "d", builder, IS_NOT_DISTINCT_FROM);
+        addEquality("c", "d", builder);
+        EqualityInference inference = builder.build();
+
+        assertEquals(nameReference("a1"),
+                inference.getScopedCanonical(nameReference("e1"), symbolBeginsWith("a")));
     }
 
     @Test
@@ -381,6 +485,11 @@ public class TestEqualityInference
         builder.addEquality(nameReference(symbol1), nameReference(symbol2));
     }
 
+    private static void addComparison(String symbol1, String symbol2, EqualityInference.Builder builder, ComparisonExpressionType comparison)
+    {
+        builder.addComparison(nameReference(symbol1), nameReference(symbol2), comparison);
+    }
+
     private static Expression someExpression(String symbol1, String symbol2)
     {
         return someExpression(nameReference(symbol1), nameReference(symbol2));
@@ -419,6 +528,16 @@ public class TestEqualityInference
     private static Expression equals(Expression expression1, Expression expression2)
     {
         return new ComparisonExpression(EQUAL, expression1, expression2);
+    }
+
+    private static Expression isNotDistinct(String symbol1, String symbol2)
+    {
+        return isNotDistinct(nameReference(symbol1), nameReference(symbol2));
+    }
+
+    private static Expression isNotDistinct(Expression expression1, Expression expression2)
+    {
+        return new ComparisonExpression(IS_NOT_DISTINCT_FROM, expression1, expression2);
     }
 
     private static SymbolReference nameReference(String symbol)

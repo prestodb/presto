@@ -140,6 +140,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -214,6 +215,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.nCopies;
 import static java.util.Collections.singleton;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
@@ -1394,13 +1396,31 @@ public class LocalExecutionPlanner
                 outputMappings.put(entry.getKey(), offset + input);
             }
 
+            // Index join are on EQUAL only.
+            List<Boolean> probeCompareNull = nCopies(probeChannels.size(), Boolean.FALSE);
             OperatorFactory lookupJoinOperatorFactory;
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = LookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceFactory, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty());
+                    lookupJoinOperatorFactory = LookupJoinOperators.innerJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            indexLookupSourceFactory,
+                            probeSource.getTypes(),
+                            probeChannels,
+                            probeCompareNull,
+                            probeHashChannel,
+                            Optional.empty());
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = LookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), indexLookupSourceFactory, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty());
+                    lookupJoinOperatorFactory = LookupJoinOperators.probeOuterJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            indexLookupSourceFactory,
+                            probeSource.getTypes(),
+                            probeChannels,
+                            probeCompareNull,
+                            probeHashChannel,
+                            Optional.empty());
                     break;
                 default:
                     throw new AssertionError("Unknown type: " + node.getType());
@@ -1509,6 +1529,9 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildSource.getLayout()));
             List<Integer> buildChannels = ImmutableList.copyOf(getChannelsForSymbols(buildSymbols, buildSource.getLayout()));
+            List<ComparisonExpressionType> comparisons = node.getCriteria().stream()
+                    .map(JoinNode.EquiJoinClause::getComparison)
+                    .collect(toImmutableList());
             Optional<Integer> buildHashChannel = buildHashSymbol.map(channelGetter(buildSource));
 
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
@@ -1521,6 +1544,7 @@ public class LocalExecutionPlanner
                     buildOutputChannels,
                     buildSource.getLayout(),
                     buildChannels,
+                    comparisons,
                     buildHashChannel,
                     node.getType() == RIGHT || node.getType() == FULL,
                     filterFunctionFactory,
@@ -1580,16 +1604,17 @@ public class LocalExecutionPlanner
             List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(probeOutputSymbols, probeSource.getLayout()));
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
             Optional<Integer> probeHashChannel = probeHashSymbol.map(channelGetter(probeSource));
+            List<Boolean> probeCompareNull = comparisonsTakesNull(node);
 
             switch (node.getType()) {
                 case INNER:
-                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return LookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeCompareNull, probeHashChannel, Optional.of(probeOutputChannels));
                 case LEFT:
-                    return LookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return LookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeCompareNull, probeHashChannel, Optional.of(probeOutputChannels));
                 case RIGHT:
-                    return LookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return LookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeCompareNull, probeHashChannel, Optional.of(probeOutputChannels));
                 case FULL:
-                    return LookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels));
+                    return LookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactory, probeTypes, probeJoinChannels, probeCompareNull, probeHashChannel, Optional.of(probeOutputChannels));
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
@@ -1996,6 +2021,13 @@ public class LocalExecutionPlanner
             checkArgument(source.getLayout().containsKey(input));
             return source.getLayout().get(input);
         };
+    }
+
+    private static List<Boolean> comparisonsTakesNull(JoinNode node)
+    {
+        return node.getCriteria().stream()
+                .map(clause -> clause.getComparison() == ComparisonExpressionType.IS_NOT_DISTINCT_FROM)
+                .collect(toImmutableList());
     }
 
     /**

@@ -226,7 +226,8 @@ public class EffectivePredicateExtractor
 
         List<Expression> joinConjuncts = new ArrayList<>();
         for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-            joinConjuncts.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
+            joinConjuncts.add(new ComparisonExpression(
+                    clause.getComparison(),
                     clause.getLeft().toSymbolReference(),
                     clause.getRight().toSymbolReference()));
         }

@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -224,16 +225,28 @@ public class WindowOperator
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
         this.preGroupedChannels = Ints.toArray(preGroupedChannels);
-        this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedChannels, Optional.empty());
+        this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(
+                preGroupedChannels,
+                nCopies(preGroupedChannels.size(), ComparisonExpressionType.EQUAL),
+                Optional.empty());
         List<Integer> unGroupedPartitionChannels = partitionChannels.stream()
                 .filter(channel -> !preGroupedChannels.contains(channel))
                 .collect(toImmutableList());
-        this.unGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(unGroupedPartitionChannels, Optional.empty());
+        this.unGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(
+                unGroupedPartitionChannels,
+                nCopies(unGroupedPartitionChannels.size(), ComparisonExpressionType.EQUAL),
+                Optional.empty());
         List<Integer> preSortedChannels = sortChannels.stream()
                 .limit(preSortedChannelPrefix)
                 .collect(toImmutableList());
-        this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, Optional.empty());
-        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, Optional.empty());
+        this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(
+                preSortedChannels,
+                nCopies(preSortedChannels.size(), ComparisonExpressionType.EQUAL),
+                Optional.empty());
+        this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(
+                sortChannels,
+                nCopies(sortChannels.size(), ComparisonExpressionType.EQUAL),
+                Optional.empty());
 
         this.pageBuilder = new PageBuilder(this.types);
 

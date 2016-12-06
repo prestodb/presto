@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -190,8 +191,8 @@ public class JoinGraph
 
             PlanNode left = context.getSymbolSource(leftSymbol);
             PlanNode right = context.getSymbolSource(rightSymbol);
-            edges.put(left.getId(), new Edge(right, leftSymbol, rightSymbol));
-            edges.put(right.getId(), new Edge(left, rightSymbol, leftSymbol));
+            edges.put(left.getId(), new Edge(right, leftSymbol, rightSymbol, edge.getComparison()));
+            edges.put(right.getId(), new Edge(left, rightSymbol, leftSymbol, edge.getComparison()));
         }
 
         return new JoinGraph(nodes, edges.build(), newRoot, joinedFilters, Optional.empty());
@@ -259,12 +260,14 @@ public class JoinGraph
         private final PlanNode targetNode;
         private final Symbol sourceSymbol;
         private final Symbol targetSymbol;
+        private final ComparisonExpressionType comparision;
 
-        public Edge(PlanNode targetNode, Symbol sourceSymbol, Symbol targetSymbol)
+        public Edge(PlanNode targetNode, Symbol sourceSymbol, Symbol targetSymbol, ComparisonExpressionType comparison)
         {
             this.targetNode = requireNonNull(targetNode, "targetNode is null");
             this.sourceSymbol = requireNonNull(sourceSymbol, "sourceSymbol is null");
             this.targetSymbol = requireNonNull(targetSymbol, "targetSymbol is null");
+            this.comparision = requireNonNull(comparison, "comparison is null");
         }
 
         public PlanNode getTargetNode()
@@ -280,6 +283,11 @@ public class JoinGraph
         public Symbol getTargetSymbol()
         {
             return targetSymbol;
+        }
+
+        public ComparisonExpressionType getComparision()
+        {
+            return comparision;
         }
     }
 

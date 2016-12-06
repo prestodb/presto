@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,6 +47,7 @@ public class HashBuilderOperator
         private final PartitionedLookupSourceFactory lookupSourceFactory;
         private final List<Integer> outputChannels;
         private final List<Integer> hashChannels;
+        private final List<ComparisonExpressionType> comparisons;
         private final Optional<Integer> preComputedHashChannel;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
@@ -61,6 +63,7 @@ public class HashBuilderOperator
                 List<Integer> outputChannels,
                 Map<Symbol, Integer> layout,
                 List<Integer> hashChannels,
+                List<ComparisonExpressionType> comparisons,
                 Optional<Integer> preComputedHashChannel,
                 boolean outer,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
@@ -83,6 +86,7 @@ public class HashBuilderOperator
 
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
+            this.comparisons = ImmutableList.copyOf(requireNonNull(comparisons, "comparisons is null"));
             this.preComputedHashChannel = requireNonNull(preComputedHashChannel, "preComputedHashChannel is null");
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
 
@@ -111,6 +115,7 @@ public class HashBuilderOperator
                     partitionIndex,
                     outputChannels,
                     hashChannels,
+                    comparisons,
                     preComputedHashChannel,
                     filterFunctionFactory,
                     expectedPositions);
@@ -138,6 +143,7 @@ public class HashBuilderOperator
 
     private final List<Integer> outputChannels;
     private final List<Integer> hashChannels;
+    private final List<ComparisonExpressionType> comparisons;
     private final Optional<Integer> preComputedHashChannel;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
@@ -151,6 +157,7 @@ public class HashBuilderOperator
             int partitionIndex,
             List<Integer> outputChannels,
             List<Integer> hashChannels,
+            List<ComparisonExpressionType> comparisons,
             Optional<Integer> preComputedHashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             int expectedPositions)
@@ -164,6 +171,7 @@ public class HashBuilderOperator
 
         this.outputChannels = outputChannels;
         this.hashChannels = hashChannels;
+        this.comparisons = comparisons;
         this.preComputedHashChannel = preComputedHashChannel;
     }
 
@@ -187,7 +195,7 @@ public class HashBuilderOperator
         }
         finishing = true;
 
-        Supplier<LookupSource> partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, Optional.of(outputChannels));
+        Supplier<LookupSource> partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, comparisons, preComputedHashChannel, filterFunctionFactory, Optional.of(outputChannels));
         lookupSourceFactory.setPartitionLookupSourceSupplier(partitionIndex, partition);
 
         operatorContext.setMemoryReservation(partition.get().getInMemorySizeInBytes());

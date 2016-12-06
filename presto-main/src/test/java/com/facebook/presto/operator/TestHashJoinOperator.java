@@ -26,11 +26,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
@@ -54,6 +56,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Test(singleThreaded = true)
@@ -111,6 +114,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty()
         );
@@ -162,6 +166,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty()
         );
@@ -206,6 +211,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty()
         );
@@ -251,6 +257,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty()
         );
@@ -289,6 +296,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -342,6 +350,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -397,6 +406,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -445,6 +455,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -490,6 +501,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -538,6 +550,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -582,6 +595,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -631,6 +645,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 Ints.asList(0),
+                Booleans.asList(false),
                 probePages.getHashChannel(),
                 Optional.empty());
 
@@ -707,6 +722,7 @@ public class TestHashJoinOperator
                 rangeList(buildPages.getTypes().size()),
                 ImmutableMap.of(),
                 hashChannels,
+                nCopies(hashChannels.size(), ComparisonExpressionType.EQUAL),
                 buildPages.getHashChannel(),
                 false,
                 filterFunctionFactory,

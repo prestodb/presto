@@ -171,7 +171,8 @@ public class EliminateCrossJoins
                     if (alreadyJoinedNodes.contains(targetNode.getId())) {
                         criteria.add(new JoinNode.EquiJoinClause(
                                 edge.getTargetSymbol(),
-                                edge.getSourceSymbol()));
+                                edge.getSourceSymbol(),
+                                edge.getComparision()));
                     }
                 }
 

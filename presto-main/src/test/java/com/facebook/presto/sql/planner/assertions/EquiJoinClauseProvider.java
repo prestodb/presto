@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 
 import static java.util.Objects.requireNonNull;
 
@@ -22,15 +23,17 @@ class EquiJoinClauseProvider
 {
     private final SymbolAlias left;
     private final SymbolAlias right;
+    private final ComparisonExpressionType comparison;
 
-    EquiJoinClauseProvider(SymbolAlias left, SymbolAlias right)
+    EquiJoinClauseProvider(SymbolAlias left, SymbolAlias right, ComparisonExpressionType comparison)
     {
         this.left = requireNonNull(left, "left is null");
         this.right = requireNonNull(right, "right is null");
+        this.comparison = requireNonNull(comparison, "comparison is null");
     }
 
     public JoinNode.EquiJoinClause getExpectedValue(SymbolAliases aliases)
     {
-        return new JoinNode.EquiJoinClause(left.toSymbol(aliases), right.toSymbol(aliases));
+        return new JoinNode.EquiJoinClause(left.toSymbol(aliases), right.toSymbol(aliases), comparison);
     }
 }
