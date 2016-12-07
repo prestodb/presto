@@ -25,6 +25,7 @@ import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITI
 import static com.facebook.presto.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.facebook.presto.tests.utils.QueryExecutors.onPresto;
+import static com.facebook.presto.tests.utils.Tables.uniqueTableName;
 import static com.teradata.tempto.Requirements.compose;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
@@ -35,8 +36,6 @@ public class TestExternalHiveTable
         extends ProductTest
         implements RequirementsProvider
 {
-    private static final String EXTERNAL_TABLE_NAME = "target_table";
-
     public Requirement getRequirements(Configuration configuration)
     {
         return compose(
@@ -47,51 +46,54 @@ public class TestExternalHiveTable
     @Test(groups = {HIVE_CONNECTOR})
     public void testInsertIntoExternalTable()
     {
+        String externalTableName = uniqueTableName();
         TableInstance nation = mutableTablesState().get(NATION.getName());
-        onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
-        onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase());
+        onHive().executeQuery("DROP TABLE IF EXISTS " + externalTableName);
+        onHive().executeQuery("CREATE EXTERNAL TABLE " + externalTableName + " LIKE " + nation.getNameInDatabase());
         assertThat(() -> onPresto().executeQuery(
-                "INSERT INTO hive.default." + EXTERNAL_TABLE_NAME + " SELECT * FROM hive.default." + nation.getNameInDatabase()))
+                "INSERT INTO hive.default." + externalTableName + " SELECT * FROM hive.default." + nation.getNameInDatabase()))
                 .failsWithMessage("Cannot write to non-managed Hive table");
     }
 
     @Test(groups = {HIVE_CONNECTOR})
     public void testDeleteFromExternalTable()
     {
+        String externalTableName = uniqueTableName();
         TableInstance nation = mutableTablesState().get(NATION.getName());
-        onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
-        onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase());
-        assertThat(() -> onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME))
+        onHive().executeQuery("DROP TABLE IF EXISTS " + externalTableName);
+        onHive().executeQuery("CREATE EXTERNAL TABLE " + externalTableName + " LIKE " + nation.getNameInDatabase());
+        assertThat(() -> onPresto().executeQuery("DELETE FROM hive.default." + externalTableName))
                 .failsWithMessage("Cannot delete from non-managed Hive table");
     }
 
     @Test(groups = {HIVE_CONNECTOR})
-    public void testDeleteFromExternalPartitionedTableTable()
+    public void testDeleteFromExternalPartitionedTable()
     {
+        String externalTableName = uniqueTableName();
         TableInstance nation = mutableTablesState().get(NATION_PARTITIONED_BY_REGIONKEY.getName());
-        onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
-        onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase() + " LOCATION '/tmp/" + EXTERNAL_TABLE_NAME + "_" + nation.getNameInDatabase() + "'");
-        insertNationPartition(nation, 1);
-        insertNationPartition(nation, 2);
-        insertNationPartition(nation, 3);
-        assertThat(onPresto().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
+        onHive().executeQuery("DROP TABLE IF EXISTS " + externalTableName);
+        onHive().executeQuery("CREATE EXTERNAL TABLE " + externalTableName + " LIKE " + nation.getNameInDatabase() + " LOCATION '/tmp/" + externalTableName + "_" + nation.getNameInDatabase() + "'");
+        insertNationPartition(nation, externalTableName, 1);
+        insertNationPartition(nation, externalTableName, 2);
+        insertNationPartition(nation, externalTableName, 3);
+        assertThat(onPresto().executeQuery("SELECT * FROM " + externalTableName))
                 .hasRowsCount(3 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
-        assertThat(() -> onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
+        assertThat(() -> onPresto().executeQuery("DELETE FROM hive.default." + externalTableName + " WHERE p_name IS NOT NULL"))
                 .failsWithMessage("This connector only supports delete where one or more partitions are deleted entirely");
 
-        onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_regionkey = 1");
-        assertThat(onPresto().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
+        onPresto().executeQuery("DELETE FROM hive.default." + externalTableName + " WHERE p_regionkey = 1");
+        assertThat(onPresto().executeQuery("SELECT * FROM " + externalTableName))
                 .hasRowsCount(2 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
-        onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME);
-        assertThat(onPresto().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME)).hasRowsCount(0);
+        onPresto().executeQuery("DELETE FROM hive.default." + externalTableName);
+        assertThat(onPresto().executeQuery("SELECT * FROM " + externalTableName)).hasRowsCount(0);
     }
 
-    private void insertNationPartition(TableInstance nation, int partition)
+    private void insertNationPartition(TableInstance nation, String externalTableName, int partition)
     {
         onHive().executeQuery(
-                "INSERT INTO TABLE " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey=" + partition + ")"
+                "INSERT INTO TABLE " + externalTableName + " PARTITION (p_regionkey=" + partition + ")"
                         + " SELECT p_nationkey, p_name, p_comment FROM " + nation.getNameInDatabase()
                         + " WHERE p_regionkey=" + partition);
     }
