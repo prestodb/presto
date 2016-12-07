@@ -67,6 +67,18 @@ public class BasePlanTest
         });
     }
 
+    protected void assertPlanWithOptimizers(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
+        queryRunner.inTransaction(transactionSession -> {
+            FeaturesConfig featuresConfig = new FeaturesConfig()
+                    .setDistributedIndexJoinsEnabled(false)
+                    .setOptimizeHashGeneration(true);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            return null;
+        });
+    }
+
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
