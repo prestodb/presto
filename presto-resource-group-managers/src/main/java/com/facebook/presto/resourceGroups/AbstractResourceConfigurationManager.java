@@ -98,12 +98,17 @@ public abstract class AbstractResourceConfigurationManager
     protected AbstractResourceConfigurationManager(ClusterMemoryPoolManager memoryPoolManager)
     {
         memoryPoolManager.addChangeListener(new MemoryPoolId("general"), poolInfo -> {
+            Map<ResourceGroup, DataSize> memoryLimits = new HashMap<>();
             synchronized (generalPoolMemoryFraction) {
                 for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
                     double bytes = poolInfo.getMaxBytes() * entry.getValue();
-                    entry.getKey().setSoftMemoryLimit(new DataSize(bytes, BYTE));
+                    // setSoftMemoryLimit() acquires a lock on the root group of its tree, which could cause a deadlock if done while holding the "generalPoolMemoryFraction" lock
+                    memoryLimits.put(entry.getKey(), new DataSize(bytes, BYTE));
                 }
                 generalPoolBytes = poolInfo.getMaxBytes();
+            }
+            for (Map.Entry<ResourceGroup, DataSize> entry : memoryLimits.entrySet()) {
+                entry.getKey().setSoftMemoryLimit(entry.getValue());
             }
         });
     }
