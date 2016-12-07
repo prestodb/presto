@@ -207,15 +207,29 @@ class SubqueryPlanner
             return subPlan;
         }
 
-        PlanBuilder suqueryPlan = createPlanBuilder(scalarSubquery);
-        suqueryPlan = suqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), suqueryPlan.getRoot()));
-        Symbol scalarSubquerySymbol = suqueryPlan.translate(scalarSubquery);
-        subPlan.getTranslations().put(scalarSubquery, scalarSubquerySymbol);
+        List<Expression> coercions = coercionsFor(scalarSubquery);
+
+        SubqueryExpression uncoercedScalarSubquery = uncoercedSubquery(scalarSubquery);
+        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedScalarSubquery);
+        subqueryPlan = subqueryPlan.withNewRoot(new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot()));
+        subqueryPlan = subqueryPlan.appendProjections(coercions, symbolAllocator, idAllocator);
+
+        Assignments.Builder subqueryAssignments = Assignments.builder();
+        Symbol uncoercedScalarSubquerySymbol = subqueryPlan.translate(uncoercedScalarSubquery);
+        subPlan.getTranslations().put(uncoercedScalarSubquery, uncoercedScalarSubquerySymbol);
+        subqueryAssignments.put(uncoercedScalarSubquerySymbol, uncoercedScalarSubquerySymbol.toSymbolReference());
+
+        for (Expression coercion : coercions) {
+            Symbol coercionSymbol = subqueryPlan.translate(coercion);
+            subPlan.getTranslations().put(coercion, coercionSymbol);
+            subqueryAssignments.put(coercionSymbol, coercionSymbol.toSymbolReference());
+        }
+
         return appendApplyNode(
                 subPlan,
                 scalarSubquery.getQuery(),
-                suqueryPlan,
-                Assignments.of(scalarSubquerySymbol, scalarSubquerySymbol.toSymbolReference()),
+                subqueryPlan,
+                subqueryAssignments.build(),
                 correlationAllowed);
     }
 
@@ -359,6 +373,18 @@ class SubqueryPlanner
                 .map(AggregationNode.class::cast)
                 .map(aggregation -> aggregation.getGroupingKeys().isEmpty())
                 .orElse(false);
+    }
+
+    private SubqueryExpression uncoercedSubquery(SubqueryExpression subquery)
+    {
+        return new SubqueryExpression(subquery.getQuery());
+    }
+
+    private List<Expression> coercionsFor(Expression expression)
+    {
+        return analysis.getCoercions().keySet().stream()
+                .filter(coercionExpression -> coercionExpression.equals(expression))
+                .collect(toImmutableList());
     }
 
     private PlanBuilder appendApplyNode(
