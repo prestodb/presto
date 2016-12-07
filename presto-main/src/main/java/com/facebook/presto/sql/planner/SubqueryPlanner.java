@@ -353,21 +353,29 @@ class SubqueryPlanner
 
     private PlanBuilder planQuantifiedApplyNode(PlanBuilder subPlan, QuantifiedComparisonExpression quantifiedComparison, boolean correlationAllowed)
     {
-        PlanBuilder subqueryPlan = createPlanBuilder(quantifiedComparison.getSubquery());
-        SymbolReference subquerySymbolReference = subqueryPlan.translate(quantifiedComparison.getSubquery()).toSymbolReference();
         subPlan = subPlan.appendProjections(ImmutableList.of(quantifiedComparison.getValue()), symbolAllocator, idAllocator);
-        QuantifiedComparisonExpression subqueryQuantifiedComparison = new QuantifiedComparisonExpression(
+
+        checkState(quantifiedComparison.getSubquery() instanceof SubqueryExpression);
+        SubqueryExpression quantifiedSubquery = (SubqueryExpression) quantifiedComparison.getSubquery();
+
+        SubqueryExpression uncoercedQuantifiedSubquery = uncoercedSubquery(quantifiedSubquery);
+        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedQuantifiedSubquery);
+        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(quantifiedSubquery), symbolAllocator, idAllocator);
+
+        QuantifiedComparisonExpression coercedQuantifiedComparison = new QuantifiedComparisonExpression(
                 quantifiedComparison.getComparisonType(),
                 quantifiedComparison.getQuantifier(),
                 subPlan.translate(quantifiedComparison.getValue()).toSymbolReference(),
-                subquerySymbolReference);
-        Symbol subqueryQuantifiedComparisonSymbol = symbolAllocator.newSymbol(subqueryQuantifiedComparison, BOOLEAN);
-        subPlan.getTranslations().put(quantifiedComparison, subqueryQuantifiedComparisonSymbol);
+                subqueryPlan.translate(quantifiedSubquery).toSymbolReference());
+
+        Symbol coercedQuantifiedComparisonSymbol = symbolAllocator.newSymbol(coercedQuantifiedComparison, BOOLEAN);
+        subPlan.getTranslations().put(quantifiedComparison, coercedQuantifiedComparisonSymbol);
+
         return appendApplyNode(
                 subPlan,
                 quantifiedComparison.getSubquery(),
                 subqueryPlan,
-                Assignments.of(subqueryQuantifiedComparisonSymbol, subqueryQuantifiedComparison),
+                Assignments.of(coercedQuantifiedComparisonSymbol, coercedQuantifiedComparison),
                 correlationAllowed);
     }
 
