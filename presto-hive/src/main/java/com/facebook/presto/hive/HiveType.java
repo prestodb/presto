@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -34,6 +35,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import javax.annotation.Nonnull;
 
 import java.util.List;
+import java.util.Locale;
 
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -231,11 +233,22 @@ public final class HiveType
                         ImmutableList.of(TypeSignatureParameter.of(elementType)));
             case STRUCT:
                 StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "fieldInspector");
-                List<TypeSignature> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos()
-                        .stream()
-                        .map(HiveType::getTypeSignature)
-                        .collect(toList());
-                return new TypeSignature(StandardTypes.ROW, fieldTypes, structTypeInfo.getAllStructFieldNames());
+                List<TypeInfo> structFieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
+                List<String> structFieldNames = structTypeInfo.getAllStructFieldNames();
+                if (structFieldTypeInfos.size() != structFieldNames.size()) {
+                    throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
+                }
+                ImmutableList.Builder<TypeSignatureParameter> typeSignatureBuilder = ImmutableList.builder();
+                for (int i = 0; i < structFieldTypeInfos.size(); i++) {
+                    TypeSignature typeSignature = getTypeSignature(structFieldTypeInfos.get(i));
+                    // Lower case the struct field names.
+                    // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
+                    // Users can't work around this by casting in their queries because Presto parser always lower case types.
+                    // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
+                    String rowFieldName = structFieldNames.get(i).toLowerCase(Locale.US);
+                    typeSignatureBuilder.add(TypeSignatureParameter.of(new NamedTypeSignature(rowFieldName, typeSignature)));
+                }
+                return new TypeSignature(StandardTypes.ROW, typeSignatureBuilder.build());
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
