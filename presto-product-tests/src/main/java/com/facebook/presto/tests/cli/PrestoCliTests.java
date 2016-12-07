@@ -42,6 +42,8 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
+// TODO uncomment below line and remove synchronized keyword from this class - https://github.com/prestodb/tempto/issues/195
+//@Test(singleThreaded = true)
 public class PrestoCliTests
         extends ProductTest
         implements RequirementsProvider
@@ -102,7 +104,7 @@ public class PrestoCliTests
     }
 
     @AfterTestWithContext
-    public void stopPresto()
+    public synchronized void stopPresto()
             throws InterruptedException
     {
         if (presto != null) {
@@ -118,7 +120,7 @@ public class PrestoCliTests
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldDisplayVersion()
+    public synchronized void shouldDisplayVersion()
             throws IOException, InterruptedException
     {
         launchPrestoCli("--version");
@@ -127,7 +129,7 @@ public class PrestoCliTests
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldRunQuery()
+    public synchronized void shouldRunQuery()
             throws IOException, InterruptedException
     {
         launchPrestoCliWithServerArgument();
@@ -137,7 +139,7 @@ public class PrestoCliTests
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldRunBatchQuery()
+    public synchronized void shouldRunBatchQuery()
             throws IOException, InterruptedException
     {
         launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
@@ -145,7 +147,7 @@ public class PrestoCliTests
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldUseCatalogAndSchemaOptions()
+    public synchronized void shouldUseCatalogAndSchemaOptions()
             throws IOException, InterruptedException
     {
         launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
@@ -153,7 +155,7 @@ public class PrestoCliTests
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
-    public void shouldRunQueryFromFile()
+    public synchronized void shouldRunQueryFromFile()
             throws IOException, InterruptedException
     {
         File temporayFile = File.createTempFile("test-sql", null);
