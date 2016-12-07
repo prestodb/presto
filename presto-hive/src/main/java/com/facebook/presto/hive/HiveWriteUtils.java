@@ -330,9 +330,9 @@ public final class HiveWriteUtils
         throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
-    public static void checkTableIsWritable(Table table)
+    public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
     {
-        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
+        if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.toString())) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
         }
 

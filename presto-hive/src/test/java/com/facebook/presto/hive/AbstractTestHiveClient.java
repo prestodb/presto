@@ -553,6 +553,7 @@ public abstract class AbstractTestHiveClient
                 true,
                 false,
                 true,
+                false,
                 HiveStorageFormat.RCBINARY,
                 1000,
                 typeManager,
