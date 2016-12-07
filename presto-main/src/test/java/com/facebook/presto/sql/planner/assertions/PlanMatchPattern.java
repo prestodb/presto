@@ -21,14 +21,17 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -201,6 +204,21 @@ public final class PlanMatchPattern
                         joinType,
                         expectedEquiCriteria,
                         expectedFilter.map(predicate -> rewriteQualifiedNamesToSymbolReferences(new SqlParser().createExpression(predicate)))));
+    }
+
+    public static PlanMatchPattern union(PlanMatchPattern... sources)
+    {
+        return node(UnionNode.class, sources);
+    }
+
+    public static PlanMatchPattern intersect(PlanMatchPattern... sources)
+    {
+        return node(IntersectNode.class, sources);
+    }
+
+    public static PlanMatchPattern except(PlanMatchPattern... sources)
+    {
+        return node(ExceptNode.class, sources);
     }
 
     public static ExpectedValueProvider<JoinNode.EquiJoinClause> equiJoinClause(String left, String right)
