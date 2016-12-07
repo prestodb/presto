@@ -175,15 +175,22 @@ class SubqueryPlanner
 
     private PlanBuilder appendInPredicateApplyNode(PlanBuilder subPlan, InPredicate inPredicate, boolean correlationAllowed)
     {
+        if (subPlan.canTranslate(inPredicate)) {
+            // given subquery is already appended
+            return subPlan;
+        }
+
         subPlan = subPlan.appendProjections(ImmutableList.of(inPredicate.getValue()), symbolAllocator, idAllocator);
 
         checkState(inPredicate.getValueList() instanceof SubqueryExpression);
         SubqueryExpression valueListSubquery = (SubqueryExpression) inPredicate.getValueList();
-        PlanBuilder subqueryPlan = createPlanBuilder(valueListSubquery);
+        SubqueryExpression uncoercedValueListSubquery = uncoercedSubquery(valueListSubquery);
+        PlanBuilder subqueryPlan = createPlanBuilder(uncoercedValueListSubquery);
 
-        InPredicate parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters, analysis), inPredicate);
+        subqueryPlan = subqueryPlan.appendProjections(ImmutableList.of(valueListSubquery), symbolAllocator, idAllocator);
         SymbolReference valueList = subqueryPlan.translate(valueListSubquery).toSymbolReference();
 
+        InPredicate parametersReplaced = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters, analysis), inPredicate);
         InPredicate inPredicateSubqueryExpression = new InPredicate(subPlan.translate(parametersReplaced.getValue()).toSymbolReference(), valueList);
         Symbol inPredicateSubquerySymbol = symbolAllocator.newSymbol(inPredicateSubqueryExpression, BOOLEAN);
         subPlan.getTranslations().put(parametersReplaced, inPredicateSubquerySymbol);

@@ -5795,6 +5795,11 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (VALUES (1,1), (2,2), (3, 3)) t(x, y) WHERE (x+y in (VALUES 4, 5)) AND (x*y in (VALUES 4, 5))",
                 "VALUES (2,2)");
 
+        // test multiple IN subqueries with coercions
+        assertQuery("SELECT 1.0 IN (SELECT 1), 1 IN (SELECT 1)");
+        assertQuery("SELECT 1 WHERE 1 IN (SELECT 1) AND 1.0 IN (SELECT 1)");
+        assertQuery("select 1.0 in (values (1), (2), (3))", "SELECT true");
+
         // test multi level IN subqueries
         assertQuery("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)");
 
