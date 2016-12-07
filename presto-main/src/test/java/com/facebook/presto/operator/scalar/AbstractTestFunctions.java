@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlFunction;
+import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.OperatorType;
@@ -27,6 +28,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.math.BigInteger;
@@ -146,6 +148,12 @@ public abstract class AbstractTestFunctions
             assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
             assertEquals(e.getMessage(), message);
         }
+    }
+
+    protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
+    {
+        Metadata metadata = functionAssertions.getMetadata();
+        metadata.getFunctionRegistry().addFunctions(ImmutableList.of(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
