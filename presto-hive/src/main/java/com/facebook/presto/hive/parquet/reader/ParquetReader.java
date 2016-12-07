@@ -24,6 +24,8 @@ import com.facebook.presto.spi.type.NamedTypeSignature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import parquet.column.ColumnDescriptor;
 import parquet.hadoop.metadata.BlockMetaData;
 import parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -41,7 +43,10 @@ import java.util.Optional;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getColumns;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 
@@ -49,6 +54,11 @@ public class ParquetReader
         implements Closeable
 {
     private static final int MAX_VECTOR_LENGTH = 1024;
+    private static final String MAP_TYPE_NAME = "map";
+    private static final String MAP_KEY_NAME = "key";
+    private static final String MAP_VALUE_NAME = "value";
+    private static final String ARRAY_TYPE_NAME = "bag";
+    private static final String ARRAY_ELEMENT_NAME = "array_element";
 
     private final MessageType fileSchema;
     private final MessageType requestedSchema;
@@ -124,6 +134,53 @@ public class ParquetReader
         return true;
     }
 
+    public Block readArray(Type type, List<String> path)
+            throws IOException
+    {
+        List<Type> parameters = type.getTypeParameters();
+        checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %d", parameters.size());
+        IntList elementOffsets = new IntArrayList();
+        path.add(ARRAY_TYPE_NAME);
+        Type elementType = parameters.get(0);
+        Block block = readBlock(ARRAY_ELEMENT_NAME, elementType, path, elementOffsets);
+        path.remove(ARRAY_TYPE_NAME);
+
+        if (elementOffsets.isEmpty()) {
+            return RunLengthEncodedBlock.create(elementType, null, batchSize);
+        }
+
+        int[] offsets = new int[batchSize + 1];
+        for (int i = 1; i < offsets.length; i++) {
+            offsets[i] = offsets[i - 1] + elementOffsets.getInt(i - 1);
+        }
+        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, block);
+    }
+
+    public Block readMap(Type type, List<String> path)
+            throws IOException
+    {
+        List<Type> parameters = type.getTypeParameters();
+        checkArgument(parameters.size() == 2, "Maps must have two type parameters, found %d", parameters.size());
+        Block[] blocks = new Block[parameters.size()];
+
+        IntList keyOffsets = new IntArrayList();
+        IntList valueOffsets = new IntArrayList();
+        path.add(MAP_TYPE_NAME);
+        blocks[0] = readBlock(MAP_KEY_NAME, parameters.get(0), path, keyOffsets);
+        blocks[1] = readBlock(MAP_VALUE_NAME, parameters.get(1), path, valueOffsets);
+        path.remove(MAP_TYPE_NAME);
+
+        if (blocks[0].getPositionCount() == 0) {
+            return RunLengthEncodedBlock.create(parameters.get(0), null, batchSize);
+        }
+        InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[] {blocks[0], blocks[1]});
+        int[] offsets = new int[batchSize + 1];
+        for (int i = 1; i < offsets.length; i++) {
+            offsets[i] = offsets[i - 1] + keyOffsets.getInt(i - 1) * 2;
+        }
+        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, interleavedBlock);
+    }
+
     public Block readStruct(Type type, List<String> path)
             throws IOException
     {
@@ -133,32 +190,25 @@ public class ParquetReader
             NamedTypeSignature namedTypeSignature = parameters.get(i).getNamedTypeSignature();
             Type fieldType = typeManager.getType(namedTypeSignature.getTypeSignature());
             String name = namedTypeSignature.getName();
-            path.add(name);
-            Optional<RichColumnDescriptor> columnDescriptor = getDescriptor(fileSchema, requestedSchema, path);
-            if (!columnDescriptor.isPresent()) {
-                path.remove(name);
-                blocks[i] = RunLengthEncodedBlock.create(type, null, batchSize);
-                continue;
-            }
-
-            if (ROW.equals(fieldType.getTypeSignature().getBase())) {
-                blocks[i] = readStruct(fieldType, path);
-            }
-            else {
-                blocks[i] = readPrimitive(columnDescriptor.get(), fieldType);
-            }
-            path.remove(name);
+            blocks[i] = readBlock(name, fieldType, path, new IntArrayList());
         }
 
         InterleavedBlock interleavedBlock = new InterleavedBlock(blocks);
-        int[] offsets = new int[batchSize + 1];
+        int blockSize = blocks[0].getPositionCount();
+        int[] offsets = new int[blockSize + 1];
         for (int i = 1; i < offsets.length; i++) {
             offsets[i] = i * parameters.size();
         }
-        return new ArrayBlock(batchSize, new boolean[batchSize], offsets, interleavedBlock);
+        return new ArrayBlock(blockSize, new boolean[blockSize], offsets, interleavedBlock);
     }
 
     public Block readPrimitive(ColumnDescriptor columnDescriptor, Type type)
+            throws IOException
+    {
+        return readPrimitive(columnDescriptor, type, new IntArrayList());
+    }
+
+    private Block readPrimitive(ColumnDescriptor columnDescriptor, Type type, IntList offsets)
             throws IOException
     {
         ParquetColumnReader columnReader = columnReadersMap.get(columnDescriptor);
@@ -173,7 +223,7 @@ public class ParquetReader
             ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
             columnReader.setPageReader(columnChunk.readAllPages());
         }
-        return columnReader.readPrimitive(type);
+        return columnReader.readPrimitive(type, offsets);
     }
 
     private ColumnChunkMetaData getColumnChunkMetaData(ColumnDescriptor columnDescriptor)
@@ -193,6 +243,43 @@ public class ParquetReader
             ColumnDescriptor descriptor = columnIO.getColumnDescriptor();
             RichColumnDescriptor column = new RichColumnDescriptor(descriptor.getPath(), columnIO.getType().asPrimitiveType(), descriptor.getMaxRepetitionLevel(), descriptor.getMaxDefinitionLevel());
             columnReadersMap.put(column, ParquetColumnReader.createReader(column));
+        }
+    }
+
+    private Block readBlock(String name, Type type, List<String> path, IntList offsets)
+            throws IOException
+    {
+        path.add(name);
+        Optional<RichColumnDescriptor> descriptor = getDescriptor(fileSchema, requestedSchema, path);
+        if (!descriptor.isPresent()) {
+            path.remove(name);
+            return RunLengthEncodedBlock.create(type, null, batchSize);
+        }
+
+        Block block;
+        if (ROW.equals(type.getTypeSignature().getBase())) {
+            block = readStruct(type, path);
+            getBlockOffsets(block, offsets);
+        }
+        else if (MAP.equals(type.getTypeSignature().getBase())) {
+            block = readMap(type, path);
+            getBlockOffsets(block, offsets);
+        }
+        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+            block = readArray(type, path);
+            getBlockOffsets(block, offsets);
+        }
+        else {
+            block = readPrimitive(descriptor.get(), type, offsets);
+        }
+        path.remove(name);
+        return block;
+    }
+
+    private static void getBlockOffsets(Block block, IntList offsets)
+    {
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            offsets.add(block.getLength(i));
         }
     }
 }

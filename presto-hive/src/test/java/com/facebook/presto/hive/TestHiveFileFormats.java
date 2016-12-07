@@ -42,7 +42,6 @@ import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -76,7 +75,6 @@ import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.getTypes;
-import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.SUPPORTED_COLUMN_TYPES;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -107,7 +105,6 @@ public class TestHiveFileFormats
     private static TestingConnectorSession parquetCursorPushdownSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(false).setParquetPredicatePushdownEnabled(true)).getSessionProperties());
     private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(false)).getSessionProperties());
     private static TestingConnectorSession parquetPageSourcePushdown = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig().setParquetOptimizedReaderEnabled(true).setParquetPredicatePushdownEnabled(true)).getSessionProperties());
-    private static final List<String> SUPPORTED_PARQUET_STRUCT_COLUMNS = ImmutableList.of("t_struct_bigint", "t_struct_null", "t_struct_non_nulls_after_nulls", "t_nested_struct_non_nulls_after_nulls");
 
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
@@ -281,9 +278,6 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
-        testColumns = testColumns.stream()
-                .filter(column -> column.getObjectInspector().getCategory() == Category.PRIMITIVE || SUPPORTED_PARQUET_STRUCT_COLUMNS.contains(column.getName()))
-                .collect(toList());
         assertThatFileFormat(PARQUET)
                 .withColumns(testColumns)
                 .withSession(parquetPageSourceSession)
@@ -301,9 +295,6 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> writeColumns = getTestColumnsSupportedByParquet();
-        writeColumns = writeColumns.stream()
-                .filter(column -> SUPPORTED_COLUMN_TYPES.contains(column.getType()))
-                .collect(toList());
 
         // test index-based access
         boolean useParquetColumnNames = false;
@@ -358,7 +349,7 @@ public class TestHiveFileFormats
         // TODO: empty arrays or maps with null keys don't seem to work
         // Parquet does not support DATE
         return TEST_COLUMNS.stream()
-                .filter(column -> !ImmutableSet.of("t_array_empty", "t_map_null_key", "t_map_null_key_complex_value", "t_map_null_key_complex_key_value")
+                .filter(column -> !ImmutableSet.of("t_null_array_int", "t_array_empty", "t_map_null_key", "t_map_null_key_complex_value", "t_map_null_key_complex_key_value")
                         .contains(column.getName()))
                 .filter(column -> column.isPartitionKey() || (
                         !hasType(column.getObjectInspector(), PrimitiveCategory.DATE)) &&

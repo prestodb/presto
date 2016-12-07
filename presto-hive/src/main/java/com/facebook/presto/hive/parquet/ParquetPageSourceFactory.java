@@ -25,9 +25,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -58,22 +55,6 @@ import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsPa
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.predicateMatches;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.BOOLEAN;
-import static com.facebook.presto.spi.type.StandardTypes.CHAR;
-import static com.facebook.presto.spi.type.StandardTypes.DATE;
-import static com.facebook.presto.spi.type.StandardTypes.DECIMAL;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.INTEGER;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.StandardTypes.REAL;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.facebook.presto.spi.type.StandardTypes.SMALLINT;
-import static com.facebook.presto.spi.type.StandardTypes.TIMESTAMP;
-import static com.facebook.presto.spi.type.StandardTypes.TINYINT;
-import static com.facebook.presto.spi.type.StandardTypes.VARBINARY;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -85,9 +66,6 @@ public class ParquetPageSourceFactory
             .add("org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe")
             .add("parquet.hive.serde.ParquetHiveSerDe")
             .build();
-    @VisibleForTesting
-    public static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(INTEGER, BIGINT, BOOLEAN, DOUBLE, REAL, TIMESTAMP, VARCHAR, CHAR, VARBINARY, DATE, DECIMAL, ROW);
-    private static final Set<String> SUPPORTED_PARTITION_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, BOOLEAN, DOUBLE, REAL, TIMESTAMP, VARCHAR, CHAR, DATE, DECIMAL);
 
     private final TypeManager typeManager;
     private final boolean useParquetColumnNames;
@@ -123,10 +101,6 @@ public class ParquetPageSourceFactory
         }
 
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
-            return Optional.empty();
-        }
-
-        if (!columnTypeSupported(columns)) {
             return Optional.empty();
         }
 
@@ -227,37 +201,5 @@ public class ParquetPageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
-    }
-
-    // TODO: support complex types
-    private static boolean columnTypeSupported(List<HiveColumnHandle> columns)
-    {
-        boolean regularColumnsSupported = columns.stream()
-                .filter(column -> column.getColumnType() == REGULAR)
-                .map(HiveColumnHandle::getTypeSignature)
-                .allMatch(ParquetPageSourceFactory::isTypeSupported);
-
-        boolean partitionColumnsSupported = columns.stream()
-                .filter(HiveColumnHandle::isPartitionKey)
-                .map(HiveColumnHandle::getTypeSignature)
-                .map(TypeSignature::getBase)
-                .allMatch(SUPPORTED_PARTITION_TYPES::contains);
-
-        return regularColumnsSupported && partitionColumnsSupported;
-    }
-
-    private static boolean isTypeSupported(TypeSignature typeSignature)
-    {
-        if (MAP.equals(typeSignature.getBase()) || ARRAY.equals(typeSignature.getBase())) {
-            return false;
-        }
-        else if (ROW.equals(typeSignature.getBase())) {
-            return typeSignature.getParameters().stream()
-                .map(TypeSignatureParameter::getTypeSignatureOrNamedTypeSignature)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .allMatch(ParquetPageSourceFactory::isTypeSupported);
-        }
-        return true;
     }
 }

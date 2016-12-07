@@ -42,6 +42,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getFieldIndex;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
+import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
+import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -186,10 +188,17 @@ public class ParquetPageSource
                         continue;
                     }
 
+                    String fieldName = fileSchema.getFields().get(fieldIndex).getName();
                     List<String> path = new ArrayList<>();
-                    path.add(fileSchema.getFields().get(fieldIndex).getName());
+                    path.add(fieldName);
                     if (ROW.equals(type.getTypeSignature().getBase())) {
                         blocks[fieldId] = parquetReader.readStruct(type, path);
+                    }
+                    else if (MAP.equals(type.getTypeSignature().getBase())) {
+                        blocks[fieldId] = parquetReader.readMap(type, path);
+                    }
+                    else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+                        blocks[fieldId] = parquetReader.readArray(type, path);
                     }
                     else {
                         Optional<RichColumnDescriptor> descriptor = getDescriptor(fileSchema, requestedSchema, path);
