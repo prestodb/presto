@@ -161,6 +161,7 @@ public class HiveMetadata
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean respectTableFormat;
     private final boolean bucketWritingEnabled;
+    private final boolean writesToNonManagedTablesEnabled;
     private final HiveStorageFormat defaultStorageFormat;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
@@ -174,6 +175,7 @@ public class HiveMetadata
             boolean allowCorruptWritesForTesting,
             boolean respectTableFormat,
             boolean bucketWritingEnabled,
+            boolean writesToNonManagedTablesEnabled,
             HiveStorageFormat defaultStorageFormat,
             TypeManager typeManager,
             LocationService locationService,
@@ -196,6 +198,7 @@ public class HiveMetadata
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.respectTableFormat = respectTableFormat;
         this.bucketWritingEnabled = bucketWritingEnabled;
+        this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
@@ -764,7 +767,7 @@ public class HiveMetadata
             throw new TableNotFoundException(tableName);
         }
 
-        checkTableIsWritable(table.get());
+        checkTableIsWritable(table.get(), writesToNonManagedTablesEnabled);
 
         for (Column column : table.get().getDataColumns()) {
             if (!isWritableType(column.getType())) {
