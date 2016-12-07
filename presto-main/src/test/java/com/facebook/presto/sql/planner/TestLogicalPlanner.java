@@ -139,10 +139,10 @@ public class TestLogicalPlanner
     @Test
     public void testSameScalarSubqueryIsAppliedOnlyOnce()
     {
-        // three subqueries with two duplicates, only two scalar joins should be in plan
+        // three subqueries with two duplicates (coerced to two different types), only two scalar joins should be in plan
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders WHERE orderkey = (SELECT 1) AND custkey = (SELECT 2) AND custkey != (SELECT 1)"),
+                        plan("SELECT * FROM orders WHERE CAST(orderkey AS INTEGER) = (SELECT 1) AND custkey = (SELECT 2) AND CAST(custkey as REAL) != (SELECT 1)"),
                         EnforceSingleRowNode.class::isInstance),
                 2);
         // same query used for left, right and complex join condition
