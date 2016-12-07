@@ -439,11 +439,12 @@ public class PlanPrinter
                 print(indent, "- CrossJoin => [%s] %s", formatOutputs(node.getOutputSymbols()), formatCost(node));
             }
             else {
-                print(indent, "- %s[%s]%s => [%s]",
+                print(indent, "- %s[%s]%s => [%s] %s",
                         node.getType().getJoinLabel(),
                         Joiner.on(" AND ").join(joinExpressions),
                         formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()),
-                        formatOutputs(node.getOutputSymbols()));
+                        formatOutputs(node.getOutputSymbols()),
+                        formatCost(node));
             }
 
             printStats(indent + 2, node.getId());
