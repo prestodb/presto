@@ -139,6 +139,17 @@ public class TestLogicalPlanner
                         plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 1)"),
                         EnforceSingleRowNode.class::isInstance),
                 1);
+    }
+
+    @Test
+    public void testSameInSubqueryIsAppliedOnlyOnce()
+    {
+        // same IN query used for left, right and complex condition
+        assertEquals(
+                countOfMatchingNodes(
+                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey IN (SELECT 1) AND (o1.orderkey IN (SELECT 1) OR o1.orderkey IN (SELECT 1))"),
+                        SemiJoinNode.class::isInstance),
+                1);
 
         // one subquery used for "1 IN (SELECT 1)", one subquery used for "2 IN (SELECT 1)"
         assertEquals(
