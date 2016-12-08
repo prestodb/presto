@@ -15,10 +15,18 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSink;
+import com.facebook.presto.spi.type.DateTimeEncoding;
+import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
+import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalTime;
 import org.joda.time.chrono.ISOChronology;
 
 import java.sql.Connection;
@@ -26,7 +34,11 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -129,6 +141,28 @@ public class JdbcRecordSink
                 long utcMillis = TimeUnit.DAYS.toMillis(value);
                 long localMillis = ISOChronology.getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
                 statement.setDate(next(), new Date(localMillis));
+            }
+            else if (TimestampType.TIMESTAMP.equals(columnTypes.get(field))) {
+                // convert to default time zone
+                long localMillis = DateTimeZone.UTC.getMillisKeepLocal(null, value);
+                statement.setTimestamp(next(), new Timestamp(localMillis));
+            }
+            else if (TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE.equals(columnTypes.get(field))) {
+                long utcMillis = DateTimeEncoding.unpackMillisUtc(value);
+                TimeZoneKey tz = DateTimeEncoding.unpackZoneKey(value);
+                Calendar cal = GregorianCalendar.getInstance(DateTimeZoneIndex.getDateTimeZone(tz).toTimeZone());
+                cal.setTimeInMillis(utcMillis);
+                statement.setTimestamp(next(), new Timestamp(cal.getTimeInMillis()), cal);
+            }
+            else if (TimeType.TIME.equals(columnTypes.get(field))) {
+                statement.setTime(next(), new Time(LocalTime.fromMillisOfDay(value).toDateTimeToday().getMillis()));
+            }
+            else if (TimeWithTimeZoneType.TIME_WITH_TIME_ZONE.equals(columnTypes.get(field))) {
+                long utcMillis = DateTimeEncoding.unpackMillisUtc(value);
+                TimeZoneKey tz = DateTimeEncoding.unpackZoneKey(value);
+                Calendar cal = GregorianCalendar.getInstance(DateTimeZoneIndex.getDateTimeZone(tz).toTimeZone());
+                cal.setTimeInMillis(utcMillis);
+                statement.setTime(next(), new Time(cal.getTimeInMillis()), cal);
             }
             else {
                 statement.setLong(next(), value);

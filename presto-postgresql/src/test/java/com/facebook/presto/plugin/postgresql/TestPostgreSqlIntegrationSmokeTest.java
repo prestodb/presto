@@ -55,12 +55,51 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     @Test
+    public void testTimestampTz()
+            throws Exception
+    {
+        queryRunner.execute("CREATE TABLE tpch.test_timestamptz AS SELECT CAST('2016-12-07 00:00:00-03:00' AS TIMESTAMP WITH TIME ZONE) as sometime");
+        assertQuery("SELECT * FROM test_timestamptz", "SELECT CAST('2016-12-07 00:00:00-03:00' AS TIMESTAMP)");
+    }
+
+    @Test
+    public void testTimestamp()
+            throws Exception
+    {
+        queryRunner.execute("CREATE TABLE tpch.test_timestamp AS SELECT CAST('2016-12-07 00:00:00' AS TIMESTAMP) as sometime");
+        assertQuery("SELECT * FROM test_timestamp", "SELECT CAST('2016-12-07 00:00:00' AS TIMESTAMP)");
+    }
+
+    @Test
+    public void testTimeTz()
+            throws Exception
+    {
+        queryRunner.execute("CREATE TABLE tpch.test_timetz AS SELECT CAST('00:00:00-03:00' AS TIME WITH TIME ZONE) as sometime");
+        assertQuery("SELECT * FROM test_timetz", "SELECT CAST(CAST('1970-01-01 00:00:00-03:00' AS TIMESTAMP) AS TIME)");
+    }
+    @Test
+    public void testTime()
+            throws Exception
+    {
+        queryRunner.execute("CREATE TABLE tpch.test_time AS SELECT CAST('00:00:00' AS TIME) as sometime");
+        assertQuery("SELECT * FROM test_time", "SELECT CAST('00:00:00' AS TIME)");
+    }
+
+    @Test
+    public void testDate()
+            throws Exception
+    {
+        queryRunner.execute("CREATE TABLE tpch.test_date AS SELECT CAST('2016-12-07' AS DATE) as sometime");
+        assertQuery("SELECT * FROM test_date", "SELECT CAST('2016-12-07' AS DATE)");
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {
-        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
-        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
+        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100), z timestamp with time zone)");
+        assertUpdate("INSERT INTO test_insert VALUES (123, 'test', CAST('2016-12-07 12:34:56-07:00' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y, CAST('2016-12-07 12:34:56-07:00' AS TIMESTAMP)");
         assertUpdate("DROP TABLE test_insert");
     }
 

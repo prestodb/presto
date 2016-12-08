@@ -31,6 +31,7 @@ import com.google.common.base.Joiner;
 import io.airlift.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
+import org.joda.time.chrono.ISOChronology;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.PreparedBatch;
@@ -267,7 +268,9 @@ public class H2QueryRunner
                         }
                     }
                     else if (TIME.equals(type) || TIME_WITH_TIME_ZONE.equals(type)) {
-                        Time timeValue = resultSet.getTime(i);
+                        long positiveOrNegativeOffset = resultSet.getTime(i).getTime();
+                        int positiveOffset = ISOChronology.getInstanceUTC().millisOfDay().get(positiveOrNegativeOffset);
+                        Time timeValue = new Time(positiveOffset);
                         if (resultSet.wasNull()) {
                             row.add(null);
                         }

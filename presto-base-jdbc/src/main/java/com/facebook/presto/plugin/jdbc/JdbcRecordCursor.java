@@ -17,12 +17,15 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.CharType;
+import com.facebook.presto.spi.type.DateTimeEncoding;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.SmallintType;
 import com.facebook.presto.spi.type.TimeType;
+import com.facebook.presto.spi.type.TimeWithTimeZoneType;
 import com.facebook.presto.spi.type.TimestampType;
+import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
@@ -170,9 +173,17 @@ public class JdbcRecordCursor
                 Time time = resultSet.getTime(field + 1);
                 return UTC_CHRONOLOGY.millisOfDay().get(time.getTime());
             }
+            if (type.equals(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE)) {
+                Time time = resultSet.getTime(field + 1);
+                return DateTimeEncoding.packDateTimeWithZone(UTC_CHRONOLOGY.millisOfDay().get(time.getTime()), -time.getTimezoneOffset());
+            }
             if (type.equals(TimestampType.TIMESTAMP)) {
                 Timestamp timestamp = resultSet.getTimestamp(field + 1);
                 return timestamp.getTime();
+            }
+            if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+                Timestamp timestamp = resultSet.getTimestamp(field + 1);
+                return DateTimeEncoding.packDateTimeWithZone(timestamp.getTime(), -timestamp.getTimezoneOffset());
             }
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for long: " + type.getTypeSignature());
         }

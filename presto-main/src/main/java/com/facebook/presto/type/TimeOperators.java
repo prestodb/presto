@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimeWithoutTimeZone;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -133,6 +134,19 @@ public final class TimeOperators
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to time: " + value.toStringUtf8(), e);
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
+    public static long castFromSliceWithTimeZone(ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    {
+        try {
+            return parseTimeWithTimeZone(value.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to time with time zone: " + value.toStringUtf8(), e);
         }
     }
 
