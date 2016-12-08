@@ -489,6 +489,16 @@ public class HiveMetadata
             }
         }
 
+        ImmutableMap.Builder<String, String> tableParameters = ImmutableMap.<String, String>builder()
+                .put("comment", "Created by Presto")
+                .put(PRESTO_VERSION_NAME, prestoVersion)
+                .put(PRESTO_QUERY_ID_NAME, queryId)
+                .putAll(additionalTableParameters);
+
+        if (external) {
+            tableParameters.put("EXTERNAL", "TRUE");
+        }
+
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
@@ -496,12 +506,8 @@ public class HiveMetadata
                 .setTableType((external ? EXTERNAL_TABLE : MANAGED_TABLE).name())
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
-                .setParameters(ImmutableMap.<String, String>builder()
-                        .put("comment", "Created by Presto")
-                        .put(PRESTO_VERSION_NAME, prestoVersion)
-                        .put(PRESTO_QUERY_ID_NAME, queryId)
-                        .putAll(additionalTableParameters)
-                        .build());
+                .setParameters(tableParameters.build());
+
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
                 .setBucketProperty(bucketProperty)
