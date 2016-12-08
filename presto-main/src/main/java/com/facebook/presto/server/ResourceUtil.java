@@ -92,7 +92,11 @@ final class ResourceUtil
             accessControl.checkCanSetUser(principal, user);
         }
         catch (AccessDeniedException e) {
-            throw new WebApplicationException(e.getMessage(), Status.FORBIDDEN);
+            throw new WebApplicationException(
+                    e,
+                    Response.status(Status.FORBIDDEN)
+                            .entity("Access denied: " + e.getMessage())
+                            .build());
         }
 
         Identity identity = new Identity(user, Optional.ofNullable(principal));
