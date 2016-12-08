@@ -48,7 +48,7 @@ public final class ArrayReduceFunction
                 ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
                 ImmutableList.of(),
                 parseTypeSignature("R"),
-                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("S"), parseTypeSignature("function(T,S,S)"), parseTypeSignature("function(S,R)")),
+                ImmutableList.of(parseTypeSignature("array(T)"), parseTypeSignature("S"), parseTypeSignature("function(S,T,S)"), parseTypeSignature("function(S,R)")),
                 false));
     }
 
@@ -99,7 +99,7 @@ public final class ArrayReduceFunction
         for (int position = 0; position < positionCount; position++) {
             Object input = readNativeValue(inputType, block, position);
             try {
-                intermediateValue = inputFunction.invoke(input, intermediateValue);
+                intermediateValue = inputFunction.invoke(intermediateValue, input);
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
