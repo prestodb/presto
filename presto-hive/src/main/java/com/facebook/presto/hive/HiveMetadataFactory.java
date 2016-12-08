@@ -35,7 +35,6 @@ public class HiveMetadataFactory
     private final String connectorId;
     private final boolean allowCorruptWritesForTesting;
     private final boolean respectTableFormat;
-    private final boolean bucketExecutionEnabled;
     private final boolean bucketWritingEnabled;
     private final boolean skipDeletionForAlter;
     private final HiveStorageFormat defaultStorageFormat;
@@ -77,7 +76,6 @@ public class HiveMetadataFactory
                 hiveClientConfig.getAllowCorruptWritesForTesting(),
                 hiveClientConfig.isRespectTableFormat(),
                 hiveClientConfig.isSkipDeletionForAlter(),
-                hiveClientConfig.isBucketExecutionEnabled(),
                 hiveClientConfig.isBucketWritingEnabled(),
                 hiveClientConfig.getHiveStorageFormat(),
                 hiveClientConfig.getPerTransactionMetastoreCacheMaximumSize(),
@@ -100,7 +98,6 @@ public class HiveMetadataFactory
             boolean allowCorruptWritesForTesting,
             boolean respectTableFormat,
             boolean skipDeletionForAlter,
-            boolean bucketExecutionEnabled,
             boolean bucketWritingEnabled,
             HiveStorageFormat defaultStorageFormat,
             long perTransactionCacheMaximumSize,
@@ -117,7 +114,6 @@ public class HiveMetadataFactory
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.respectTableFormat = respectTableFormat;
         this.skipDeletionForAlter = skipDeletionForAlter;
-        this.bucketExecutionEnabled = bucketExecutionEnabled;
         this.bucketWritingEnabled = bucketWritingEnabled;
         this.defaultStorageFormat = requireNonNull(defaultStorageFormat, "defaultStorageFormat is null");
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
@@ -157,7 +153,6 @@ public class HiveMetadataFactory
                 timeZone,
                 allowCorruptWritesForTesting,
                 respectTableFormat,
-                bucketExecutionEnabled,
                 bucketWritingEnabled,
                 defaultStorageFormat,
                 typeManager,
