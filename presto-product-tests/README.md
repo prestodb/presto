@@ -29,7 +29,7 @@ broken.
     wget -qO- https://get.docker.com/ | sh
     ```
 
-* [`docker-compose >= 1.60`](https://docs.docker.com/compose/install/)
+* [`docker-compose >= 1.8.1`](https://docs.docker.com/compose/install/)
 
     ```
     pip install docker-compose
