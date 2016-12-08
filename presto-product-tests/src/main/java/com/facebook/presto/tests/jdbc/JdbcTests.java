@@ -14,7 +14,6 @@
 package com.facebook.presto.tests.jdbc;
 
 import com.facebook.presto.jdbc.PrestoConnection;
-import com.teradata.tempto.BeforeTestWithContext;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.Requirement;
 import com.teradata.tempto.RequirementsProvider;
@@ -72,20 +71,12 @@ public class JdbcTests
         }
     }
 
-    private Connection connection;
-
-    @BeforeTestWithContext
-    public void setup()
-            throws SQLException
-    {
-        connection = defaultQueryExecutor().getConnection();
-    }
-
     @Test(groups = JDBC)
     @Requires(ImmutableNationTable.class)
     public void shouldExecuteQuery()
             throws SQLException
     {
+        Connection connection = defaultQueryExecutor().getConnection();
         try (Statement statement = connection.createStatement()) {
             QueryResult result = queryResult(statement, "select * from hive.default.nation");
             assertThat(result).matches(PRESTO_NATION_RESULT);
@@ -100,6 +91,7 @@ public class JdbcTests
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
         assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
 
+        Connection connection = defaultQueryExecutor().getConnection();
         try (Statement statement = connection.createStatement()) {
             assertThat(statement.executeUpdate("insert into " + tableNameInDatabase + " select * from nation"))
                     .isEqualTo(25);
@@ -113,6 +105,7 @@ public class JdbcTests
     public void shouldExecuteQueryWithSelectedCatalogAndSchema()
             throws SQLException
     {
+        Connection connection = defaultQueryExecutor().getConnection();
         connection.setCatalog("hive");
         connection.setSchema("default");
         try (Statement statement = connection.createStatement()) {
@@ -125,6 +118,7 @@ public class JdbcTests
     public void shouldSetTimezone()
             throws SQLException
     {
+        Connection connection = defaultQueryExecutor().getConnection();
         if (usingPrestoJdbcDriver(connection)) {
             String timeZoneId = "Indian/Kerguelen";
             ((PrestoConnection) connection).setTimeZoneId(timeZoneId);
@@ -142,6 +136,7 @@ public class JdbcTests
     public void shouldSetLocale()
             throws SQLException
     {
+        Connection connection = defaultQueryExecutor().getConnection();
         if (usingPrestoJdbcDriver(connection)) {
             ((PrestoConnection) connection).setLocale(CHINESE);
             try (Statement statement = connection.createStatement()) {
@@ -178,6 +173,7 @@ public class JdbcTests
     {
         // The JDBC spec is vague on what values getColumns() should return, so accept the values that Facebook or Simba return.
 
+        Connection connection = defaultQueryExecutor().getConnection();
         QueryResult result = QueryResult.forResultSet(metaData().getColumns("hive", "default", "nation", null));
         if (usingPrestoJdbcDriver(connection)) {
             assertThat(result).matches(sqlResultDescriptorForResource("com/facebook/presto/tests/jdbc/get_nation_columns.result"));
@@ -206,6 +202,7 @@ public class JdbcTests
     public void testSqlEscapeFunctions()
             throws SQLException
     {
+        Connection connection = defaultQueryExecutor().getConnection();
         if (usingTeradataJdbcDriver(connection)) {
             // These functions, which are defined in the ODBC standard, are implemented within
             // the Simba JDBC and ODBC drivers.  The drivers translate them into equivalent Presto syntax.
@@ -249,6 +246,7 @@ public class JdbcTests
     {
         final String distributedJoin = "distributed_join";
 
+        Connection connection = defaultQueryExecutor().getConnection();
         assertThat(getSessionProperty(connection, distributedJoin)).isEqualTo(TRUE.toString());
         setSessionProperty(connection, distributedJoin, FALSE.toString());
         assertThat(getSessionProperty(connection, distributedJoin)).isEqualTo(FALSE.toString());
@@ -265,6 +263,6 @@ public class JdbcTests
     private DatabaseMetaData metaData()
             throws SQLException
     {
-        return connection.getMetaData();
+        return defaultQueryExecutor().getConnection().getMetaData();
     }
 }
