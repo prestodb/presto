@@ -191,16 +191,12 @@ fi
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-# start hadoop container
-environment_compose up -d hadoop-master
+# start external services
+EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
+environment_compose up -d ${EXTERNAL_SERVICES}
 
-# start external database containers
-environment_compose up -d mysql
-environment_compose up -d postgres
-environment_compose up -d cassandra
-
-# start docker logs for hadoop container
-environment_compose logs --no-color hadoop-master &
+# start docker logs for the external services
+environment_compose logs --no-color ${EXTERNAL_SERVICES} &
 HADOOP_LOGS_PID=$!
 
 # wait until hadoop processes is started
