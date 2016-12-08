@@ -14,125 +14,139 @@
 
 package com.facebook.presto.tests.hive;
 
-import com.teradata.tempto.BeforeTestWithContext;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.query.QueryExecutor;
+import com.teradata.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
 import static com.facebook.presto.tests.TestGroups.HIVE_CONNECTOR;
 import static com.facebook.presto.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static com.facebook.presto.tests.utils.QueryExecutors.connectToPresto;
+import static com.facebook.presto.tests.utils.Tables.uniqueTableName;
 import static com.teradata.tempto.assertions.QueryAssert.assertThat;
 import static com.teradata.tempto.context.ContextDsl.executeWith;
 import static com.teradata.tempto.sql.SqlContexts.createViewAs;
 import static java.lang.String.format;
 
 public class TestSqlStandardAccessControlChecks
-    extends ProductTest
+        extends ProductTest
 {
-    private String tableName;
-    private QueryExecutor aliceExecutor;
-    private QueryExecutor bobExecutor;
-
-    @BeforeTestWithContext
-    public void setup()
+    public void setup(String tableName)
     {
-        tableName = "alice_owned_table";
-        aliceExecutor = connectToPresto("alice@presto");
-        bobExecutor = connectToPresto("bob@presto");
-
-        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));
+        queryAsAlice("DROP TABLE IF EXISTS %s", tableName);
+        queryAsAlice("CREATE TABLE %s(month bigint, day bigint)", tableName);
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSelect()
     {
-        assertThat(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        String tableName = uniqueTableName();
+        setup(tableName);
+
+        String format = "SELECT * FROM %s";
+        assertThat(() -> queryAsBob(tableName, format))
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        queryAsAlice("GRANT SELECT ON %s TO bob", tableName);
+        assertThat(queryAsBob(tableName, format)).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlInsert()
     {
-        assertThat(() -> bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
+        String tableName = uniqueTableName();
+        setup(tableName);
+
+        assertThat(() -> connectAsBob().executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName)))
                 .failsWithMessage(format("Access Denied: Cannot insert into table default.%s", tableName));
 
-        aliceExecutor.executeQuery(format("GRANT INSERT ON %s TO bob", tableName));
-        assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).hasRowsCount(1);
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
+        queryAsAlice("GRANT INSERT ON %s TO bob", tableName);
+        assertThat(connectAsBob().executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).hasRowsCount(1);
+        assertThat(queryAsAlice("SELECT * FROM %s", tableName)).hasRowsCount(1);
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDelete()
     {
-        aliceExecutor.executeQuery(format("INSERT INTO %s VALUES (4, 13)", tableName));
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasRowsCount(1);
-        assertThat(() -> bobExecutor.executeQuery(format("DELETE FROM %s WHERE day=4", tableName)))
+        String tableName = uniqueTableName();
+        setup(tableName);
+
+        queryAsAlice("INSERT INTO %s VALUES (4, 13)", tableName);
+        assertThat(queryAsAlice("SELECT * FROM %s", tableName)).hasRowsCount(1);
+        assertThat(() -> connectAsBob().executeQuery(format("DELETE FROM %s WHERE day=4", tableName)))
                 .failsWithMessage(format("Access Denied: Cannot delete from table default.%s", tableName));
 
-        aliceExecutor.executeQuery(format("GRANT DELETE ON %s TO bob", tableName));
-        bobExecutor.executeQuery(format("DELETE FROM %s", tableName));
-        assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        queryAsAlice("GRANT DELETE ON %s TO bob", tableName);
+        connectAsBob().executeQuery(format("DELETE FROM %s", tableName));
+        assertThat(queryAsAlice("SELECT * FROM %s", tableName)).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlCreateTableAsSelect()
     {
+        String tableName = uniqueTableName();
+        setup(tableName);
+
         String createTableAsSelect = "bob_create_table_as_select";
 
-        assertThat(() -> bobExecutor.executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName)))
+        assertThat(() -> connectAsBob().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName)))
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
 
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        bobExecutor.executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName));
-        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", createTableAsSelect))).hasNoRows();
+        queryAsAlice("GRANT SELECT ON %s TO bob", tableName);
+        connectAsBob().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", createTableAsSelect, tableName));
+        assertThat(queryAsBob(createTableAsSelect, "SELECT * FROM %s")).hasNoRows();
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDropTable()
     {
-        assertThat(() -> bobExecutor.executeQuery(format("DROP TABLE %s", tableName)))
+        String tableName = uniqueTableName();
+        setup(tableName);
+
+        assertThat(() -> connectAsBob().executeQuery(format("DROP TABLE %s", tableName)))
                 .failsWithMessage(format("Access Denied: Cannot drop table default.%s", tableName));
 
-        aliceExecutor.executeQuery(format("DROP TABLE %s", tableName));
-        assertThat(() -> aliceExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+        queryAsAlice("DROP TABLE %s", tableName);
+        assertThat(() -> queryAsAlice("SELECT * FROM %s", tableName))
                 .failsWithMessage("does not exist");
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlAlterTable()
     {
-        assertThat(aliceExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(2);
-        assertThat(() -> bobExecutor.executeQuery(format("ALTER TABLE %s ADD COLUMN year bigint", tableName))).
+        String tableName = uniqueTableName();
+        setup(tableName);
+
+        assertThat(queryAsAlice("SHOW COLUMNS FROM %s", tableName)).hasRowsCount(2);
+        assertThat(() -> connectAsBob().executeQuery(format("ALTER TABLE %s ADD COLUMN year bigint", tableName))).
                 failsWithMessage(format("Access Denied: Cannot add a column to table default.%s", tableName));
 
-        aliceExecutor.executeQuery(format("ALTER TABLE %s ADD COLUMN year bigint", tableName));
-        assertThat(aliceExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(3);
+        queryAsAlice("ALTER TABLE %s ADD COLUMN year bigint", tableName);
+        assertThat(queryAsAlice("SHOW COLUMNS FROM %s", tableName)).hasRowsCount(3);
     }
 
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlCreateView()
     {
-        String viewName = "bob_view";
+        String tableName = uniqueTableName();
+        String viewName = uniqueTableName();
+        setup(tableName);
+
         String selectTableSql = format("SELECT * FROM %s", tableName);
         String createViewSql = format("CREATE VIEW %s AS %s", viewName, selectTableSql);
 
-        bobExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
-        assertThat(() -> bobExecutor.executeQuery(createViewSql))
+        queryAsBob(viewName, "DROP VIEW IF EXISTS %s");
+        assertThat(() -> connectAsBob().executeQuery(createViewSql))
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
-        assertThat(() -> bobExecutor.executeQuery(createViewSql))
+        queryAsAlice("GRANT SELECT ON %s TO bob", tableName);
+        assertThat(() -> connectAsBob().executeQuery(createViewSql))
                 .failsWithMessage(format("Access Denied: Cannot create view that selects from default.%s", tableName));
 
-        aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM bob", tableName));
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
-        executeWith(createViewAs(viewName, selectTableSql, bobExecutor), view -> {
-            assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", view.getName())))
+        queryAsAlice("REVOKE SELECT ON %s FROM bob", tableName);
+        queryAsAlice("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName);
+        executeWith(createViewAs(viewName, selectTableSql, connectAsBob()), view -> {
+            assertThat(queryAsBob(view.getName(), "SELECT * FROM %s"))
                     .hasNoRows();
         });
     }
@@ -140,14 +154,36 @@ public class TestSqlStandardAccessControlChecks
     @Test(groups = {AUTHORIZATION, HIVE_CONNECTOR, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDropView()
     {
-        String viewName = "alice_view_for_drop";
+        String tableName = uniqueTableName();
+        String viewName = uniqueTableName();
+        setup(tableName);
 
-        aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, tableName));
-        assertThat(() -> bobExecutor.executeQuery(format("DROP VIEW %s", viewName)))
+        connectAsAlice().executeQuery(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, tableName));
+        assertThat(() -> queryAsBob(viewName, "DROP VIEW %s"))
                 .failsWithMessage(format("Access Denied: Cannot drop view default.%s", viewName));
 
-        aliceExecutor.executeQuery(format("DROP VIEW %s", viewName));
-        assertThat(() -> aliceExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
+        queryAsAlice("DROP VIEW %s", viewName);
+        assertThat(() -> queryAsAlice("SELECT * FROM %s", viewName))
                 .failsWithMessage("does not exist");
+    }
+
+    private QueryResult queryAsAlice(String format, Object... tableName)
+    {
+        return connectAsAlice().executeQuery(format(format, tableName));
+    }
+
+    private QueryExecutor connectAsAlice()
+    {
+        return connectToPresto("alice@presto");
+    }
+
+    private QueryResult queryAsBob(String tableName, String format)
+    {
+        return connectAsBob().executeQuery(format(format, tableName));
+    }
+
+    private QueryExecutor connectAsBob()
+    {
+        return connectToPresto("bob@presto");
     }
 }
