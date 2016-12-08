@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -235,7 +236,17 @@ class RelationPlanner
                     continue;
                 }
 
-                if (conjunct instanceof ComparisonExpression) {
+                Set<QualifiedName> dependencies = DependencyExtractor.extractNames(conjunct, analysis.getColumnReferences());
+                boolean isJoinUsing = node.getCriteria().filter(JoinUsing.class::isInstance).isPresent();
+                if (!isJoinUsing && (dependencies.stream().allMatch(left::canResolve) || dependencies.stream().allMatch(right::canResolve))) {
+                    // If the conjunct can be evaluated entirely with the inputs on either side of the join, add
+                    // it to the list complex expressions and let the optimizers figure out how to push it down later.
+                    // Due to legacy reasons, the expression for "join using" looks like "x = x", which (incorrectly)
+                    // appears to fit the condition we're after. So we skip them.
+
+                    complexJoinExpressions.add(conjunct);
+                }
+                else if (conjunct instanceof ComparisonExpression) {
                     Expression firstExpression = ((ComparisonExpression) conjunct).getLeft();
                     Expression secondExpression = ((ComparisonExpression) conjunct).getRight();
                     ComparisonExpressionType comparisonType = ((ComparisonExpression) conjunct).getType();

@@ -138,7 +138,7 @@ public class TestLogicalPlanner
                 countOfMatchingNodes(
                         plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = (SELECT 1) AND o2.orderkey = (SELECT 1) AND o1.orderkey + o2.orderkey = (SELECT 1)"),
                         EnforceSingleRowNode.class::isInstance),
-                2);
+                1);
 
         // one subquery used for "1 IN (SELECT 1)", one subquery used for "2 IN (SELECT 1)"
         assertEquals(
