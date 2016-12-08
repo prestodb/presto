@@ -977,11 +977,11 @@ class StatementAnalyzer
 
                     Expression leftExpression = null;
                     Expression rightExpression = null;
-                    if (firstDependencies.stream().allMatch(left.getRelationType().canResolvePredicate()) && secondDependencies.stream().allMatch(right.getRelationType().canResolvePredicate())) {
+                    if (firstDependencies.stream().allMatch(left.getRelationType()::canResolve) && secondDependencies.stream().allMatch(right.getRelationType()::canResolve)) {
                         leftExpression = conjunctFirst;
                         rightExpression = conjunctSecond;
                     }
-                    else if (firstDependencies.stream().allMatch(right.getRelationType().canResolvePredicate()) && secondDependencies.stream().allMatch(left.getRelationType().canResolvePredicate())) {
+                    else if (firstDependencies.stream().allMatch(right.getRelationType()::canResolve) && secondDependencies.stream().allMatch(left.getRelationType()::canResolve)) {
                         leftExpression = conjunctSecond;
                         rightExpression = conjunctFirst;
                     }
