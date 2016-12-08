@@ -191,7 +191,7 @@ Example configuration with ``KERBEROS`` authentication
 .. code-block:: none
 
     hive.metastore.authentication.type=KERBEROS
-    hive.metastore.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
+    hive.metastore.service.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
     hive.metastore.client.principal=presto@EXAMPLE.COM
     hive.metastore.client.keytab=/etc/presto/hive.keytab
 
