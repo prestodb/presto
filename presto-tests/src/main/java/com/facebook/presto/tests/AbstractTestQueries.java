@@ -7479,6 +7479,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteUsingComplexJoinCriteria()
+    {
+        String query = "SELECT * FROM (VALUES 1) t(a) JOIN (VALUES 2) u(a) ON t.a + u.a < ?";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING 5",
+                "VALUES (1, 2)");
+    }
+
+    @Test
     public void testExecuteUsingWithSubquery()
     {
         String query = "SELECT ? in (SELECT orderkey FROM orders)";
