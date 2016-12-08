@@ -227,13 +227,13 @@ public class ExpressionAnalyzer
 
     public Type analyze(Expression expression, Scope scope)
     {
-        Visitor visitor = new Visitor(scope, symbolTypes);
+        Visitor visitor = new Visitor(scope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda()));
     }
 
     private Type analyze(Expression expression, Scope scope, Context context)
     {
-        Visitor visitor = new Visitor(scope, symbolTypes);
+        Visitor visitor = new Visitor(scope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
@@ -257,7 +257,7 @@ public class ExpressionAnalyzer
     {
         private final Scope scope;
 
-        private Visitor(Scope scope, Map<Symbol, Type> symbolTypes)
+        private Visitor(Scope scope)
         {
             this.scope = requireNonNull(scope, "scope is null");
         }
@@ -777,7 +777,6 @@ public class ExpressionAnalyzer
             if (node.getFilter().isPresent()) {
                 Expression expression = node.getFilter().get();
                 process(expression, context);
-                Type type = expressionTypes.get(expression);
             }
 
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
