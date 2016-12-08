@@ -79,7 +79,11 @@ VARCHAR
 CHAR
 ----
 
-    Fixed length character data. Char type without length specified has default length of 1.
+    Fixed length character data. A CHAR type without length specified has a default length of 1.
+    A ``CHAR(x)`` value always has ``x`` characters. For instance, casting ``dog`` to ``CHAR(7)``
+    adds 4 implicit trailing spaces. Leading and trailing spaces are included in comparisons of
+    CHAR values. As a result, two character values with different lengths (``CHAR(x)`` and
+    ``CHAR(y)`` where ``x != y``) will never be equal.
 
     Example type definitions: ``char``, ``char(20)``
 
