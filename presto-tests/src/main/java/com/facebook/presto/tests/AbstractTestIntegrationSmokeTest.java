@@ -146,29 +146,29 @@ public abstract class AbstractTestIntegrationSmokeTest
             orderDateType = "varchar";
         }
         if (parametrizedVarchar) {
-            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "")
-                    .row("custkey", "bigint", "")
-                    .row("orderstatus", "varchar", "")
-                    .row("totalprice", "double", "")
-                    .row("orderdate", orderDateType, "")
-                    .row("orderpriority", "varchar", "")
-                    .row("clerk", "varchar", "")
-                    .row("shippriority", "integer", "")
-                    .row("comment", "varchar", "")
+            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar", "", "")
+                    .row("clerk", "varchar", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar", "", "")
                     .build();
         }
         else {
-            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
-                    .row("orderkey", "bigint", "")
-                    .row("custkey", "bigint", "")
-                    .row("orderstatus", "varchar(1)", "")
-                    .row("totalprice", "double", "")
-                    .row("orderdate", orderDateType, "")
-                    .row("orderpriority", "varchar(15)", "")
-                    .row("clerk", "varchar(15)", "")
-                    .row("shippriority", "integer", "")
-                    .row("comment", "varchar(79)", "")
+            return MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                    .row("orderkey", "bigint", "", "")
+                    .row("custkey", "bigint", "", "")
+                    .row("orderstatus", "varchar(1)", "", "")
+                    .row("totalprice", "double", "", "")
+                    .row("orderdate", orderDateType, "", "")
+                    .row("orderpriority", "varchar(15)", "", "")
+                    .row("clerk", "varchar(15)", "", "")
+                    .row("shippriority", "integer", "", "")
+                    .row("comment", "varchar(79)", "", "")
                     .build();
         }
     }

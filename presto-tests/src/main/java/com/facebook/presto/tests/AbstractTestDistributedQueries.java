@@ -687,9 +687,9 @@ public abstract class AbstractTestDistributedQueries
         // test SHOW COLUMNS
         actual = computeActual("SHOW COLUMNS FROM meta_test_view");
 
-        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
-                .row("x", "bigint", "")
-                .row("y", "varchar(3)", "")
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("x", "bigint", "", "")
+                .row("y", "varchar(3)", "", "")
                 .build();
 
         assertEquals(actual, expected);

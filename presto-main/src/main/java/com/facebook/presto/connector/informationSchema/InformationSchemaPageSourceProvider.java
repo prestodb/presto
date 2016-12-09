@@ -169,7 +169,8 @@ public class InformationSchemaPageSourceProvider
                         null,
                         "YES",
                         column.getType().getDisplayName(),
-                        column.getComment());
+                        column.getComment(),
+                        column.getExtraInfo());
                 ordinalPosition++;
             }
         }

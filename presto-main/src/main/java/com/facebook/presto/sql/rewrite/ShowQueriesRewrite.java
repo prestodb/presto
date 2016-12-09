@@ -244,6 +244,7 @@ final class ShowQueriesRewrite
                     selectList(
                             aliasedName("column_name", "Column"),
                             aliasedName("data_type", "Type"),
+                            aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getCatalogName(), TABLE_COLUMNS),
                     logicalAnd(

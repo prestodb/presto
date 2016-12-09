@@ -767,18 +767,9 @@ public final class HiveUtil
     }
 
     @Nullable
-    public static String annotateColumnComment(Optional<String> comment, boolean partitionKey)
+    public static String columnExtraInfo(boolean partitionKey)
     {
-        String normalizedComment = comment.orElse("").trim();
-        if (partitionKey) {
-            if (normalizedComment.isEmpty()) {
-                normalizedComment = "Partition Key";
-            }
-            else {
-                normalizedComment = "Partition Key: " + normalizedComment;
-            }
-        }
-        return normalizedComment.isEmpty() ? null : normalizedComment;
+        return partitionKey ? "partition key" : null;
     }
 
     public static List<String> toPartitionValues(String partitionName)

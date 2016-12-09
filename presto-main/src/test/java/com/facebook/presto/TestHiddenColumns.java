@@ -46,10 +46,10 @@ public class TestHiddenColumns
     public void testDescribeTable()
             throws Exception
     {
-        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR)
-                .row("regionkey", "bigint", "")
-                .row("name", "varchar(25)", "")
-                .row("comment", "varchar(152)", "")
+        MaterializedResult expected = MaterializedResult.resultBuilder(TEST_SESSION, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("regionkey", "bigint", "", "")
+                .row("name", "varchar(25)", "", "")
+                .row("comment", "varchar(152)", "", "")
                 .build();
         assertEquals(runner.execute("DESC REGION"), expected);
     }

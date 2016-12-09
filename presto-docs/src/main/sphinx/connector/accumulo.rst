@@ -100,12 +100,12 @@ Simply issue a ``CREATE TABLE`` statement to create a new Presto/Accumulo table:
 
 .. code-block:: none
 
-      Column   |  Type   |                      Comment
-    -----------+---------+---------------------------------------------------
-     recordkey | varchar | Accumulo row ID
-     name      | varchar | Accumulo column name:name. Indexed: false
-     age       | bigint  | Accumulo column age:age. Indexed: false
-     birthday  | date    | Accumulo column birthday:birthday. Indexed: false
+      Column   |  Type   | Extra |                      Comment
+    -----------+---------+-------+---------------------------------------------------
+     recordkey | varchar |       | Accumulo row ID
+     name      | varchar |       | Accumulo column name:name. Indexed: false
+     age       | bigint  |       | Accumulo column age:age. Indexed: false
+     birthday  | date    |       | Accumulo column birthday:birthday. Indexed: false
 
 This command will create a new Accumulo table with the ``recordkey`` column
 as the Accumulo row ID. The name, age, and birthday columns are mapped to
@@ -146,12 +146,12 @@ For example:
 
 .. code-block:: none
 
-      Column   |  Type   |                    Comment
-    -----------+---------+-----------------------------------------------
-     recordkey | varchar | Accumulo row ID
-     name      | varchar | Accumulo column metadata:name. Indexed: false
-     age       | bigint  | Accumulo column metadata:age. Indexed: false
-     birthday  | date    | Accumulo column metadata:date. Indexed: false
+      Column   |  Type   | Extra |                    Comment
+    -----------+---------+-------+-----------------------------------------------
+     recordkey | varchar |       | Accumulo row ID
+     name      | varchar |       | Accumulo column metadata:name. Indexed: false
+     age       | bigint  |       | Accumulo column metadata:age. Indexed: false
+     birthday  | date    |       | Accumulo column metadata:date. Indexed: false
 
 You can then issue ``INSERT`` statements to put data into Accumulo.
 
@@ -665,11 +665,11 @@ when creating the external table.
 
 .. code-block:: none
 
-     Column |  Type   |               Comment
-    --------+---------+-------------------------------------
-     a      | varchar | Accumulo row ID
-     b      | bigint  | Accumulo column b:b. Indexed: true
-     c      | date    | Accumulo column c:c. Indexed: true
+     Column |  Type   | Extra |               Comment
+    --------+---------+-------+-------------------------------------
+     a      | varchar |       | Accumulo row ID
+     b      | bigint  |       | Accumulo column b:b. Indexed: true
+     c      | date    |       | Accumulo column c:c. Indexed: true
 
 2. Using the ZooKeeper CLI, delete the corresponding znode.  Note this uses the default ZooKeeper
 metadata root of ``/presto-accumulo``
