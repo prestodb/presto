@@ -118,7 +118,15 @@ public class RelationType
      */
     public List<Field> resolveFieldsWithPrefix(Optional<QualifiedName> prefix)
     {
-        return visibleFields.stream()
+        return allFields.stream()
+                .filter(field -> {
+                    if (prefix.isPresent()) {
+                        return field.getState() != Field.State.INTERNAL;
+                    }
+                    else {
+                        return field.getState() == Field.State.VISIBLE;
+                    }
+                })
                 .filter(input -> input.matchesPrefix(prefix))
                 .collect(toImmutableList());
     }
@@ -200,6 +208,20 @@ public class RelationType
     public RelationType withOnlyVisibleFields()
     {
         return new RelationType(visibleFields);
+    }
+
+    public RelationType hide(ResolvedField fieldToHide)
+    {
+        ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        for (int i = 0; i < allFields.size(); i++) {
+            if (fieldToHide.getFieldIndex() == i) {
+                fields.add(allFields.get(i).hide());
+            }
+            else {
+                fields.add(allFields.get(i));
+            }
+        }
+        return new RelationType(fields.build());
     }
 
     @Override

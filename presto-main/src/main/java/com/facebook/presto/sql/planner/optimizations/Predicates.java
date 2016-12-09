@@ -38,4 +38,9 @@ public class Predicates
     {
         return x -> false;
     }
+
+    public static <T> Predicate<T> not(Predicate<T> predicate)
+    {
+        return t -> !predicate.test(t);
+    }
 }

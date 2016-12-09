@@ -806,6 +806,13 @@ class StatementAnalyzer
 
                 addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                 expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
+
+                if (node.getType() == Join.Type.LEFT) {
+                    output = createScope(node, scope, left.getRelationType().joinWith(right.hide(rightExpression).getRelationType()));
+                }
+                else {
+                    output = createScope(node, scope, left.hide(leftExpression).getRelationType().joinWith(right.getRelationType()));
+                }
             }
 
             analysis.setJoinCriteria(node, ExpressionUtils.and(expressions));

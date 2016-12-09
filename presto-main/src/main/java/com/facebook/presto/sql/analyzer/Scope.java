@@ -29,6 +29,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwAmbiguousAttributeException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwMissingAttributeException;
+import static com.facebook.presto.sql.planner.optimizations.Predicates.not;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -103,6 +105,14 @@ public class Scope
     {
         List<Field> matches = relation.resolveFields(name);
         if (matches.size() > 1) {
+            List<Field> matchesToVisible = matches.stream()
+                    .filter(not(Field::isHidden))
+                    .collect(toImmutableList());
+
+            if (matchesToVisible.size() == 1) {
+                return Optional.of(asResolvedField(matchesToVisible.get(0), local));
+            }
+
             throwAmbiguousAttributeException(node, name);
         }
 
@@ -172,6 +182,17 @@ public class Scope
         }
 
         return Optional.empty();
+    }
+
+    public Scope hide(Expression expression)
+    {
+        ResolvedField resolvedField = tryResolveField(expression).orElseThrow(IllegalStateException::new);
+
+        return new Scope(
+                parent,
+                relation.hide(resolvedField),
+                namedQueries,
+                queryBoundary);
     }
 
     public static final class Builder

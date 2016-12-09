@@ -2004,10 +2004,44 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinUsing()
     {
+        assertQuery("SELECT * FROM (VALUES 1) a(x) JOIN (VALUES 1) b(x) USING (x)", "SELECT 1");
+        assertQuery("SELECT x FROM (VALUES 1) a(x) JOIN (VALUES 1) b(x) USING (x)", "SELECT 1");
+        assertQuery(
+                "SELECT * FROM (VALUES (0, 1), (3, 4)) a(x, y) JOIN (VALUES (3, 1), (0, 2)) b(x, y) USING (x)",
+                "VALUES (1, 0, 2), (4, 3, 1)");
+        assertQuery(
+                "SELECT x FROM (VALUES (0, 1), (3, 4)) a(x, y) JOIN (VALUES (3, 1), (0, 2)) b(x, y) USING (x)",
+                "VALUES 0, 3");
+        assertQueryFails(
+                "SELECT x, y FROM (VALUES (0, 1), (3, 4)) a(x, y) JOIN (VALUES (3, 1), (0, 2)) b(x, y) USING (x)",
+                "line 1:11: Column 'y' is ambiguous");
+        assertQuery(
+                "SELECT a.*, b.* FROM (VALUES (0, 1), (3, 4)) a(x, y) JOIN (VALUES (3, 1), (0, 2)) b(x, y) USING (x)",
+                "VALUES (0, 1, 0, 2), (3, 4, 3, 1)");
+        assertQuery(
+                "SELECT * FROM (VALUES (0, 1, 2), (3, 4, 5)) a(x1, y, z1) JOIN (VALUES (3, 1, 5), (0, 4, 2)) b(x2, y, z2) USING (y)",
+                "VALUES (0, 2, 3, 1, 5), (3, 5, 0, 4, 2)");
+        assertQuery(
+                "SELECT y, x1, x2 FROM (VALUES (0, 1, 2), (3, 4, 5)) a(x1, y, z1) JOIN (VALUES (3, 1, 5), (0, 4, 2)) b(x2, y, z2) USING (y)",
+                "VALUES (1, 0, 3), (4, 3, 0)");
+
+        assertQuery(
+                "SELECT * FROM (VALUES (0, 1, 2), (3, 6, 5)) a(x1, y, z1) LEFT OUTER JOIN (VALUES (3, 1, 5), (0, 4, 2)) b(x2, y, z2) USING (y)",
+                "VALUES (0, 1, 2, 3, 5), (3, 6, 5, null, null)");
+        assertQuery(
+                "SELECT y, x1, x2 FROM (VALUES (0, 1, 2), (3, 6, 5)) a(x1, y, z1) LEFT OUTER JOIN (VALUES (3, 1, 5), (0, 4, 2)) b(x2, y, z2) USING (y)",
+                "VALUES (1, 0, 3), (6, 3, null)");
+
+        assertQuery(
+                "SELECT * FROM (VALUES (0, 1, 2), (3, 6, 5)) a(x1, y, z1) RIGHT OUTER JOIN (VALUES (3, 1, 5), (0, 4, 2)) b(x2, y, z2) USING (y)",
+                "VALUES (0, 2, 3, 1, 5), (null, null, 0, 4, 2)");
+        assertQuery(
+                "SELECT y, x1, x2 FROM (VALUES (0, 1, 2), (3, null, 5)) a(x1, y, z1) RIGHT OUTER JOIN (VALUES (3, 1, 5), (0, 4, 2)) b(x2, y, z2) USING (y)",
+                "VALUES (1, 0, 3), (4, null, 0)");
+
         assertQuery(
                 "SELECT COUNT(*) FROM lineitem join orders using (orderkey)",
-                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey"
-        );
+                "SELECT COUNT(*) FROM lineitem join orders on lineitem.orderkey = orders.orderkey");
     }
 
     @Test
@@ -3147,8 +3181,12 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithDuplicateRelations()
     {
-        assertQuery("SELECT * FROM orders JOIN orders USING (orderkey)", "SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = o2.orderkey");
-        assertQuery("SELECT * FROM lineitem x JOIN orders x USING (orderkey)", "SELECT * FROM lineitem l JOIN orders o ON l.orderkey = o.orderkey");
+        assertQuery(
+                "SELECT * FROM orders JOIN orders USING (orderkey)",
+                "SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey = o2.orderkey");
+        assertQuery(
+                "SELECT * FROM lineitem x JOIN orders x USING (orderkey)",
+                "SELECT * FROM lineitem l JOIN orders o ON l.orderkey = o.orderkey");
     }
 
     @Test

@@ -161,6 +161,11 @@ public class Field
         return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
     }
 
+    public Field hide()
+    {
+        return new Field(relationAlias, name, type, State.HIDDEN, originTable, aliased);
+    }
+
     @Override
     public String toString()
     {
