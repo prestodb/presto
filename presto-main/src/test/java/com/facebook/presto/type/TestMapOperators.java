@@ -455,6 +455,8 @@ public class TestMapOperators
         assertFunction("MAP_CONCAT(MAP(ARRAY[1], ARRAY[-1]), MAP(ARRAY[], ARRAY[]), MAP(ARRAY[3], ARRAY[-3]))", new MapType(INTEGER, INTEGER), ImmutableMap.of(1, -1, 3, -3));
         assertFunction("MAP_CONCAT(MAP(ARRAY[], ARRAY[]), MAP(ARRAY['a_string'], ARRAY['b_string']), cast(MAP(ARRAY[], ARRAY[]) AS MAP(VARCHAR, VARCHAR)))", new MapType(VARCHAR, VARCHAR), ImmutableMap.of("a_string", "b_string"));
         assertFunction("MAP_CONCAT(MAP(ARRAY[], ARRAY[]), MAP(ARRAY[], ARRAY[]), MAP(ARRAY[], ARRAY[]))", new MapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
+        assertFunction("MAP_CONCAT(MAP(), MAP(), MAP())", new MapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
+        assertFunction("MAP_CONCAT(MAP(ARRAY[1], ARRAY[-1]), MAP(), MAP(ARRAY[3], ARRAY[-3]))", new MapType(INTEGER, INTEGER), ImmutableMap.of(1, -1, 3, -3));
         assertFunction("MAP_CONCAT(MAP(ARRAY[TRUE], ARRAY[1]), MAP(ARRAY[TRUE, FALSE], ARRAY[10, 20]), MAP(ARRAY[FALSE], ARRAY[0]))", new MapType(BOOLEAN, INTEGER), ImmutableMap.of(true, 10, false, 0));
     }
 

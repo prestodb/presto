@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -215,6 +216,18 @@ public class TestArrayOperators
         assertFunction("ARRAY [1] || ARRAY [2] || ARRAY [3] || ARRAY [4]", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
         assertFunction("ARRAY [1] || ARRAY [2.0] || ARRAY [3] || ARRAY [4.0]", new ArrayType(DOUBLE), ImmutableList.of(1.0, 2.0, 3.0, 4.0));
         assertFunction("ARRAY [ARRAY [1], ARRAY [2, 8]] || ARRAY [ARRAY [3, 6], ARRAY [4]]", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2, 8), ImmutableList.of(3, 6), ImmutableList.of(4)));
+
+        // Tests for concatenating multiple arrays
+        List<Object> nullList = Collections.nCopies(2, null);
+        assertFunction("concat(ARRAY[], ARRAY[NULL], ARRAY[], ARRAY[NULL], ARRAY[])", new ArrayType(UNKNOWN), nullList);
+        assertFunction("concat(ARRAY[], ARRAY[], ARRAY[], NULL, ARRAY[])", new ArrayType(UNKNOWN), null);
+        assertFunction("concat(ARRAY[], ARRAY[], ARRAY[], ARRAY[], ARRAY[])", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertFunction("concat(ARRAY[], ARRAY[], ARRAY[333], ARRAY[], ARRAY[])", new ArrayType(INTEGER), ImmutableList.of(333));
+        assertFunction("concat(ARRAY[1], ARRAY[2,3], ARRAY[])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
+        assertFunction("concat(ARRAY[1], ARRAY[2,3,3], ARRAY[2,1])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 3, 2, 1));
+        assertFunction("concat(ARRAY[1], ARRAY[], ARRAY[1,2])", new ArrayType(INTEGER), ImmutableList.of(1, 1, 2));
+        assertFunction("concat(ARRAY[], ARRAY[1], ARRAY[], ARRAY[3], ARRAY[], ARRAY[5], ARRAY[])", new ArrayType(INTEGER), ImmutableList.of(1, 3, 5));
+        assertFunction("concat(ARRAY[], ARRAY['123456'], CAST(ARRAY[1,2] AS ARRAY(varchar)), ARRAY[])", new ArrayType(VARCHAR), ImmutableList.of("123456", "1", "2"));
 
         assertInvalidFunction("ARRAY [ARRAY[1]] || ARRAY[ARRAY[true], ARRAY[false]]", FUNCTION_NOT_FOUND);
 
