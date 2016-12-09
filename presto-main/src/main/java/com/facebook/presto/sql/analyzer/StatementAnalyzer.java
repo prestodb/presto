@@ -801,12 +801,8 @@ class StatementAnalyzer
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
 
-                ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left);
-                ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right);
-                checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
-                checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
-                checkState(leftExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
-                checkState(rightExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
+                analyzeExpression(leftExpression, left);
+                analyzeExpression(rightExpression, right);
 
                 addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                 expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
