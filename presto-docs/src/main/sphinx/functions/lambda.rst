@@ -18,7 +18,7 @@ Lambda expressions are written with ``->``::
 Most SQL expressions can be used in a lambda body, with a few exceptions:
 
 * Subqueries are not supported.
-* The ``TRY`` function is not supported yet. (:func:`TRY_CAST` is supported.)
+* The ``TRY`` function is not supported yet. (:func:`try_cast` is supported.)
 * Capture is not supported yet:
 
   * Columns or relations cannot be referenced.
