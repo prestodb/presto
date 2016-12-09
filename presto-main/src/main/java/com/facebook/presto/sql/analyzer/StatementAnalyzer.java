@@ -579,7 +579,7 @@ class StatementAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field.State state = column.isHidden() ? Field.State.HIDDEN : Field.State.VISIBLE;
+            Field.State state = column.isHidden() ? Field.State.INTERNAL : Field.State.VISIBLE;
             Field field = Field.newQualified(
                     table.getName(),
                     Optional.of(column.getName()),

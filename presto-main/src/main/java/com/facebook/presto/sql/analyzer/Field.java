@@ -26,7 +26,7 @@ public class Field
     public enum State
     {
         VISIBLE,
-        HIDDEN
+        INTERNAL, // field returned as hidden by the connector, can be accessed via SQL
     }
 
     private final Optional<QualifiedObjectName> originTable;
@@ -116,7 +116,7 @@ public class Field
 
     public boolean isHidden()
     {
-        return state == State.HIDDEN;
+        return state == State.INTERNAL;
     }
 
     public boolean isAliased()
