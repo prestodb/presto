@@ -248,6 +248,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Start a query. This notification is triggered after the planning phase completes.
+     */
+    default void beginQuery(ConnectorSession session) {}
+
+    /**
+     * End a query. This is the very last notification after the query finishes, whether it succeeds or fails.
+     */
+    default void endQuery(ConnectorSession session) {}
+
+    /**
      * Begin insert query
      */
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)

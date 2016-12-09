@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class RenameTable
         extends DataDefinitionStatement
+        implements CatalogRelatedStatement
 {
     private final QualifiedName source;
     private final QualifiedName target;
@@ -40,6 +41,12 @@ public final class RenameTable
         super(location);
         this.source = requireNonNull(source, "source name is null");
         this.target = requireNonNull(target, "target name is null");
+    }
+
+    @Override
+    public QualifiedName getQualifiedName()
+    {
+        return getSource();
     }
 
     public QualifiedName getSource()

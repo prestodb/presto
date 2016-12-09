@@ -348,7 +348,7 @@ class StatementAnalyzer
     {
         analysis.setUpdateType("CREATE VIEW");
 
-        QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getQualifiedName());
 
         // analyze the query that creates the view
         StatementAnalyzer analyzer = new StatementAnalyzer(

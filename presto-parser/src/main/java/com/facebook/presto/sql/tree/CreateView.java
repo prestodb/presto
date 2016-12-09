@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public class CreateView
         extends DataDefinitionStatement
+        implements CatalogRelatedStatement
 {
     private final QualifiedName name;
     private final Query query;
@@ -44,7 +45,8 @@ public class CreateView
         this.replace = replace;
     }
 
-    public QualifiedName getName()
+    @Override
+    public QualifiedName getQualifiedName()
     {
         return name;
     }

@@ -173,6 +173,16 @@ public interface Metadata
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
 
     /**
+     * Start a query
+     */
+    void beginQuery(Session session, Set<ConnectorId> connectors);
+
+    /**
+     * End a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
+     */
+    void endQuery(Session session);
+
+    /**
      * Begin insert query
      */
     InsertTableHandle beginInsert(Session session, TableHandle tableHandle);

@@ -24,6 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Grant
         extends DataDefinitionStatement
+        implements CatalogRelatedStatement
 {
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
     private final boolean table;
@@ -61,7 +62,8 @@ public class Grant
         return table;
     }
 
-    public QualifiedName getTableName()
+    @Override
+    public QualifiedName getQualifiedName()
     {
         return tableName;
     }

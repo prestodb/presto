@@ -14,16 +14,20 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.sql.tree.CatalogRelatedStatement;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -31,11 +35,14 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class DataDefinitionExecution<T extends Statement>
@@ -65,6 +72,16 @@ public class DataDefinitionExecution<T extends Statement>
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
+    }
+
+    private void notifyBeginQuery(Statement statement)
+    {
+        checkState(statement instanceof CatalogRelatedStatement, "Cannot notify beginQuery for statements not catalog-related");
+
+        QualifiedObjectName tableName = createQualifiedObjectName(getSession(), statement, ((CatalogRelatedStatement) statement).getQualifiedName());
+        Optional<ConnectorId> connectorId = metadata.getCatalogHandle(getSession(), tableName.getCatalogName());
+        checkState(connectorId.isPresent(), "connectorId must be present here");
+        metadata.beginQuery(getSession(), ImmutableSet.of(connectorId.get()));
     }
 
     @Override
@@ -102,7 +119,12 @@ public class DataDefinitionExecution<T extends Statement>
     {
         try {
             // transition to running
-            if (!stateMachine.transitionToRunning()) {
+            if (stateMachine.transitionToRunning()) {
+                if (statement instanceof CatalogRelatedStatement) {
+                    notifyBeginQuery(statement);
+                }
+            }
+            else {
                 // query already running or finished
                 return;
             }
@@ -244,7 +266,7 @@ public class DataDefinitionExecution<T extends Statement>
             DataDefinitionTask<Statement> task = getTask(statement);
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
-            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor);
+            QueryStateMachine stateMachine = QueryStateMachine.begin(queryId, query, session, self, task.isTransactionControl(), transactionManager, accessControl, executor, metadata);
             stateMachine.setUpdateType(task.getName());
             return new DataDefinitionExecution<>(task, statement, transactionManager, metadata, accessControl, stateMachine, parameters);
         }

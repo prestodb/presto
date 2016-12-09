@@ -49,7 +49,7 @@ public class RenameColumnTask
     public CompletableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getQualifiedName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
 
         String source = statement.getSource().toLowerCase(ENGLISH);
