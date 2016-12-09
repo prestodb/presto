@@ -502,7 +502,7 @@ class StatementAnalyzer
                                 QualifiedName.of(name),
                                 Optional.of(columnName),
                                 inputField.getType(),
-                                false,
+                                Field.State.VISIBLE,
                                 inputField.getOriginTable(),
                                 inputField.isAliased()));
 
@@ -517,7 +517,7 @@ class StatementAnalyzer
                                     QualifiedName.of(name),
                                     field.getName(),
                                     field.getType(),
-                                    field.isHidden(),
+                                    field.getState(),
                                     field.getOriginTable(),
                                     field.isAliased()))
                             .collect(toImmutableList());
@@ -552,7 +552,7 @@ class StatementAnalyzer
                             QualifiedName.of(name.getObjectName()),
                             Optional.of(column.getName()),
                             column.getType(),
-                            false,
+                            Field.State.VISIBLE,
                             Optional.of(name),
                             false))
                     .collect(toImmutableList());
@@ -579,11 +579,12 @@ class StatementAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            Field.State state = column.isHidden() ? Field.State.HIDDEN : Field.State.VISIBLE;
             Field field = Field.newQualified(
                     table.getName(),
                     Optional.of(column.getName()),
                     column.getType(),
-                    column.isHidden(),
+                    state,
                     Optional.of(name),
                     false);
             fields.add(field);
@@ -733,7 +734,7 @@ class StatementAnalyzer
                     oldField.getRelationAlias(),
                     oldField.getName(),
                     outputFieldTypes[i],
-                    oldField.isHidden(),
+                    oldField.getState(),
                     oldField.getOriginTable(),
                     oldField.isAliased());
         }

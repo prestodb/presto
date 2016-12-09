@@ -174,7 +174,7 @@ public class RelationType
                         QualifiedName.of(relationAlias),
                         columnAlias,
                         field.getType(),
-                        field.isHidden(),
+                        field.getState(),
                         field.getOriginTable(),
                         field.isAliased()));
             }
@@ -185,7 +185,7 @@ public class RelationType
                         QualifiedName.of(relationAlias),
                         columnAlias,
                         field.getType(),
-                        false,
+                        Field.State.VISIBLE,
                         field.getOriginTable(),
                         field.isAliased()));
             }
