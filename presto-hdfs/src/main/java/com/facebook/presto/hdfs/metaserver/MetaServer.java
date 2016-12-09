@@ -13,9 +13,16 @@
  */
 package com.facebook.presto.hdfs.metaserver;
 
+import com.facebook.presto.hdfs.HDFSColumnHandle;
 import com.facebook.presto.hdfs.HDFSDatabase;
+import com.facebook.presto.hdfs.HDFSTable;
 import com.facebook.presto.hdfs.HDFSTableHandle;
+import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 
@@ -29,23 +36,31 @@ public interface MetaServer
 {
     public List<String> getAllDatabases();
 
-    public Optional<HDFSDatabase> getDatabase(String databaseName);
+//    public Optional<HDFSDatabase> getDatabase(String databaseName);
 
-    public Optional<List<String>> getAllTables(String databaseName);
+//    public Optional<List<String>> getAllTables(String databaseName);
 
     public List<SchemaTableName> listTables(SchemaTablePrefix prefix);
 
-    public Optional<HDFSTableHandle> getTable(String databaseName, String tableName);
+//    public Optional<HDFSTable> getTable(String databaseName, String tableName);
+
+    public Optional<HDFSTableHandle> getTableHandle(String databaseName, String tableName);
+
+    public Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName);
+
+    public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName);
+
+    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String databaseName, String tableName);
 
     public void createDatabase(ConnectorSession session, HDFSDatabase database);
 
-    public boolean isDatabaseEmpty(ConnectorSession session, String databaseName);
+//    public boolean isDatabaseEmpty(ConnectorSession session, String databaseName);
 
 //    public void dropDatabase(ConnectorSession session, String databaseName);
 
 //    public void renameDatabase(ConnectorSession session, String source, String target);
 
-    public void createTable(ConnectorSession session, HDFSTableHandle table);
+    public void createTable(ConnectorSession session, ConnectorTableMetadata table);
 
 //    public void dropTable(ConnectorSession session, String databaseName, String tableName);
 

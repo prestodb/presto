@@ -30,7 +30,8 @@ implements ColumnHandle
     {
         FIBER_COL,
         TIME_COL,
-        REGULAR
+        REGULAR,
+        NOTVALID
     }
 
     private final String name;
