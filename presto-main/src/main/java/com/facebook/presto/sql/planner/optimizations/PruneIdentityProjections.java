@@ -62,7 +62,7 @@ public class PruneIdentityProjections
             }
 
             boolean canElide = true;
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignmentsMap().entrySet()) {
                 Expression expression = entry.getValue();
                 Symbol symbol = entry.getKey();
                 if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {

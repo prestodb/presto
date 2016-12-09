@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -76,7 +77,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -223,7 +223,6 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
-            ImmutableMap.Builder<WindowNode.Function, WindowNode.Frame> frames = ImmutableMap.builder();
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
 
@@ -601,11 +600,11 @@ public class UnaliasSymbolReferences
             mapping.put(symbol, canonical);
         }
 
-        private Map<Symbol, Expression> canonicalize(Map<Symbol, Expression> oldAssignments)
+        private Assignments canonicalize(Assignments oldAssignments)
         {
             Map<Expression, Symbol> computedExpressions = new HashMap<>();
-            Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-            for (Map.Entry<Symbol, Expression> entry : oldAssignments.entrySet()) {
+            Assignments.Builder assignments = Assignments.builder();
+            for (Map.Entry<Symbol, Expression> entry : oldAssignments.getMap().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
                 if (expression instanceof SymbolReference) {
@@ -631,12 +630,9 @@ public class UnaliasSymbolReferences
                 }
 
                 Symbol canonical = canonicalize(entry.getKey());
-
-                if (!assignments.containsKey(canonical)) {
-                    assignments.put(canonical, expression);
-                }
+                assignments.put(canonical, expression);
             }
-            return assignments;
+            return assignments.build();
         }
 
         private Optional<Symbol> canonicalize(Optional<Symbol> symbol)

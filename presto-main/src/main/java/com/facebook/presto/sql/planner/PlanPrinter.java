@@ -37,6 +37,7 @@ import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -946,9 +947,9 @@ public class PlanPrinter
             return null;
         }
 
-        private void printAssignments(Map<Symbol, Expression> assignments, int indent)
+        private void printAssignments(Assignments assignments, int indent)
         {
-            for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
                 if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;

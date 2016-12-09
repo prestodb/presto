@@ -62,7 +62,7 @@ public class ExpressionMatcher
         ProjectNode projectNode = (ProjectNode) node;
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
-        for (Map.Entry<Symbol, Expression> assignment : projectNode.getAssignments().entrySet()) {
+        for (Map.Entry<Symbol, Expression> assignment : projectNode.getAssignments().getMap().entrySet()) {
             if (verifier.process(assignment.getValue(), expression)) {
                 result = Optional.of(assignment.getKey());
                 matchesBuilder.add(assignment.getValue());

@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
@@ -481,10 +482,10 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
 
-            ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builder();
+            Assignments.Builder builder = Assignments.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 Symbol output = node.getOutputSymbols().get(i);
-                Expression expression = node.getAssignments().get(output);
+                Expression expression = node.getAssignmentsMap().get(output);
 
                 if (context.get().contains(output)) {
                     expectedInputs.addAll(DependencyExtractor.extractUnique(expression));
@@ -694,14 +695,14 @@ public class PruneUnreferencedOutputs
         public PlanNode visitApply(ApplyNode node, RewriteContext<Set<Symbol>> context)
         {
             // remove unused apply nodes
-            if (intersection(node.getSubqueryAssignments().keySet(), context.get()).isEmpty()) {
+            if (intersection(node.getSubqueryAssignments().getSymbols(), context.get()).isEmpty()) {
                 return context.rewrite(node.getInput(), context.get());
             }
 
             // extract symbols required subquery plan
             ImmutableSet.Builder<Symbol> subqueryAssignmentsSymbolsBuilder = ImmutableSet.builder();
-            ImmutableMap.Builder<Symbol, Expression> subqueryAssignments = ImmutableMap.builder();
-            for (Map.Entry<Symbol, Expression> entry : node.getSubqueryAssignments().entrySet()) {
+            Assignments.Builder subqueryAssignments = Assignments.builder();
+            for (Map.Entry<Symbol, Expression> entry : node.getSubqueryAssignments().getMap().entrySet()) {
                 Symbol output = entry.getKey();
                 Expression expression = entry.getValue();
                 if (context.get().contains(output)) {

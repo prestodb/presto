@@ -106,7 +106,7 @@ public final class TypeValidator
         {
             visitPlan(node, context);
 
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
+            for (Map.Entry<Symbol, Expression> entry : node.getAssignmentsMap().entrySet()) {
                 Type expectedType = types.get(entry.getKey());
                 if (entry.getValue() instanceof SymbolReference) {
                     SymbolReference symbolReference = (SymbolReference) entry.getValue();

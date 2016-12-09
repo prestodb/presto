@@ -149,7 +149,7 @@ public class EffectivePredicateExtractor
 
         Expression underlyingPredicate = node.getSource().accept(this, context);
 
-        List<Expression> projectionEqualities = node.getAssignments().entrySet().stream()
+        List<Expression> projectionEqualities = node.getAssignmentsMap().entrySet().stream()
                 .filter(SYMBOL_MATCHES_EXPRESSION.negate())
                 .map(ENTRY_TO_EQUALITY)
                 .collect(toImmutableList());
