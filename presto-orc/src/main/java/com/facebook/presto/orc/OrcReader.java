@@ -20,6 +20,7 @@ import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.PostScript;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
@@ -55,6 +56,7 @@ public class OrcReader
     private final DataSize maxMergeDistance;
     private final DataSize maxReadSize;
     private final CompressionKind compressionKind;
+    private final HiveWriterVersion hiveWriterVersion;
     private final int bufferSize;
     private final Footer footer;
     private final Metadata metadata;
@@ -104,6 +106,7 @@ public class OrcReader
         // check compression codec is supported
         this.compressionKind = postScript.getCompression();
 
+        this.hiveWriterVersion = postScript.getHiveWriterVersion();
         this.bufferSize = Ints.checkedCast(postScript.getCompressionBlockSize());
 
         int footerSize = Ints.checkedCast(postScript.getFooterLength());
@@ -131,13 +134,13 @@ public class OrcReader
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
         try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.toString(), metadataSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
-            this.metadata = metadataReader.readMetadata(metadataInputStream);
+            this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
         try (InputStream footerInputStream = new OrcInputStream(orcDataSource.toString(), footerSlice.getInput(), compressionKind, bufferSize, new AggregatedMemoryContext())) {
-            this.footer = metadataReader.readFooter(footerInputStream);
+            this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
     }
 
@@ -196,6 +199,7 @@ public class OrcReader
                 bufferSize,
                 footer.getRowsInRowGroup(),
                 requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
+                hiveWriterVersion,
                 metadataReader,
                 maxMergeDistance,
                 maxReadSize,

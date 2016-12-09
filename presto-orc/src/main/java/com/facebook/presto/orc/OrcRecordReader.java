@@ -21,6 +21,7 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
@@ -100,6 +101,7 @@ public class OrcRecordReader
             int bufferSize,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
+            HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             DataSize maxMergeDistance,
             DataSize maxReadSize,
@@ -188,6 +190,7 @@ public class OrcRecordReader
                 this.presentColumns,
                 rowsInRowGroup,
                 predicate,
+                hiveWriterVersion,
                 metadataReader);
 
         streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build());

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -22,16 +24,16 @@ public interface MetadataReader
     PostScript readPostScript(byte[] data, int offset, int length)
             throws IOException;
 
-    Metadata readMetadata(InputStream inputStream)
+    Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
-    Footer readFooter(InputStream inputStream)
+    Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
-    StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
             throws IOException;
 
-    List<RowGroupIndex> readRowIndexes(InputStream inputStream)
+    List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
     List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)

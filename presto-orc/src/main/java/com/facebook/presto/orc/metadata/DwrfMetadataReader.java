@@ -17,6 +17,7 @@ import com.facebook.hive.orc.OrcProto;
 import com.facebook.hive.orc.OrcProto.ColumnEncoding.Kind;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,6 +38,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
+import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -55,18 +57,19 @@ public class DwrfMetadataReader
                 postScript.getFooterLength(),
                 0,
                 toCompression(postScript.getCompression()),
-                postScript.getCompressionBlockSize());
+                postScript.getCompressionBlockSize(),
+                ORIGINAL); // DWRF doesn't have the equivalent of Hive writer version, and it is not clear if HIVE-8732 has been fixed
     }
 
     @Override
-    public Metadata readMetadata(InputStream inputStream)
+    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
         return new Metadata(ImmutableList.of());
     }
 
     @Override
-    public Footer readFooter(InputStream inputStream)
+    public Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -76,7 +79,7 @@ public class DwrfMetadataReader
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(footer.getStatisticsList(), false),
+                toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
                 toUserMetadata(footer.getMetadataList()));
     }
 
@@ -96,7 +99,7 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -132,12 +135,12 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public List<RowGroupIndex> readRowIndexes(InputStream inputStream)
+    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), DwrfMetadataReader::toRowGroupIndex));
+        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry)));
     }
 
     @Override
@@ -148,7 +151,7 @@ public class DwrfMetadataReader
         return ImmutableList.of();
     }
 
-    private static RowGroupIndex toRowGroupIndex(OrcProto.RowIndexEntry rowIndexEntry)
+    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, OrcProto.RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
@@ -160,15 +163,15 @@ public class DwrfMetadataReader
 
             positions.add(intPosition);
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(rowIndexEntry.getStatistics(), true));
+        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
+    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<OrcProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(statistics, isRowGroup)));
+        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup)));
     }
 
     private Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)
@@ -180,14 +183,14 @@ public class DwrfMetadataReader
         return mapBuilder.build();
     }
 
-    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
+    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(statistics.getStringStatistics(), isRowGroup),
+                toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 null,
                 null,
                 null);
@@ -231,10 +234,9 @@ public class DwrfMetadataReader
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
     }
 
-    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
+    private static StringStatistics toStringStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
-        // TODO remove this when string statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
-        if (!isRowGroup) {
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
             return null;
         }
 

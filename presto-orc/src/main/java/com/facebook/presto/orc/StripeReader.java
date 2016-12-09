@@ -25,6 +25,7 @@ import com.facebook.presto.orc.metadata.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
@@ -73,6 +74,7 @@ public class StripeReader
     private final CompressionKind compressionKind;
     private final List<OrcType> types;
     private final int bufferSize;
+    private final HiveWriterVersion hiveWriterVersion;
     private final Set<Integer> includedOrcColumns;
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
@@ -85,6 +87,7 @@ public class StripeReader
             Set<Integer> includedColumns,
             int rowsInRowGroup,
             OrcPredicate predicate,
+            HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
@@ -94,6 +97,7 @@ public class StripeReader
         this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"));
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
     }
 
@@ -327,7 +331,7 @@ public class StripeReader
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
         try (InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize, systemMemoryUsage)) {
-            return metadataReader.readStripeFooter(types, inputStream);
+            return metadataReader.readStripeFooter(hiveWriterVersion, types, inputStream);
         }
     }
 
@@ -354,7 +358,7 @@ public class StripeReader
             if (stream.getStreamKind() == ROW_INDEX) {
                 OrcInputStream inputStream = streamsData.get(entry.getKey());
                 List<HiveBloomFilter> bloomFilters = bloomFilterIndexes.get(stream.getColumn());
-                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(inputStream);
+                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, inputStream);
                 if (bloomFilters != null && !bloomFilters.isEmpty()) {
                     ImmutableList.Builder<RowGroupIndex> newRowGroupIndexes = ImmutableList.builder();
                     for (int i = 0; i < rowGroupIndexes.size(); i++) {

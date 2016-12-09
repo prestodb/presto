@@ -22,19 +22,26 @@ import static java.util.Objects.requireNonNull;
 
 public class PostScript
 {
+    public enum HiveWriterVersion
+    {
+        ORIGINAL, ORC_HIVE_8732;
+    }
+
     private final List<Integer> version;
     private final long footerLength;
     private final long metadataLength;
     private final CompressionKind compression;
     private final long compressionBlockSize;
+    private final HiveWriterVersion hiveWriterVersion;
 
-    public PostScript(List<Integer> version, long footerLength, long metadataLength, CompressionKind compression, long compressionBlockSize)
+    public PostScript(List<Integer> version, long footerLength, long metadataLength, CompressionKind compression, long compressionBlockSize, HiveWriterVersion hiveWriterVersion)
     {
         this.version = ImmutableList.copyOf(requireNonNull(version, "version is null"));
         this.footerLength = footerLength;
         this.metadataLength = metadataLength;
         this.compression = requireNonNull(compression, "compressionKind is null");
         this.compressionBlockSize = compressionBlockSize;
+        this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
     }
 
     public List<Integer> getVersion()
@@ -62,6 +69,11 @@ public class PostScript
         return compressionBlockSize;
     }
 
+    public HiveWriterVersion getHiveWriterVersion()
+    {
+        return hiveWriterVersion;
+    }
+
     @Override
     public String toString()
     {
@@ -71,6 +83,7 @@ public class PostScript
                 .add("metadataLength", metadataLength)
                 .add("compressionKind", compression)
                 .add("compressionBlockSize", compressionBlockSize)
+                .add("hiveWriterVersion", hiveWriterVersion)
                 .toString();
     }
 }
