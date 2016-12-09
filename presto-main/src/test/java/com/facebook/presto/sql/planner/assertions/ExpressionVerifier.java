@@ -79,7 +79,17 @@ final class ExpressionVerifier
     @Override
     protected Boolean visitCast(Cast actual, Expression expectedExpression)
     {
-        return process(actual.getExpression(), expectedExpression);
+        if (!(expectedExpression instanceof Cast)) {
+            return false;
+        }
+
+        Cast expected = (Cast) expectedExpression;
+
+        if (!actual.getType().equals(expected.getType())) {
+            return false;
+        }
+
+        return process(actual.getExpression(), expected.getExpression());
     }
 
     @Override
