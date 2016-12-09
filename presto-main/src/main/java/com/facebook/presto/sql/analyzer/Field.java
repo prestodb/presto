@@ -26,6 +26,7 @@ public class Field
     public enum State
     {
         VISIBLE,
+        HIDDEN, // field hidden in SQL that is not visible by default, but can be explicitly accessed
         INTERNAL, // field returned as hidden by the connector, can be accessed via SQL
     }
 
@@ -116,7 +117,7 @@ public class Field
 
     public boolean isHidden()
     {
-        return state == State.INTERNAL;
+        return state != State.VISIBLE;
     }
 
     public boolean isAliased()
