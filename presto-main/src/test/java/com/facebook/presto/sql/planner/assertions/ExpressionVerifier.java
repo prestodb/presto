@@ -79,7 +79,17 @@ final class ExpressionVerifier
     @Override
     protected Boolean visitCast(Cast actual, Expression expectedExpression)
     {
-        return process(actual.getExpression(), expectedExpression);
+        if (!(expectedExpression instanceof Cast)) {
+            return false;
+        }
+
+        Cast expected = (Cast) expectedExpression;
+
+        if (!actual.getType().equals(expected.getType())) {
+            return false;
+        }
+
+        return process(actual.getExpression(), expected.getExpression());
     }
 
     @Override
@@ -154,7 +164,11 @@ final class ExpressionVerifier
     @Override
     protected Boolean visitDoubleLiteral(DoubleLiteral actual, Expression expected)
     {
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        if (expected instanceof DoubleLiteral) {
+            return getValueFromLiteral(actual).equals(getValueFromLiteral(expected));
+        }
+
+        return false;
     }
 
     @Override

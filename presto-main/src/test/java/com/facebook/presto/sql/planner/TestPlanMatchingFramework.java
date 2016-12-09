@@ -91,7 +91,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        project(ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY")),
+                        project(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -100,7 +100,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
-                        project(ImmutableMap.of("ORDERKEY", expression("ORDERKEY"), "EXPRESSION", expression("1 + ORDERKEY")),
+                        project(ImmutableMap.of("ORDERKEY", expression("ORDERKEY"), "EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 
@@ -194,7 +194,7 @@ public class TestPlanMatchingFramework
     {
         assertMinimallyOptimizedPlan("SELECT 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY"),
-                        project(ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY")),
+                        project(ImmutableMap.of("EXPRESSION", expression("CAST(1 AS bigint) + ORDERKEY")),
                                 tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
     }
 }

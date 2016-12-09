@@ -190,7 +190,7 @@ public class TestMergeWindows
                                 ImmutableList.of(functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
                                 window(specificationB,
                                         ImmutableList.of(functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                        project(ImmutableMap.of("ONE", expression("1"), "ZERO", expression("0.0")),
+                                        project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
                                                 window(specificationA,
                                                         ImmutableList.of(
                                                         functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
@@ -212,7 +212,7 @@ public class TestMergeWindows
                                 ImmutableList.of(
                                 functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS)),
                                 functionCall("lag", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS, "ONE", "ZERO"))),
-                                project(ImmutableMap.of("ONE", expression("1"), "ZERO", expression("0.0")),
+                                project(ImmutableMap.of("ONE", expression("CAST(1 AS bigint)"), "ZERO", expression("0.0")),
                                         window(specificationA,
                                                 ImmutableList.of(
                                                 functionCall("sum", COMMON_FRAME, ImmutableList.of(QUANTITY_ALIAS))),
