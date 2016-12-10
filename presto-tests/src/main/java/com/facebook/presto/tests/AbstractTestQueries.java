@@ -7725,6 +7725,7 @@ public abstract class AbstractTestQueries
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
         assertDescribeOutputEmpty("DROP TABLE foo");
+        assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");
         assertDescribeOutputEmpty("PREPARE test FROM SELECT * FROM orders");
         assertDescribeOutputEmpty("EXECUTE test");

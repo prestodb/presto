@@ -382,7 +382,7 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
-        return createScope(node, scope, queryScope.getRelationType());
+        return createScope(node, scope, emptyList());
     }
 
     @Override
