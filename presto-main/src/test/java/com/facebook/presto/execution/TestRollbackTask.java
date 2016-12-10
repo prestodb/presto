@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlConfig;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
@@ -62,7 +63,7 @@ public class TestRollbackTask
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
+        AccessControl accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         Session session = sessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
@@ -83,7 +84,7 @@ public class TestRollbackTask
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
+        AccessControl accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         Session session = sessionBuilder()
                 .build();
@@ -112,7 +113,7 @@ public class TestRollbackTask
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        AccessControl accessControl = new AccessControlManager(transactionManager);
+        AccessControl accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         Session session = sessionBuilder()
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system

@@ -14,17 +14,20 @@
 package com.facebook.presto.security;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class AccessControlModule
-    implements Module
+    extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(AccessControlConfig.class);
+
         binder.bind(AccessControlManager.class).in(Scopes.SINGLETON);
         binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(AccessControlManager.class).withGeneratedName();

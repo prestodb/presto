@@ -57,12 +57,12 @@ public class AccessControlManager
         implements AccessControl
 {
     private static final Logger log = Logger.get(AccessControlManager.class);
-    private static final File ACCESS_CONTROL_CONFIGURATION = new File("etc/access-control.properties");
     private static final String ACCESS_CONTROL_PROPERTY_NAME = "access-control.name";
 
     public static final String ALLOW_ALL_ACCESS_CONTROL = "allow-all";
 
     private final TransactionManager transactionManager;
+    private final File configurationFile;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
     private final Map<ConnectorId, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
@@ -75,9 +75,10 @@ public class AccessControlManager
     private final CounterStat authorizationFail = new CounterStat();
 
     @Inject
-    public AccessControlManager(TransactionManager transactionManager)
+    public AccessControlManager(TransactionManager transactionManager, AccessControlConfig config)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.configurationFile = new File(config.getAccessControlConfigPath());
         systemAccessControlFactories.put(ALLOW_ALL_ACCESS_CONTROL, new SystemAccessControlFactory()
         {
             @Override
@@ -121,12 +122,12 @@ public class AccessControlManager
     public void loadSystemAccessControl()
             throws Exception
     {
-        if (ACCESS_CONTROL_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(ACCESS_CONTROL_CONFIGURATION));
+        if (configurationFile.exists()) {
+            Map<String, String> properties = new HashMap<>(loadProperties(configurationFile));
 
             String accessControlName = properties.remove(ACCESS_CONTROL_PROPERTY_NAME);
             checkArgument(!isNullOrEmpty(accessControlName),
-                    "Access control configuration %s does not contain %s", ACCESS_CONTROL_CONFIGURATION.getAbsoluteFile(), ACCESS_CONTROL_PROPERTY_NAME);
+                    "Access control configuration %s does not contain %s", configurationFile.getAbsoluteFile(), ACCESS_CONTROL_PROPERTY_NAME);
 
             setSystemAccessControl(accessControlName, properties);
         }

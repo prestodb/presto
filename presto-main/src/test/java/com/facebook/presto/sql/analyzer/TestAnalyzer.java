@@ -31,6 +31,7 @@ import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlConfig;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -1044,7 +1045,7 @@ public class TestAnalyzer
         TypeManager typeManager = new TypeRegistry();
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AccessControlManager(transactionManager);
+        accessControl = new AccessControlManager(transactionManager, new AccessControlConfig());
 
         metadata = new MetadataManager(
                 new FeaturesConfig(),
