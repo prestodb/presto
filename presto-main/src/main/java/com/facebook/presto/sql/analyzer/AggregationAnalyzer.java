@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -313,6 +314,13 @@ class AggregationAnalyzer
             }
 
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
+        }
+
+        @Override
+        protected Boolean visitLambdaExpression(LambdaExpression node, Void context)
+        {
+            // Lambda does not support capture yet
+            return true;
         }
 
         @Override
