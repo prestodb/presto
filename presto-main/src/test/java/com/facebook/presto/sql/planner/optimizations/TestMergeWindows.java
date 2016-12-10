@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.Plan;
@@ -483,22 +484,22 @@ public class TestMergeWindows
                 new PruneUnreferencedOutputs());
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getCostCalculator(), actualPlan, pattern);
             return null;
         });
     }
 
-    private Plan unitPlan(@Language("SQL") String sql)
+    private Plan unitPlan(Session session, @Language("SQL") String sql)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                        new UnaliasSymbolReferences(),
-                        new PruneIdentityProjections(),
-                        new MergeWindows(),
-                        new PruneUnreferencedOutputs());
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers));
+                new UnaliasSymbolReferences(),
+                new PruneIdentityProjections(),
+                new MergeWindows(),
+                new PruneUnreferencedOutputs());
+        return queryRunner.createPlan(session, sql, featuresConfig, optimizers);
     }
 }

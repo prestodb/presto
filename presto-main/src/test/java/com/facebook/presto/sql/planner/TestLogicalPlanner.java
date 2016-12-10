@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ApplyNode;

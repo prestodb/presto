@@ -32,16 +32,25 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
+    public static final boolean DEFAULT_PREDICATE_PUSHDOWN_ENABLED = false;
+
     private final int defaultSplitsPerNode;
+    private final boolean defaultPredicatePushdownEnabled;
 
     public TpchConnectorFactory()
     {
-        this(Runtime.getRuntime().availableProcessors());
+        this(Runtime.getRuntime().availableProcessors(), DEFAULT_PREDICATE_PUSHDOWN_ENABLED);
     }
 
     public TpchConnectorFactory(int defaultSplitsPerNode)
     {
+        this(defaultSplitsPerNode, DEFAULT_PREDICATE_PUSHDOWN_ENABLED);
+    }
+
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean defaultPredicatePushdownEnabled)
+    {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
+        this.defaultPredicatePushdownEnabled = defaultPredicatePushdownEnabled;
     }
 
     @Override
@@ -60,6 +69,7 @@ public class TpchConnectorFactory
     public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
+        boolean predicatePushdownEnabled = isPredicatePushdownEnabled(properties);
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
@@ -73,7 +83,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(connectorId);
+                return new TpchMetadata(connectorId, predicatePushdownEnabled);
             }
 
             @Override
@@ -104,5 +114,10 @@ public class TpchConnectorFactory
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");
         }
+    }
+
+    private boolean isPredicatePushdownEnabled(Map<String, String> properties)
+    {
+        return Boolean.parseBoolean(firstNonNull(properties.get("tpch.predicate-pushdown"), String.valueOf(defaultPredicatePushdownEnabled)));
     }
 }

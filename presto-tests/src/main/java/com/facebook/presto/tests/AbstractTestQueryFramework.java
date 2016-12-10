@@ -14,6 +14,8 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CoefficientBasedCostCalculator;
+import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.type.Type;
@@ -49,12 +51,14 @@ public abstract class AbstractTestQueryFramework
     protected final H2QueryRunner h2QueryRunner;
     protected final QueryRunner queryRunner;
     private final SqlParser sqlParser;
+    private final CostCalculator costCalculator;
 
     protected AbstractTestQueryFramework(QueryRunner queryRunner)
     {
         this.queryRunner = queryRunner;
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
+        costCalculator = new CoefficientBasedCostCalculator(queryRunner.getMetadata());
     }
 
     @AfterClass(alwaysRun = true)
@@ -269,12 +273,13 @@ public abstract class AbstractTestQueryFramework
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = new FeaturesConfig().setOptimizeHashGeneration(true);
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
-        List<PlanOptimizer> optimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, forceSingleNode).get();
+        List<PlanOptimizer> optimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, new CoefficientBasedCostCalculator(metadata), forceSingleNode).get();
         return new QueryExplainer(
                 optimizers,
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
+                costCalculator,
                 ImmutableMap.of());
     }
 

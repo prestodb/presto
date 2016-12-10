@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -25,6 +26,7 @@ import org.apache.thrift.TException;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 
 public interface HiveMetastoreClient
         extends Closeable
@@ -63,6 +65,12 @@ public interface HiveMetastoreClient
             throws TException;
 
     Table getTable(String databaseName, String tableName)
+            throws TException;
+
+    List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
+            throws TException;
+
+    Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> columnNames, List<String> partitionValues)
             throws TException;
 
     List<String> getPartitionNames(String databaseName, String tableName)
