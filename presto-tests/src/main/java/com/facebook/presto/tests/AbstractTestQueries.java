@@ -196,6 +196,13 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLambdaInSubqueryContext()
+    {
+        assertQuery("SELECT apply(x, i -> i * i) FROM (SELECT 10 x)", "SELECT 100");
+        assertQuery("SELECT apply((SELECT 10), i -> i * i)", "SELECT 100");
+    }
+
+    @Test
     public void testNonDeterministicFilter()
     {
         MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");
