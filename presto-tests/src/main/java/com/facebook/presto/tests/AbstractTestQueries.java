@@ -188,6 +188,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLambdaInAggregationContext()
+    {
+        assertQuery("SELECT apply(sum(x), i -> i * i) FROM (VALUES 1, 2, 3, 4, 5) t(x)", "SELECT 225");
+        assertQuery("SELECT apply(x, i -> i - 1), sum(y) FROM (VALUES (1, 10), (1, 20), (2, 50)) t(x,y) group by x", "VALUES (0, 30), (1, 50)");
+        assertQuery("SELECT x, apply(sum(y), i -> i * 10) FROM (VALUES (1, 10), (1, 20), (2, 50)) t(x,y) group by x", "VALUES (1, 300), (2, 500)");
+    }
+
+    @Test
     public void testNonDeterministicFilter()
     {
         MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");
