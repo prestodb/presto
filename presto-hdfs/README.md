@@ -94,13 +94,13 @@ Table:
 
 + DB
 
-| field    | description   |     example      |
-|----------|---------------|------------------|
-| DB_ID    | database id   |         1        |
-| DESC     | database desc | default database |
-| NAME     | database name | default          |
-| LOCATION | database path | hdfs://u/db      |
-| OWNER    | owner name    | root             |
+| field    | description   |     example      | type |
+|----------|---------------|------------------|------|
+| DB_ID    | database id   |         1        | BIGSERIAL PRIMARY KEY |
+| DESC     | database desc | default database | varchar(4000) |
+| NAME     | database name | default          | varchar(128) UNIQUE |
+| DB_LOCATION_URI | database path | hdfs://u/db      | varchar(4000) |
+| DB_OWNER    | owner name    | root             | varchar (128) |
 
 + TBL
 
