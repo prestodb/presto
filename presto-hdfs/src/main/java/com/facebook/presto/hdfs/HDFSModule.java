@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hdfs;
 
+import com.facebook.presto.hdfs.metaserver.JDBCMetaServer;
+import com.facebook.presto.hdfs.metaserver.MetaServer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -50,6 +52,8 @@ implements Module
         binder.bind(HDFSConnectorId.class).toInstance(new HDFSConnectorId(connectorId));
 
         binder.bind(HDFSMetadataFactory.class).in(Scopes.SINGLETON);
+        // bind MetaServer to JDBC implementation, and set to SINGLETON
+        binder.bind(MetaServer.class).to(JDBCMetaServer.class).in(Scopes.SINGLETON);
         binder.bind(HDFSSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSinkProvider.class).in(Scopes.SINGLETON);
