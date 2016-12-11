@@ -31,6 +31,6 @@ public class TestJDBCMetaServer
         config.setMetaserverUser("jelly");
         config.setMetaserverPass("jelly");
 
-        JDBCMetaServer metaServer = new JDBCMetaServer(config);
+//        JDBCMetaServer metaServer = new JDBCMetaServer(config);
     }
 }

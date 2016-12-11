@@ -44,12 +44,12 @@ import static java.util.Objects.requireNonNull;
 public class HDFSMetadata
 implements ConnectorMetadata
 {
-    private final String connectorId;
+//    private final String connectorId;
     private final MetaServer metaServer;
 
-    public HDFSMetadata(String connectorId, MetaServer metaServer)
+    public HDFSMetadata(MetaServer metaServer)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+//        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.metaServer = requireNonNull(metaServer, "metaServer is null");
     }
 
