@@ -29,8 +29,8 @@ import static java.lang.Math.toIntExact;
  * @see {@link org.apache.hadoop.hive.ql.io.orc.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
  */
 // This comes from the Apache Hive ORC code
-public class LongStreamV2
-        implements LongStream
+public class LongInputStreamV2
+        implements LongInputStream
 {
     private static final int MAX_LITERAL_SIZE = 512;
 
@@ -48,7 +48,7 @@ public class LongStreamV2
     private final boolean skipCorrupt;
     private long lastReadInputCheckpoint;
 
-    public LongStreamV2(OrcInputStream input, boolean signed, boolean skipCorrupt)
+    public LongInputStreamV2(OrcInputStream input, boolean signed, boolean skipCorrupt)
     {
         this.input = input;
         this.signed = signed;

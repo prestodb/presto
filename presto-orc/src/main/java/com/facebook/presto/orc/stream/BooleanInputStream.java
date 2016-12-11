@@ -22,17 +22,17 @@ import java.io.IOException;
 import static com.google.common.base.Preconditions.checkState;
 
 @SuppressWarnings("NarrowingCompoundAssignment")
-public class BooleanStream
-        implements ValueStream<BooleanStreamCheckpoint>
+public class BooleanInputStream
+        implements ValueInputStream<BooleanStreamCheckpoint>
 {
     private static final int HIGH_BIT_MASK = 0b1000_0000;
-    private final ByteStream byteStream;
+    private final ByteInputStream byteStream;
     private byte data;
     private int bitsInData;
 
-    public BooleanStream(OrcInputStream byteStream)
+    public BooleanInputStream(OrcInputStream byteStream)
     {
-        this.byteStream = new ByteStream(byteStream);
+        this.byteStream = new ByteInputStream(byteStream);
     }
 
     private void readByte()

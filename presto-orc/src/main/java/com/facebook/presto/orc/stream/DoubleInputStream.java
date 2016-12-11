@@ -25,14 +25,14 @@ import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 
-public class DoubleStream
-        implements ValueStream<DoubleStreamCheckpoint>
+public class DoubleInputStream
+        implements ValueInputStream<DoubleStreamCheckpoint>
 {
     private final OrcInputStream input;
     private final byte[] buffer = new byte[SIZE_OF_DOUBLE];
     private final Slice slice = Slices.wrappedBuffer(buffer);
 
-    public DoubleStream(OrcInputStream input)
+    public DoubleInputStream(OrcInputStream input)
     {
         this.input = input;
     }

@@ -25,15 +25,15 @@ import static com.facebook.presto.orc.stream.LongDecode.readDwrfLong;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static java.lang.Math.toIntExact;
 
-public class LongStreamDwrf
-        implements LongStream
+public class LongInputStreamDwrf
+        implements LongInputStream
 {
     private final OrcInputStream input;
     private final OrcTypeKind orcTypeKind;
     private final boolean signed;
     private final boolean usesVInt;
 
-    public LongStreamDwrf(OrcInputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
+    public LongInputStreamDwrf(OrcInputStream input, OrcTypeKind type, boolean signed, boolean usesVInt)
     {
         this.input = input;
         this.orcTypeKind = type;

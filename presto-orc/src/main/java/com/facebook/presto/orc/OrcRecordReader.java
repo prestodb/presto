@@ -26,7 +26,7 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.StreamReader;
 import com.facebook.presto.orc.reader.StreamReaders;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
@@ -360,7 +360,7 @@ public class OrcRecordReader
         filePosition = stripeFilePositions.get(currentStripe) + currentRowGroup.getRowOffset();
 
         // give reader data streams from row group
-        StreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
+        InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
         for (StreamReader column : streamReaders) {
             if (column != null) {
                 column.startRowGroup(rowGroupStreamSources);
@@ -391,7 +391,7 @@ public class OrcRecordReader
         Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
         if (stripe != null) {
             // Give readers access to dictionary streams
-            StreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
+            InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             for (StreamReader column : streamReaders) {
                 if (column != null) {

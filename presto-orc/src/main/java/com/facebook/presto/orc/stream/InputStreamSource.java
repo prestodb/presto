@@ -17,31 +17,11 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-public class MissingStreamSource<S extends ValueStream<?>> implements StreamSource<S>
+public interface InputStreamSource<S extends ValueInputStream<?>>
 {
-    private final Class<S> streamType;
-
-    public static <S extends ValueStream<?>> StreamSource<S> missingStreamSource(Class<S> streamType)
-    {
-        return new MissingStreamSource<>(streamType);
-    }
-
-    private MissingStreamSource(Class<S> streamType)
-    {
-        this.streamType = streamType;
-    }
-
-    @Override
-    public Class<S> getStreamType()
-    {
-        return streamType;
-    }
+    Class<S> getStreamType();
 
     @Nullable
-    @Override
-    public S openStream()
-            throws IOException
-    {
-        return null;
-    }
+    S openStream()
+            throws IOException;
 }

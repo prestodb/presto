@@ -24,8 +24,8 @@ import java.io.IOException;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
 import static java.lang.Math.toIntExact;
 
-public class LongStreamV1
-        implements LongStream
+public class LongInputStreamV1
+        implements LongInputStream
 {
     private static final int MAX_LITERAL_SIZE = 128;
 
@@ -38,7 +38,7 @@ public class LongStreamV1
     private boolean repeat;
     private long lastReadInputCheckpoint;
 
-    public LongStreamV1(OrcInputStream input, boolean signed)
+    public LongInputStreamV1(OrcInputStream input, boolean signed)
     {
         this.input = input;
         this.signed = signed;

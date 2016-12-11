@@ -18,12 +18,12 @@ import com.facebook.presto.orc.checkpoint.RowGroupDictionaryLengthStreamCheckpoi
 
 import java.io.IOException;
 
-public class RowGroupDictionaryLengthStream
-        extends LongStreamV1
+public class RowGroupDictionaryLengthInputStream
+        extends LongInputStreamV1
 {
     private int entryCount = -1;
 
-    public RowGroupDictionaryLengthStream(OrcInputStream input, boolean signed)
+    public RowGroupDictionaryLengthInputStream(OrcInputStream input, boolean signed)
     {
         super(input, signed);
     }

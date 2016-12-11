@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.orc.stream;
 
-import javax.annotation.Nullable;
+import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 
 import java.io.IOException;
 
-public interface StreamSource<S extends ValueStream<?>>
+public interface ValueInputStream<C extends StreamCheckpoint>
 {
-    Class<S> getStreamType();
+    Class<? extends C> getCheckpointType();
 
-    @Nullable
-    S openStream()
+    void seekToCheckpoint(C checkpoint)
             throws IOException;
+
+    void skip(long items)
+                    throws IOException;
 }

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.InputStreamSources;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -23,9 +23,9 @@ public class RowGroup
     private final int groupId;
     private final long rowOffset;
     private final long rowCount;
-    private final StreamSources streamSources;
+    private final InputStreamSources streamSources;
 
-    public RowGroup(int groupId, long rowOffset, long rowCount, StreamSources streamSources)
+    public RowGroup(int groupId, long rowOffset, long rowCount, InputStreamSources streamSources)
     {
         this.groupId = groupId;
         this.rowOffset = rowOffset;
@@ -48,7 +48,7 @@ public class RowGroup
         return rowCount;
     }
 
-    public StreamSources getStreamSources()
+    public InputStreamSources getStreamSources()
     {
         return streamSources;
     }

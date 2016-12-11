@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.orc.stream;
 
-import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
-
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -22,26 +20,13 @@ import java.io.IOException;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCheckpoint>
-        implements StreamSource<S>
+public class ValueInputStreamSource<S extends ValueInputStream<?>> implements InputStreamSource<S>
 {
-    public static <S extends ValueStream<C>, C extends StreamCheckpoint> CheckpointStreamSource<S, C> createCheckpointStreamSource(S stream, StreamCheckpoint checkpoint)
-    {
-        requireNonNull(stream, "stream is null");
-        requireNonNull(checkpoint, "checkpoint is null");
-
-        Class<? extends C> checkpointType = stream.getCheckpointType();
-        C verifiedCheckpoint = (C) checkpoint;
-        return new CheckpointStreamSource<>(stream, verifiedCheckpoint);
-    }
-
     private final S stream;
-    private final C checkpoint;
 
-    public CheckpointStreamSource(S stream, C checkpoint)
+    public ValueInputStreamSource(S stream)
     {
         this.stream = requireNonNull(stream, "stream is null");
-        this.checkpoint = requireNonNull(checkpoint, "checkpoint is null");
     }
 
     @Override
@@ -55,7 +40,6 @@ public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCh
     public S openStream()
             throws IOException
     {
-        stream.seekToCheckpoint(checkpoint);
         return stream;
     }
 
@@ -64,7 +48,6 @@ public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCh
     {
         return toStringHelper(this)
                 .add("stream", stream)
-                .add("checkpoint", checkpoint)
                 .toString();
     }
 }

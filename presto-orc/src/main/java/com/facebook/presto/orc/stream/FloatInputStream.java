@@ -26,14 +26,14 @@ import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static java.lang.Float.floatToRawIntBits;
 
-public class FloatStream
-        implements ValueStream<FloatStreamCheckpoint>
+public class FloatInputStream
+        implements ValueInputStream<FloatStreamCheckpoint>
 {
     private final OrcInputStream input;
     private final byte[] buffer = new byte[SIZE_OF_FLOAT];
     private final Slice slice = Slices.wrappedBuffer(buffer);
 
-    public FloatStream(OrcInputStream input)
+    public FloatInputStream(OrcInputStream input)
     {
         this.input = input;
     }

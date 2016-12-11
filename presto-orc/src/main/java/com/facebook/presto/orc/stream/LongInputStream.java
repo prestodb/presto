@@ -19,8 +19,8 @@ import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 
-public interface LongStream
-        extends ValueStream<LongStreamCheckpoint>
+public interface LongInputStream
+        extends ValueInputStream<LongStreamCheckpoint>
 {
     long next()
             throws IOException;

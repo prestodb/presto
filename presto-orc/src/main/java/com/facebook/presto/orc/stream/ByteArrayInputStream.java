@@ -21,12 +21,12 @@ import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.skipFully;
 import static java.util.Objects.requireNonNull;
 
-public class ByteArrayStream
-        implements ValueStream<ByteArrayStreamCheckpoint>
+public class ByteArrayInputStream
+        implements ValueInputStream<ByteArrayStreamCheckpoint>
 {
     private final OrcInputStream inputStream;
 
-    public ByteArrayStream(OrcInputStream inputStream)
+    public ByteArrayInputStream(OrcInputStream inputStream)
     {
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
     }

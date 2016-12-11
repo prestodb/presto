@@ -22,26 +22,26 @@ import javax.annotation.Nonnull;
 
 import java.util.Map;
 
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class StreamSources
+public class InputStreamSources
 {
-    private final Map<StreamId, StreamSource<?>> streamSources;
+    private final Map<StreamId, InputStreamSource<?>> streamSources;
 
-    public StreamSources(Map<StreamId, StreamSource<?>> streamSources)
+    public InputStreamSources(Map<StreamId, InputStreamSource<?>> streamSources)
     {
         this.streamSources = ImmutableMap.copyOf(requireNonNull(streamSources, "streamSources is null"));
     }
 
     @Nonnull
-    public <S extends ValueStream<?>> StreamSource<S> getStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<S> streamType)
+    public <S extends ValueInputStream<?>> InputStreamSource<S> getInputStreamSource(StreamDescriptor streamDescriptor, StreamKind streamKind, Class<S> streamType)
     {
         requireNonNull(streamDescriptor, "streamDescriptor is null");
         requireNonNull(streamType, "streamType is null");
 
-        StreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
+        InputStreamSource<?> streamSource = streamSources.get(new StreamId(streamDescriptor.getStreamId(), streamKind));
         if (streamSource == null) {
             streamSource = missingStreamSource(streamType);
         }
@@ -52,6 +52,6 @@ public class StreamSources
                 streamType.getName(),
                 streamSource.getStreamType().getName());
 
-        return (StreamSource<S>) streamSource;
+        return (InputStreamSource<S>) streamSource;
     }
 }

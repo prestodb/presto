@@ -16,12 +16,12 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.ByteArrayStream;
-import com.facebook.presto.orc.stream.LongStream;
-import com.facebook.presto.orc.stream.RowGroupDictionaryLengthStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.ByteArrayInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.orc.stream.LongInputStream;
+import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
@@ -43,7 +43,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
@@ -60,13 +60,13 @@ public class SliceDictionaryStreamReader
     private int nextBatchSize;
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
     private boolean[] isNullVector = new boolean[0];
 
     @Nonnull
-    private StreamSource<ByteArrayStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
+    private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     private boolean stripeDictionaryOpen;
     private int stripeDictionarySize;
     @Nonnull
@@ -75,28 +75,28 @@ public class SliceDictionaryStreamReader
     private SliceArrayBlock dictionaryBlock = new SliceArrayBlock(stripeDictionary.length, stripeDictionary, true);
 
     @Nonnull
-    private StreamSource<LongStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongStream.class);
+    private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
 
     @Nonnull
-    private StreamSource<BooleanStream> inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream inDictionaryStream;
+    private BooleanInputStream inDictionaryStream;
     private boolean[] inDictionary = new boolean[0];
 
     @Nonnull
-    private StreamSource<ByteArrayStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
+    private InputStreamSource<ByteArrayInputStream> rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
     @Nonnull
     private Slice[] rowGroupDictionary = new Slice[0];
 
     @Nonnull
-    private StreamSource<RowGroupDictionaryLengthStream> rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthStream.class);
+    private InputStreamSource<RowGroupDictionaryLengthInputStream> rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthInputStream.class);
     @Nonnull
     private int[] rowGroupDictionaryLength = new int[0];
 
     @Nonnull
-    private StreamSource<LongStream> dataStreamSource = missingStreamSource(LongStream.class);
+    private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
-    private LongStream dataStream;
+    private LongInputStream dataStream;
 
     private boolean rowGroupOpen;
 
@@ -213,21 +213,21 @@ public class SliceDictionaryStreamReader
                 int[] dictionaryLength = new int[stripeDictionarySize];
 
                 // read the lengths
-                LongStream lengthStream = stripeDictionaryLengthStreamSource.openStream();
+                LongInputStream lengthStream = stripeDictionaryLengthStreamSource.openStream();
                 if (lengthStream == null) {
                     throw new OrcCorruptionException("Dictionary is not empty but dictionary length stream is not present");
                 }
                 lengthStream.nextIntVector(stripeDictionarySize, dictionaryLength);
 
                 // read dictionary values
-                ByteArrayStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
+                ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
                 readDictionary(dictionaryDataStream, stripeDictionarySize, dictionaryLength, 0, stripeDictionary, type);
             }
         }
         stripeDictionaryOpen = true;
 
         // read row group dictionary
-        RowGroupDictionaryLengthStream dictionaryLengthStream = rowGroupDictionaryLengthStreamSource.openStream();
+        RowGroupDictionaryLengthInputStream dictionaryLengthStream = rowGroupDictionaryLengthStreamSource.openStream();
         if (dictionaryLengthStream != null) {
             int rowGroupDictionarySize = dictionaryLengthStream.getEntryCount();
 
@@ -245,7 +245,7 @@ public class SliceDictionaryStreamReader
             dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength);
 
             // read dictionary values
-            ByteArrayStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
+            ByteArrayInputStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
             readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionary, type);
         }
         else {
@@ -261,7 +261,7 @@ public class SliceDictionaryStreamReader
     }
 
     private static void readDictionary(
-            @Nullable ByteArrayStream dictionaryDataStream,
+            @Nullable ByteArrayInputStream dictionaryDataStream,
             int dictionarySize,
             int[] dictionaryLength,
             int dictionaryOutputOffset,
@@ -289,20 +289,20 @@ public class SliceDictionaryStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        stripeDictionaryDataStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayStream.class);
-        stripeDictionaryLengthStreamSource = dictionaryStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStream.class);
+        stripeDictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
+        stripeDictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
         stripeDictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
         stripeDictionaryOpen = false;
 
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        dataStreamSource = missingStreamSource(LongStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        dataStreamSource = missingStreamSource(LongInputStream.class);
 
-        inDictionaryStreamSource = missingStreamSource(BooleanStream.class);
-        rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthStream.class);
-        rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayStream.class);
+        inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
+        rowGroupDictionaryLengthStreamSource = missingStreamSource(RowGroupDictionaryLengthInputStream.class);
+        rowGroupDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -315,16 +315,16 @@ public class SliceDictionaryStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        dataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, LongInputStream.class);
 
         // the "in dictionary" stream signals if the value is in the stripe or row group dictionary
-        inDictionaryStreamSource = dataStreamSources.getStreamSource(streamDescriptor, IN_DICTIONARY, BooleanStream.class);
-        rowGroupDictionaryLengthStreamSource = dataStreamSources.getStreamSource(streamDescriptor, ROW_GROUP_DICTIONARY_LENGTH, RowGroupDictionaryLengthStream.class);
-        rowGroupDictionaryDataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, ROW_GROUP_DICTIONARY, ByteArrayStream.class);
+        inDictionaryStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, IN_DICTIONARY, BooleanInputStream.class);
+        rowGroupDictionaryLengthStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, ROW_GROUP_DICTIONARY_LENGTH, RowGroupDictionaryLengthInputStream.class);
+        rowGroupDictionaryDataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, ROW_GROUP_DICTIONARY, ByteArrayInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

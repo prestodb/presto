@@ -24,8 +24,8 @@ import java.util.Arrays;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
 import static com.facebook.presto.orc.stream.OrcStreamUtils.readFully;
 
-public class ByteStream
-        implements ValueStream<ByteStreamCheckpoint>
+public class ByteInputStream
+        implements ValueInputStream<ByteStreamCheckpoint>
 {
     private final OrcInputStream input;
     private final byte[] buffer = new byte[MIN_REPEAT_SIZE + 127];
@@ -33,7 +33,7 @@ public class ByteStream
     private int offset;
     private long lastReadInputCheckpoint;
 
-    public ByteStream(OrcInputStream input)
+    public ByteInputStream(OrcInputStream input)
     {
         this.input = input;
         lastReadInputCheckpoint = input.getCheckpoint();

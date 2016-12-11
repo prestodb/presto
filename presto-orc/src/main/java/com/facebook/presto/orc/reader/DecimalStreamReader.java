@@ -16,11 +16,11 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.DecimalStream;
-import com.facebook.presto.orc.stream.LongStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.DecimalInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
+import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -37,7 +37,7 @@ import java.util.List;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -53,19 +53,19 @@ public class DecimalStreamReader
     private long[] scaleVector = new long[0];
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
 
     @Nonnull
-    private StreamSource<DecimalStream> decimalStreamSource = missingStreamSource(DecimalStream.class);
+    private InputStreamSource<DecimalInputStream> decimalStreamSource = missingStreamSource(DecimalInputStream.class);
     @Nullable
-    private DecimalStream decimalStream;
+    private DecimalInputStream decimalStream;
 
     @Nonnull
-    private StreamSource<LongStream> scaleStreamSource = missingStreamSource(LongStream.class);
+    private InputStreamSource<LongInputStream> scaleStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
-    private LongStream scaleStream;
+    private LongInputStream scaleStream;
 
     private boolean rowGroupOpen;
 
@@ -186,12 +186,12 @@ public class DecimalStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        decimalStreamSource = missingStreamSource(DecimalStream.class);
-        scaleStreamSource = missingStreamSource(LongStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        decimalStreamSource = missingStreamSource(DecimalInputStream.class);
+        scaleStreamSource = missingStreamSource(LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -204,12 +204,12 @@ public class DecimalStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        decimalStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, DecimalStream.class);
-        scaleStreamSource = dataStreamSources.getStreamSource(streamDescriptor, SECONDARY, LongStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        decimalStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, DecimalInputStream.class);
+        scaleStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, SECONDARY, LongInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;

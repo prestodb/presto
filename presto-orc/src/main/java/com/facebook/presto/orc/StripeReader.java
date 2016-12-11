@@ -31,11 +31,11 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.OrcInputStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
-import com.facebook.presto.orc.stream.ValueStream;
-import com.facebook.presto.orc.stream.ValueStreamSource;
+import com.facebook.presto.orc.stream.ValueInputStream;
+import com.facebook.presto.orc.stream.ValueInputStreamSource;
 import com.facebook.presto.orc.stream.ValueStreams;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -63,7 +63,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUN
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
-import static com.facebook.presto.orc.stream.CheckpointStreamSource.createCheckpointStreamSource;
+import static com.facebook.presto.orc.stream.CheckpointInputStreamSource.createCheckpointStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -148,10 +148,10 @@ public class StripeReader
             }
 
             // value streams
-            Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
+            Map<StreamId, ValueInputStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
 
             // build the dictionary streams
-            StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
+            InputStreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
 
             // build the row groups
             try {
@@ -189,17 +189,17 @@ public class StripeReader
         Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
 
         // value streams
-        Map<StreamId, ValueStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
+        Map<StreamId, ValueInputStream<?>> valueStreams = createValueStreams(streams, streamsData, columnEncodings);
 
         // build the dictionary streams
-        StreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
+        InputStreamSources dictionaryStreamSources = createDictionaryStreamSources(streams, valueStreams, columnEncodings);
 
         // build the row group
-        ImmutableMap.Builder<StreamId, StreamSource<?>> builder = ImmutableMap.builder();
-        for (Entry<StreamId, ValueStream<?>> entry : valueStreams.entrySet()) {
-            builder.put(entry.getKey(), new ValueStreamSource<>(entry.getValue()));
+        ImmutableMap.Builder<StreamId, InputStreamSource<?>> builder = ImmutableMap.builder();
+        for (Entry<StreamId, ValueInputStream<?>> entry : valueStreams.entrySet()) {
+            builder.put(entry.getKey(), new ValueInputStreamSource<>(entry.getValue()));
         }
-        RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), new StreamSources(builder.build()));
+        RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), new InputStreamSources(builder.build()));
 
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
@@ -231,9 +231,9 @@ public class StripeReader
         return streamsBuilder.build();
     }
 
-    private Map<StreamId, ValueStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)
+    private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, List<ColumnEncoding> columnEncodings)
     {
-        ImmutableMap.Builder<StreamId, ValueStream<?>> valueStreams = ImmutableMap.builder();
+        ImmutableMap.Builder<StreamId, ValueInputStream<?>> valueStreams = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             StreamId streamId = entry.getKey();
             Stream stream = entry.getValue();
@@ -252,9 +252,9 @@ public class StripeReader
         return valueStreams.build();
     }
 
-    public StreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueStream<?>> valueStreams, List<ColumnEncoding> columnEncodings)
+    public InputStreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueInputStream<?>> valueStreams, List<ColumnEncoding> columnEncodings)
     {
-        ImmutableMap.Builder<StreamId, StreamSource<?>> dictionaryStreamBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<StreamId, InputStreamSource<?>> dictionaryStreamBuilder = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             StreamId streamId = entry.getKey();
             Stream stream = entry.getValue();
@@ -267,7 +267,7 @@ public class StripeReader
             }
 
             // skip streams without data
-            ValueStream<?> valueStream = valueStreams.get(streamId);
+            ValueInputStream<?> valueStream = valueStreams.get(streamId);
             if (valueStream == null) {
                 continue;
             }
@@ -275,16 +275,16 @@ public class StripeReader
             OrcTypeKind columnType = types.get(stream.getColumn()).getOrcTypeKind();
             StreamCheckpoint streamCheckpoint = getDictionaryStreamCheckpoint(streamId, columnType, columnEncoding);
 
-            StreamSource<?> streamSource = createCheckpointStreamSource(valueStream, streamCheckpoint);
+            InputStreamSource<?> streamSource = createCheckpointStreamSource(valueStream, streamCheckpoint);
             dictionaryStreamBuilder.put(streamId, streamSource);
         }
-        return new StreamSources(dictionaryStreamBuilder.build());
+        return new InputStreamSources(dictionaryStreamBuilder.build());
     }
 
     private List<RowGroup> createRowGroups(
             int rowsInStripe,
             Map<StreamId, Stream> streams,
-            Map<StreamId, ValueStream<?>> valueStreams,
+            Map<StreamId, ValueInputStream<?>> valueStreams,
             Map<Integer, List<RowGroupIndex>> columnIndexes,
             Set<Integer> selectedRowGroups,
             List<ColumnEncoding> encodings)
@@ -302,22 +302,22 @@ public class StripeReader
         return rowGroupBuilder.build();
     }
 
-    public static RowGroup createRowGroup(int groupId, int rowOffset, int rowCount, Map<StreamId, ValueStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
+    public static RowGroup createRowGroup(int groupId, int rowOffset, int rowCount, Map<StreamId, ValueInputStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
     {
-        ImmutableMap.Builder<StreamId, StreamSource<?>> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<StreamId, InputStreamSource<?>> builder = ImmutableMap.builder();
         for (Entry<StreamId, StreamCheckpoint> entry : checkpoints.entrySet()) {
             StreamId streamId = entry.getKey();
             StreamCheckpoint checkpoint = entry.getValue();
 
             // skip streams without data
-            ValueStream<?> valueStream = valueStreams.get(streamId);
+            ValueInputStream<?> valueStream = valueStreams.get(streamId);
             if (valueStream == null) {
                 continue;
             }
 
             builder.put(streamId, createCheckpointStreamSource(valueStream, checkpoint));
         }
-        StreamSources rowGroupStreams = new StreamSources(builder.build());
+        InputStreamSources rowGroupStreams = new InputStreamSources(builder.build());
         return new RowGroup(groupId, rowOffset, rowCount, rowGroupStreams);
     }
 

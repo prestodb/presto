@@ -16,10 +16,10 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.stream.BooleanStream;
-import com.facebook.presto.orc.stream.DoubleStream;
-import com.facebook.presto.orc.stream.StreamSource;
-import com.facebook.presto.orc.stream.StreamSources;
+import com.facebook.presto.orc.stream.BooleanInputStream;
+import com.facebook.presto.orc.stream.DoubleInputStream;
+import com.facebook.presto.orc.stream.InputStreamSource;
+import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -33,7 +33,7 @@ import java.util.List;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
-import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -46,15 +46,15 @@ public class DoubleStreamReader
     private int nextBatchSize;
 
     @Nonnull
-    private StreamSource<BooleanStream> presentStreamSource = missingStreamSource(BooleanStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     @Nullable
-    private BooleanStream presentStream;
+    private BooleanInputStream presentStream;
     private boolean[] nullVector = new boolean[0];
 
     @Nonnull
-    private StreamSource<DoubleStream> dataStreamSource = missingStreamSource(DoubleStream.class);
+    private InputStreamSource<DoubleInputStream> dataStreamSource = missingStreamSource(DoubleInputStream.class);
     @Nullable
-    private DoubleStream dataStream;
+    private DoubleInputStream dataStream;
 
     private boolean rowGroupOpen;
 
@@ -133,11 +133,11 @@ public class DoubleStreamReader
     }
 
     @Override
-    public void startStripe(StreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanStream.class);
-        dataStreamSource = missingStreamSource(DoubleStream.class);
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        dataStreamSource = missingStreamSource(DoubleInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -149,11 +149,11 @@ public class DoubleStreamReader
     }
 
     @Override
-    public void startRowGroup(StreamSources dataStreamSources)
+    public void startRowGroup(InputStreamSources dataStreamSources)
             throws IOException
     {
-        presentStreamSource = dataStreamSources.getStreamSource(streamDescriptor, PRESENT, BooleanStream.class);
-        dataStreamSource = dataStreamSources.getStreamSource(streamDescriptor, DATA, DoubleStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, DoubleInputStream.class);
 
         readOffset = 0;
         nextBatchSize = 0;
