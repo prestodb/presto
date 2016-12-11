@@ -19,7 +19,8 @@ import com.facebook.presto.spi.PrestoException;
  * @author jelly.guodong.jin@gmail.com
  */
 public class ArrayLengthNotMatchException
-extends PrestoException{
+    extends PrestoException
+{
     public ArrayLengthNotMatchException()
     {
         super(HDFSErrorCode.ARRAY_LENGTH_NOT_MATCH, "Array length not match!");

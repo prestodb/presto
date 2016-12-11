@@ -14,12 +14,7 @@
 package com.facebook.presto.hdfs.metaserver;
 
 import com.facebook.presto.hdfs.HDFSConfig;
-import com.facebook.presto.hdfs.jdbc.JDBCDriver;
-import com.facebook.presto.spi.SystemTable;
-import org.testng.annotations.Test;
 
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
@@ -29,8 +24,8 @@ public class TestJDBCMetaServer
 {
     private HDFSConfig config = new HDFSConfig();
 
-    @Test
-    public void testInit() throws SQLException {
+    public void testInit() throws SQLException
+    {
         config.setJdbcDriver("org.postgresql.Driver");
         config.setMetaserverUri("jdbc:postgresql://127.0.0.1:5432/metaserver");
         config.setMetaserverUser("jelly");

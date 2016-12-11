@@ -19,7 +19,8 @@ import com.facebook.presto.spi.PrestoException;
  * @author jelly.guodong.jin@gmail.com
  */
 public class TypeUnknownException
-extends PrestoException {
+    extends PrestoException
+{
     public TypeUnknownException()
     {
         super(HDFSErrorCode.TYPE_UNKNOWN, "Type Unknown");
