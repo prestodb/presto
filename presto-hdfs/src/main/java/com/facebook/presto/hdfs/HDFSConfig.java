@@ -30,11 +30,6 @@ public class HDFSConfig
     private String metaserverUser;
     private String metaserverPass;
 
-    public HDFSConfig()
-    {
-        // TODO read from config file ???
-    }
-
     @NotNull
     public String getJdbcDriver()
     {
@@ -59,11 +54,12 @@ public class HDFSConfig
         return metaserverPass;
     }
 
-    @Config("hdfs.metaserver.jdbcDriver")
+    @Config("hdfs.metaserver.driver")
     @ConfigDescription("HDFS metaserver jdbc driver")
     public void setJdbcDriver(String jdbcDriver)
     {
         this.jdbcDriver = requireNonNull(jdbcDriver);
+        System.out.println("jdbc driver: " + this.getJdbcDriver());
     }
 
     @Config("hdfs.metaserver.uri")
@@ -71,6 +67,7 @@ public class HDFSConfig
     public void setMetaserverUri(String metaserverUri)
     {
         this.metaserverUri = requireNonNull(metaserverUri);
+        System.out.println("uri: " + this.getMetaserverUri());
     }
 
     @Config("hdfs.metaserver.user")
@@ -78,6 +75,7 @@ public class HDFSConfig
     public void setMetaserverUser(String metaserverUsere)
     {
         this.metaserverUser = requireNonNull(metaserverUsere);
+        System.out.println("user: " + this.getMetaserverUser());
     }
 
     @Config("hdfs.metaserver.pass")
@@ -85,5 +83,6 @@ public class HDFSConfig
     public void setMetaserverPass(String metaserverPass)
     {
         this.metaserverPass = requireNonNull(metaserverPass);
+        System.out.println("pass: " + this.getMetaserverPass());
     }
 }

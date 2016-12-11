@@ -34,6 +34,7 @@ import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
 import java.sql.DatabaseMetaData;
@@ -60,6 +61,7 @@ implements MetaServer
     private final HDFSConfig config;
 
     // read config. check if meta table already exists in database, or else initialize missing tables.
+    @Inject
     public JDBCMetaServer(HDFSConfig config)
     {
         // initialize a jdbc driver
@@ -69,6 +71,14 @@ implements MetaServer
                 this.config.getMetaserverUser(),
                 this.config.getMetaserverPass(),
                 this.config.getMetaserverUri());
+
+        System.out.println("Config: " + config.getJdbcDriver()
+            + "; "
+            + config.getMetaserverUri()
+            + "; "
+            + config.getMetaserverUser()
+            + "; "
+            + config.getMetaserverPass());
 
         sqlTable.putIfAbsent("dbs",
                 "CREATE TABLE DBS(DB_ID BIGSERIAL PRIMARY KEY, DB_DESC varchar(4000), DB_NAME varchar(128) UNIQUE, DB_LOCATION_URI varchar(4000), DB_OWNER varchar(128));");

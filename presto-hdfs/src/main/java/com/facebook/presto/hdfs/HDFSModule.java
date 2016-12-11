@@ -19,6 +19,10 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
+import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
+
 /**
  * Main binder class.
  * Bind interface to implementation class,
@@ -31,18 +35,16 @@ public class HDFSModule
 implements Module
 {
     private final String connectorId;
+    private final Map<String, String> config;
 
-    public HDFSModule(String connectorId)
+    public HDFSModule(String connectorId, Map<String, String> config)
     {
-        this.connectorId = connectorId;
+        this.connectorId = requireNonNull(connectorId);
+        this.config = requireNonNull(config);
     }
 
     /**
      * Contributes bindings and other configurations for this module to {@code binder}.
-     * <p>
-     * <p><strong>Do not invoke this method directly</strong> to install submodules. Instead use
-     * {@link Binder#install(Module)}, which ensures that {@link Provides provider methods} are
-     * discovered.
      *
      * @param binder
      */
@@ -50,14 +52,14 @@ implements Module
     public void configure(Binder binder)
     {
         binder.bind(HDFSConnectorId.class).toInstance(new HDFSConnectorId(connectorId));
+        binder.bind(HDFSConfig.class).in(Scopes.SINGLETON);
 
         binder.bind(HDFSMetadataFactory.class).in(Scopes.SINGLETON);
-        // bind MetaServer to JDBC implementation, and set to SINGLETON
-        binder.bind(MetaServer.class).to(JDBCMetaServer.class).in(Scopes.SINGLETON);
+        binder.bind(MetaServer.class).to(JDBCMetaServer.class);
+        binder.bind(HDFSConnector.class).in(Scopes.SINGLETON);
         binder.bind(HDFSSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(HDFSPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(HDFSTransactionManager.class).in(Scopes.SINGLETON);
-        binder.bind(HDFSConnector.class).in(Scopes.SINGLETON);
+        binder.bind(ClassLoader.class).toInstance(HDFSPlugin.getClassLoader());
     }
 }

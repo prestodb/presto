@@ -30,10 +30,10 @@ implements Plugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HDFSConnectorFactory(getClassLoader()));
+        return ImmutableList.of(new HDFSConnectorFactory());
     }
 
-    private static ClassLoader getClassLoader()
+    public static ClassLoader getClassLoader()
     {
         return firstNonNull(Thread.currentThread().getContextClassLoader(), HDFSPlugin.class.getClassLoader());
     }

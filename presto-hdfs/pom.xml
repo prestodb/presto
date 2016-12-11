@@ -11,6 +11,7 @@
     <artifactId>presto-hdfs</artifactId>
     <name>presto-hdfs</name>
     <description>Presto - HDFS Connector</description>
+    <!--<packaging>presto-plugin</packaging>-->
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -20,11 +21,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -49,13 +52,24 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
-            <scope>compile</scope>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
