@@ -1,4 +1,4 @@
--- database: presto; groups: tpch,quarantine; tables: lineitem
+-- database: presto; groups: tpch; tables: lineitem
 SELECT sum(l_extendedprice * l_discount) AS revenue
 FROM
   lineitem
