@@ -73,7 +73,7 @@ public class BasePlanTest
             FeaturesConfig featuresConfig = new FeaturesConfig()
                     .setDistributedIndexJoinsEnabled(false)
                     .setOptimizeHashGeneration(true);
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
