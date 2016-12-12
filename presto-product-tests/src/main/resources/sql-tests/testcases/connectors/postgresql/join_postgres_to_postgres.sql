@@ -1,4 +1,4 @@
--- database: presto; groups: postgresql_connector; tables: postgres.workers_psql
+-- database: presto; groups: postgresql_connector; tables: postgres.public.workers_psql
 --!
 select t1.last_name, t2.first_name from postgresql.public.workers_psql t1, postgresql.public.workers_psql t2 where t1.id_department = t2.id_employee
 --!

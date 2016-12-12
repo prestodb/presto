@@ -1,4 +1,4 @@
--- database: presto; groups: postgresql_connector; tables: postgres.datatype_psql,postgres.workers_psql,postgres.real_table_psql
+-- database: presto; groups: postgresql_connector; tables: postgres.public.datatype_psql,postgres.public.workers_psql,postgres.public.real_table_psql
 -- queryType: SELECT;
 --!
 show tables from postgresql.public
