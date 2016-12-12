@@ -4716,6 +4716,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCaseWithSupertypeCast()
+    {
+        assertQuery(" SELECT CASE x WHEN 1 THEN cast(1 as decimal(4,1)) WHEN 2 THEN cast(1 as decimal(4,2)) ELSE cast(1 as decimal(4,3)) END FROM (values 1) t(x)", "SELECT 1.000");
+    }
+
+    @Test
     public void testIfExpression()
     {
         assertQuery(
@@ -4733,6 +4739,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT sum(IF(NULLIF(orderstatus, 'F') <> 'F', totalprice, 5.1)) FROM orders",
                 "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
+
+        // coercions to supertype
+        assertQuery("SELECT if(true, cast(1 as decimal(2,1)), 1)", "SELECT 1.0");
     }
 
     @Test
@@ -5771,6 +5780,10 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT 1.0 IN (SELECT 1), 1 IN (SELECT 1)");
         assertQuery("SELECT 1 WHERE 1 IN (SELECT 1) AND 1.0 IN (SELECT 1)");
         assertQuery("select 1.0 in (values (1), (2), (3))", "SELECT true");
+
+        // test IN subqueries with supertype coercions
+        assertQuery("SELECT cast(1 as decimal(3,2)) IN (SELECT cast(1 as decimal(3,1)))", "SELECT true");
+        assertQuery("SELECT cast(1 as decimal(3,2)) IN (values (cast(1 as decimal(3,1))), (cast (2 as decimal(3,1))))", "SELECT true");
 
         // test multi level IN subqueries
         assertQuery("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)");
@@ -7808,6 +7821,16 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT 1.0 = ANY(SELECT 1) WHERE 1 = ANY(SELECT 1)");
         assertQuery("SELECT 1.0 = ALL(SELECT 1), 2 = ALL(SELECT 1) WHERE 1 = ALL(SELECT 1)");
         assertQuery("SELECT 1.0 = ANY(SELECT 1), 2 = ANY(SELECT 1) WHERE 1 = ANY(SELECT 1)");
+
+        // subquery with supertype coercion
+        assertQuery("SELECT cast(1 as decimal(3,2)) < ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) < ANY(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <= ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <= ANY(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) = ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) = ANY(SELECT cast(1 as decimal(3,1)))", "SELECT true");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <> ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <> ANY(SELECT cast(1 as decimal(3,1)))");
     }
 
     @Test
