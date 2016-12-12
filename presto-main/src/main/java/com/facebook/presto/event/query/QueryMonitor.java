@@ -44,10 +44,10 @@ import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import org.joda.time.DateTime;
@@ -55,9 +55,6 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -74,17 +71,25 @@ public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
 
-    private final EventListenerManager eventListenerManager;
+    private final JsonCodec<StageInfo> stageInfoCodec;
     private final ObjectMapper objectMapper;
+    private final EventListenerManager eventListenerManager;
     private final String serverVersion;
     private final String serverAddress;
     private final String environment;
     private final QueryMonitorConfig config;
 
     @Inject
-    public QueryMonitor(ObjectMapper objectMapper, EventListenerManager eventListenerManager, NodeInfo nodeInfo, NodeVersion nodeVersion, QueryMonitorConfig config)
+    public QueryMonitor(
+            ObjectMapper objectMapper,
+            JsonCodec<StageInfo> stageInfoCodec,
+            EventListenerManager eventListenerManager,
+            NodeInfo nodeInfo,
+            NodeVersion nodeVersion,
+            QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
+        this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
@@ -175,7 +180,7 @@ public class QueryMonitor
                                     queryInfo.getQuery(),
                                     queryInfo.getState().toString(),
                                     queryInfo.getSelf(),
-                                    Optional.ofNullable(toJsonWithLengthLimit(objectMapper, queryInfo.getOutputStage(), toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
+                                    queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
                             new QueryStatistics(
                                     ofMillis(queryStats.getTotalCpuTime().toMillis()),
                                     ofMillis(queryStats.getTotalScheduledTime().toMillis()),
@@ -357,67 +362,6 @@ public class QueryMonitor
         }
         catch (JsonProcessingException e) {
             log.error(e, "Error processing split completion event for task %s", taskId);
-        }
-    }
-
-    @VisibleForTesting
-    static String toJsonWithLengthLimit(ObjectMapper objectMapper, Object value, int lengthLimit)
-    {
-        try (StringWriter stringWriter = new StringWriter();
-                LengthLimitedWriter lengthLimitedWriter = new LengthLimitedWriter(stringWriter, lengthLimit)) {
-            objectMapper.writeValue(lengthLimitedWriter, value);
-            return stringWriter.getBuffer().toString();
-        }
-        catch (LengthLimitedWriter.LengthLimitExceededException e) {
-            return null;
-        }
-        catch (IOException e) {
-            log.warn(e, "Unexpected exception");
-            return null;
-        }
-    }
-
-    private static class LengthLimitedWriter
-            extends Writer
-    {
-        private final Writer writer;
-        private final int maxLength;
-        private int count;
-
-        public LengthLimitedWriter(Writer writer, int maxLength)
-        {
-            this.writer = requireNonNull(writer, "writer is null");
-            this.maxLength = maxLength;
-        }
-
-        @Override
-        public void write(char[] buffer, int offset, int length)
-                throws IOException
-        {
-            count += length;
-            if (count > maxLength) {
-                throw new LengthLimitExceededException();
-            }
-            writer.write(buffer, offset, length);
-        }
-
-        @Override
-        public void flush()
-                throws IOException
-        {
-            writer.flush();
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            writer.close();
-        }
-
-        public static class LengthLimitExceededException
-                extends IOException
-        {
         }
     }
 }
