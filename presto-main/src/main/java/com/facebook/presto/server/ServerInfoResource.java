@@ -61,6 +61,7 @@ public class ServerInfoResource
     public Response updateState(NodeState state)
             throws WebApplicationException
     {
+        requireNonNull(state, "state is null");
         switch (state) {
             case SHUTTING_DOWN:
                 shutdownHandler.requestShutdown();
