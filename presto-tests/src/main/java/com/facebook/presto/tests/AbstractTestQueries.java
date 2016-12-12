@@ -1759,6 +1759,9 @@ public abstract class AbstractTestQueries
                 "(SELECT * FROM (VALUES 1) EXCEPT SELECT * FROM (VALUES 0))" +
                         "EXCEPT (SELECT * FROM (VALUES 1) EXCEPT SELECT * FROM (VALUES 1))");
 
+        assertQuery(
+                "(SELECT * FROM (VALUES 1) EXCEPT SELECT * FROM (VALUES 0))" +
+                        "EXCEPT (SELECT * FROM (VALUES 1) EXCEPT SELECT * FROM (VALUES 1))");
         MaterializedResult emptyResult = computeActual("SELECT 0 EXCEPT (SELECT regionkey FROM nation WHERE nationkey <10)");
         assertEquals(emptyResult.getMaterializedRows().size(), 0);
     }
