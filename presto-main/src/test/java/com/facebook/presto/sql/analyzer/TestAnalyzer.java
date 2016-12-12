@@ -337,7 +337,8 @@ public class TestAnalyzer
     public void testOrderByExpressionOnOutputColumn()
             throws Exception
     {
-        assertFails(MISSING_ATTRIBUTE, "SELECT a x FROM t1 ORDER BY x + 1");
+        // TODO: analyze output
+        analyze("SELECT a x FROM t1 ORDER BY x + 1");
     }
 
     @Test
