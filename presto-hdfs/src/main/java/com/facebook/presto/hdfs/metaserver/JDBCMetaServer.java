@@ -22,6 +22,7 @@ import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
 import com.facebook.presto.hdfs.exception.ArrayLengthNotMatchException;
 import com.facebook.presto.hdfs.exception.RecordMoreLessException;
 import com.facebook.presto.hdfs.exception.TypeUnknownException;
+import com.facebook.presto.hdfs.fs.FSFactory;
 import com.facebook.presto.hdfs.jdbc.JDBCDriver;
 import com.facebook.presto.hdfs.jdbc.JDBCRecord;
 import com.facebook.presto.hdfs.type.UnknownType;
@@ -36,7 +37,11 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -60,7 +65,9 @@ implements MetaServer
     private final JDBCDriver jdbcDriver;
     private final HDFSConfig config;
 
-    // read config. check if meta table already exists in database, or else initialize missing tables.
+    private FileSystem fileSystem;
+
+    // read config. check if meta table already exists in database, or else initialize tables.
     @Inject
     public JDBCMetaServer(HDFSConfig config)
     {
@@ -72,13 +79,15 @@ implements MetaServer
                 this.config.getMetaserverPass(),
                 this.config.getMetaserverUri());
 
-        System.out.println("Config: " + config.getJdbcDriver()
+        log.debug("Config: " + config.getJdbcDriver()
             + "; "
             + config.getMetaserverUri()
             + "; "
             + config.getMetaserverUser()
             + "; "
-            + config.getMetaserverPass());
+            + config.getMetaserverPass()
+            + "; "
+            + config.getMetaserverStore());
 
         sqlTable.putIfAbsent("dbs",
                 "CREATE TABLE DBS(DB_ID BIGSERIAL PRIMARY KEY, DB_DESC varchar(4000), DB_NAME varchar(128) UNIQUE, DB_LOCATION_URI varchar(4000), DB_OWNER varchar(128));");
@@ -93,53 +102,84 @@ implements MetaServer
         sqlTable.putIfAbsent("fibers",
                 "CREATE TABLE FIBERS(INDEX_ID BIGSERIAL PRIMARY KEY, TBL_NAME varchar(256), FIBER bigint, TIME_BEGIN timestamp, TIME_END timestamp);");
 
-        // initalise meta tables
-        checkJDBCMetaExists();
+        FSFactory fsFactory = new FSFactory();
+        try {
+            fileSystem = fsFactory.getFS(config.getMetaserverStore());
+        }
+        catch (URISyntaxException | IOException e) {
+            log.error(e);
+            // TODO break and exit
+        }
+
+        // initialise meta tables
+        initMeta();
     }
 
     // check if meta tables already exist, if not, create them.
-    private void checkJDBCMetaExists()
+    private void initMeta()
     {
+        log.debug("Init meta data in jdbc meta store");
+        int initFlag = 0;
         DatabaseMetaData dbmeta = jdbcDriver.getDbMetaData();
         if (dbmeta == null) {
             log.error("database meta is null");
         }
         for (String tbl : sqlTable.keySet()) {
+            assert dbmeta != null;
             try (ResultSet rs = dbmeta.getTables(null, null, tbl, null)) {
-                if (!rs.next()) {
-                    if (jdbcDriver.executeUpdate(sqlTable.get(tbl)) != 0) {
-                        log.error("DDL execution failed.");
-                    }
+                // if table exists
+                if (rs.next()) {
+                    initFlag++;
+                    log.info("Table " + tbl + " already exists.");
                 }
             } catch (SQLException e) {
                 log.error(e, "jdbc meta getTables error");
             }
+        }
+        // if no table exists, init all
+        if (initFlag == 0) {
+            sqlTable.keySet().forEach(
+                    tbl -> {
+                        if (jdbcDriver.executeUpdate(sqlTable.get(tbl)) != 0) {
+                            log.info("Create table" + tbl + " in metaserver");
+                        }
+                        else {
+                            log.error(tbl + " table creation in metaserver execution failed.");
+                        }
+                    }
+            );
+            createDatabase("default", "default schema");
+        }
+        // if not all tables exist, throw an error and break
+        else if (initFlag != 5) {
+            log.error("Tables not complete!");
+            // TODO do not break brutally
+            System.exit(1);
         }
     }
 
     @Override
     public List<String> getAllDatabases()
     {
+        log.debug("Get all databases");
         List<JDBCRecord> records;
         List<String> resultL = new ArrayList<>();
         String sql = "SELECT db_name FROM dbs;";
         String[] fields = {"db_name"};
         records = jdbcDriver.executreQuery(sql, fields);
-        for (JDBCRecord record : records) {
-            resultL.add(record.getString(fields[0]));
-        }
+        records.forEach(record -> resultL.add(record.getString(fields[0])));
         return resultL;
     }
 
     private Optional<HDFSDatabase> getDatabase(String databaseName)
     {
+        log.debug("Get database " + databaseName);
         List<JDBCRecord> records;
-        StringBuilder sb = new StringBuilder();
-        sb.append("SELECT db_name, db_desc, db_location_uri, db_owner FROM dbs WHERE db_name='")
-                .append(databaseName)
-                .append("';");
+        String sql = "SELECT db_name, db_desc, db_location_uri, db_owner FROM dbs WHERE db_name='"
+                + databaseName
+                + "';";
         String[] fields = {"db_name", "db_desc", "db_location_uri", "db_owner"};
-        records = jdbcDriver.executreQuery(sb.toString(), fields);
+        records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() != 1) {
             log.error("getDatabase JDBC query error! More/Less than one database matches");
             return Optional.empty();
@@ -160,35 +200,33 @@ implements MetaServer
 
     private Optional<List<String>> getAllTables(String databaseName)
     {
+        log.debug("Get all tables in database " + databaseName);
         List<JDBCRecord> records;
         List<String> resultL = new ArrayList<>();
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT tbl_name FROM tbls WHERE db_name='")
-                .append(databaseName)
-                .append("';");
+        String sql = "SELECT tbl_name FROM tbls WHERE db_name='"
+                + databaseName
+                + "';";
         String[] fields = {"tbl_name"};
-        records = jdbcDriver.executreQuery(sql.toString(), fields);
+        records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() == 0) {
             return Optional.empty();
         }
-        for (JDBCRecord record : records) {
-            resultL.add(record.getString(fields[0].split(".")[1]));
-        }
+        records.forEach(record -> resultL.add(record.getString(fields[0].split(".")[1])));
         return Optional.of(resultL);
     }
 
     @Override
     public List<SchemaTableName> listTables(SchemaTablePrefix prefix)
     {
+        log.debug("List all tables with prefix " + prefix.toString());
         List<JDBCRecord> records;
         List<SchemaTableName> tables = new ArrayList<>();
         String tableName;
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT tbl_name FROM tbls WHERE tbl_name='")
-                .append(prefix)
-                .append("';");
+        String sql = "SELECT tbl_name FROM tbls WHERE tbl_name='"
+                + prefix
+                + "';";
         String[] fields = {"tbl_name"};
-        records = jdbcDriver.executreQuery(sql.toString(), fields);
+        records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() == 0) {
             return tables;
         }
@@ -201,6 +239,7 @@ implements MetaServer
 
     private Optional<HDFSTable> getTable(String databaseName, String tableName)
     {
+        log.debug("Get table " + formName(databaseName, tableName));
         HDFSTableHandle table;
         HDFSTableLayoutHandle tableLayout;
         List<HDFSColumnHandle> columns;
@@ -241,16 +280,14 @@ implements MetaServer
     @Override
     public Optional<HDFSTableHandle> getTableHandle(String databaseName, String tableName)
     {
+        log.debug("Get table handle " + formName(databaseName, tableName));
         HDFSTableHandle table;
         List<JDBCRecord> records;
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT tbl_name, tbl_location_uri FROM tbls WHERE tbl_name='")
-                .append(databaseName)
-                .append(".")
-                .append(tableName)
-                .append("';");
+        String sql = "SELECT tbl_name, tbl_location_uri FROM tbls WHERE tbl_name='"
+                + formName(databaseName, tableName)
+                + "';";
         String[] fields = {"tbl_name", "tbl_location_uri"};
-        records = jdbcDriver.executreQuery(sql.toString(), fields);
+        records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             return Optional.empty();
@@ -267,16 +304,14 @@ implements MetaServer
     @Override
     public Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName)
     {
+        log.debug("Get table layout " + formName(databaseName, tableName));
         HDFSTableLayoutHandle tableLayout;
         List<JDBCRecord> records;
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT fiber_col, time_col, fiber_func FROM tbl_params WHERE tbl_name='")
-                .append(databaseName)
-                .append(".")
-                .append(tableName)
-                .append("';");
+        String sql = "SELECT fiber_col, time_col, fiber_func FROM tbl_params WHERE tbl_name='"
+                + formName(databaseName, tableName)
+                + "';";
         String[] fields = {"fiber_col", "time_col", "fiber_func"};
-        records = jdbcDriver.executreQuery(sql.toString(), fields);
+        records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             return Optional.empty();
@@ -300,6 +335,7 @@ implements MetaServer
      * */
     public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String databaseName, String tableName)
     {
+        log.debug("Get list of column handles of table " + formName(databaseName, tableName));
         List<HDFSColumnHandle> columnHandles = new ArrayList<>();
         List<JDBCRecord> records;
         String colName;
@@ -322,27 +358,21 @@ implements MetaServer
 
     private HDFSColumnHandle getColumnHandle(String databaseTableColName)
     {
+        log.debug("Get handle of column " + databaseTableColName);
         String databaseName = getDatabaseName(databaseTableColName);
         String tableName = getTableName(databaseTableColName);
         String colName = getColName(databaseTableColName);
-        StringBuilder name = new StringBuilder();
-        name.append(requireNonNull(databaseName, "databaseName is null"))
-                .append(".")
-                .append(requireNonNull(tableName, "tableName is null"))
-                .append(".")
-                .append(requireNonNull(colName, "colName is null"));
-        return getColumnHandle(colName, name.toString());
+        return getColumnHandle(colName, formName(databaseName, tableName, colName));
     }
 
     private HDFSColumnHandle getColumnHandle(String colName, String databaseTableColName)
     {
         List<JDBCRecord> records;
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT col_type, type FROM cols WHERE col_name='")
-                .append(databaseTableColName)
-                .append("';");
+        String sql = "SELECT col_type, type FROM cols WHERE col_name='"
+                + databaseTableColName
+                + "';";
         String[] colFields = {"col_type", "type"};
-        records = jdbcDriver.executreQuery(sql.toString(), colFields);
+        records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             throw new RecordMoreLessException();
@@ -368,6 +398,7 @@ implements MetaServer
 
     public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName)
     {
+        log.debug("Get list of column metadata of table " + formName(databaseName, tableName));
         List<ColumnMetadata> colMetadatas = new ArrayList<>();
         List<JDBCRecord> records;
         String colName;
@@ -390,14 +421,14 @@ implements MetaServer
 
     private ColumnMetadata getColMetadata(String databaseTableColName)
     {
+        log.debug("Get metadata of col " + databaseTableColName);
         String colName = getColName(databaseTableColName);
         List<JDBCRecord> records;
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT type FROM cols WHERE col_name='")
-                .append(databaseTableColName)
-                .append("';");
+        String sql = "SELECT type FROM cols WHERE col_name='"
+                + databaseTableColName
+                + "';";
         String[] colFields = {"type"};
-        records = jdbcDriver.executreQuery(sql.toString(), colFields);
+        records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() != 1) {
             log.error("Match more/less than one table");
             throw new RecordMoreLessException();
@@ -414,6 +445,7 @@ implements MetaServer
 
     private HDFSColumnHandle.ColumnType getColType(String typeName)
     {
+        log.debug("Get col type " + typeName);
         switch (typeName) {
             case "FIBER_COL": return HDFSColumnHandle.ColumnType.FIBER_COL;
             case "TIME_COL": return HDFSColumnHandle.ColumnType.TIME_COL;
@@ -425,6 +457,7 @@ implements MetaServer
 
     private Type getType(String typeName)
     {
+        log.debug("Get type " + typeName);
         // TODO fill all common types
         switch (typeName) {
             case "INT": return IntegerType.INTEGER;
@@ -479,33 +512,53 @@ implements MetaServer
     @Override
     public void createDatabase(ConnectorSession session, HDFSDatabase database)
     {
+        log.debug("Create database " + database.getName());
+        createDatabase(database.getName(),
+                database.getComment());
+    }
+
+    private void createDatabase(String dbName, String dbDesc)
+    {
+        Path dbPath = formPath(dbName);
         StringBuilder sql = new StringBuilder();
-        sql.append("INSERT INTO dbs(db_name, db_desc, db_location_uri, db_owner) VALUES(")
-                .append("'").append(database.getName()).append("', ")
-                .append("'").append(database.getComment()).append("', ")
-                .append("'").append(database.getLocation()).append("', ")
-                .append("'").append(database.getOwner()).append("'")
-                .append(");");
-        if (jdbcDriver.executeUpdate(sql.toString()) == 0) {
-            log.error("Create database" + database.getName() + " failed!");
+        sql.append("INSERT INTO dbs(db_name, db_desc, db_location_uri, db_owner) VALUES('")
+                .append(dbName)
+                .append("', '")
+                .append(dbDesc)
+                .append("', '")
+                .append(dbPath.toString())
+                .append("', '")
+                .append("default")
+                .append("';");
+        if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
+            // create hdfs dir
+            try {
+                log.debug("Create hdfs dir at " + dbPath);
+                fileSystem.mkdirs(dbPath);
+            }
+            catch (IOException e) {
+                log.error(e);
+            }
+        }
+        else {
+            log.error("Create database" + dbName + " failed!");
         }
     }
 
     private boolean isDatabaseEmpty(ConnectorSession session, String databaseName)
     {
         List<JDBCRecord> records;
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT COUNT(tbl_name) as cnt FROM tbls WHERE db_name='")
-                .append(databaseName)
-                .append("';");
+        String sql = "SELECT COUNT(tbl_name) as cnt FROM tbls WHERE db_name='"
+                + databaseName
+                + "';";
         String[] fields = {"cnt"};
-        records = jdbcDriver.executreQuery(sql.toString(), fields);
+        records = jdbcDriver.executreQuery(sql, fields);
         if (records.size() != 1) {
             log.error("isDatabaseEmpty xecution error!");
         }
         JDBCRecord record = records.get(0);
         int count = record.getInt(fields[0]);
-        return count == 0 ? true : false;
+        return count == 0;
     }
 
 //    @Override
@@ -537,6 +590,7 @@ implements MetaServer
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        log.debug("Create table " + tableMetadata.getTable().getTableName());
         String tableName = tableMetadata.getTable().getTableName();
         String schemaName = tableMetadata.getTable().getSchemaName();
         List<ColumnMetadata> colums = tableMetadata.getColumns();
@@ -564,7 +618,17 @@ implements MetaServer
                 .append("', '")
                 .append(fiberFunc)
                 .append("');");
-        if (jdbcDriver.executeUpdate(sql.toString()) == 0) {
+        if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
+            try {
+                log.debug("Create hdfs dir for " + formName(schemaName, tableName));
+                fileSystem.mkdirs(formPath(schemaName, tableName));
+            }
+            catch (IOException e) {
+                log.error(e);
+                // TODO exit ?
+            }
+        }
+        else {
             log.error("Create table " + formName(schemaName, tableName) + " failed!");
         }
 
@@ -579,8 +643,42 @@ implements MetaServer
                     .append("');");
             if (jdbcDriver.executeUpdate(sql.toString()) == 0) {
                 log.error("Create cols for table " + formName(schemaName, tableName) + " failed!");
+                // TODO exit ?
             }
         }
+    }
+
+    private Path formPath(String dirOrFile)
+    {
+        String base = config.getMetaserverStore();
+        String path = dirOrFile;
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 2);
+        }
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return Path.mergePaths(new Path(base), new Path(path));
+    }
+
+    private Path formPath(String dirOrFile1, String dirOrFile2)
+    {
+        String base = config.getMetaserverStore();
+        String path1 = dirOrFile1;
+        String path2 = dirOrFile2;
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 2);
+        }
+        if (!path1.startsWith("/")) {
+            path1 = "/" + path1;
+        }
+        if (path1.endsWith("/")) {
+            path1 = path1.substring(0, path1.length() - 2);
+        }
+        if (!path2.startsWith("/")) {
+            path2 = "/" + path2;
+        }
+        return Path.mergePaths(Path.mergePaths(new Path(base), new Path(path1)), new Path(path2));
     }
 
 //    @Override
