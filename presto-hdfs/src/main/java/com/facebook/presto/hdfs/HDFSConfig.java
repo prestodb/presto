@@ -15,6 +15,7 @@ package com.facebook.presto.hdfs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import org.apache.hadoop.fs.Path;
 
 import javax.validation.constraints.NotNull;
 
@@ -29,7 +30,7 @@ public class HDFSConfig
     private String metaserverUri;
     private String metaserverUser;
     private String metaserverPass;
-    private String metaserverStore;
+    private static String metaserverStore;
 
     @NotNull
     public String getJdbcDriver()
@@ -56,7 +57,7 @@ public class HDFSConfig
     }
 
     @NotNull
-    public String getMetaserverStore()
+    public static String getMetaserverStore()
     {
         return metaserverStore;
     }
@@ -94,5 +95,18 @@ public class HDFSConfig
     public void setMetaserverStore(String metaserverStore)
     {
         this.metaserverStore = requireNonNull(metaserverStore);
+    }
+
+    public static Path formPath(String dirOrFile)
+    {
+        String base = getMetaserverStore();
+        String path = dirOrFile;
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 2);
+        }
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return Path.mergePaths(new Path(base), new Path(path));
     }
 }

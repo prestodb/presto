@@ -92,7 +92,8 @@ public class JDBCDriver
                 recordList.add(record);
             }
         } catch (SQLException e) {
-            log.error(e, "Sql prepare error.");
+            log.debug("Error sql: " + sql);
+            log.error(e, "Sql execute error.");
         }
         return recordList;
     }
@@ -105,6 +106,7 @@ public class JDBCDriver
             return statement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
+            log.debug("Error sql: " + sql);
             log.error(e, "DDL error");
         }
         return -1;

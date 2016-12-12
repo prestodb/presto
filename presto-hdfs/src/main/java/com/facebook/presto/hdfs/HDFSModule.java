@@ -44,6 +44,7 @@ implements Module
         hdfsConfig.setMetaserverUri(config.get("hdfs.metaserver.uri"));
         hdfsConfig.setMetaserverUser(config.get("hdfs.metaserver.user"));
         hdfsConfig.setMetaserverPass(config.get("hdfs.metaserver.pass"));
+        hdfsConfig.setMetaserverStore(config.get("hdfs.metaserver.store"));
     }
 
     /**

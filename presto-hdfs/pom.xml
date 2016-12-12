@@ -11,7 +11,7 @@
     <artifactId>presto-hdfs</artifactId>
     <name>presto-hdfs</name>
     <description>Presto - HDFS Connector</description>
-    <!--<packaging>presto-plugin</packaging>-->
+    <packaging>presto-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -33,6 +33,7 @@
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-apache2</artifactId>
+            <version>0.9</version>
         </dependency>
 
         <dependency>
