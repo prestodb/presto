@@ -79,13 +79,15 @@ implements MetaServer
                 this.config.getMetaserverPass(),
                 this.config.getMetaserverUri());
 
-        System.out.println("Config: " + config.getJdbcDriver()
+        log.debug("Config: " + config.getJdbcDriver()
             + "; "
             + config.getMetaserverUri()
             + "; "
             + config.getMetaserverUser()
             + "; "
-            + config.getMetaserverPass());
+            + config.getMetaserverPass()
+            + "; "
+            + config.getMetaserverStore());
 
         sqlTable.putIfAbsent("dbs",
                 "CREATE TABLE DBS(DB_ID BIGSERIAL PRIMARY KEY, DB_DESC varchar(4000), DB_NAME varchar(128) UNIQUE, DB_LOCATION_URI varchar(4000), DB_OWNER varchar(128));");
@@ -116,6 +118,7 @@ implements MetaServer
     // check if meta tables already exist, if not, create them.
     private void initMeta()
     {
+        log.debug("Init meta data in jdbc meta store");
         int initFlag = 0;
         DatabaseMetaData dbmeta = jdbcDriver.getDbMetaData();
         if (dbmeta == null) {
@@ -139,6 +142,8 @@ implements MetaServer
                     tbl -> {
                         if (jdbcDriver.executeUpdate(sqlTable.get(tbl)) != 0) {
                             log.info("Create table" + tbl + " in metaserver");
+                        }
+                        else {
                             log.error(tbl + " table creation in metaserver execution failed.");
                         }
                     }
@@ -156,6 +161,7 @@ implements MetaServer
     @Override
     public List<String> getAllDatabases()
     {
+        log.debug("Get all databases");
         List<JDBCRecord> records;
         List<String> resultL = new ArrayList<>();
         String sql = "SELECT db_name FROM dbs;";
@@ -167,6 +173,7 @@ implements MetaServer
 
     private Optional<HDFSDatabase> getDatabase(String databaseName)
     {
+        log.debug("Get database " + databaseName);
         List<JDBCRecord> records;
         String sql = "SELECT db_name, db_desc, db_location_uri, db_owner FROM dbs WHERE db_name='"
                 + databaseName
@@ -193,6 +200,7 @@ implements MetaServer
 
     private Optional<List<String>> getAllTables(String databaseName)
     {
+        log.debug("Get all tables in database " + databaseName);
         List<JDBCRecord> records;
         List<String> resultL = new ArrayList<>();
         String sql = "SELECT tbl_name FROM tbls WHERE db_name='"
@@ -210,6 +218,7 @@ implements MetaServer
     @Override
     public List<SchemaTableName> listTables(SchemaTablePrefix prefix)
     {
+        log.debug("List all tables with prefix " + prefix.toString());
         List<JDBCRecord> records;
         List<SchemaTableName> tables = new ArrayList<>();
         String tableName;
@@ -230,6 +239,7 @@ implements MetaServer
 
     private Optional<HDFSTable> getTable(String databaseName, String tableName)
     {
+        log.debug("Get table " + formName(databaseName, tableName));
         HDFSTableHandle table;
         HDFSTableLayoutHandle tableLayout;
         List<HDFSColumnHandle> columns;
@@ -270,6 +280,7 @@ implements MetaServer
     @Override
     public Optional<HDFSTableHandle> getTableHandle(String databaseName, String tableName)
     {
+        log.debug("Get table handle " + formName(databaseName, tableName));
         HDFSTableHandle table;
         List<JDBCRecord> records;
         String sql = "SELECT tbl_name, tbl_location_uri FROM tbls WHERE tbl_name='"
@@ -293,6 +304,7 @@ implements MetaServer
     @Override
     public Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName)
     {
+        log.debug("Get table layout " + formName(databaseName, tableName));
         HDFSTableLayoutHandle tableLayout;
         List<JDBCRecord> records;
         String sql = "SELECT fiber_col, time_col, fiber_func FROM tbl_params WHERE tbl_name='"
@@ -323,6 +335,7 @@ implements MetaServer
      * */
     public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String databaseName, String tableName)
     {
+        log.debug("Get list of column handles of table " + formName(databaseName, tableName));
         List<HDFSColumnHandle> columnHandles = new ArrayList<>();
         List<JDBCRecord> records;
         String colName;
@@ -345,6 +358,7 @@ implements MetaServer
 
     private HDFSColumnHandle getColumnHandle(String databaseTableColName)
     {
+        log.debug("Get handle of column " + databaseTableColName);
         String databaseName = getDatabaseName(databaseTableColName);
         String tableName = getTableName(databaseTableColName);
         String colName = getColName(databaseTableColName);
@@ -384,6 +398,7 @@ implements MetaServer
 
     public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName)
     {
+        log.debug("Get list of column metadata of table " + formName(databaseName, tableName));
         List<ColumnMetadata> colMetadatas = new ArrayList<>();
         List<JDBCRecord> records;
         String colName;
@@ -406,6 +421,7 @@ implements MetaServer
 
     private ColumnMetadata getColMetadata(String databaseTableColName)
     {
+        log.debug("Get metadata of col " + databaseTableColName);
         String colName = getColName(databaseTableColName);
         List<JDBCRecord> records;
         String sql = "SELECT type FROM cols WHERE col_name='"
@@ -429,6 +445,7 @@ implements MetaServer
 
     private HDFSColumnHandle.ColumnType getColType(String typeName)
     {
+        log.debug("Get col type " + typeName);
         switch (typeName) {
             case "FIBER_COL": return HDFSColumnHandle.ColumnType.FIBER_COL;
             case "TIME_COL": return HDFSColumnHandle.ColumnType.TIME_COL;
@@ -440,6 +457,7 @@ implements MetaServer
 
     private Type getType(String typeName)
     {
+        log.debug("Get type " + typeName);
         // TODO fill all common types
         switch (typeName) {
             case "INT": return IntegerType.INTEGER;
@@ -494,6 +512,7 @@ implements MetaServer
     @Override
     public void createDatabase(ConnectorSession session, HDFSDatabase database)
     {
+        log.debug("Create database " + database.getName());
         createDatabase(database.getName(),
                 database.getComment());
     }
@@ -514,6 +533,7 @@ implements MetaServer
         if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
             // create hdfs dir
             try {
+                log.debug("Create hdfs dir at " + dbPath);
                 fileSystem.mkdirs(dbPath);
             }
             catch (IOException e) {
@@ -570,6 +590,7 @@ implements MetaServer
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        log.debug("Create table " + tableMetadata.getTable().getTableName());
         String tableName = tableMetadata.getTable().getTableName();
         String schemaName = tableMetadata.getTable().getSchemaName();
         List<ColumnMetadata> colums = tableMetadata.getColumns();
@@ -599,6 +620,7 @@ implements MetaServer
                 .append("');");
         if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
             try {
+                log.debug("Create hdfs dir for " + formName(schemaName, tableName));
                 fileSystem.mkdirs(formPath(schemaName, tableName));
             }
             catch (IOException e) {
