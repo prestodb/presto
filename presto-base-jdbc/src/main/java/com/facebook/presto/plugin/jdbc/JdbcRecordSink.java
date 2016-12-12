@@ -22,7 +22,6 @@ import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.util.DateTimeZoneIndex;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
@@ -150,7 +149,7 @@ public class JdbcRecordSink
             else if (TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE.equals(columnTypes.get(field))) {
                 long utcMillis = DateTimeEncoding.unpackMillisUtc(value);
                 TimeZoneKey tz = DateTimeEncoding.unpackZoneKey(value);
-                Calendar cal = GregorianCalendar.getInstance(DateTimeZoneIndex.getDateTimeZone(tz).toTimeZone());
+                Calendar cal = GregorianCalendar.getInstance(DateTimeZone.forID(tz.getId()).toTimeZone());
                 cal.setTimeInMillis(utcMillis);
                 statement.setTimestamp(next(), new Timestamp(cal.getTimeInMillis()), cal);
             }
@@ -160,7 +159,7 @@ public class JdbcRecordSink
             else if (TimeWithTimeZoneType.TIME_WITH_TIME_ZONE.equals(columnTypes.get(field))) {
                 long utcMillis = DateTimeEncoding.unpackMillisUtc(value);
                 TimeZoneKey tz = DateTimeEncoding.unpackZoneKey(value);
-                Calendar cal = GregorianCalendar.getInstance(DateTimeZoneIndex.getDateTimeZone(tz).toTimeZone());
+                Calendar cal = GregorianCalendar.getInstance(DateTimeZone.forID(tz.getId()).toTimeZone());
                 cal.setTimeInMillis(utcMillis);
                 statement.setTime(next(), new Time(cal.getTimeInMillis()), cal);
             }
