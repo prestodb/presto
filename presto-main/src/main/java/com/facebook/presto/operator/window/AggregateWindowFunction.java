@@ -17,7 +17,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.function.WindowIndex;
@@ -81,7 +80,7 @@ public class AggregateWindowFunction
     private void accumulate(int start, int end)
     {
         if (function.getParameterTypes().size() == 0) {
-            accumulator.addInput(new Page(end - start + 1));
+            accumulator.addInput(end - start + 1);
         }
         else {
             for (int position = start; position <= end; position++) {
