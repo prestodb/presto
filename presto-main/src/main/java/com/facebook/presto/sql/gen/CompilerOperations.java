@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 
 import javax.annotation.Nullable;
 
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 // This methods are statically bound by the compiler
@@ -70,5 +72,10 @@ public final class CompilerOperations
             return BOOLEAN.getBoolean(masks, index);
         }
         return true;
+    }
+
+    public static void throwStandardPrestoException(String message)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, message);
     }
 }
