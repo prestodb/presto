@@ -212,10 +212,7 @@ implements ConnectorMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        HDFSDatabase database = new HDFSDatabase(schemaName,
-                (String) properties.get("comment"),
-                (String) properties.get("location"),
-                (String) properties.get("owner"));
+        HDFSDatabase database = new HDFSDatabase(schemaName);
         metaServer.createDatabase(session, database);
     }
 
