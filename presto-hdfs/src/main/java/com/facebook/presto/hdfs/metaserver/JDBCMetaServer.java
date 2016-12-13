@@ -114,7 +114,6 @@ implements MetaServer
         }
         catch (URISyntaxException | IOException e) {
             log.error(e);
-            // TODO break and exit
         }
 
         // initialise meta tables
