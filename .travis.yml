@@ -116,9 +116,19 @@ after_script:
     sudo pip install awscli
     export AWS_ACCESS_KEY_ID=${DEPLOY_S3_ACCESS_KEY}
     export AWS_SECRET_ACCESS_KEY=${DEPLOY_S3_SECRET_KEY}
+
     JOB_ARTIFACTS_URL_PREFIX=s3://${DEPLOY_S3_BUCKET}/${ARTIFACTS_UPLOAD_PATH}/travis_jobs/${TRAVIS_JOB_NUMBER}-run
     JOB_RUN_ATTEMPTS=$( aws s3 ls ${JOB_ARTIFACTS_URL_PREFIX} | wc -l | tr -d '[:space:]' )
     JOB_STATUS=$( [ "$TRAVIS_TEST_RESULT" == "0" ] && echo SUCCESS || echo FAILURE )
-    wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/log.txt
-    aws s3 cp /tmp/log.txt ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS}/log.txt
+
+    mkdir -p /tmp/job_artifacts/
+    rsync -av -m \
+      --include='**/' \
+      --include='**/surefire-reports/**.xml' \
+      --include='**/surefire-reports/emailable-report.html' \
+      --exclude='*' \
+      . /tmp/job_artifacts/
+    wget https://api.travis-ci.org/jobs/${TRAVIS_JOB_ID}/log.txt?deansi=true -O /tmp/job_artifacts/log.txt
+
+    aws s3 sync /tmp/job_artifacts ${JOB_ARTIFACTS_URL_PREFIX}_$((JOB_RUN_ATTEMPTS + 1))-${JOB_STATUS}
   fi
