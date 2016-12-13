@@ -140,7 +140,7 @@ implements MetaServer
         if (initFlag == 0) {
             sqlTable.keySet().forEach(
                     tbl -> {
-                        if (jdbcDriver.executeUpdate(sqlTable.get(tbl)) != 0) {
+                        if (jdbcDriver.executeUpdate(sqlTable.get(tbl)) == 0) {
                             log.info("Create table" + tbl + " in metaserver");
                         }
                         else {
@@ -148,7 +148,8 @@ implements MetaServer
                         }
                     }
             );
-            createDatabase("default", "default schema");
+            HDFSDatabase defaultDB = new HDFSDatabase("default");
+            createDatabase(defaultDB);
         }
         // if not all tables exist, throw an error and break
         else if (initFlag != 5) {
@@ -187,10 +188,7 @@ implements MetaServer
         JDBCRecord record = records.get(0);
         try {
             HDFSDatabase database = new HDFSDatabase(
-                    requireNonNull(record.getString("db_name")),
-                    requireNonNull(record.getString("db_desc")),
-                    requireNonNull(record.getString("db_location_uri")),
-                    requireNonNull(record.getString("db_owner")));
+                    requireNonNull(record.getString("db_name")));
             return Optional.of(database);
         }
         catch (NullPointerException e) {
@@ -512,29 +510,36 @@ implements MetaServer
     @Override
     public void createDatabase(ConnectorSession session, HDFSDatabase database)
     {
-        log.debug("Create database " + database.getName());
-        createDatabase(database.getName(),
-                database.getComment());
+        createDatabase(database);
     }
 
-    private void createDatabase(String dbName, String dbDesc)
+    private void createDatabase(HDFSDatabase database)
     {
-        Path dbPath = formPath(dbName);
+        log.debug("Create database " + database.getName());
+        createDatabase(database.getName(),
+                database.getComment(),
+                database.getLocation(),
+                database.getOwner());
+    }
+
+    private void createDatabase(String dbName, String dbDesc, String dbPath, String owner)
+    {
         StringBuilder sql = new StringBuilder();
         sql.append("INSERT INTO dbs(db_name, db_desc, db_location_uri, db_owner) VALUES('")
                 .append(dbName)
                 .append("', '")
                 .append(dbDesc)
                 .append("', '")
-                .append(dbPath.toString())
+                .append(dbPath)
                 .append("', '")
-                .append("default")
-                .append("';");
+                .append(owner)
+                .append("');");
         if (jdbcDriver.executeUpdate(sql.toString()) != 0) {
             // create hdfs dir
             try {
+                log.debug("Sql: " + sql.toString());
                 log.debug("Create hdfs dir at " + dbPath);
-                fileSystem.mkdirs(dbPath);
+                fileSystem.mkdirs(new Path(dbPath));
             }
             catch (IOException e) {
                 log.error(e);

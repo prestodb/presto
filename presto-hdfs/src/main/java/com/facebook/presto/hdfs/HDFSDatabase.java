@@ -30,15 +30,12 @@ public class HDFSDatabase
 
     @JsonCreator
     public HDFSDatabase(
-            @JsonProperty("name") String name,
-            @JsonProperty("comment") String comment,
-            @JsonProperty("location") String location,
-            @JsonProperty("owner") String owner)
+            @JsonProperty("name") String name)
     {
         this.name = requireNonNull(name, "name is null");
-        this.comment = requireNonNull(comment, "comment is null");
-        this.location = requireNonNull(location, "location is null");
-        this.owner = requireNonNull(owner, "owner is null");
+        this.comment = "db " + name;
+        this.location = HDFSConfig.formPath(name).toString();
+        this.owner = "default";
     }
 
     @JsonProperty
