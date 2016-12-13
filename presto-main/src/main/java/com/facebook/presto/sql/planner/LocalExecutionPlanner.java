@@ -174,6 +174,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.getLocalExchangeConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getOperatorMemoryLimitBeforeSpill;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
@@ -194,6 +195,8 @@ import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionT
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
@@ -1767,14 +1770,35 @@ public class LocalExecutionPlanner
             Optional<Integer> hashChannel = node.getPartitioningScheme().getHashColumn()
                     .map(symbol -> node.getOutputSymbols().indexOf(symbol));
 
-            LocalExchange localExchange = new LocalExchange(node.getPartitioningScheme().getPartitioning().getHandle(), driverInstanceCount, types, channels, hashChannel);
+            PartitioningHandle partitioningHandle = node.getPartitioningScheme().getPartitioning().getHandle();
+            LocalExchange localExchange = new LocalExchange(partitioningHandle, driverInstanceCount, types, channels, hashChannel);
+
+            int localExchangeConcurrency = getLocalExchangeConcurrency(session);
+
+            Optional<LocalExchange> concurrentLocalExchange = Optional.empty();
+            if (localExchangeConcurrency > 1 && partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+                concurrentLocalExchange = Optional.of(new LocalExchange(
+                        FIXED_RANDOM_DISTRIBUTION,
+                        localExchangeConcurrency,
+                        types,
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+                context.addDriverFactory(
+                        createConcurrentLocalExchangeDriverFactories(
+                                context.createSubContext(),
+                                concurrentLocalExchange.get(),
+                                localExchange,
+                                node.getId(),
+                                localExchangeConcurrency));
+            }
 
             for (int i = 0; i < node.getSources().size(); i++) {
                 context.addDriverFactory(
                         createLocalExchangeSourceDriverFactories(
                                 context.createSubContext(),
                                 node.getSources().get(i),
-                                localExchange,
+                                concurrentLocalExchange.orElse(localExchange),
                                 node.getInputs().get(i),
                                 node));
             }
@@ -1787,6 +1811,20 @@ public class LocalExecutionPlanner
                     "driver instance count must match the number of exchange partitions");
 
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node));
+        }
+
+        private DriverFactory createConcurrentLocalExchangeDriverFactories(
+                LocalExecutionPlanContext subContext,
+                LocalExchange concurrentLocalExchange,
+                LocalExchange localExchange,
+                PlanNodeId id,
+                int localExchangeConcurrency)
+        {
+            List<OperatorFactory> operatorFactories = new ArrayList<>();
+            operatorFactories.add(new LocalExchangeSourceOperatorFactory(subContext.getNextOperatorId(), id, concurrentLocalExchange));
+            operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), id, localExchange.createSinkFactory(), Function.identity()));
+
+            return new DriverFactory(subContext.isInputDriver(), false, operatorFactories, OptionalInt.of(localExchangeConcurrency));
         }
 
         private DriverFactory createLocalExchangeSourceDriverFactories(
