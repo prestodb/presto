@@ -39,8 +39,8 @@
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
-        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
-        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+        <air.check.skip-checkstyle>${air.check.skip-basic}</air.check.skip-checkstyle>
+        <air.check.fail-checkstyle>${air.check.fail-basic}</air.check.fail-checkstyle>
 
         <air.java.version>1.8.0-60</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
