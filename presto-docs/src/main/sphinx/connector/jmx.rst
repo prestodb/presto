@@ -21,10 +21,11 @@ To configure the JMX connector, create a catalog properties file
 
     connector.name=jmx
 
-To enable periodical dumps, define following properties:
+To enable periodical dumps, define the following properties:
 
 .. code-block:: none
 
+    connector.name=jmx
     jmx.dump-tables=java.lang:type=Runtime,com.facebook.presto.execution.scheduler:name=NodeScheduler
     jmx.dump-period=10s
     jmx.max-entries=86400
@@ -33,6 +34,15 @@ To enable periodical dumps, define following properties:
 which MBeans will be sampled and stored in memory every ``dump-period``.
 History will have limited size of ``max-entries`` of entries. Both ``dump-period``
 and ``max-entries`` have default values of ``10s`` and ``86400`` accordingly.
+
+Commas in MBean names should be escaped in the following manner:
+
+.. code-block:: none
+
+    connector.name=jmx
+    jmx.dump-tables=com.facebook.presto.memory:type=memorypool\\,name=general,\
+       com.facebook.presto.memory:type=memorypool\\,name=system,\
+       com.facebook.presto.memory:type=memorypool\\,name=reserved
 
 Querying JMX
 ------------
