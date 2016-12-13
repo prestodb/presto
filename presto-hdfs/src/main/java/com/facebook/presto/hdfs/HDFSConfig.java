@@ -23,35 +23,40 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * @author jelly.guodong.jin@gmail.com
+ * Utility config class
  */
-public class HDFSConfig
+public final class HDFSConfig
 {
-    private String jdbcDriver;
-    private String metaserverUri;
-    private String metaserverUser;
-    private String metaserverPass;
+    private static String jdbcDriver;
+    private static String metaserverUri;
+    private static String metaserverUser;
+    private static String metaserverPass;
     private static String metaserverStore;
 
+    private HDFSConfig()
+    {
+    }
+
     @NotNull
-    public String getJdbcDriver()
+    public static String getJdbcDriver()
     {
         return jdbcDriver;
     }
 
     @NotNull
-    public String getMetaserverUri()
+    public static String getMetaserverUri()
     {
         return metaserverUri;
     }
 
     @NotNull
-    public String getMetaserverUser()
+    public static String getMetaserverUser()
     {
         return metaserverUser;
     }
 
     @NotNull
-    public String getMetaserverPass()
+    public static String getMetaserverPass()
     {
         return metaserverPass;
     }
@@ -64,37 +69,37 @@ public class HDFSConfig
 
     @Config("hdfs.metaserver.driver")
     @ConfigDescription("HDFS metaserver jdbc driver")
-    public void setJdbcDriver(String jdbcDriver)
+    public static void setJdbcDriver(String jdbcDriver)
     {
-        this.jdbcDriver = requireNonNull(jdbcDriver);
+        HDFSConfig.jdbcDriver = requireNonNull(jdbcDriver);
     }
 
     @Config("hdfs.metaserver.uri")
     @ConfigDescription("HDFS metaserver uri")
-    public void setMetaserverUri(String metaserverUri)
+    public static void setMetaserverUri(String metaserverUri)
     {
-        this.metaserverUri = requireNonNull(metaserverUri);
+        HDFSConfig.metaserverUri = requireNonNull(metaserverUri);
     }
 
     @Config("hdfs.metaserver.user")
     @ConfigDescription("HDFS metaserver user name")
-    public void setMetaserverUser(String metaserverUsere)
+    public static void setMetaserverUser(String metaserverUsere)
     {
-        this.metaserverUser = requireNonNull(metaserverUsere);
+        HDFSConfig.metaserverUser = requireNonNull(metaserverUsere);
     }
 
     @Config("hdfs.metaserver.pass")
     @ConfigDescription("HDFS metaserver user password")
-    public void setMetaserverPass(String metaserverPass)
+    public static void setMetaserverPass(String metaserverPass)
     {
-        this.metaserverPass = requireNonNull(metaserverPass);
+        HDFSConfig.metaserverPass = requireNonNull(metaserverPass);
     }
 
     @Config("hdfs.metaserver.store")
     @ConfigDescription("HDFS metaserver storage dir")
-    public void setMetaserverStore(String metaserverStore)
+    public static void setMetaserverStore(String metaserverStore)
     {
-        this.metaserverStore = requireNonNull(metaserverStore);
+        HDFSConfig.metaserverStore = requireNonNull(metaserverStore);
     }
 
     public static Path formPath(String dirOrFile)
@@ -108,5 +113,25 @@ public class HDFSConfig
             path = "/" + path;
         }
         return Path.mergePaths(new Path(base), new Path(path));
+    }
+
+    public static Path formPath(String dirOrFile1, String dirOrFile2)
+    {
+        String base = getMetaserverStore();
+        String path1 = dirOrFile1;
+        String path2 = dirOrFile2;
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 2);
+        }
+        if (!path1.startsWith("/")) {
+            path1 = "/" + path1;
+        }
+        if (path1.endsWith("/")) {
+            path1 = path1.substring(0, path1.length() - 2);
+        }
+        if (!path2.startsWith("/")) {
+            path2 = "/" + path2;
+        }
+        return Path.mergePaths(Path.mergePaths(new Path(base), new Path(path1)), new Path(path2));
     }
 }
