@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
@@ -37,11 +39,19 @@ public class BasePlanTest
 
     public BasePlanTest()
     {
-        this.queryRunner = new LocalQueryRunner(testSessionBuilder()
+        this(ImmutableMap.of());
+    }
+
+    public BasePlanTest(Map<String, String> sessionProperties)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                .build());
+                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+
+        sessionProperties.entrySet().stream().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
+
+        this.queryRunner = new LocalQueryRunner(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
