@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -129,6 +130,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
@@ -1225,6 +1227,10 @@ class StatementAnalyzer
 
     private List<Expression> analyzeOrderBy(QuerySpecification node, Scope sourceScope, Scope outputScope, List<Expression> outputExpressions)
     {
+        if (SystemSessionProperties.isLegacyOrderByEnabled(session)) {
+            return legacyAnalyzeOrderBy(node, sourceScope, outputScope, outputExpressions);
+        }
+
         List<SortItem> items = node.getOrderBy();
 
         ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
@@ -1252,6 +1258,90 @@ class StatementAnalyzer
                 }
                 else {
                     orderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node)), expression);
+                }
+
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
+                analysis.recordSubqueries(node, expressionAnalysis);
+
+                Type type = expressionAnalysis.getType(orderByExpression);
+                if (!type.isOrderable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
+                }
+
+                orderByExpressionsBuilder.add(orderByExpression);
+            }
+        }
+
+        List<Expression> orderByExpressions = orderByExpressionsBuilder.build();
+        analysis.setOrderByExpressions(node, orderByExpressions);
+
+        if (node.getSelect().isDistinct() && !outputExpressions.containsAll(orderByExpressions)) {
+            throw new SemanticException(ORDER_BY_MUST_BE_IN_SELECT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+        }
+        return orderByExpressions;
+    }
+
+    /**
+     * Preserve the old column resolution behavior for ORDER BY while we transition workloads to new semantics
+     * TODO: remove this
+     */
+    private List<Expression> legacyAnalyzeOrderBy(QuerySpecification node, Scope sourceScope, Scope outputScope, List<Expression> outputExpressions)
+    {
+        List<SortItem> items = node.getOrderBy();
+
+        ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
+
+        if (!items.isEmpty()) {
+            // Compute aliased output terms so we can resolve order by expressions against them first
+            ImmutableMultimap.Builder<QualifiedName, Expression> byAliasBuilder = ImmutableMultimap.builder();
+            for (SelectItem item : node.getSelect().getSelectItems()) {
+                if (item instanceof SingleColumn) {
+                    Optional<String> alias = ((SingleColumn) item).getAlias();
+                    if (alias.isPresent()) {
+                        byAliasBuilder.put(QualifiedName.of(alias.get()), ((SingleColumn) item).getExpression()); // TODO: need to know if alias was quoted
+                    }
+                }
+            }
+            Multimap<QualifiedName, Expression> byAlias = byAliasBuilder.build();
+
+            for (SortItem item : items) {
+                Expression expression = item.getSortKey();
+
+                Expression orderByExpression = null;
+                if (expression instanceof QualifiedNameReference && !((QualifiedNameReference) expression).getName().getPrefix().isPresent()) {
+                    // if this is a simple name reference, try to resolve against output columns
+
+                    QualifiedName name = ((QualifiedNameReference) expression).getName();
+                    Collection<Expression> expressions = byAlias.get(name);
+                    if (expressions.size() > 1) {
+                        throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
+                    }
+                    if (expressions.size() == 1) {
+                        orderByExpression = Iterables.getOnlyElement(expressions);
+                    }
+
+                    // otherwise, couldn't resolve name against output aliases, so fall through...
+                }
+                else if (expression instanceof LongLiteral) {
+                    // this is an ordinal in the output tuple
+
+                    long ordinal = ((LongLiteral) expression).getValue();
+                    if (ordinal < 1 || ordinal > outputExpressions.size()) {
+                        throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
+                    }
+
+                    int field = Ints.checkedCast(ordinal - 1);
+                    Type type = outputScope.getRelationType().getFieldByIndex(field).getType();
+                    if (!type.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
+                    }
+
+                    orderByExpression = outputExpressions.get(field);
+                }
+
+                // otherwise, just use the expression as is
+                if (orderByExpression == null) {
+                    orderByExpression = expression;
                 }
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
@@ -1645,6 +1735,7 @@ class StatementAnalyzer
                     .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                     .setUserAgent(session.getUserAgent().orElse(null))
                     .setStartTime(session.getStartTime())
+                    .setSystemProperty(LEGACY_ORDER_BY, session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class).toString())
                     .build();
 
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);

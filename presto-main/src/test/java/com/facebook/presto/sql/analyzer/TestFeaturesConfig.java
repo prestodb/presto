@@ -54,7 +54,8 @@ public class TestFeaturesConfig
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB"))
                 .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .setSpillerThreads(4)
-                .setOptimizeMixedDistinctAggregations(false));
+                .setOptimizeMixedDistinctAggregations(false)
+                .setLegacyOrderBy(false));
     }
 
     @Test
@@ -63,6 +64,7 @@ public class TestFeaturesConfig
         Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
                 .put("deprecated.legacy-array-agg", "true")
+                .put("deprecated.legacy-order-by", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("colocated-joins-enabled", "true")
@@ -85,6 +87,7 @@ public class TestFeaturesConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
                 .put("deprecated.legacy-array-agg", "true")
+                .put("deprecated.legacy-order-by", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("colocated-joins-enabled", "true")
@@ -125,7 +128,8 @@ public class TestFeaturesConfig
                 .setSpillEnabled(true)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"))
                 .setSpillerSpillPath("/tmp/custom/spill/path")
-                .setSpillerThreads(42);
+                .setSpillerThreads(42)
+                .setLegacyOrderBy(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);
