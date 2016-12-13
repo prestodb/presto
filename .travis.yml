@@ -106,5 +106,5 @@ deploy:
   bucket: ${DEPLOY_S3_BUCKET}
   skip_cleanup: true
   local-dir: /tmp/artifacts
-  upload-dir: travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_JOB_NUMBER}
+  upload-dir: travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
   acl: public_read
