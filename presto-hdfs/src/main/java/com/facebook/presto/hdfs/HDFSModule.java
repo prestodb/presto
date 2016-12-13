@@ -35,16 +35,15 @@ public class HDFSModule
 implements Module
 {
     private final String connectorId;
-    private final HDFSConfig hdfsConfig = new HDFSConfig();
 
     public HDFSModule(String connectorId, Map<String, String> config)
     {
         this.connectorId = requireNonNull(connectorId);
-        hdfsConfig.setJdbcDriver(config.get("hdfs.metaserver.driver"));
-        hdfsConfig.setMetaserverUri(config.get("hdfs.metaserver.uri"));
-        hdfsConfig.setMetaserverUser(config.get("hdfs.metaserver.user"));
-        hdfsConfig.setMetaserverPass(config.get("hdfs.metaserver.pass"));
-        hdfsConfig.setMetaserverStore(config.get("hdfs.metaserver.store"));
+        HDFSConfig.setJdbcDriver(config.get("hdfs.metaserver.driver"));
+        HDFSConfig.setMetaserverUri(config.get("hdfs.metaserver.uri"));
+        HDFSConfig.setMetaserverUser(config.get("hdfs.metaserver.user"));
+        HDFSConfig.setMetaserverPass(config.get("hdfs.metaserver.pass"));
+        HDFSConfig.setMetaserverStore(config.get("hdfs.metaserver.store"));
     }
 
     /**
@@ -56,10 +55,9 @@ implements Module
     public void configure(Binder binder)
     {
         binder.bind(HDFSConnectorId.class).toInstance(new HDFSConnectorId(connectorId));
-        binder.bind(HDFSConfig.class).in(Scopes.SINGLETON);
 
         binder.bind(HDFSMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(MetaServer.class).toInstance(new JDBCMetaServer(hdfsConfig));
+        binder.bind(MetaServer.class).toInstance(new JDBCMetaServer());
         binder.bind(HDFSConnector.class).in(Scopes.SINGLETON);
         binder.bind(HDFSSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(HDFSPageSourceProvider.class).in(Scopes.SINGLETON);

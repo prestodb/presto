@@ -22,15 +22,14 @@ import java.sql.SQLException;
  */
 public class TestJDBCMetaServer
 {
-    private HDFSConfig config = new HDFSConfig();
-
     public void testInit() throws SQLException
     {
-        config.setJdbcDriver("org.postgresql.Driver");
-        config.setMetaserverUri("jdbc:postgresql://127.0.0.1:5432/metaserver");
-        config.setMetaserverUser("jelly");
-        config.setMetaserverPass("jelly");
+        HDFSConfig.setJdbcDriver("org.postgresql.Driver");
+        HDFSConfig.setMetaserverUri("jdbc:postgresql://127.0.0.1:5432/metaserver");
+        HDFSConfig.setMetaserverUser("jelly");
+        HDFSConfig.setMetaserverPass("jelly");
+        HDFSConfig.setMetaserverStore("hdfs://127.0.0.1:9000/metaserver");
 
-//        JDBCMetaServer metaServer = new JDBCMetaServer(config);
+//        JDBCMetaServer metaServer = new JDBCMetaServer();
     }
 }
