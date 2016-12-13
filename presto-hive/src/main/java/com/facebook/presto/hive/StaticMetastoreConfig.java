@@ -30,6 +30,7 @@ public class StaticMetastoreConfig
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<URI> metastoreUris;
+    private boolean enableTransportPool;
 
     @NotNull
     public List<URI> getMetastoreUris()
@@ -47,6 +48,18 @@ public class StaticMetastoreConfig
         }
 
         this.metastoreUris = ImmutableList.copyOf(transform(SPLITTER.split(uris), URI::create));
+        return this;
+    }
+
+    public boolean useTransportPool()
+    {
+        return enableTransportPool;
+    }
+
+    @Config("hive.metastore.enable-transport-pool")
+    public StaticMetastoreConfig setEnableTransportPool(boolean enableTransportPool)
+    {
+        this.enableTransportPool = enableTransportPool;
         return this;
     }
 }

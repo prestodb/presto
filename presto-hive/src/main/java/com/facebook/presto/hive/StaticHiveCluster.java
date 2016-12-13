@@ -37,10 +37,15 @@ public class StaticHiveCluster
     private final List<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
 
-    @Inject
     public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), clientFactory);
+    }
+
+    @Inject
+    public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory, PooledHiveMetastoreClientFactory pooledClientFactory)
+    {
+        this(config.getMetastoreUris(), config.useTransportPool(), clientFactory, pooledClientFactory);
     }
 
     public StaticHiveCluster(List<URI> metastoreUris, HiveMetastoreClientFactory clientFactory)
@@ -52,6 +57,22 @@ public class StaticHiveCluster
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
                 .collect(toList());
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+    }
+
+    public StaticHiveCluster(List<URI> metastoreUris, boolean useTransportPool, HiveMetastoreClientFactory clientFactory, PooledHiveMetastoreClientFactory pooledClientFactory)
+    {
+        requireNonNull(metastoreUris, "metastoreUris is null");
+        checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
+        this.addresses = metastoreUris.stream()
+                .map(StaticHiveCluster::checkMetastoreUri)
+                .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
+                .collect(toList());
+        if (useTransportPool) {
+            this.clientFactory = requireNonNull(pooledClientFactory, "clientFactory is null");
+        }
+        else {
+            this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+        }
     }
 
     /**

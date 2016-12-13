@@ -101,6 +101,7 @@ public class HiveClientModule
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));
 
         binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(PooledHiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
 
