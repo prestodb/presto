@@ -82,7 +82,7 @@ public class CreateViewTask
 
         Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters);
 
-        List<ViewColumn> columns = analysis.getOutputDescriptor()
+        List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
                 .map(field -> new ViewColumn(field.getName().get(), field.getType()))
                 .collect(toImmutableList());
