@@ -1770,18 +1770,13 @@ public class LocalExecutionPlanner
             LocalExchange localExchange = new LocalExchange(node.getPartitioningScheme().getPartitioning().getHandle(), driverInstanceCount, types, channels, hashChannel);
 
             for (int i = 0; i < node.getSources().size(); i++) {
-                PlanNode sourceNode = node.getSources().get(i);
-                List<Symbol> expectedLayout = node.getInputs().get(i);
-
-                LocalExecutionPlanContext subContext = context.createSubContext();
-                PhysicalOperation source = sourceNode.accept(this, subContext);
-                List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
-
-                Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
-                operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), localExchange.createSinkFactory(), pagePreprocessor));
-
-                DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
-                context.addDriverFactory(driverFactory);
+                context.addDriverFactory(
+                        createLocalExchangeSourceDriverFactories(
+                                context.createSubContext(),
+                                node.getSources().get(i),
+                                localExchange,
+                                node.getInputs().get(i),
+                                node));
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
@@ -1792,6 +1787,22 @@ public class LocalExecutionPlanner
                     "driver instance count must match the number of exchange partitions");
 
             return new PhysicalOperation(new LocalExchangeSourceOperatorFactory(context.getNextOperatorId(), node.getId(), localExchange), makeLayout(node));
+        }
+
+        private DriverFactory createLocalExchangeSourceDriverFactories(
+                LocalExecutionPlanContext subContext,
+                PlanNode sourceNode,
+                LocalExchange localExchange,
+                List<Symbol> expectedLayout,
+                ExchangeNode node)
+        {
+            PhysicalOperation source = sourceNode.accept(this, subContext);
+            List<OperatorFactory> operatorFactories = new ArrayList<>(source.getOperatorFactories());
+
+            Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(expectedLayout, source.getLayout());
+            operatorFactories.add(new LocalExchangeSinkOperatorFactory(subContext.getNextOperatorId(), node.getId(), localExchange.createSinkFactory(), pagePreprocessor));
+
+            return new DriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount());
         }
 
         @Override
