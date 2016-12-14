@@ -17,6 +17,11 @@ import javax.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
 {
+    public R process(Node node)
+    {
+        return process(node, null);
+    }
+
     public R process(Node node, @Nullable C context)
     {
         return node.accept(this, context);

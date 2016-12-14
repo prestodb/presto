@@ -790,7 +790,12 @@ class StatementAnalyzer
         List<Expression> orderByExpressions = analyzeOrderBy(node, sourceScope, outputScope, outputExpressions);
         analyzeHaving(node, sourceScope);
 
-        analyzeAggregations(node, sourceScope, groupByExpressions, outputExpressions, orderByExpressions, analysis.getColumnReferences());
+        List<Expression> expressions = new ArrayList<>();
+        expressions.addAll(outputExpressions);
+        expressions.addAll(orderByExpressions);
+        node.getHaving().ifPresent(expressions::add);
+
+        analyzeAggregations(node, sourceScope, groupByExpressions, analysis.getColumnReferences(), expressions);
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
         return outputScope;
@@ -1434,7 +1439,7 @@ class StatementAnalyzer
             computedGroupingSets = computeGroupingSetsCrossProduct(enumeratedGroupingSets, node.getGroupBy().get().isDistinct());
             checkState(!computedGroupingSets.isEmpty(), "computed grouping sets cannot be empty");
         }
-        else if (!extractAggregates(node).isEmpty()) {
+        else if (hasAggregates(node)) {
             // if there are aggregates, but no group by, create a grand total grouping set (global aggregation)
             computedGroupingSets = ImmutableList.of(ImmutableSet.of());
         }
@@ -1647,11 +1652,14 @@ class StatementAnalyzer
             QuerySpecification node,
             Scope scope,
             List<List<Expression>> groupingSets,
-            List<Expression> outputExpressions,
-            List<Expression> orderByExpressions,
-            Set<Expression> columnReferences)
+            Set<Expression> columnReferences,
+            List<Expression> expressions)
     {
-        extractAggregates(node);
+        AggregateExtractor extractor = new AggregateExtractor(metadata);
+        for (Expression expression : expressions) {
+            extractor.process(expression);
+        }
+        analysis.setAggregates(node, extractor.getAggregates());
 
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {
@@ -1665,37 +1673,28 @@ class StatementAnalyzer
                     .distinct()
                     .collect(toImmutableList());
 
-            for (Expression expression : Iterables.concat(outputExpressions, orderByExpressions)) {
+            for (Expression expression : expressions) {
                 verifyAggregations(distinctGroupingColumns, scope, expression, columnReferences);
-            }
-
-            if (node.getHaving().isPresent()) {
-                verifyAggregations(distinctGroupingColumns, scope, node.getHaving().get(), columnReferences);
             }
         }
     }
 
-    private List<FunctionCall> extractAggregates(QuerySpecification node)
+    private boolean hasAggregates(QuerySpecification node)
     {
         AggregateExtractor extractor = new AggregateExtractor(metadata);
-        for (SelectItem item : node.getSelect().getSelectItems()) {
-            if (item instanceof SingleColumn) {
-                extractor.process(((SingleColumn) item).getExpression(), null);
-            }
-        }
 
-        for (SortItem item : node.getOrderBy()) {
-            extractor.process(item.getSortKey(), null);
-        }
+        node.getSelect()
+                .getSelectItems().stream()
+                .filter(SingleColumn.class::isInstance)
+                .forEach(extractor::process);
 
-        if (node.getHaving().isPresent()) {
-            extractor.process(node.getHaving().get(), null);
-        }
+        node.getOrderBy().stream()
+                .forEach(extractor::process);
 
-        List<FunctionCall> aggregates = extractor.getAggregates();
-        analysis.setAggregates(node, aggregates);
+        node.getHaving()
+                .ifPresent(extractor::process);
 
-        return aggregates;
+        return !extractor.getAggregates().isEmpty();
     }
 
     private void verifyAggregations(

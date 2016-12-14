@@ -1011,6 +1011,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOrderByWithAggregation()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT x, sum(cast(x AS double))\n" +
+                "FROM (VALUES '1.0') t(x)\n" +
+                "GROUP BY x\n" +
+                "ORDER BY sum(cast(x AS double))",
+                "VALUES ('1.0', 1.0)");
+    }
+
+    @Test
     public void testGroupByOrderByLimit()
     {
         assertQueryOrdered("SELECT custkey, SUM(totalprice) FROM ORDERS GROUP BY custkey ORDER BY SUM(totalprice) DESC LIMIT 10");
