@@ -204,6 +204,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testLambdaWithAggregation()
+    {
+        assertQueryFails("SELECT transform(ARRAY[1], x -> max(x))", ".* Lambda expression cannot contain aggregations or window functions: .*");
+    }
+
+    @Test
     public void testNonDeterministicFilter()
     {
         MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");

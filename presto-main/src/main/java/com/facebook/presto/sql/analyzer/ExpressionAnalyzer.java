@@ -121,6 +121,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregatesOrWindowFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -783,6 +784,7 @@ public class ExpressionAnalyzer
             for (Expression expression : node.getArguments()) {
                 if (expression instanceof LambdaExpression) {
                     LambdaExpression lambdaExpression = (LambdaExpression) expression;
+                    verifyNoAggregatesOrWindowFunctions(functionRegistry, lambdaExpression.getBody(), "Lambda expression");
 
                     // captures are not supported for now, use empty tuple descriptor
                     Expression lambdaBody = lambdaExpression.getBody();
