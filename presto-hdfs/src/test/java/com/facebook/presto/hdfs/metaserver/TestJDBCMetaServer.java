@@ -11,30 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hdfs;
+package com.facebook.presto.hdfs.metaserver;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.hdfs.HDFSConfig;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import java.sql.SQLException;
 
 /**
- * presto-hdfs
- *
  * @author jelly.guodong.jin@gmail.com
  */
-public class HDFSPlugin
-implements Plugin
+public class TestJDBCMetaServer
 {
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public void testInit() throws SQLException
     {
-        return ImmutableList.of(new HDFSConnectorFactory());
-    }
+        HDFSConfig.setJdbcDriver("org.postgresql.Driver");
+        HDFSConfig.setMetaserverUri("jdbc:postgresql://127.0.0.1:5432/metaserver");
+        HDFSConfig.setMetaserverUser("jelly");
+        HDFSConfig.setMetaserverPass("jelly");
+        HDFSConfig.setMetaserverStore("hdfs://127.0.0.1:9000/metaserver");
 
-    public static ClassLoader getClassLoader()
-    {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), HDFSPlugin.class.getClassLoader());
+//        JDBCMetaServer metaServer = new JDBCMetaServer();
     }
 }

@@ -89,4 +89,65 @@ Methods in detail:
 
 #### ParquetReader
 
+#### MetaServer
+Table:
+
++ DB
+
+| field    | description   |     example      | type |
+|----------|---------------|------------------|------|
+| DB_ID    | database id   |         1        | BIGSERIAL PRIMARY KEY |
+| DESC     | database desc | default database | varchar(4000) |
+| NAME     | database name | default          | varchar(128) UNIQUE |
+| DB_LOCATION_URI | database path | hdfs://u/db      | varchar(4000) |
+| DB_OWNER    | owner name    | root             | varchar (128) |
+
++ TBL
+
+| field    | description   |     example      |
+|----------|---------------|------------------|
+| TBL_ID   | table id      |      1           |
+| DESC     | table desc    | test table       |
+| NAME     | table name    | test             |
+| LOCATION | table path    | hdfs://u/db/t1   |
+| OWNER    | owner name    | root             |
+| STR_FOR  | storage format| parquet/orc/rcfile|
+
++ TBL_PARAMS
+
+| field    | description   |     example      |
+|----------|---------------|------------------|
+| TBL_ID   | table    id   |         1        |
+| FIBER_K  | fiber key     | col_id: 1        |
+| FIB_FUNC | fiber function| hash(col_id: 1)  |
+| TIME_K   | timestamp key | col_id: 5        |
+
++ COL
+
+| field    | description   |     example      |
+|----------|---------------|------------------|
+| COL_ID   | column id     |         1        |
+| NAME     | column name   | t.id             |
+| TYPE     | column type   | INT              |
+| COMMENT  | column comment| id col           |
+| FIBER_K  |    fiber key? | Y/N              |
+| TIME_K   | timestamp key?| Y/N              |
+
++ FIBER
+
+| field    | description   |     example      |
+|----------|---------------|------------------|
+| FIBER_ID | fiber id      |         1        |
+| TBL_ID   | related table | test             |
+| FIBER_V  | fiber key val | 100              |
+
++ FIBER_TIME
+
+| field    | description   | example          |
+|----------|---------------|------------------|
+| FIBER_ID | fiber id      | default          |
+| TIME_B   | time begin val| "2012-01-01 12:00:00.00"|
+| TIME_E   | time end val  | "2012-01-01 12:03:33.00"|
+| PATH     | database path | hdfs://u/db/t1/f1 |
+
 ### Roadmap

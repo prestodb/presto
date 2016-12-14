@@ -14,6 +14,10 @@
 package com.facebook.presto.hdfs;
 
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * @author jelly.guodong.jin@gmail.com
@@ -21,4 +25,47 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 public class HDFSTableLayoutHandle
 implements ConnectorTableLayoutHandle
 {
+    private final String tableName;                // schema.table
+    private final HDFSColumnHandle fiberColumn;
+    private final HDFSColumnHandle timestampColumn;
+    private final String fiberFunc;
+
+    @JsonCreator
+    public HDFSTableLayoutHandle(
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("fiberColumn") HDFSColumnHandle fiberColumn,
+            @JsonProperty("timestampColumn") HDFSColumnHandle timestampColumn,
+            @JsonProperty("fiberFunc") String fiberFunc)
+    {
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.fiberColumn = requireNonNull(fiberColumn, "fiberColumn is null");
+        this.timestampColumn = requireNonNull(timestampColumn, "timestampColumn is null");
+        this.fiberFunc = requireNonNull(fiberFunc, "fiberFunc is null");
+    }
+
+    @JsonProperty
+    public String getTableName()
+    {
+        return tableName;
+    }
+
+    @JsonProperty
+    public HDFSColumnHandle getFiberColumn()
+    {
+        return fiberColumn;
+    }
+
+    @JsonProperty
+    public HDFSColumnHandle getTimestampColumn()
+    {
+        return timestampColumn;
+    }
+
+    @JsonProperty
+    public String getFiberFunc()
+    {
+        return fiberFunc;
+    }
+
+    // TODO Override toString(), hashCode(), and equals()
 }

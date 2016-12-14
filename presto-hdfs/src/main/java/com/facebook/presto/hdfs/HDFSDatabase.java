@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hdfs;
 
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,33 +21,21 @@ import static java.util.Objects.requireNonNull;
 /**
  * @author jelly.guodong.jin@gmail.com
  */
-public class HDFSColumnHandle
-implements ColumnHandle
+public class HDFSDatabase
 {
-    public enum ColumnType
-    {
-        FIBER_COL,
-        TIME_COL,
-        REGULAR,
-        NOTVALID
-    }
-
     private final String name;
-    private final Type type;
     private final String comment;
-    private final ColumnType colType;
+    private final String location;
+    private final String owner;
 
     @JsonCreator
-    public HDFSColumnHandle(
-            @JsonProperty("name") String name,
-            @JsonProperty("type") Type type,
-            @JsonProperty("comment") String comment,
-            @JsonProperty("columnType") ColumnType colType)
+    public HDFSDatabase(
+            @JsonProperty("name") String name)
     {
         this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
-        this.comment = requireNonNull(comment, "comment is null");
-        this.colType = requireNonNull(colType, "col type is null");
+        this.comment = "db " + name;
+        this.location = HDFSConfig.formPath(name).toString();
+        this.owner = "default";
     }
 
     @JsonProperty
@@ -59,20 +45,20 @@ implements ColumnHandle
     }
 
     @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
-    @JsonProperty
     public String getComment()
     {
         return comment;
     }
 
     @JsonProperty
-    public ColumnType getColType()
+    public String getLocation()
     {
-        return colType;
+        return location;
+    }
+
+    @JsonProperty
+    public String getOwner()
+    {
+        return owner;
     }
 }

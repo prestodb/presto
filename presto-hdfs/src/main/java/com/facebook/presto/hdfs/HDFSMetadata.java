@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hdfs;
 
+import com.facebook.presto.hdfs.metaserver.MetaServer;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -21,20 +22,20 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
+import static com.facebook.presto.hdfs.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -43,42 +44,37 @@ import static java.util.Objects.requireNonNull;
 public class HDFSMetadata
 implements ConnectorMetadata
 {
-    private final String connectorId;
+//    private final String connectorId;
+    private final MetaServer metaServer;
 
-    public HDFSMetadata(String connectorId)
+    public HDFSMetadata(MetaServer metaServer)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-    }
-
-    public void commit()
-    {
-    }
-
-    public void rollback()
-    {
+//        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.metaServer = requireNonNull(metaServer, "metaServer is null");
     }
 
     /**
      * Returns the schemas provided by this connector.
      *
-     * @param session
+     * @param session session
      */
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return null;
+        return metaServer.getAllDatabases();
     }
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      *
-     * @param session
-     * @param tableName
+     * @param session session
+     * @param tableName table name
      */
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return null;
+        Optional<HDFSTableHandle> table = metaServer.getTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return table.orElse(null);
     }
 
     /**
@@ -86,181 +82,147 @@ implements ConnectorMetadata
      * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      *
-     * @param session
-     * @param table
-     * @param constraint
-     * @param desiredColumns
+     * @param session session
+     * @param table table
+     * @param constraint constraint
+     * @param desiredColumns desired columns
      */
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        return null;
+        // TODO how to deal with desired columns?
+        // get table name from ConnectorTableHandle
+        HDFSTableHandle hdfsTable = checkType(table, HDFSTableHandle.class, "table");
+        SchemaTableName tableName = hdfsTable.getSchemaTableName();
+        // create HDFSTableLayoutHandle
+        HDFSTableLayoutHandle tableLayout = metaServer.getTableLayout(tableName.getSchemaName(), tableName.getTableName()).orElse(null);
+        // ConnectorTableLayout layout = new ConnectorTableLayout(HDFSTableLayoutHandle)
+        ConnectorTableLayout layout = getTableLayout(session, tableLayout);
+
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return null;
+        // TODO add fiber and timestamp as new LocalProperty into ConnectorTableLayout ?
+        return new ConnectorTableLayout(handle);
     }
 
     /**
      * Return the metadata for the specified table handle.
      *
-     * @param session
-     * @param table
+     * @param session session
+     * @param table table
      * @throws RuntimeException if table handle is no longer valid
      */
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        return null;
+        HDFSTableHandle hdfsTable = checkType(table, HDFSTableHandle.class, "table");
+        SchemaTableName tableName = hdfsTable.getSchemaTableName();
+        return getTableMetadata(tableName);
+    }
+
+    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    {
+        List<ColumnMetadata> columns = metaServer.getTableColMetadata(tableName.getSchemaName(),
+                tableName.getTableName()).orElse(new ArrayList<>());
+        return new ConnectorTableMetadata(tableName, columns);
     }
 
     /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
      *
-     * @param session
-     * @param schemaNameOrNull
+     * @param session session
+     * @param schemaNameOrNull schema name
      */
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
-        return null;
+        if (schemaNameOrNull == null) {
+            return new ArrayList<>();
+        }
+        return metaServer.listTables(new SchemaTablePrefix(schemaNameOrNull));
     }
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
      *
-     * @param session
-     * @param tableHandle
+     * @param session session
+     * @param tableHandle table handle
      * @throws RuntimeException if table handle is no longer valid
      */
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return null;
+        HDFSTableHandle table = checkType(tableHandle, HDFSTableHandle.class, "table");
+        List<HDFSColumnHandle> cols = metaServer.getTableColumnHandle(table.getSchemaName(), table.getTableName())
+                .orElse(new ArrayList<>());
+        Map<String, ColumnHandle> columnMap = new HashMap<>();
+        for (HDFSColumnHandle col : cols) {
+            columnMap.putIfAbsent(col.getName(), col);
+        }
+        return columnMap;
     }
 
     /**
      * Gets the metadata for the specified table column.
      *
-     * @param session
-     * @param tableHandle
-     * @param columnHandle
+     * @param session session
+     * @param tableHandle table handle
+     * @param columnHandle column handle
      * @throws RuntimeException if table or column handles are no longer valid
      */
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return null;
+        HDFSColumnHandle column = (HDFSColumnHandle) columnHandle;
+        return new ColumnMetadata(column.getName(), column.getType(), column.getComment(), false);
     }
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      *
-     * @param session
-     * @param prefix
+     * @param session session
+     * @param prefix prefix
      */
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return null;
+        Map<SchemaTableName, List<ColumnMetadata>> tableColumns = new HashMap<>();
+        List<SchemaTableName> tableNames = metaServer.listTables(prefix);
+        for (SchemaTableName table : tableNames) {
+            List<ColumnMetadata> columnMetadatas = metaServer.getTableColMetadata(table.getSchemaName(),
+                    table.getTableName()).orElse(new ArrayList<>());
+            tableColumns.putIfAbsent(table, columnMetadatas);
+        }
+        return tableColumns;
     }
 
     /**
      * Creates a schema.
      *
-     * @param session
-     * @param schemaName
-     * @param properties
+     * @param session session
+     * @param schemaName schema name
+     * @param properties: contains comment, location and owner
      */
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-    }
-
-    /**
-     * Drops the specified schema.
-     *
-     * @param session
-     * @param schemaName
-     * @throws PrestoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
-     */
-    @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
-    {
-    }
-
-    /**
-     * Renames the specified schema.
-     *
-     * @param session
-     * @param source
-     * @param target
-     */
-    @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
-    {
+        HDFSDatabase database = new HDFSDatabase(schemaName);
+        metaServer.createDatabase(session, database);
     }
 
     /**
      * Creates a table using the specified table metadata.
      *
-     * @param session
-     * @param tableMetadata
+     * @param session sesion
+     * @param tableMetadata table metadata
      */
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-    }
-
-    /**
-     * Drops the specified table
-     *
-     * @param session
-     * @param tableHandle
-     * @throws RuntimeException if the table can not be dropped or table handle is no longer valid
-     */
-    @Override
-    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-    }
-
-    /**
-     * Rename the specified table
-     *
-     * @param session
-     * @param tableHandle
-     * @param newTableName
-     */
-    @Override
-    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
-    {
-    }
-
-    /**
-     * Drop the specified view.
-     */
-    @Override
-    public void dropView(ConnectorSession session, SchemaTableName viewName)
-    {
-    }
-
-    /**
-     * List view names, possibly filtered by schema. An empty list is returned if none match.
-     */
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
-    {
-        return emptyList();
-    }
-
-    /**
-     * Gets the view data for views that match the specified table prefix.
-     */
-    @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return emptyMap();
+        metaServer.createTable(session, tableMetadata);
     }
 }

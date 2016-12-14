@@ -11,30 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hdfs;
+package com.facebook.presto.hdfs.exception;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.collect.ImmutableList;
-
-import static com.google.common.base.MoreObjects.firstNonNull;
+import com.facebook.presto.spi.PrestoException;
 
 /**
- * presto-hdfs
- *
  * @author jelly.guodong.jin@gmail.com
  */
-public class HDFSPlugin
-implements Plugin
+public class ColTypeNonValidException
+    extends PrestoException
 {
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public ColTypeNonValidException()
     {
-        return ImmutableList.of(new HDFSConnectorFactory());
-    }
-
-    public static ClassLoader getClassLoader()
-    {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), HDFSPlugin.class.getClassLoader());
+        super(HDFSErrorCode.COL_TYPE_NONVALID, "Col type non valid");
     }
 }

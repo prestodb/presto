@@ -13,10 +13,68 @@
  */
 package com.facebook.presto.hdfs.metaserver;
 
+import com.facebook.presto.hdfs.HDFSColumnHandle;
+import com.facebook.presto.hdfs.HDFSDatabase;
+import com.facebook.presto.hdfs.HDFSTableHandle;
+import com.facebook.presto.hdfs.HDFSTableLayoutHandle;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.SchemaTablePrefix;
+
+import java.util.List;
+import java.util.Optional;
+
 /**
  * @author jelly.guodong.jin@gmail.com
  */
 public class MemoryMetaServer
     implements MetaServer
 {
+    @Override
+    public List<String> getAllDatabases()
+    {
+        return null;
+    }
+
+    @Override
+    public List<SchemaTableName> listTables(SchemaTablePrefix prefix)
+    {
+        return null;
+    }
+
+    @Override
+    public Optional<HDFSTableHandle> getTableHandle(String databaseName, String tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public Optional<List<HDFSColumnHandle>> getTableColumnHandle(String databaseName, String tableName)
+    {
+        return null;
+    }
+
+    @Override
+    public void createDatabase(ConnectorSession session, HDFSDatabase database)
+    {
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata table)
+    {
+    }
 }

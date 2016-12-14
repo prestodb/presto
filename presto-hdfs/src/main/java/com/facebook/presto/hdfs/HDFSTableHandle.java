@@ -18,35 +18,36 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 /**
  * @author jelly.guodong.jin@gmail.com
  */
 public class HDFSTableHandle
-implements ConnectorTableHandle
+    implements ConnectorTableHandle
 {
-    private final String clientId;
-    private final String schemaName;
+//    private final String clientId;
     private final String tableName;
+    private final String schemaName;
+    private String location;
 
     @JsonCreator
     public HDFSTableHandle(
-            @JsonProperty("clientId") String clientId,
+//            @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("location") String location)
     {
-        this.clientId = requireNonNull(clientId, "clientId is null");
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+//        this.clientId = requireNonNull(clientId, "clientId is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.location = requireNonNull(location, "location is null");
     }
 
     @JsonProperty
-    public String getClientId()
+    public String getTableName()
     {
-        return clientId;
+        return tableName;
     }
 
     @JsonProperty
@@ -56,40 +57,35 @@ implements ConnectorTableHandle
     }
 
     @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
     }
 
+    @JsonProperty
+    public String getLocation()
+    {
+        return location;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(clientId, schemaName, tableName);
+        // TODO hashCode
+        return 1;
     }
 
     @Override
     public boolean equals(Object obj)
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        HDFSTableHandle other = (HDFSTableHandle) obj;
-        return Objects.equals(this.clientId, other.clientId) &&
-                Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+        // TODO equals
+        return true;
     }
 
     @Override
     public String toString()
     {
-        return clientId + "." + schemaName + "." + tableName;
+        // TODO toString
+        return "";
     }
 }
