@@ -354,7 +354,7 @@ public class TestAnalyzer
             throws Exception
     {
         // TODO: validate output
-        analyze("SELECT a, t1.* FROM t1 ORDER BY a");
+        analyze("SELECT t1.* FROM t1 ORDER BY a");
     }
 
     @Test
