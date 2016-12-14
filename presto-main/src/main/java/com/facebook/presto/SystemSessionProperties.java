@@ -258,8 +258,8 @@ public final class SystemSessionProperties
                 booleanSessionProperty(
                         LEGACY_ORDER_BY,
                         "Use legacy rules for column resolution in ORDER BY clause",
-                        false,
-                        featuresConfig.isLegacyOrderBy()));
+                        featuresConfig.isLegacyOrderBy(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
