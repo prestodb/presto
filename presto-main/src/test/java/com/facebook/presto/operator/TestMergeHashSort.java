@@ -109,7 +109,7 @@ public class TestMergeHashSort
         pagesBuilder.row(2, 46);
 
         Iterator<Page> rewriterIterator = new MergeHashSort.PageRewriteIterator(
-                new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] { 0 }),
+                new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}),
                 types,
                 new MergeHashSort.SingleChannelPagePositions(pagesBuilder.build().iterator()));
 
@@ -125,10 +125,5 @@ public class TestMergeHashSort
                 .build();
 
         assertPageEquals(types, pages.get(0), expectedPages.get(0));
-    }
-
-    private static long readBigint(MergeHashSort.PagePosition pagePosition)
-    {
-        return BIGINT.getLong(pagePosition.getPage().getBlock(0), pagePosition.getPosition());
     }
 }
