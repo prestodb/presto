@@ -32,6 +32,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -58,6 +59,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 
@@ -469,9 +472,44 @@ implements MetaServer
     private Type getType(String typeName)
     {
         log.debug("Get type " + typeName);
-        // TODO add parameter info to types like varchar, decimal, etc.
+        // check if type is varchar(xx)
+        Pattern vcpattern = Pattern.compile("varchar\\(\\s*(\\d+)\\s*\\)");
+        Matcher vcmatcher = vcpattern.matcher(typeName);
+        if (vcmatcher.find()) {
+            String vlen = vcmatcher.group(1);
+            if (!vlen.isEmpty()) {
+                return VarcharType.createVarcharType(Integer.parseInt(vlen));
+            }
+            return UnknownType.UNKNOWN;
+        }
+        // check if type is char(xx)
+        Pattern cpattern = Pattern.compile("char\\(\\s*(\\d+)\\s*\\)");
+        Matcher cmatcher = cpattern.matcher(typeName);
+        if (cmatcher.find()) {
+            String clen = cmatcher.group(1);
+            if (!clen.isEmpty()) {
+                return CharType.createCharType(Integer.parseInt(clen));
+            }
+            return UnknownType.UNKNOWN;
+        }
+        // check if type is decimal(precision, scale)
+        Pattern dpattern = Pattern.compile("decimal\\((\\d+)\\s*,?\\s*(\\d*)\\)");
+        Matcher dmatcher = dpattern.matcher(typeName);
+        if (dmatcher.find()) {
+            String dprecision = dmatcher.group(1);
+            String dscale = dmatcher.group(2);
+            if (dprecision.isEmpty()) {
+                return UnknownType.UNKNOWN;
+            }
+            if (dscale.isEmpty()) {
+                return DecimalType.createDecimalType(Integer.parseInt(dprecision));
+            }
+            return DecimalType.createDecimalType(Integer.parseInt(dprecision), Integer.parseInt(dscale));
+        }
+        // TODO add parameter info to types like decimal, etc.
         switch (typeName.toLowerCase()) {
             case "boolean": return BooleanType.BOOLEAN;
+            case "char": return CharType.createCharType(CharType.MAX_LENGTH);
             case "tinyint": return TinyintType.TINYINT;
             case "smallint": return SmallintType.SMALLINT;
             case "integer": return IntegerType.INTEGER;
@@ -479,10 +517,10 @@ implements MetaServer
             case "real": return RealType.REAL;
             case "decimal": return DecimalType.createDecimalType();
             case "double": return DoubleType.DOUBLE;
-            case "varchar": return VarcharType.VARCHAR;
             case "date": return DateType.DATE;
             case "time": return TimeType.TIME;
             case "timestamp": return TimestampType.TIMESTAMP;
+            case "varchar": return VarcharType.VARCHAR;
             default: return UnknownType.UNKNOWN;
         }
     }
