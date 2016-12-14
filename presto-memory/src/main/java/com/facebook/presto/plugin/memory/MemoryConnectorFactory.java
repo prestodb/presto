@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import io.airlift.units.DataSize;
 
 import java.util.Map;
 
@@ -26,6 +27,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 public class MemoryConnectorFactory
         implements ConnectorFactory
 {
+    private static final DataSize DEFAULT_MAX_DATA_PER_NODE = new DataSize(128, DataSize.Unit.MEGABYTE);
     private final int defaultSplitsPerNode;
 
     public MemoryConnectorFactory()
@@ -54,7 +56,8 @@ public class MemoryConnectorFactory
     public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(requiredConfig);
-        MemoryPagesStore pagesStore = new MemoryPagesStore();
+        DataSize maxDataPerNode = getMaxDataPerNode(requiredConfig);
+        MemoryPagesStore pagesStore = new MemoryPagesStore(maxDataPerNode);
 
         return new MemoryConnector(
                 new MemoryMetadata(context.getNodeManager(), connectorId),
@@ -63,13 +66,23 @@ public class MemoryConnectorFactory
                 new MemoryPageSinkProvider(pagesStore));
     }
 
+    private static DataSize getMaxDataPerNode(Map<String, String> properties)
+    {
+        try {
+            return DataSize.valueOf(firstNonNull(properties.get("memory.max-data-per-node"), DEFAULT_MAX_DATA_PER_NODE.toString()));
+        }
+        catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid property memory.max-data-per-node");
+        }
+    }
+
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(firstNonNull(properties.get("in-memory.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(firstNonNull(properties.get("memory.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid property in-memory.splits-per-node");
+            throw new IllegalArgumentException("Invalid property memory.splits-per-node");
         }
     }
 }

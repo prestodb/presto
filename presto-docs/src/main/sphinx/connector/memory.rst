@@ -50,6 +50,10 @@ To configure the Memory connector, create a catalog properties file
 .. code-block:: none
 
     connector.name=memory
+    memory.max-data-per-node=128MB
+
+``memory.max-data-per-node`` defines memory limit for pages stored in this
+connector per each node (default value is 128MB).
 
 Examples
 --------

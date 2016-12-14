@@ -17,7 +17,9 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
@@ -28,11 +30,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
 import static com.facebook.presto.plugin.memory.MemoryErrorCode.MISSING_DATA;
+import static java.lang.String.format;
 
 @ThreadSafe
 public class MemoryPagesStore
 {
+    private final long maxBytes;
+
+    @GuardedBy("this")
+    private long currentBytes = 0;
+
+    public MemoryPagesStore(DataSize maxDataSizePerNode)
+    {
+        this.maxBytes = maxDataSizePerNode.toBytes();
+    }
+
     private final Map<Long, List<Page>> pages = new HashMap<>();
 
     public synchronized void initialize(long tableId)
@@ -47,6 +61,12 @@ public class MemoryPagesStore
         if (!contains(tableId)) {
             throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
         }
+
+        long newSize = currentBytes + page.getRetainedSizeInBytes();
+        if (maxBytes < newSize) {
+            throw new PrestoException(MEMORY_LIMIT_EXCEEDED, format("Memory limit [%d] for memory connector exceeded", maxBytes));
+        }
+        currentBytes = newSize;
 
         List<Page> tablePages = pages.get(tableId);
         tablePages.add(page);
@@ -93,6 +113,9 @@ public class MemoryPagesStore
             Map.Entry<Long, List<Page>> tablePagesEntry = tablePages.next();
             Long tableId = tablePagesEntry.getKey();
             if (tableId < latestTableId && !activeTableIds.contains(tableId)) {
+                for (Page removedPage : tablePagesEntry.getValue()) {
+                    currentBytes -= removedPage.getRetainedSizeInBytes();
+                }
                 tablePages.remove();
             }
         }

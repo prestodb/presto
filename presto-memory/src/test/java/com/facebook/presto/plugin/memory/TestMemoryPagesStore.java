@@ -25,6 +25,7 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -45,7 +46,7 @@ public class TestMemoryPagesStore
     @BeforeMethod
     public void setUp()
     {
-        pagesStore = new MemoryPagesStore();
+        pagesStore = new MemoryPagesStore(new DataSize(1, DataSize.Unit.MEGABYTE));
         pageSinkProvider = new MemoryPageSinkProvider(pagesStore);
     }
 
@@ -100,13 +101,26 @@ public class TestMemoryPagesStore
         assertTrue(pagesStore.contains(2L));
     }
 
+    @Test(expectedExceptions = PrestoException.class)
+    public void testMemoryLimitExceeded()
+    {
+        createTable(0L, 0L);
+        insertToTable(0L, createOneMegaBytePage(), 0L);
+        insertToTable(0L, createOneMegaBytePage(), 0L);
+    }
+
     private void insertToTable(long tableId, Long... activeTableIds)
+    {
+        insertToTable(tableId, createPage(), activeTableIds);
+    }
+
+    private void insertToTable(long tableId, Page page, Long... activeTableIds)
     {
         ConnectorPageSink pageSink = pageSinkProvider.createPageSink(
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createMemoryInsertTableHandle(tableId, activeTableIds));
-        pageSink.appendPage(createPage());
+        pageSink.appendPage(page);
         pageSink.finish();
     }
 
@@ -148,6 +162,15 @@ public class TestMemoryPagesStore
     {
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
         BIGINT.writeLong(blockBuilder, 42L);
+        return new Page(0, blockBuilder.build());
+    }
+
+    private static Page createOneMegaBytePage()
+    {
+        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
+        while (blockBuilder.getRetainedSizeInBytes() < 1024 * 1024) {
+            BIGINT.writeLong(blockBuilder, 42L);
+        }
         return new Page(0, blockBuilder.build());
     }
 }
