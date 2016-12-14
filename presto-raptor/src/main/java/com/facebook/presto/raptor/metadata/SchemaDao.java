@@ -116,7 +116,8 @@ public interface SchemaDao
             "  successful BOOLEAN,\n" +
             "  start_time DATETIME NOT NULL,\n" +
             "  end_time DATETIME,\n" +
-            "  UNIQUE (successful, start_time, transaction_id)\n" +
+            "  UNIQUE (successful, start_time, transaction_id),\n" +
+            "  UNIQUE (end_time, transaction_id, successful)\n" +
             ")")
     void createTableTransactions();
 
