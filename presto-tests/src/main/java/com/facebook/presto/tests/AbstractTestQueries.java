@@ -1005,9 +1005,8 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT a, a* -2 AS b FROM (VALUES -1, 0, 2) t(a) ORDER BY a + b", "VALUES (2, -4), (0, 0), (-1, 2)");
         assertQueryOrdered("SELECT a as b, a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a + b", "VALUES (2, -4), (0, 0), (-1, 2)");
         assertQueryOrdered("SELECT a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a + t.a", "VALUES -4, 0, 2");
-        assertQueryOrdered("SELECT a* -2 AS a, a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", "VALUES (-4, -4), (0, 0), (2, 2)");
 
-        assertQueryFails("SELECT a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", ".*'a' in ORDER BY is ambiguous");
+        assertQueryFails("SELECT a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", ".*'a' is ambiguous");
     }
 
     @Test
@@ -3260,13 +3259,6 @@ public abstract class AbstractTestQueries
     public void testOrderByMultipleFields()
     {
         assertQueryOrdered("SELECT custkey, orderstatus FROM orders ORDER BY custkey DESC, orderstatus");
-    }
-
-    @Test
-    public void testOrderByDuplicateFields()
-    {
-        assertQueryOrdered("SELECT custkey, custkey FROM orders ORDER BY custkey, custkey");
-        assertQueryOrdered("SELECT custkey, custkey FROM orders ORDER BY custkey ASC, custkey DESC");
     }
 
     @Test

@@ -1262,13 +1262,23 @@ class StatementAnalyzer
                     orderByExpression = outputExpressions.get(field);
                 }
                 else {
+                    // Analyze the original expression using a synthetic scope (which delegates to the source scope for any missing name)
+                    // to catch any semantic errors (due to type mismatch, etc)
+                    Scope synthetic = Scope.builder()
+                            .withParent(sourceScope)
+                            .markQueryBoundary() // this is needed because of how the field resolution walks scopes
+                            .withRelationType(outputScope.getRelationType())
+                            .build();
+
+                    analyzeExpression(expression, synthetic);
+
                     orderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node)), expression);
+
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
+                    analysis.recordSubqueries(node, expressionAnalysis);
                 }
 
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
-                analysis.recordSubqueries(node, expressionAnalysis);
-
-                Type type = expressionAnalysis.getType(orderByExpression);
+                Type type = analysis.getType(orderByExpression);
                 if (!type.isOrderable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
                 }
