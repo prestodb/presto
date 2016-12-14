@@ -27,7 +27,7 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * This class performs merge of previously hash sorted pages streams.
- *
+ * <p>
  * Positions are compared using their hash value. It is possible
  * that two distinct values to have same hash value, thus returned
  * stream of Pages can have interleaved positions with same hash value.
@@ -104,7 +104,8 @@ public class MergeHashSort
         }
     }
 
-    public interface PagePositions extends Iterator<PagePosition>
+    public interface PagePositions
+            extends Iterator<PagePosition>
     {
     }
 
