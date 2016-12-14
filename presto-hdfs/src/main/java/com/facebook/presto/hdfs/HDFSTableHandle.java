@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.hadoop.fs.Path;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,19 +30,19 @@ public class HDFSTableHandle
 //    private final String clientId;
     private final String tableName;
     private final String schemaName;
-    private String location;
+    private Path path;
 
     @JsonCreator
     public HDFSTableHandle(
 //            @JsonProperty("clientId") String clientId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("location") String location)
+            @JsonProperty("location") Path path)
     {
 //        this.clientId = requireNonNull(clientId, "clientId is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.location = requireNonNull(location, "location is null");
+        this.path = requireNonNull(path, "path is null");
     }
 
     @JsonProperty
@@ -63,9 +64,9 @@ public class HDFSTableHandle
     }
 
     @JsonProperty
-    public String getLocation()
+    public Path getPath()
     {
-        return location;
+        return path;
     }
 
     @Override

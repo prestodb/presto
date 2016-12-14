@@ -14,6 +14,7 @@
 package com.facebook.presto.hdfs;
 
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -25,14 +26,14 @@ import static java.util.Objects.requireNonNull;
 public class HDFSTableLayoutHandle
 implements ConnectorTableLayoutHandle
 {
-    private final String tableName;                // schema.table
+    private final SchemaTableName tableName;                // schema.table
     private final HDFSColumnHandle fiberColumn;
     private final HDFSColumnHandle timestampColumn;
     private final String fiberFunc;
 
     @JsonCreator
     public HDFSTableLayoutHandle(
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("fiberColumn") HDFSColumnHandle fiberColumn,
             @JsonProperty("timestampColumn") HDFSColumnHandle timestampColumn,
             @JsonProperty("fiberFunc") String fiberFunc)
@@ -44,7 +45,7 @@ implements ConnectorTableLayoutHandle
     }
 
     @JsonProperty
-    public String getTableName()
+    public SchemaTableName getTableName()
     {
         return tableName;
     }
