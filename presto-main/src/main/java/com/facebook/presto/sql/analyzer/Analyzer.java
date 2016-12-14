@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -68,9 +69,9 @@ public class Analyzer
         return analysis;
     }
 
-    static void verifyNoAggregatesOrWindowFunctions(Metadata metadata, Expression predicate, String clause)
+    static void verifyNoAggregatesOrWindowFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
     {
-        AggregateExtractor extractor = new AggregateExtractor(metadata);
+        AggregateExtractor extractor = new AggregateExtractor(functionRegistry);
         extractor.process(predicate, null);
 
         WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();

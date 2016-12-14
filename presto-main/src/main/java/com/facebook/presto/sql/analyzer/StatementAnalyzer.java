@@ -944,7 +944,7 @@ class StatementAnalyzer
                 analysis.addCoercion(expression, BOOLEAN, false);
             }
 
-            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
+            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), expression, "JOIN");
 
             // expressionInterpreter/optimizer only understands a subset of expression types
             // TODO: remove this when the new expression tree is implemented
@@ -1514,7 +1514,7 @@ class StatementAnalyzer
                 groupByExpression = groupingColumn;
             }
 
-            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression, "GROUP BY");
+            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), groupByExpression, "GROUP BY");
             Type type = analysis.getType(groupByExpression);
             if (!type.isComparable()) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
@@ -1631,7 +1631,7 @@ class StatementAnalyzer
 
     public void analyzeWhere(Node node, Scope scope, Expression predicate)
     {
-        Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
+        Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), predicate, "WHERE");
 
         ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
         analysis.recordSubqueries(node, expressionAnalysis);
@@ -1664,7 +1664,7 @@ class StatementAnalyzer
             Set<Expression> columnReferences,
             List<Expression> expressions)
     {
-        AggregateExtractor extractor = new AggregateExtractor(metadata);
+        AggregateExtractor extractor = new AggregateExtractor(metadata.getFunctionRegistry());
         for (Expression expression : expressions) {
             extractor.process(expression);
         }
@@ -1690,7 +1690,7 @@ class StatementAnalyzer
 
     private boolean hasAggregates(QuerySpecification node)
     {
-        AggregateExtractor extractor = new AggregateExtractor(metadata);
+        AggregateExtractor extractor = new AggregateExtractor(metadata.getFunctionRegistry());
 
         node.getSelect()
                 .getSelectItems().stream()

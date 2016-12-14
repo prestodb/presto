@@ -278,7 +278,7 @@ class AggregationAnalyzer
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
             if (!node.getWindow().isPresent() && metadata.isAggregationFunction(node.getName())) {
-                AggregateExtractor aggregateExtractor = new AggregateExtractor(metadata);
+                AggregateExtractor aggregateExtractor = new AggregateExtractor(metadata.getFunctionRegistry());
                 WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();
 
                 for (Expression argument : node.getArguments()) {
