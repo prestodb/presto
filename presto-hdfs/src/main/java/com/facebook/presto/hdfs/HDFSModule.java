@@ -15,6 +15,7 @@ package com.facebook.presto.hdfs;
 
 import com.facebook.presto.hdfs.metaserver.JDBCMetaServer;
 import com.facebook.presto.hdfs.metaserver.MetaServer;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -35,10 +36,12 @@ public class HDFSModule
 implements Module
 {
     private final String connectorId;
+    private final TypeManager typeManager;
 
-    public HDFSModule(String connectorId, Map<String, String> config)
+    public HDFSModule(String connectorId, Map<String, String> config, TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId);
+        this.typeManager = requireNonNull(typeManager);
         HDFSConfig.setJdbcDriver(config.get("hdfs.metaserver.driver"));
         HDFSConfig.setMetaserverUri(config.get("hdfs.metaserver.uri"));
         HDFSConfig.setMetaserverUser(config.get("hdfs.metaserver.user"));
@@ -55,6 +58,7 @@ implements Module
     public void configure(Binder binder)
     {
         binder.bind(HDFSConnectorId.class).toInstance(new HDFSConnectorId(connectorId));
+        binder.bind(TypeManager.class).toInstance(typeManager);
 
         binder.bind(HDFSMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(MetaServer.class).toInstance(new JDBCMetaServer());

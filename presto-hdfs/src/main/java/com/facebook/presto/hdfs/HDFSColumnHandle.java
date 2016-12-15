@@ -18,6 +18,7 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static com.facebook.presto.hdfs.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -74,5 +75,10 @@ implements ColumnHandle
     public ColumnType getColType()
     {
         return colType;
+    }
+
+    public static HDFSColumnHandle toHDFSColumnHandle(ColumnHandle columnHandle)
+    {
+        return checkType(columnHandle, HDFSColumnHandle.class, "hdfs column handle");
     }
 }

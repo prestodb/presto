@@ -1,8 +1,12 @@
 package com.facebook.presto.hdfs.util;
 
+import com.facebook.presto.hdfs.HDFSColumnHandle;
 import com.facebook.presto.hdfs.HDFSConfig;
 import com.facebook.presto.hdfs.exception.ArrayLengthNotMatchException;
 import org.apache.hadoop.fs.Path;
+import parquet.io.InvalidRecordException;
+import parquet.schema.MessageType;
+import parquet.schema.Type;
 
 /**
  * presto-root
@@ -15,6 +19,7 @@ public final class Utils
     {
     }
 
+    // add path after base path (HDFSConfig.getMetaserverStore)
     public static Path formPath(String dirOrFile)
     {
         String base = HDFSConfig.getMetaserverStore();
@@ -88,5 +93,34 @@ public final class Utils
     public static String formName(String database, String table, String col)
     {
         return database + "." + table + "." + col;
+    }
+
+    public static Type getParquetType(HDFSColumnHandle column, MessageType messageType)
+    {
+        if (messageType.containsField(column.getName())) {
+            return messageType.getType(column.getName());
+        }
+        // parquet is case-insensitive, all hdfs-columns get converted to lowercase
+        for (Type type : messageType.getFields()) {
+            if (type.getName().equalsIgnoreCase(column.getName())) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    public static int getFieldIndex(MessageType fileSchema, String name)
+    {
+        try {
+            return fileSchema.getFieldIndex(name);
+        }
+        catch (InvalidRecordException e) {
+            for (Type type : fileSchema.getFields()) {
+                if (type.getName().equalsIgnoreCase(name)) {
+                    return fileSchema.getFieldIndex(type.getName());
+                }
+            }
+            return -1;
+        }
     }
 }
