@@ -16,7 +16,12 @@ package com.facebook.presto.sql.util;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Node;
 
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class AstUtils
 {
@@ -38,6 +43,36 @@ public class AstUtils
                 return findResultHolder.get();
             }
         }.process(node, new AtomicBoolean(false));
+    }
+
+    public static Stream<Node> stream(Node node)
+    {
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(new NodeIterator(node), 0), false);
+    }
+
+    private static final class NodeIterator
+            implements Iterator<Node>
+    {
+        private final LinkedList<Node> remaining = new LinkedList();
+
+        public NodeIterator(Node node)
+        {
+            remaining.push(node);
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            return remaining.size() > 0;
+        }
+
+        @Override
+        public Node next()
+        {
+            Node node = remaining.pop();
+            node.getNodes().forEach(remaining::push);
+            return node;
+        }
     }
 
     private AstUtils() {}
