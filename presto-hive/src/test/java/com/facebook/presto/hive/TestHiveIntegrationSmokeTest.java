@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.testing.MaterializedResult;
@@ -73,9 +74,11 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -2345,6 +2348,39 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 "CREATE TABLE invalid_partition_value (a, b) WITH (partitioned_by = ARRAY['b']) AS SELECT 4, chr(9731)",
                 "\\QHive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: E2 98 83\\E");
+    }
+
+    @Test
+    public void testCurrentUserInView()
+    {
+        checkState(getSession().getCatalog().isPresent(), "catalog is not set");
+        checkState(getSession().getSchema().isPresent(), "schema is not set");
+        String testAccountsUnqualifiedName = "test_accounts";
+        String testAccountsViewUnqualifiedName = "test_accounts_view";
+        String testAccountsViewFullyQualifiedName = format("%s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), testAccountsViewUnqualifiedName);
+        assertUpdate(format("CREATE TABLE %s AS SELECT user_name, account_name" +
+                "  FROM (VALUES ('user1', 'account1'), ('user2', 'account2'))" +
+                "  t (user_name, account_name)", testAccountsUnqualifiedName), 2);
+        assertUpdate(format("CREATE VIEW %s AS SELECT account_name FROM test_accounts WHERE user_name = CURRENT_USER", testAccountsViewUnqualifiedName));
+        assertUpdate(format("GRANT SELECT ON %s TO user1", testAccountsViewFullyQualifiedName));
+        assertUpdate(format("GRANT SELECT ON %s TO user2", testAccountsViewFullyQualifiedName));
+
+        Session user1 = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setIdentity(new Identity("user1", getSession().getIdentity().getPrincipal()))
+                .build();
+
+        Session user2 = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .setIdentity(new Identity("user2", getSession().getIdentity().getPrincipal()))
+                .build();
+
+        assertQuery(user1, "SELECT account_name FROM test_accounts_view", "VALUES 'account1'");
+        assertQuery(user2, "SELECT account_name FROM test_accounts_view", "VALUES 'account2'");
+        assertUpdate("DROP VIEW test_accounts_view");
+        assertUpdate("DROP TABLE test_accounts");
     }
 
     private Session getParallelWriteSession()
