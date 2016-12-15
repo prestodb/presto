@@ -102,36 +102,5 @@ public final class HDFSConfig
         HDFSConfig.metaserverStore = requireNonNull(metaserverStore);
     }
 
-    public static Path formPath(String dirOrFile)
-    {
-        String base = getMetaserverStore();
-        String path = dirOrFile;
-        while (base.endsWith("/")) {
-            base = base.substring(0, base.length() - 2);
-        }
-        if (!path.startsWith("/")) {
-            path = "/" + path;
-        }
-        return Path.mergePaths(new Path(base), new Path(path));
-    }
 
-    public static Path formPath(String dirOrFile1, String dirOrFile2)
-    {
-        String base = getMetaserverStore();
-        String path1 = dirOrFile1;
-        String path2 = dirOrFile2;
-        while (base.endsWith("/")) {
-            base = base.substring(0, base.length() - 2);
-        }
-        if (!path1.startsWith("/")) {
-            path1 = "/" + path1;
-        }
-        if (path1.endsWith("/")) {
-            path1 = path1.substring(0, path1.length() - 2);
-        }
-        if (!path2.startsWith("/")) {
-            path2 = "/" + path2;
-        }
-        return Path.mergePaths(Path.mergePaths(new Path(base), new Path(path1)), new Path(path2));
-    }
 }
