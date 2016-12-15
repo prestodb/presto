@@ -71,7 +71,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveUtil.closeWithSuppression;
 import static com.facebook.presto.hive.HiveUtil.getDecimalType;
-import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetType;
 import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.buildParquetPredicate;
@@ -330,10 +329,7 @@ public class ParquetHiveRecordCursor
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             dataSource = buildHdfsParquetDataSource(fileSystem, path, start, length);
-            ParquetMetadata parquetMetadata = retry()
-                    .stopOnIllegalExceptions()
-                    .run("createParquetRecordReaderReadFooter", () -> hdfsEnvironment.doAs(
-                            sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER)));
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(sessionUser, () -> ParquetFileReader.readFooter(configuration, path, NO_FILTER));
             List<BlockMetaData> blocks = parquetMetadata.getBlocks();
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
@@ -369,12 +365,12 @@ public class ParquetHiveRecordCursor
             ParquetInputSplit split = new ParquetInputSplit(path, start, start + length, length, null, offsets.toLongArray());
 
             TaskAttemptContext taskContext = ContextUtil.newTaskAttemptContext(configuration, new TaskAttemptID());
-            return retry().stopOnIllegalExceptions().run("createParquetRecordReaderInitializeRealReader",
-                    () -> hdfsEnvironment.doAs(sessionUser, () -> {
-                        ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
-                        realReader.initialize(split, taskContext);
-                        return realReader;
-                    }));
+
+            return hdfsEnvironment.doAs(sessionUser, () -> {
+                ParquetRecordReader<FakeParquetRecord> realReader = new PrestoParquetRecordReader(readSupport);
+                realReader.initialize(split, taskContext);
+                return realReader;
+            });
         }
         catch (Exception e) {
             Throwables.propagateIfInstanceOf(e, PrestoException.class);
