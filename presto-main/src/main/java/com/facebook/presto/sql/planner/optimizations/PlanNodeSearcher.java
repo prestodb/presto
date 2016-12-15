@@ -27,6 +27,9 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * See its twin {@link com.facebook.presto.sql.planner.AstNodeSearcher}
+ */
 public class PlanNodeSearcher
 {
     public static PlanNodeSearcher searchFrom(PlanNode node)

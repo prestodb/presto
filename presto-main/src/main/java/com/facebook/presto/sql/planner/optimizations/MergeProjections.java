@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.AstNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
@@ -83,7 +84,8 @@ public class MergeProjections
 
         private static boolean containsTry(ProjectNode node)
         {
-            return node.getAssignments().values().stream().anyMatch(TryExpression.class::isInstance);
+            return node.getAssignments().values().stream()
+                    .anyMatch(expression -> searchFrom(expression).where(TryExpression.class::isInstance).matches());
         }
     }
 }
