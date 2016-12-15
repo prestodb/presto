@@ -23,6 +23,7 @@ Keyword                        SQL:2016      SQL-92
 ``CURRENT_DATE``               reserved      reserved
 ``CURRENT_TIME``               reserved      reserved
 ``CURRENT_TIMESTAMP``          reserved      reserved
+``CURRENT_USER``               reserved
 ``DEALLOCATE``                 reserved      reserved
 ``DELETE``                     reserved      reserved
 ``DESCRIBE``                   reserved      reserved

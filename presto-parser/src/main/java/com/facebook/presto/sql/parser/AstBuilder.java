@@ -39,6 +39,7 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.Delete;
@@ -1220,6 +1221,12 @@ class AstBuilder
         }
 
         return new CurrentTime(getLocation(context), type);
+    }
+
+    @Override
+    public Node visitCurrentUser(SqlBaseParser.CurrentUserContext context)
+    {
+        return new CurrentUser(getLocation(context.CURRENT_USER()));
     }
 
     @Override

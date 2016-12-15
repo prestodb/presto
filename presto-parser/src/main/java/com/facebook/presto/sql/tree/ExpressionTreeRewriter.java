@@ -867,6 +867,19 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitCurrentUser(CurrentUser node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteCurrentUser(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>

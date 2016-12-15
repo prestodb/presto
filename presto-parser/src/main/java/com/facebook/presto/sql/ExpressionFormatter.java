@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
+import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
@@ -148,6 +149,12 @@ public final class ExpressionFormatter
                     .append(process(node.getValue(), context))
                     .append(" AT TIME ZONE ")
                     .append(process(node.getTimeZone(), context)).toString();
+        }
+
+        @Override
+        protected String visitCurrentUser(CurrentUser node, Void context)
+        {
+            return "CURRENT_USER";
         }
 
         @Override
