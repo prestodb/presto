@@ -57,6 +57,14 @@ public class Intersect
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(relations)
+                .build();
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

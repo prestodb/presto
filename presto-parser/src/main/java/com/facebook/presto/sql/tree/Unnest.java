@@ -63,6 +63,14 @@ public final class Unnest
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(expressions)
+                .build();
+    }
+
+    @Override
     public String toString()
     {
         String result = "UNNEST(" + Joiner.on(", ").join(expressions) + ")";

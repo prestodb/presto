@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -90,6 +92,16 @@ public class Query
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitQuery(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        with.ifPresent(nodes::add);
+        return nodes.add(queryBody)
+                .addAll(orderBy)
+                .build();
     }
 
     @Override

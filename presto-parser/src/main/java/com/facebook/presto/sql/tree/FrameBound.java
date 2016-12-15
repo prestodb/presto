@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -87,6 +90,14 @@ public class FrameBound
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitFrameBound(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        value.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override

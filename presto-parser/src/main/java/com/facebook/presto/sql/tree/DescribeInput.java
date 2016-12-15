@@ -14,6 +14,9 @@
 
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -49,6 +52,12 @@ public class DescribeInput
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitDescribeInput(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

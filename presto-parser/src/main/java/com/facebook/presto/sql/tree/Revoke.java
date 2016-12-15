@@ -83,6 +83,12 @@ public class Revoke
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(grantOptionFor, privileges, table, tableName, grantee);

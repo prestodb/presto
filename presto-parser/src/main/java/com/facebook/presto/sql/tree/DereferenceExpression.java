@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -49,6 +51,12 @@ public class DereferenceExpression
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitDereferenceExpression(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     public Expression getBase()
