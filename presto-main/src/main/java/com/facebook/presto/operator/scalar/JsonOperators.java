@@ -48,6 +48,7 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class JsonOperators
@@ -157,7 +158,7 @@ public final class JsonOperators
                     result = DoubleOperators.castToInteger(parser.getDoubleValue());
                     break;
                 case VALUE_NUMBER_INT:
-                    result = (long) Math.toIntExact(parser.getLongValue());
+                    result = (long) toIntExact(parser.getLongValue());
                     break;
                 case VALUE_TRUE:
                     result = BooleanOperators.castToInteger(true);
