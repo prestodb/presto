@@ -72,6 +72,12 @@ public final class GroupingSets
     }
 
     @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

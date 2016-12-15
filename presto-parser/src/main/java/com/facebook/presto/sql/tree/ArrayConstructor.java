@@ -56,6 +56,14 @@ public class ArrayConstructor
     }
 
     @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(values)
+                .build();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

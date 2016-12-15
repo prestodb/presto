@@ -63,6 +63,14 @@ public class CoalesceExpression
     }
 
     @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(operands)
+                .build();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
