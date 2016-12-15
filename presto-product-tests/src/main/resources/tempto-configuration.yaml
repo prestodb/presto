@@ -87,6 +87,14 @@ databases:
     skip_create_schema: false
     table_manager_type: cassandra
 
+  sqlserver:
+    jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    jdbc_url: jdbc:sqlserver://sqlserver
+    jdbc_user: sa
+    jdbc_password: SQLServerPass1
+    jdbc_pooling: true
+    table_manager_type: jdbc
+
 tests:
   hdfs:
     path: /product-test

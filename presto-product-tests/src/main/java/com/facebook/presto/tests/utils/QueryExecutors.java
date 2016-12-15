@@ -34,5 +34,10 @@ public class QueryExecutors
         return testContext().getDependency(QueryExecutor.class, "hive");
     }
 
+    public static QueryExecutor onSqlServer()
+    {
+        return testContext().getDependency(QueryExecutor.class, "sqlserver");
+    }
+
     private QueryExecutors() {}
 }

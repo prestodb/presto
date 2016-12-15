@@ -52,6 +52,7 @@ public final class TestGroups
     public static final String POST_HIVE_1_0_1 = "post_hive_1_0_1";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";
+    public static final String SQL_SERVER = "sqlserver";
     public static final String LDAP = "ldap";
     public static final String LDAP_CLI = "ldap_cli";
 
