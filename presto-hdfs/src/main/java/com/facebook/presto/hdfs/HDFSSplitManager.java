@@ -27,6 +27,7 @@ import com.google.inject.Inject;
 import org.apache.hadoop.fs.Path;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -66,6 +67,8 @@ implements ConnectorSplitManager
                         tableHandle.get().getSchemaTableName(),
                         tablePath, -1, -1,
                         FSFactory.getBlockLocations(file, 0, Long.MAX_VALUE))));
+        Collections.shuffle(splits);
+
         return new FixedSplitSource(splits);
     }
 }
