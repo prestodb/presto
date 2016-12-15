@@ -15,12 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.Nullable;
 
 import java.util.Optional;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
@@ -81,7 +81,7 @@ public final class JoinHash
     @Override
     public final long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        int nextAddressIndex = pagesHash.getNextAddressIndex(Ints.checkedCast(currentJoinPosition));
+        int nextAddressIndex = pagesHash.getNextAddressIndex(toIntExact(currentJoinPosition));
         return getNextJoinPositionFrom(nextAddressIndex, probePosition, allProbeChannelsPage);
     }
 
@@ -96,6 +96,6 @@ public final class JoinHash
     @Override
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        pagesHash.appendTo(Ints.checkedCast(position), pageBuilder, outputChannelOffset);
+        pagesHash.appendTo(toIntExact(position), pageBuilder, outputChannelOffset);
     }
 }

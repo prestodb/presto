@@ -26,7 +26,6 @@ import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
@@ -46,6 +45,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
@@ -89,7 +89,7 @@ public class OrcPageSource
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
-        this.rowsToDelete = new BitSet(Ints.checkedCast(recordReader.getFileRowCount()));
+        this.rowsToDelete = new BitSet(toIntExact(recordReader.getFileRowCount()));
 
         checkArgument(columnIds.size() == columnTypes.size(), "ids and types mismatch");
         checkArgument(columnIds.size() == columnIndexes.size(), "ids and indexes mismatch");
@@ -209,7 +209,7 @@ public class OrcPageSource
     {
         for (int i = 0; i < rowIds.getPositionCount(); i++) {
             long rowId = BIGINT.getLong(rowIds, i);
-            rowsToDelete.set(Ints.checkedCast(rowId));
+            rowsToDelete.set(toIntExact(rowId));
         }
     }
 

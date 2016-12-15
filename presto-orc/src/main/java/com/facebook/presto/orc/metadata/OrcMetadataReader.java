@@ -22,7 +22,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -43,6 +42,7 @@ import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Character.MIN_SURROGATE;
+import static java.lang.Math.toIntExact;
 
 public class OrcMetadataReader
         implements MetadataReader
@@ -116,7 +116,7 @@ public class OrcMetadataReader
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
     {
         return new StripeInformation(
-                Ints.checkedCast(stripeInformation.getNumberOfRows()),
+                toIntExact(stripeInformation.getNumberOfRows()),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
@@ -134,7 +134,7 @@ public class OrcMetadataReader
 
     private static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), Ints.checkedCast(stream.getLength()), true);
+        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), true);
     }
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)

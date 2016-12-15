@@ -16,10 +16,10 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
-import com.google.common.primitives.Ints;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 
 public class TpchBucketFunction
         implements BucketFunction
@@ -43,7 +43,7 @@ public class TpchBucketFunction
 
         long orderKey = BIGINT.getLong(block, position);
         long rowNumber = rowNumberFromOrderKey(orderKey);
-        int bucket = Ints.checkedCast(rowNumber / rowsPerBucket);
+        int bucket = toIntExact(rowNumber / rowsPerBucket);
 
         // due to rounding, the last bucket has extra rows
         if (bucket >= bucketCount) {

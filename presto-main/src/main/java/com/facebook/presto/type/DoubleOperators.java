@@ -22,7 +22,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractLongType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.math.DoubleMath;
-import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -50,6 +49,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.valueOf;
 import static java.math.RoundingMode.FLOOR;
 
@@ -183,9 +183,9 @@ public final class DoubleOperators
     public static long castToInteger(@SqlType(StandardTypes.DOUBLE) double value)
     {
         try {
-            return Ints.checkedCast((long) MathFunctions.round(value));
+            return toIntExact((long) MathFunctions.round(value));
         }
-        catch (IllegalArgumentException e) {
+        catch (ArithmeticException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
         }
     }

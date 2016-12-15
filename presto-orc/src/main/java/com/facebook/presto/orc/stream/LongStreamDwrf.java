@@ -18,12 +18,12 @@ import com.facebook.presto.orc.checkpoint.LongStreamDwrfCheckpoint;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 
 import java.io.IOException;
 
 import static com.facebook.presto.orc.stream.LongDecode.readDwrfLong;
 import static com.google.common.base.Preconditions.checkPositionIndex;
+import static java.lang.Math.toIntExact;
 
 public class LongStreamDwrf
         implements LongStream
@@ -90,7 +90,7 @@ public class LongStreamDwrf
         checkPositionIndex(items, vector.length);
 
         for (int i = 0; i < items; i++) {
-            vector[i] = Ints.checkedCast(next());
+            vector[i] = toIntExact(next());
         }
     }
 
@@ -100,7 +100,7 @@ public class LongStreamDwrf
     {
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                vector[i] = Ints.checkedCast(next());
+                vector[i] = toIntExact(next());
             }
         }
     }

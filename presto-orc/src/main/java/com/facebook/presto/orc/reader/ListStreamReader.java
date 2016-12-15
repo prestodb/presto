@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
@@ -38,6 +37,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ListStreamReader
@@ -94,7 +94,7 @@ public class ListStreamReader
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
                 long elementSkipSize = lengthStream.sum(readOffset);
-                elementStreamReader.prepareNextRead(Ints.checkedCast(elementSkipSize));
+                elementStreamReader.prepareNextRead(toIntExact(elementSkipSize));
             }
         }
 

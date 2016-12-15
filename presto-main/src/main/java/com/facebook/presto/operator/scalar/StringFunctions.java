@@ -55,6 +55,7 @@ import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 /**
@@ -329,7 +330,7 @@ public final class StringFunctions
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
         // Empty delimiter? Then every character will be a split
         if (delimiter.length() == 0) {
-            int startCodePoint = Ints.checkedCast(index);
+            int startCodePoint = toIntExact(index);
 
             int indexStart = offsetOfCodePoint(string, startCodePoint - 1);
             if (indexStart < 0) {

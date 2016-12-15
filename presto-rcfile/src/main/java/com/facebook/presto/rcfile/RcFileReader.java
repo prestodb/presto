@@ -17,7 +17,6 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
@@ -41,6 +40,7 @@ import static com.google.common.io.ByteStreams.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RcFileReader
@@ -107,7 +107,7 @@ public class RcFileReader
     {
         this.dataSource = requireNonNull(dataSource, "rcFileDataSource is null");
         this.readColumns = ImmutableSet.copyOf(requireNonNull(readColumns, "readColumns is null"));
-        this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), Ints.checkedCast(bufferSize.toBytes()));
+        this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), toIntExact(bufferSize.toBytes()));
 
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(offset < dataSource.getSize(), "offset is greater than data size");
@@ -351,20 +351,20 @@ public class RcFileReader
         BasicSliceInput headerInput = header.getInput();
 
         // read number of rows in row group
-        rowGroupRowCount = Ints.checkedCast(readVInt(headerInput));
+        rowGroupRowCount = toIntExact(readVInt(headerInput));
         rowsRead += rowGroupRowCount;
         rowGroupPosition = 0;
         currentChunkRowCount = min(ColumnData.MAX_SIZE, rowGroupRowCount);
 
         // set column buffers
         for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-            int compressedDataSize = Ints.checkedCast(readVInt(headerInput));
-            int uncompressedDataSize = Ints.checkedCast(readVInt(headerInput));
+            int compressedDataSize = toIntExact(readVInt(headerInput));
+            int uncompressedDataSize = toIntExact(readVInt(headerInput));
             if (decompressor == null && compressedDataSize != uncompressedDataSize) {
                 throw corrupt("Invalid RCFile %s", dataSource);
             }
 
-            int lengthsSize = Ints.checkedCast(readVInt(headerInput));
+            int lengthsSize = toIntExact(readVInt(headerInput));
 
             Slice lengthsBuffer = headerInput.readSlice(lengthsSize);
 
@@ -415,7 +415,7 @@ public class RcFileReader
     private Slice readLengthPrefixedString(SliceInput in)
             throws RcFileCorruptionException
     {
-        int length = Ints.checkedCast(readVInt(in));
+        int length = toIntExact(readVInt(in));
         if (length > MAX_METADATA_STRING_LENGTH) {
             throw corrupt("Metadata string value is too long (%s) in RCFile %s", length, in);
         }
@@ -518,7 +518,7 @@ public class RcFileReader
                 return lastValueLength;
             }
 
-            int valueLength = Ints.checkedCast(readVInt(lengthsInput));
+            int valueLength = toIntExact(readVInt(lengthsInput));
 
             // negative length is used to encode a run or the last value
             if (valueLength < 0) {

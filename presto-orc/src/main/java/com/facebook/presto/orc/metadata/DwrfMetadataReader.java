@@ -22,7 +22,6 @@ import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.primitives.Ints;
 import com.google.protobuf.CodedInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -41,6 +40,7 @@ import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public class DwrfMetadataReader
         implements MetadataReader
@@ -91,7 +91,7 @@ public class DwrfMetadataReader
     private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
     {
         return new StripeInformation(
-                Ints.checkedCast(stripeInformation.getNumberOfRows()),
+                toIntExact(stripeInformation.getNumberOfRows()),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
@@ -109,7 +109,7 @@ public class DwrfMetadataReader
 
     private static Stream toStream(OrcProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), Ints.checkedCast(stream.getLength()), stream.getUseVInts());
+        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), stream.getUseVInts());
     }
 
     private static List<Stream> toStream(List<OrcProto.Stream> streams)

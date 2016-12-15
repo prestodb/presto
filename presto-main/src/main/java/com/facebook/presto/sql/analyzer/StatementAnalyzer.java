@@ -117,7 +117,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.primitives.Ints;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -181,6 +180,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -1253,7 +1253,7 @@ class StatementAnalyzer
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
-                    int field = Ints.checkedCast(ordinal - 1);
+                    int field = toIntExact(ordinal - 1);
                     Type type = outputScope.getRelationType().getFieldByIndex(field).getType();
                     if (!type.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
@@ -1345,7 +1345,7 @@ class StatementAnalyzer
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
-                    int field = Ints.checkedCast(ordinal - 1);
+                    int field = toIntExact(ordinal - 1);
                     Type type = outputScope.getRelationType().getFieldByIndex(field).getType();
                     if (!type.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
@@ -1507,7 +1507,7 @@ class StatementAnalyzer
                     throw new SemanticException(INVALID_ORDINAL, groupingColumn, "GROUP BY position %s is not in select list", ordinal);
                 }
 
-                groupByExpression = outputExpressions.get(Ints.checkedCast(ordinal - 1));
+                groupByExpression = outputExpressions.get(toIntExact(ordinal - 1));
             }
             else {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, scope);
@@ -1866,7 +1866,7 @@ class StatementAnalyzer
                     throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                 }
 
-                expression = new FieldReference(Ints.checkedCast(ordinal - 1));
+                expression = new FieldReference(toIntExact(ordinal - 1));
             }
 
             ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,

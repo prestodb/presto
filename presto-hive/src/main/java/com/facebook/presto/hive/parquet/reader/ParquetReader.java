@@ -42,8 +42,8 @@ import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getColumns;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getDescriptor;
 import static com.facebook.presto.hive.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.google.common.primitives.Ints.checkedCast;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class ParquetReader
         implements Closeable
@@ -96,7 +96,7 @@ public class ParquetReader
             return -1;
         }
 
-        batchSize = checkedCast(min(MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
+        batchSize = toIntExact(min(MAX_VECTOR_LENGTH, currentGroupRowCount - nextRowInGroup));
 
         nextRowInGroup += batchSize;
         currentPosition += batchSize;
@@ -166,7 +166,7 @@ public class ParquetReader
             validateParquet(currentBlockMetadata.getRowCount() > 0, "Row group has 0 rows");
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
-            int totalSize = checkedCast(metadata.getTotalSize());
+            int totalSize = toIntExact(metadata.getTotalSize());
             byte[] buffer = new byte[totalSize];
             dataSource.readFully(startingPosition, buffer);
             ParquetColumnChunkDescriptor descriptor = new ParquetColumnChunkDescriptor(columnDescriptor, metadata, totalSize);

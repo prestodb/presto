@@ -46,7 +46,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import org.joda.time.DateTime;
@@ -64,6 +63,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
@@ -164,7 +164,7 @@ public class QueryMonitor
                                     queryInfo.getQuery(),
                                     queryInfo.getState().toString(),
                                     queryInfo.getSelf(),
-                                    Optional.ofNullable(toJsonWithLengthLimit(objectMapper, queryInfo.getOutputStage(), Ints.checkedCast(config.getMaxOutputStageJsonSize().toBytes())))),
+                                    Optional.ofNullable(toJsonWithLengthLimit(objectMapper, queryInfo.getOutputStage(), toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
                             new QueryStatistics(
                                     ofMillis(queryStats.getTotalCpuTime().toMillis()),
                                     ofMillis(queryStats.getTotalScheduledTime().toMillis()),

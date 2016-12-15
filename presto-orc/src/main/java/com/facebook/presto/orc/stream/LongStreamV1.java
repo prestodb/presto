@@ -18,11 +18,11 @@ import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 
 import java.io.IOException;
 
 import static com.facebook.presto.orc.stream.OrcStreamUtils.MIN_REPEAT_SIZE;
+import static java.lang.Math.toIntExact;
 
 public class LongStreamV1
         implements LongStream
@@ -196,7 +196,7 @@ public class LongStreamV1
             throws IOException
     {
         for (int i = 0; i < items; i++) {
-            vector[i] = Ints.checkedCast(next());
+            vector[i] = toIntExact(next());
         }
     }
 
@@ -206,7 +206,7 @@ public class LongStreamV1
     {
         for (int i = 0; i < items; i++) {
             if (!isNull[i]) {
-                vector[i] = Ints.checkedCast(next());
+                vector[i] = toIntExact(next());
             }
         }
     }

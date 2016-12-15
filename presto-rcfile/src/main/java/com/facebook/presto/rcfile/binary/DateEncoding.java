@@ -18,11 +18,11 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static java.lang.Math.toIntExact;
 
 public class DateEncoding
         implements BinaryColumnEncoding
@@ -49,7 +49,7 @@ public class DateEncoding
             }
             else {
                 long daysSinceEpoch = readVInt(slice, offset, length);
-                type.writeLong(builder, Ints.checkedCast(daysSinceEpoch));
+                type.writeLong(builder, toIntExact(daysSinceEpoch));
             }
         }
         return builder.build();
