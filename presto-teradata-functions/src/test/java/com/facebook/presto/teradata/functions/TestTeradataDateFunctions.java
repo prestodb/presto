@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.SqlDate;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.TimestampType;
-import com.google.common.primitives.Ints;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
@@ -32,6 +31,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.type.TimestampOperators.castToDate;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.lang.Math.toIntExact;
 
 public class TestTeradataDateFunctions
         extends AbstractTestFunctions
@@ -135,7 +135,7 @@ public class TestTeradataDateFunctions
 
     private static SqlDate sqlDate(DateTime from)
     {
-        int days = Ints.checkedCast(castToDate(SESSION.toConnectorSession(), from.getMillis()));
+        int days = toIntExact(castToDate(SESSION.toConnectorSession(), from.getMillis()));
         return new SqlDate(days);
     }
 
