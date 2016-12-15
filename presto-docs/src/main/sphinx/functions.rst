@@ -24,4 +24,5 @@ Functions and Operators
     functions/array
     functions/map
     functions/lambda
+    functions/sysinfo
     functions/teradata
