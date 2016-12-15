@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.MaterializedResult;
@@ -2077,6 +2078,33 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (VALUES (1, 2)) x (a, b) JOIN (VALUES (SMALLINT '1', SMALLINT '3')) y (a, b) ON x.a = y.a",
                 "VALUES (1, 2, 1, 3)"
         );
+
+        // short decimal, long decimal
+        assertQuery(
+                format("SELECT * FROM " +
+                        "   (VALUES (CAST(1 AS DECIMAL(%1$d,0)), 2)) x (a, b) , " +
+                        "   (VALUES (CAST(0 AS DECIMAL(%1$d,0)), SMALLINT '3')) y (a, b) " +
+                        " WHERE x.a = y.a + 1", Decimals.MAX_SHORT_PRECISION),
+                "VALUES (1, 2, 0, 3)");
+        assertQuery(
+                format("SELECT * FROM " +
+                        "   (VALUES (CAST(1 AS DECIMAL(%1$d,0)), 2)) x (a, b) " +
+                        "   INNER JOIN " +
+                        "   (VALUES (CAST(0 AS DECIMAL(%1$d,0)), SMALLINT '3')) y (a, b) " +
+                        "   ON x.a = y.a + 1", Decimals.MAX_SHORT_PRECISION),
+                "VALUES (1, 2, 0, 3)");
+        assertQuery(
+                format("SELECT * FROM " +
+                        "   (VALUES (CAST(1 AS DECIMAL(%1$d,0)), 2)) x (a, b) " +
+                        "   LEFT JOIN (VALUES (CAST(0 AS DECIMAL(%1$d,0)), SMALLINT '3')) y (a, b) " +
+                        "   ON x.a = y.a + 1", Decimals.MAX_SHORT_PRECISION),
+                "VALUES (1, 2, 0, 3)");
+        assertQuery(
+                format("SELECT * FROM " +
+                        "   (VALUES CAST(1 as decimal(%d,0))) t1 (a), " +
+                        "   (VALUES CAST(1 as decimal(%d,0))) t2 (b) " +
+                        "   WHERE a = b", Decimals.MAX_SHORT_PRECISION, Decimals.MAX_SHORT_PRECISION + 1),
+                "VALUES (1, 1)");
     }
 
     @Test
