@@ -1,2 +1,2 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
-user
+-- just check query succeeds as username is 'hdfs' on Travis but may vary?
