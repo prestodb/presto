@@ -19,7 +19,7 @@ import com.facebook.presto.sql.tree.Node;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.sql.planner.optimizations.Predicates.alwaysTrue;
+import static com.facebook.presto.util.Predicates.alwaysTrue;
 import static java.util.Objects.requireNonNull;
 
 /**
