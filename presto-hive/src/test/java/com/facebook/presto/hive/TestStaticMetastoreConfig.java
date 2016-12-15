@@ -31,7 +31,12 @@ public class TestStaticMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(StaticMetastoreConfig.class)
-                .setMetastoreUris(null));
+                .setMetastoreUris(null)
+                .setEnableTransportPool(false)
+                .setMaxTransport(128)
+                .setTransportIdleTimeout(300_000L)
+                .setTransportEvictInterval(10_000L)
+                .setTransportEvictNumTests(3));
     }
 
     @Test
@@ -39,10 +44,20 @@ public class TestStaticMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
+                .put("hive.metastore.enable-transport-pool", "true")
+                .put("hive.metastore.max-transport-num-per-endpoint", "64")
+                .put("hive.metastore.transport-idle-timeout", "10000")
+                .put("hive.metastore.transport-eviction-interval", "1000")
+                .put("hive.metastore.transport-eviction-num-tests", "10")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
-                .setMetastoreUris("thrift://localhost:9083");
+                .setMetastoreUris("thrift://localhost:9083")
+                .setEnableTransportPool(true)
+                .setMaxTransport(64)
+                .setTransportIdleTimeout(10_000L)
+                .setTransportEvictInterval(1_000L)
+                .setTransportEvictNumTests(10);
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(URI.create("thrift://localhost:9083")));
@@ -53,10 +68,20 @@ public class TestStaticMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083,thrift://192.0.2.3:8932")
+                .put("hive.metastore.enable-transport-pool", "true")
+                .put("hive.metastore.max-transport-num-per-endpoint", "64")
+                .put("hive.metastore.transport-idle-timeout", "10000")
+                .put("hive.metastore.transport-eviction-interval", "1000")
+                .put("hive.metastore.transport-eviction-num-tests", "10")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
-                .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932");
+                .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932")
+                .setEnableTransportPool(true)
+                .setMaxTransport(64)
+                .setTransportIdleTimeout(10_000L)
+                .setTransportEvictInterval(1_000L)
+                .setTransportEvictNumTests(10);
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(

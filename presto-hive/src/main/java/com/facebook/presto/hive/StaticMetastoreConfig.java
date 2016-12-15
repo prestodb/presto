@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -31,6 +32,10 @@ public class StaticMetastoreConfig
 
     private List<URI> metastoreUris;
     private boolean enableTransportPool;
+    private int maxTransport = 128;
+    private long transportIdleTimeout = 300_000L;
+    private long transportEvictInterval = 10_000L;
+    private int transportEvictNumTests = 3;
 
     @NotNull
     public List<URI> getMetastoreUris()
@@ -51,7 +56,7 @@ public class StaticMetastoreConfig
         return this;
     }
 
-    public boolean useTransportPool()
+    public boolean isEnableTransportPool()
     {
         return enableTransportPool;
     }
@@ -60,6 +65,56 @@ public class StaticMetastoreConfig
     public StaticMetastoreConfig setEnableTransportPool(boolean enableTransportPool)
     {
         this.enableTransportPool = enableTransportPool;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTransport()
+    {
+        return maxTransport;
+    }
+
+    @Config("hive.metastore.max-transport-num-per-endpoint")
+    public StaticMetastoreConfig setMaxTransport(int maxTransport)
+    {
+        this.maxTransport = maxTransport;
+        return this;
+    }
+
+    public long getTransportIdleTimeout()
+    {
+        return transportIdleTimeout;
+    }
+
+    @Config("hive.metastore.transport-idle-timeout")
+    public StaticMetastoreConfig setTransportIdleTimeout(long transportIdleTimeout)
+    {
+        this.transportIdleTimeout = transportIdleTimeout;
+        return this;
+    }
+
+    public long getTransportEvictInterval()
+    {
+        return transportEvictInterval;
+    }
+
+    @Config("hive.metastore.transport-eviction-interval")
+    public StaticMetastoreConfig setTransportEvictInterval(long transportEvictInterval)
+    {
+        this.transportEvictInterval = transportEvictInterval;
+        return this;
+    }
+
+    @Min(0)
+    public int getTransportEvictNumTests()
+    {
+        return transportEvictNumTests;
+    }
+
+    @Config("hive.metastore.transport-eviction-num-tests")
+    public StaticMetastoreConfig setTransportEvictNumTests(int transportEvictNumTests)
+    {
+        this.transportEvictNumTests = transportEvictNumTests;
         return this;
     }
 }

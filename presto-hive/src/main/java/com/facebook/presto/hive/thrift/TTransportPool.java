@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.thrift;
 
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.GenericObjectPool;
@@ -23,48 +22,27 @@ import org.apache.thrift.transport.TTransport;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
 
 public class TTransportPool
 {
-    private static final int MIN_IDLE = 0;
-    private static final int MAX_TOTAL = 128;
-    private static final int NUM_TESTS = 3;
-    private static final Duration IDLE_TIMEOUT = new Duration(300, TimeUnit.SECONDS);
-    private static final Duration EVICTION_INTERVEL = new Duration(10, TimeUnit.SECONDS);
     private final ConcurrentMap<String, ObjectPool<TTransport>> pools = new ConcurrentHashMap();
     private GenericObjectPoolConfig poolConfig;
-
-    public TTransportPool()
-    {
-        poolConfig = new GenericObjectPoolConfig();
-        poolConfig.setMaxIdle(MAX_TOTAL);
-        poolConfig.setMinIdle(MIN_IDLE);
-        poolConfig.setMaxTotal(MAX_TOTAL);
-        poolConfig.setMinEvictableIdleTimeMillis(IDLE_TIMEOUT.toMillis());
-        poolConfig.setTimeBetweenEvictionRunsMillis(EVICTION_INTERVEL.toMillis());
-        poolConfig.setNumTestsPerEvictionRun(NUM_TESTS);
-    }
 
     public TTransportPool(GenericObjectPoolConfig poolConfig)
     {
         this.poolConfig = poolConfig;
     }
 
-    private void add(String remote, PooledObjectFactory transportFactory)
+    protected synchronized void add(String remote, PooledObjectFactory transportFactory)
     {
-        pools.put(remote, new GenericObjectPool<TTransport>(transportFactory, poolConfig));
+        pools.putIfAbsent(remote, new GenericObjectPool<TTransport>(transportFactory, poolConfig));
     }
 
     protected TTransport get(String remote, PooledObjectFactory transportFactory)
         throws Exception
     {
-        ObjectPool<TTransport> pool = pools.get(remote);
-        if (pool == null) {
-            add(remote, transportFactory);
-            pool = pools.get(remote);
-        }
-        return pool.borrowObject();
+        add(remote, transportFactory);
+        return get(remote);
     }
 
     protected TTransport get(String remote)
