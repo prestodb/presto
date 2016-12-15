@@ -276,6 +276,20 @@ presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,prof
 
 All of the variables are optional and fall back to local sources / build artifacts if unspecified.
 
+### Running outside the source tree
+
+To run the tests outside the source tree, perhaps on a Continuous Integration server, you'll need
+to collect the following build artifacts:
+
+* presto-cli/target/presto-cli-executable.jar
+* presto-jdbc/target/presto-jdbc.jar
+* presto-product-tests/target/presto-product-tests-executable.jar
+* presto-product-tests/target/presto-product-tests-scripts.zip
+* presto-server/target/presto-server.tar.gz
+
+Unpack the zip and tar.gz archives in a convenient location, set environment variables, and execute
+`presto-product-tests/bin/run_on_docker.sh` as described above.
+
 ### Interrupting a test run
 
 To interrupt a product test run, send a single `Ctrl-C` signal. The scripts
