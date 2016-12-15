@@ -7380,13 +7380,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testCurrentUser()
     {
-        MaterializedResult actual = computeActual("select current_user");
-
-        List<MaterializedRow> rows = actual.getMaterializedRows();
-        assertEquals(rows.size(), 1);
-
-        MaterializedRow row = rows.get(0);
-        assertEquals(row.getField(0), getSession().getUser());
+        assertQuery("SELECT CURRENT_USER", "SELECT '" + getSession().getUser() + "'");
     }
 
     @Test
