@@ -29,8 +29,8 @@ import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
@@ -96,9 +96,8 @@ public class RcFileReader
 
     public RcFileReader(
             RcFileDataSource dataSource,
-            List<Type> types,
             RcFileEncoding encoding,
-            Set<Integer> readColumns,
+            Map<Integer, Type> readColumns,
             RcFileCodecFactory codecFactory,
             long offset,
             long length,
@@ -106,7 +105,7 @@ public class RcFileReader
             throws IOException
     {
         this.dataSource = requireNonNull(dataSource, "rcFileDataSource is null");
-        this.readColumns = ImmutableSet.copyOf(requireNonNull(readColumns, "readColumns is null"));
+        this.readColumns = ImmutableSet.copyOf(requireNonNull(readColumns, "readColumns is null").keySet());
         this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), toIntExact(bufferSize.toBytes()));
 
         checkArgument(offset >= 0, "offset is negative");
@@ -191,9 +190,9 @@ public class RcFileReader
             throw corrupt("Too many columns (%s) in RCFile %s", columnCountString, dataSource);
         }
         columns = new Column[columnCount];
-        for (int columnIndex = 0; columnIndex < columns.length; columnIndex++) {
-            ColumnEncoding columnEncoding = encoding.getEncoding(types.get(columnIndex));
-            columns[columnIndex] = new Column(columnEncoding, decompressor);
+        for (Entry<Integer, Type> entry : readColumns.entrySet()) {
+            ColumnEncoding columnEncoding = encoding.getEncoding(entry.getValue());
+            columns[entry.getKey()] = new Column(columnEncoding, decompressor);
         }
 
         // read sync bytes
@@ -368,16 +367,13 @@ public class RcFileReader
 
             Slice lengthsBuffer = headerInput.readSlice(lengthsSize);
 
-            Slice dataBuffer;
             if (readColumns.contains(columnIndex)) {
-                dataBuffer = input.readSlice(compressedDataSize);
+                Slice dataBuffer = input.readSlice(compressedDataSize);
+                columns[columnIndex].setBuffers(lengthsBuffer, dataBuffer, uncompressedDataSize);
             }
             else {
                 skipFully(input, compressedDataSize);
-                dataBuffer = Slices.EMPTY_SLICE;
             }
-
-            columns[columnIndex].setBuffers(lengthsBuffer, dataBuffer, uncompressedDataSize);
         }
 
         return currentChunkRowCount;
@@ -386,6 +382,9 @@ public class RcFileReader
     public Block readBlock(int columnIndex)
             throws IOException
     {
+        if (columns[columnIndex] == null) {
+            throw new IllegalArgumentException("Column " + columnIndex + " is not being read");
+        }
         if (currentChunkRowCount <= 0) {
             throw new IllegalStateException("No more data");
         }

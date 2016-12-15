@@ -30,6 +30,7 @@ import com.facebook.presto.type.RowType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.hadoop.compression.lzo.LzoCodec;
@@ -555,9 +556,8 @@ public class RcFileTester
         RcFileDataSource rcFileDataSource = new FileRcFileDataSource(tempFile.getFile());
         RcFileReader rcFileReader = new RcFileReader(
                 rcFileDataSource,
-                ImmutableList.of(type),
                 encoding,
-                ImmutableSet.of(0),
+                ImmutableMap.of(0, type),
                 new AircompressorCodecFactory(new HadoopCodecFactory(RcFileTester.class.getClassLoader())),
                 0,
                 tempFile.getFile().length(),

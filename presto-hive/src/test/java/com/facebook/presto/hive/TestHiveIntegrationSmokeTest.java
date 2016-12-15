@@ -467,6 +467,9 @@ public class TestHiveIntegrationSmokeTest
         assertColumnType(tableMetadata, "_varchar", createVarcharType(3));
         assertColumnType(tableMetadata, "_char", createCharType(10));
 
+        // assure reader supports basic column reordering and pruning
+        assertQuery(session, "SELECT _integer, _varchar, _integer from test_format_table", "SELECT 2, 'foo', 2");
+
         assertQuery(session, "SELECT * from test_format_table", select);
 
         assertUpdate(session, "DROP TABLE test_format_table");
