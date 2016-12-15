@@ -17,6 +17,7 @@ import com.facebook.presto.hadoop.HadoopFileSystemCache;
 import com.facebook.presto.hadoop.HadoopNative;
 import com.facebook.presto.hive.authentication.GenericExceptionAction;
 import com.facebook.presto.hive.authentication.HdfsAuthentication;
+import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -25,6 +26,7 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
@@ -63,17 +65,35 @@ public class HdfsEnvironment
     public FileSystem getFileSystem(String user, Path path, Configuration configuration)
             throws IOException
     {
-        return hdfsAuthentication.doAs(user, () -> {
-            FileSystem fileSystem = path.getFileSystem(configuration);
-            fileSystem.setVerifyChecksum(verifyChecksum);
-            return fileSystem;
-        });
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .stopOn(IOException.class)
+                    .run("getFileSystem", () -> hdfsAuthentication.doAs(user, () -> {
+                        FileSystem fileSystem = path.getFileSystem(configuration);
+                        fileSystem.setVerifyChecksum(verifyChecksum);
+                        return fileSystem;
+                    }));
+        }
+        catch (Exception e) {
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
+            throw Throwables.propagate(e);
+        }
     }
 
     public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
             throws E
     {
-        return hdfsAuthentication.doAs(user, action);
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("doAsGenericException", () -> hdfsAuthentication.doAs(user, action));
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public void doAs(String user, Runnable action)
