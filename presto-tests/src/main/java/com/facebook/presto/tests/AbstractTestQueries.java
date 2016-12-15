@@ -5337,6 +5337,10 @@ public abstract class AbstractTestQueries
 
         // missing function argument
         assertQueryFails("SELECT TRY()", "line 1:8: The 'try' function must have exactly one argument");
+
+        // check that TRY is not pushed down
+        assertQueryFails("SELECT TRY(x) IS NULL FROM (SELECT 1/y as x FROM (VALUES 1, 2, 3, 0, 4) t(y))", "/ by zero");
+        assertQuery("SELECT x IS NULL FROM (SELECT TRY(1/y) as x FROM (VALUES 3, 0, 4) t(y))", "VALUES false, true, false");
     }
 
     @Test

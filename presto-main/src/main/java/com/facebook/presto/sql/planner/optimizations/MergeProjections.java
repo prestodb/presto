@@ -27,6 +27,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.TryExpression;
+import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
@@ -83,7 +84,10 @@ public class MergeProjections
 
         private static boolean containsTry(ProjectNode node)
         {
-            return node.getAssignments().getExpressions().stream().anyMatch(TryExpression.class::isInstance);
+            return node.getAssignments()
+                    .getExpressions().stream()
+                    .flatMap(AstUtils::preOrder)
+                    .anyMatch(TryExpression.class::isInstance);
         }
     }
 }
