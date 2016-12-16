@@ -66,6 +66,14 @@ public class With
     }
 
     @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(queries)
+                .build();
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

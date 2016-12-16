@@ -62,6 +62,14 @@ public class Execute
     }
 
     @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(parameters)
+                .build();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(name, parameters);

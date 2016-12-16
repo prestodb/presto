@@ -62,6 +62,12 @@ public class Select
     }
 
     @Override
+    public List<Node> getNodes()
+    {
+        return null;
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

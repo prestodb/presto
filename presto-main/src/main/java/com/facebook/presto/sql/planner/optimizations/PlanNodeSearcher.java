@@ -21,9 +21,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.sql.planner.optimizations.Predicates.alwaysTrue;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.Predicates.alwaysTrue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 

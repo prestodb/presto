@@ -62,6 +62,12 @@ public class GroupBy
     }
 
     @Override
+    public List<Node> getNodes()
+    {
+        return ImmutableList.<Node>builder().addAll(groupingElements).build();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

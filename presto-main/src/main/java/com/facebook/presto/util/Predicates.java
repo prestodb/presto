@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.sql.planner.optimizations;
+package com.facebook.presto.util;
 
 import java.util.function.Predicate;
 

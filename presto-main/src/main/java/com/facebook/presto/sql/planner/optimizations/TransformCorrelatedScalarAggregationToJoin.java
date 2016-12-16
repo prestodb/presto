@@ -57,11 +57,11 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
+import static com.facebook.presto.util.Predicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 /**
