@@ -75,8 +75,8 @@ public class TestShardMetadataRecordCursor
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         this.dummyHandle = dbi.open();
-        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
         createTablesWithRetry(dbi);
+        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
 
         // Create table
         metadata.createTable(SESSION, tableMetadataBuilder(DEFAULT_TEST_ORDERS)

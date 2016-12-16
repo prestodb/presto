@@ -78,10 +78,10 @@ public class TestShardOrganizerUtil
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();
 
         metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
-        createTablesWithRetry(dbi);
 
         metadataDao = dbi.onDemand(MetadataDao.class);
         shardManager = createShardManager(dbi);

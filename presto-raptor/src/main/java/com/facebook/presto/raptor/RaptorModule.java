@@ -33,6 +33,7 @@ import org.skife.jdbi.v2.tweak.ConnectionFactory;
 
 import javax.inject.Singleton;
 
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 
@@ -74,6 +75,7 @@ public class RaptorModule
         DBI dbi = new DBI(connectionFactory);
         dbi.registerMapper(new TableColumn.Mapper(typeManager));
         dbi.registerMapper(new Distribution.Mapper(typeManager));
+        createTablesWithRetry(dbi);
         return dbi;
     }
 
