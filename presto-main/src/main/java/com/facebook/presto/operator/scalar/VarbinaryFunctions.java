@@ -23,6 +23,7 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 
 import java.util.Base64;
 
@@ -133,6 +134,16 @@ public final class VarbinaryFunctions
         return Slices.wrappedBuffer(result);
     }
 
+    @Description("encode value as a 64-bit 2's complement big endian varbinary")
+    @ScalarFunction("to_big_endian_64")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice toBigEndian64(@SqlType(StandardTypes.BIGINT) long value)
+    {
+        Slice slice = Slices.allocate(Long.BYTES);
+        slice.setLong(0, Long.reverseBytes(value));
+        return slice;
+    }
+
     @Description("compute md5 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)
@@ -177,6 +188,14 @@ public final class VarbinaryFunctions
             return b - 'A' + 10;
         }
         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid hex character: " + (char) b);
+    }
+
+    @Description("compute xxhash64 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxhash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return XxHash64.hash(slice);
     }
 
     @Description("decode hex encoded binary data")
