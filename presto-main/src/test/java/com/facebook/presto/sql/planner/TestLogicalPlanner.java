@@ -69,6 +69,18 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testJoinWithOrderBySameKey()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey ORDER BY l.orderkey ASC, o.orderkey ASC",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                any(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                anyTree(
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
     public void testUncorrelatedSubqueries()
     {
         assertPlan("SELECT * FROM orders WHERE orderkey = (SELECT orderkey FROM lineitem ORDER BY orderkey LIMIT 1)",
