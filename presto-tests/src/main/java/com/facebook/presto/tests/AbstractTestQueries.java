@@ -536,6 +536,16 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
 
         assertQuery("SELECT * FROM orders, UNNEST(ARRAY[1])", "SELECT orders.*, 1 FROM orders");
+
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true",
+                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true",
+                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true",
+                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
     }
 
     @Test
@@ -856,7 +866,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testExtractDistinctAggregationOptimizer()
-            throws Exception
     {
         assertQuery("SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
 
@@ -885,7 +894,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testAggregationFilter()
-            throws Exception
     {
         assertQuery("SELECT sum(x) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 4");
         assertQuery("SELECT sum(x) FILTER (WHERE x > 1), sum(y) FILTER (WHERE y > 4) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 8, 5");
@@ -1508,7 +1516,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testGroupingSetsAliasedGroupingColumns()
-            throws Exception
     {
         assertQuery("SELECT lna, lnb, SUM(quantity) " +
                         "FROM (SELECT linenumber lna, linenumber lnb, CAST(quantity AS BIGINT) quantity FROM lineitem) " +
@@ -2341,7 +2348,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinUsingSymbolsFromJustOneSideOfJoin()
-            throws Exception
     {
         assertQuery(
                 "SELECT b FROM (VALUES 1, 2) t1(a) RIGHT OUTER JOIN (VALUES 10, 11) t2(b) ON b > 10",
@@ -2365,7 +2371,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinsWithTrueJoinCondition()
-            throws Exception
     {
         // inner join
         assertQuery("SELECT * FROM (VALUES 0, 1) t1(a) JOIN (VALUES 10, 11) t2(b) ON TRUE",
@@ -2693,7 +2698,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithScalarSubqueryInOnClause()
-            throws Exception
     {
         assertQuery(
                 "SELECT count() FROM nation a" +
@@ -2724,7 +2728,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testInUncorrelatedSubquery()
-            throws Exception
     {
         assertQuery(
                 "SELECT CASE WHEN false THEN 1 IN (VALUES 2) END",
@@ -2739,7 +2742,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithExpressionsThatMayReturnNull()
-            throws Exception
     {
         assertQuery("" +
                         "SELECT *\n" +
@@ -3204,7 +3206,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testJoinWithStatefulFilterFunction()
-            throws Exception
     {
         assertQuery("SELECT *\n" +
                         "FROM (VALUES 1, 2) a(id)\n" +
@@ -6415,18 +6416,57 @@ public abstract class AbstractTestQueries
     {
         String errorMsg = "Unsupported correlated subquery type";
 
-        assertQueryFails("SELECT 1 IN (SELECT l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT 1 IN (SELECT 2 * l.orderkey) FROM lineitem l", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l WHERE 1 IN (SELECT 2 * l.orderkey)", errorMsg);
-        assertQueryFails("SELECT * FROM lineitem l ORDER BY 1 IN (SELECT 2 * l.orderkey)", errorMsg);
+        assertQuery(
+                "SELECT DISTINCT 1 IN (SELECT l.orderkey), l.orderkey FROM lineitem l",
+                "SELECT DISTINCT 1 =          l.orderkey, l.orderkey FROM lineitem l");
+        assertQueryFails(
+                "SELECT 1 IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey), l.orderkey FROM lineitem l",
+                errorMsg);
+        assertQuery(
+                "SELECT DISTINCT 4 IN (SELECT 2 * l.orderkey), l.orderkey FROM lineitem l",
+                "SELECT DISTINCT 4 =          2 * l.orderkey , l.orderkey FROM lineitem l");
+        assertQuery(
+                "SELECT l.orderkey FROM lineitem l WHERE 4 IN (SELECT 2 * l.orderkey)",
+                "SELECT l.orderkey FROM lineitem l WHERE 4 =          2 * l.orderkey");
+        assertQueryFails(
+                "SELECT * FROM lineitem l ORDER BY 1 IN (SELECT orderkey  FROM orders o WHERE o.orderkey = l.orderkey)",
+                errorMsg);
 
         // group by
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey HAVING max(l.quantity) IN (SELECT l.orderkey)", errorMsg);
-        assertQueryFails("SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)", errorMsg);
+        assertQuery(
+                "SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT l.orderkey) FROM lineitem l GROUP BY l.orderkey",
+                "SELECT max(l.quantity), 2 * l.orderkey, 1 =          l.orderkey  FROM lineitem l GROUP BY l.orderkey");
+        assertQueryFails(
+                "SELECT max(l.quantity), 2 * l.orderkey, 1 IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey) " +
+                        "FROM lineitem l " +
+                        "GROUP BY l.orderkey ",
+                errorMsg);
+        assertQuery(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey " +
+                        "HAVING max(l.orderkey) IN (SELECT l.orderkey) " +
+                        "ORDER BY l.orderkey LIMIT 1",
+                "VALUES (36.0, 2)");
+        assertQueryFails(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey " +
+                        "HAVING max(l.orderkey) IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey) ",
+                errorMsg);
+
+        assertQuery(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 IN (SELECT l.orderkey)",
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l GROUP BY l.orderkey, 1 = l.orderkey");
+        assertQueryFails(
+                "SELECT max(l.quantity), 2 * l.orderkey FROM lineitem l " +
+                        "GROUP BY l.orderkey, 1 IN (SELECT orderkey FROM orders o WHERE o.orderkey = l.orderkey) ",
+                errorMsg);
 
         // join
-        assertQueryFails("SELECT * FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)", errorMsg);
+        assertQuery(
+                "SELECT count(*) FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey IN (SELECT l2.orderkey)",
+                "SELECT count(*) FROM lineitem l1 JOIN lineitem l2 ON l1.orderkey = l2.orderkey");
+        assertQueryFails(
+                "SELECT * FROM lineitem l1 JOIN lineitem l2 " +
+                        "ON l1.orderkey IN (SELECT orderkey FROM orders o WHERE o.orderkey = l2.orderkey)",
+                errorMsg);
 
         // subrelation
         assertQueryFails("SELECT * FROM lineitem l WHERE (SELECT * FROM (SELECT 1 IN (SELECT 2 * l.orderkey)))", errorMsg);
@@ -7760,7 +7800,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testQuantifiedComparison()
-            throws Exception
     {
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ANY (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey = ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
@@ -7907,7 +7946,6 @@ public abstract class AbstractTestQueries
 
     @Test
     public void testSubqueriesWithDisjunction()
-            throws Exception
     {
         List<QueryTemplate.Parameter> projections = new QueryTemplate.Parameter("projection").of("count(*)", "*", "%condition%");
         List<QueryTemplate.Parameter> conditions = new QueryTemplate.Parameter("condition").of(
@@ -7953,5 +7991,64 @@ public abstract class AbstractTestQueries
                         "       FROM (" + unionLineitem50Times + ")) o(c)) result(a) " +
                         "WHERE a = 1)",
                 "VALUES 3008750");
+    }
+
+    @Test
+    public void testLateralJoin()
+    {
+        assertQuery(
+                "SELECT a FROM LATERAL (SELECT min(region.name) FROM region) t(a) ORDER BY a LIMIT 1",
+                "VALUES ('AFRICA')");
+        assertQuery(
+                "SELECT nationkey, a FROM nation, LATERAL (SELECT max(region.name) FROM region WHERE region.regionkey <= nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
+                "VALUES (0, 'AFRICA')");
+
+        assertQuery(
+                "SELECT nationkey, a FROM nation, LATERAL (SELECT region.name || '_' FROM region WHERE region.regionkey = nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
+                "VALUES (0, 'AFRICA_')");
+
+        assertQuery(
+                "SELECT nationkey, a, b, name FROM nation, LATERAL (SELECT nationkey + 2 AS a), LATERAL (SELECT a * -1 AS b) ORDER BY b LIMIT 1",
+                "VALUES (24, 26, -26, 'UNITED STATES')");
+
+        assertQuery(
+                "SELECT * FROM region r, LATERAL (SELECT * FROM nation) n WHERE n.regionkey = r.regionkey",
+                "SELECT * FROM region, nation WHERE nation.regionkey = region.regionkey");
+        assertQuery(
+                "SELECT * FROM region, LATERAL (SELECT * FROM nation WHERE nation.regionkey = region.regionkey)",
+                "SELECT * FROM region, nation WHERE nation.regionkey = region.regionkey");
+
+        assertQuery(
+                "SELECT quantity, extendedprice, avg_price, low, high " +
+                "FROM lineitem, " +
+                "LATERAL (SELECT extendedprice / quantity AS avg_price) average_price, " +
+                "LATERAL (SELECT avg_price * 0.9 AS low) lower_bound, " +
+                "LATERAL (SELECT avg_price * 1.1 AS high) upper_bound " +
+                "ORDER BY quantity, avg_price " +
+                "LIMIT 1",
+                "VALUES (1.0, 904.0, 904.0, 813.6, 994.4000000000001)");
+
+        assertQuery(
+                "SELECT y FROM (VALUES array[2, 3]) a(x) CROSS JOIN LATERAL(SELECT x[1]) b(y)",
+                "SELECT 2");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x + 1)",
+                "SELECT 2, 3");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x)",
+                "SELECT 2, 2");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x, x + 1)",
+                "SELECT 2, 2, 3");
+
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN LATERAL(VALUES x) ON true",
+                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true",
+                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true",
+                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
     }
 }

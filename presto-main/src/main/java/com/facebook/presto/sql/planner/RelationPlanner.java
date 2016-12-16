@@ -25,6 +25,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
@@ -38,7 +39,6 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cast;
-import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
@@ -50,7 +50,7 @@ import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -77,6 +77,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -84,6 +85,7 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSuppor
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -186,19 +188,20 @@ class RelationPlanner
         // TODO: translate the RIGHT join into a mirrored LEFT join when we refactor (@martint)
         RelationPlan leftPlan = process(node.getLeft(), context);
 
-        // Convert CROSS JOIN UNNEST to an UnnestNode
-        if (node.getRight() instanceof Unnest || (node.getRight() instanceof AliasedRelation && ((AliasedRelation) node.getRight()).getRelation() instanceof Unnest)) {
-            Unnest unnest;
-            if (node.getRight() instanceof AliasedRelation) {
-                unnest = (Unnest) ((AliasedRelation) node.getRight()).getRelation();
-            }
-            else {
-                unnest = (Unnest) node.getRight();
-            }
+        Optional<Unnest> unnest = getUnnest(node.getRight());
+        if (unnest.isPresent()) {
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                throwNotSupportedException(unnest, "UNNEST on other than the right side of CROSS JOIN");
+                throwNotSupportedException(unnest.get(), "UNNEST on other than the right side of CROSS JOIN");
             }
-            return planCrossJoinUnnest(leftPlan, node, unnest);
+            return planCrossJoinUnnest(leftPlan, node, unnest.get());
+        }
+
+        Optional<Lateral> lateral = getLateral(node.getRight());
+        if (lateral.isPresent()) {
+            if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
+                throwNotSupportedException(lateral.get(), "LATERAL on other than the right side of CROSS JOIN");
+            }
+            return planLateralJoin(node, leftPlan, lateral.get());
         }
 
         RelationPlan rightPlan = process(node.getRight(), context);
@@ -356,7 +359,63 @@ class RelationPlanner
         return new RelationPlan(root, analysis.getScope(node), outputSymbols);
     }
 
-    private static boolean isEqualComparisonExpression(Expression conjunct)
+    private Optional<Unnest> getUnnest(Relation relation)
+    {
+        if (relation instanceof AliasedRelation) {
+            return getUnnest(((AliasedRelation) relation).getRelation());
+        }
+        if (relation instanceof Unnest) {
+            return Optional.of((Unnest) relation);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Lateral> getLateral(Relation relation)
+    {
+        if (relation instanceof AliasedRelation) {
+            return getLateral(((AliasedRelation) relation).getRelation());
+        }
+        if (relation instanceof Lateral) {
+            return Optional.of((Lateral) relation);
+        }
+        return Optional.empty();
+    }
+
+    private RelationPlan planLateralJoin(Join join, RelationPlan leftPlan, Lateral lateral)
+    {
+        RelationPlan rightPlan = process(lateral.getQuery(), null);
+        PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
+        PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
+
+        PlanNode subqueryPlanNode = rightPlanBuilder.getRoot();
+        Map<Expression, Symbol> correlations = subqueryPlanner.extractCorrelation(leftPlanBuilder, subqueryPlanNode);
+
+        leftPlanBuilder = leftPlanBuilder.appendProjections(correlations.keySet(), symbolAllocator, idAllocator);
+        subqueryPlanNode = subqueryPlanner.replaceExpressionsWithSymbols(subqueryPlanNode, correlations);
+
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+                .addAll(leftPlan.getOutputSymbols())
+                .addAll(rightPlan.getOutputSymbols())
+                .build();
+        PlanNode inputPlanNode = leftPlanBuilder.getRoot();
+        return new RelationPlan(
+                new ApplyNode(
+                        idAllocator.getNextId(),
+                        inputPlanNode,
+                        subqueryPlanNode,
+                        identityAssignments(subqueryPlanNode),
+                        ImmutableList.copyOf(correlations.values())),
+                analysis.getScope(join),
+                outputSymbols);
+    }
+
+    private static Map<Symbol, Expression> identityAssignments(PlanNode node)
+    {
+        return node.getOutputSymbols().stream()
+                .collect(toImmutableMap(symbol -> symbol, Symbol::toSymbolReference));
+    }
+
+    private boolean isEqualComparisonExpression(Expression conjunct)
     {
         return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getType() == ComparisonExpressionType.EQUAL;
     }
@@ -398,16 +457,6 @@ class RelationPlanner
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), projectNode, leftPlan.getOutputSymbols(), unnestSymbols.build(), ordinalitySymbol);
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputSymbols());
-    }
-
-    private static Expression oneIfNull(Optional<Symbol> symbol)
-    {
-        if (symbol.isPresent()) {
-            return new CoalesceExpression(symbol.get().toSymbolReference(), new LongLiteral("1"));
-        }
-        else {
-            return new LongLiteral("1");
-        }
     }
 
     @Override
@@ -504,6 +553,13 @@ class RelationPlanner
 
         UnnestNode unnestNode = new UnnestNode(idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestSymbols.build(), ordinalitySymbol);
         return new RelationPlan(unnestNode, scope, unnestedSymbols);
+    }
+
+    @Override
+    protected RelationPlan visitLateral(Lateral node, Void context)
+    {
+        RelationPlan subPlan = process(node.getQuery(), context);
+        return new RelationPlan(subPlan.getRoot(), analysis.getScope(node), subPlan.getOutputSymbols());
     }
 
     private RelationPlan processAndCoerceIfNecessary(Relation node, Void context)
