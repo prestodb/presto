@@ -165,7 +165,7 @@ public class JoinGraph
     private JoinGraph joinWith(JoinGraph other, List<JoinNode.EquiJoinClause> joinClauses, Context context, PlanNodeId newRoot)
     {
         for (PlanNode node : other.nodes) {
-            checkState(!edges.containsKey(node), format("Node [%s] appeared in two JoinGraphs", node));
+            checkState(!edges.containsKey(node.getId()), format("Node [%s] appeared in two JoinGraphs", node));
         }
 
         List<PlanNode> nodes = ImmutableList.<PlanNode>builder()
