@@ -1177,40 +1177,36 @@ public class ExpressionAnalyzer
 
         private Type coerceToSingleType(StackableAstVisitorContext<Context> context, Node node, String message, Expression first, Expression second)
         {
-            Type firstType = null;
+            Type firstType = UNKNOWN;
             if (first != null) {
                 firstType = process(first, context);
             }
-            Type secondType = null;
+            Type secondType = UNKNOWN;
             if (second != null) {
                 secondType = process(second, context);
             }
 
-            if (firstType == null) {
-                return secondType;
-            }
-            if (secondType == null) {
-                return firstType;
-            }
-            if (firstType.equals(secondType)) {
-                return firstType;
+            // coerce types if possible
+            Optional<Type> superTypeOptional = typeManager.getCommonSuperType(firstType, secondType);
+            if (superTypeOptional.isPresent()
+                    && typeManager.canCoerce(firstType, superTypeOptional.get())
+                    && typeManager.canCoerce(secondType, superTypeOptional.get())) {
+                Type superType = superTypeOptional.get();
+                if (!firstType.equals(superType)) {
+                    expressionCoercions.put(first, superType);
+                    if (typeManager.isTypeOnlyCoercion(firstType, superType)) {
+                        typeOnlyCoercions.add(first);
+                    }
+                }
+                if (!secondType.equals(superType)) {
+                    expressionCoercions.put(second, superType);
+                    if (typeManager.isTypeOnlyCoercion(secondType, superType)) {
+                        typeOnlyCoercions.add(second);
+                    }
+                }
+                return superType;
             }
 
-            // coerce types if possible
-            if (typeManager.canCoerce(firstType, secondType)) {
-                expressionCoercions.put(first, secondType);
-                if (typeManager.isTypeOnlyCoercion(firstType, secondType)) {
-                    typeOnlyCoercions.add(first);
-                }
-                return secondType;
-            }
-            if (typeManager.canCoerce(secondType, firstType)) {
-                expressionCoercions.put(second, firstType);
-                if (typeManager.isTypeOnlyCoercion(secondType, firstType)) {
-                    typeOnlyCoercions.add(second);
-                }
-                return firstType;
-            }
             throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
         }
 

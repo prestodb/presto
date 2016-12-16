@@ -248,7 +248,7 @@ public class JoinGraph
         {
             if (node.isIdentity()) {
                 JoinGraph graph = node.getSource().accept(this, context);
-                return graph.withAssignments(node.getAssignments());
+                return graph.withAssignments(node.getAssignments().getMap());
             }
             return visitPlan(node, context);
         }

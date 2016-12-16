@@ -16,12 +16,11 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.tree.Expression;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 
@@ -59,7 +58,7 @@ final class PlanMatchingVisitor
             return result;
         }
 
-        ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+        Assignments.Builder assignments = Assignments.builder();
         for (int i = 0; i < inputs.size(); ++i) {
             assignments.put(outputs.get(i), inputs.get(i).toSymbolReference());
         }

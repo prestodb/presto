@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.joins.JoinGraph;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -200,7 +201,7 @@ public class EliminateCrossJoins
             return new ProjectNode(
                     idAllocator.getNextId(),
                     result,
-                    graph.getAssignments().get());
+                    Assignments.copyOf(graph.getAssignments().get()));
         }
     }
 }

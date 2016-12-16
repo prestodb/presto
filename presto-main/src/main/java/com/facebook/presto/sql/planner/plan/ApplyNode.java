@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,14 +61,14 @@ public class ApplyNode
      * - expression: subquery_symbol_Y
      * - meaning: subquery is scalar (might be enforced), therefore subquery_symbol_Y can be used directly in the rest of the plan
      */
-    private final Map<Symbol, Expression> subqueryAssignments;
+    private final Assignments subqueryAssignments;
 
     @JsonCreator
     public ApplyNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
-            @JsonProperty("subqueryAssignments") Map<Symbol, Expression> subqueryAssignments,
+            @JsonProperty("subqueryAssignments") Assignments subqueryAssignments,
             @JsonProperty("correlation") List<Symbol> correlation)
     {
         super(id);
@@ -92,7 +90,7 @@ public class ApplyNode
      */
     public boolean isResolvedScalarSubquery()
     {
-        return isScalar(subquery) && subqueryAssignments.values().stream()
+        return isScalar(subquery) && subqueryAssignments.getExpressions().stream()
                 .allMatch(expression -> expression instanceof SymbolReference);
     }
 
@@ -109,7 +107,7 @@ public class ApplyNode
     }
 
     @JsonProperty("subqueryAssignments")
-    public Map<Symbol, Expression> getSubqueryAssignments()
+    public Assignments getSubqueryAssignments()
     {
         return subqueryAssignments;
     }
@@ -132,7 +130,7 @@ public class ApplyNode
     {
         return ImmutableList.<Symbol>builder()
                 .addAll(input.getOutputSymbols())
-                .addAll(subqueryAssignments.keySet())
+                .addAll(subqueryAssignments.getOutputs())
                 .build();
     }
 

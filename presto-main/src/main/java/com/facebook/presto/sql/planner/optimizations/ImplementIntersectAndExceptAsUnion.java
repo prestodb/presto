@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
@@ -45,7 +46,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -59,7 +59,6 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 
 /**
  * Converts INTERSECT and EXCEPT queries into UNION ALL..GROUP BY...WHERE
@@ -198,7 +197,7 @@ public class ImplementIntersectAndExceptAsUnion
 
         private PlanNode appendMarkers(PlanNode source, int markerIndex, List<Symbol> markers, Map<Symbol, SymbolReference> projections)
         {
-            ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+            Assignments.Builder assignments = Assignments.builder();
             // add existing intersect symbols to projection
             for (Map.Entry<Symbol, SymbolReference> entry : projections.entrySet()) {
                 Symbol symbol = symbolAllocator.newSymbol(entry.getKey().getName(), symbolAllocator.getTypes().get(entry.getKey()));
@@ -271,7 +270,7 @@ public class ImplementIntersectAndExceptAsUnion
             return new ProjectNode(
                     idAllocator.getNextId(),
                     node,
-                    columns.stream().collect(toMap(Function.identity(), Symbol::toSymbolReference)));
+                    Assignments.identity(columns));
         }
     }
 }

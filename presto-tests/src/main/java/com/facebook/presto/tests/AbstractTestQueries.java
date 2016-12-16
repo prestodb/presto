@@ -4744,6 +4744,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testCaseWithSupertypeCast()
+    {
+        assertQuery(" SELECT CASE x WHEN 1 THEN cast(1 as decimal(4,1)) WHEN 2 THEN cast(1 as decimal(4,2)) ELSE cast(1 as decimal(4,3)) END FROM (values 1) t(x)", "SELECT 1.000");
+    }
+
+    @Test
     public void testIfExpression()
     {
         assertQuery(
@@ -4761,6 +4767,9 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT sum(IF(NULLIF(orderstatus, 'F') <> 'F', totalprice, 5.1)) FROM orders",
                 "SELECT sum(CASE WHEN NULLIF(orderstatus, 'F') <> 'F' THEN totalprice ELSE 5.1 END) FROM orders");
+
+        // coercions to supertype
+        assertQuery("SELECT if(true, cast(1 as decimal(2,1)), 1)", "SELECT 1.0");
     }
 
     @Test
@@ -5795,6 +5804,15 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (VALUES (1,1), (2,2), (3, 3)) t(x, y) WHERE (x+y in (VALUES 4, 5)) AND (x*y in (VALUES 4, 5))",
                 "VALUES (2,2)");
 
+        // test multiple IN subqueries with coercions
+        assertQuery("SELECT 1.0 IN (SELECT 1), 1 IN (SELECT 1)");
+        assertQuery("SELECT 1 WHERE 1 IN (SELECT 1) AND 1.0 IN (SELECT 1)");
+        assertQuery("select 1.0 in (values (1), (2), (3))", "SELECT true");
+
+        // test IN subqueries with supertype coercions
+        assertQuery("SELECT cast(1 as decimal(3,2)) IN (SELECT cast(1 as decimal(3,1)))", "SELECT true");
+        assertQuery("SELECT cast(1 as decimal(3,2)) IN (values (cast(1 as decimal(3,1))), (cast (2 as decimal(3,1))))", "SELECT true");
+
         // test multi level IN subqueries
         assertQuery("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)");
 
@@ -6137,6 +6155,15 @@ public abstract class AbstractTestQueries
         // exposes a bug in optimize hash generation because EnforceSingleNode does not
         // support more than one column from the underlying query
         assertQuery("SELECT custkey, (SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 1) FROM orders");
+
+        // cast scalar sub-query
+        assertQuery("SELECT 1.0/(SELECT 1), CAST(1.0 AS REAL)/(SELECT 1), 1/(SELECT 1)");
+        assertQuery("SELECT 1.0 = (SELECT 1) AND 1 = (SELECT 1), 2.0 = (SELECT 1) WHERE 1.0 = (SELECT 1) AND 1 = (SELECT 1)");
+        assertQuery("SELECT 1.0 = (SELECT 1), 2.0 = (SELECT 1), CAST(2.0 AS REAL) = (SELECT 1) WHERE 1.0 = (SELECT 1)");
+
+        // coerce correlated symbols
+        assertQuery("SELECT * FROM (VALUES 1) t(a) WHERE 1=(SELECT count(*) WHERE 1.0 = a)", "SELECT 1");
+        assertQuery("SELECT * FROM (VALUES 1.0) t(a) WHERE 1=(SELECT count(*) WHERE 1 = a)", "SELECT 1.0");
     }
 
     @Test
@@ -7810,6 +7837,28 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey <= ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey > ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
         assertQuery("SELECT nationkey, name, regionkey FROM nation WHERE regionkey >= ALL (SELECT regionkey FROM region WHERE name IN ('ASIA', 'EUROPE'))");
+
+        // subquery with coercion
+        assertQuery("SELECT 1.0 < ALL(SELECT 1), 1 < ALL(SELECT 1)");
+        assertQuery("SELECT 1.0 < ANY(SELECT 1), 1 < ANY(SELECT 1)");
+        assertQuery("SELECT 1.0 <= ALL(SELECT 1) WHERE 1 <= ALL(SELECT 1)");
+        assertQuery("SELECT 1.0 <= ANY(SELECT 1) WHERE 1 <= ANY(SELECT 1)");
+        assertQuery("SELECT 1.0 <= ALL(SELECT 1), 1 <= ALL(SELECT 1) WHERE 1 <= ALL(SELECT 1)");
+        assertQuery("SELECT 1.0 <= ANY(SELECT 1), 1 <= ANY(SELECT 1) WHERE 1 <= ANY(SELECT 1)");
+        assertQuery("SELECT 1.0 = ALL(SELECT 1) WHERE 1 = ALL(SELECT 1)");
+        assertQuery("SELECT 1.0 = ANY(SELECT 1) WHERE 1 = ANY(SELECT 1)");
+        assertQuery("SELECT 1.0 = ALL(SELECT 1), 2 = ALL(SELECT 1) WHERE 1 = ALL(SELECT 1)");
+        assertQuery("SELECT 1.0 = ANY(SELECT 1), 2 = ANY(SELECT 1) WHERE 1 = ANY(SELECT 1)");
+
+        // subquery with supertype coercion
+        assertQuery("SELECT cast(1 as decimal(3,2)) < ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) < ANY(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <= ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <= ANY(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) = ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) = ANY(SELECT cast(1 as decimal(3,1)))", "SELECT true");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <> ALL(SELECT cast(1 as decimal(3,1)))");
+        assertQuery("SELECT cast(1 as decimal(3,2)) <> ANY(SELECT cast(1 as decimal(3,1)))");
     }
 
     @Test
