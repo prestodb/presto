@@ -112,6 +112,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -123,11 +124,12 @@ public class RaptorMetadata
 {
     private static final Logger log = Logger.get(RaptorMetadata.class);
 
+    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
+    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+
     private final IDBI dbi;
     private final MetadataDao dao;
     private final ShardManager shardManager;
-    private final JsonCodec<ShardInfo> shardInfoCodec;
-    private final JsonCodec<ShardDelta> shardDeltaCodec;
     private final String connectorId;
 
     private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
@@ -135,16 +137,12 @@ public class RaptorMetadata
     public RaptorMetadata(
             String connectorId,
             IDBI dbi,
-            ShardManager shardManager,
-            JsonCodec<ShardInfo> shardInfoCodec,
-            JsonCodec<ShardDelta> shardDeltaCodec)
+            ShardManager shardManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
-        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
-        this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
     }
 
     @Override
@@ -736,7 +734,7 @@ public class RaptorMetadata
         ImmutableList.Builder<ShardInfo> newShardsBuilder = ImmutableList.builder();
 
         fragments.stream()
-                .map(fragment -> shardDeltaCodec.fromJson(fragment.getBytes()))
+                .map(fragment -> SHARD_DELTA_CODEC.fromJson(fragment.getBytes()))
                 .forEach(delta -> {
                     oldShardUuidsBuilder.addAll(delta.getOldShardUuids());
                     newShardsBuilder.addAll(delta.getNewShards());
@@ -844,10 +842,10 @@ public class RaptorMetadata
         return new RaptorColumnHandle(connectorId, tableColumn.getColumnName(), tableColumn.getColumnId(), tableColumn.getDataType());
     }
 
-    private Collection<ShardInfo> parseFragments(Collection<Slice> fragments)
+    private static Collection<ShardInfo> parseFragments(Collection<Slice> fragments)
     {
         return fragments.stream()
-                .map(fragment -> shardInfoCodec.fromJson(fragment.getBytes()))
+                .map(fragment -> SHARD_INFO_CODEC.fromJson(fragment.getBytes()))
                 .collect(toList());
     }
 

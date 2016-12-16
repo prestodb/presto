@@ -38,7 +38,6 @@ import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -62,7 +61,6 @@ import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static java.lang.String.format;
@@ -73,8 +71,6 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestRaptorSplitManager
 {
-    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final ConnectorTableMetadata TEST_TABLE = TableMetadataBuilder.tableMetadataBuilder("demo", "test_table")
             .column("ds", createVarcharType(10))
             .column("foo", createVarcharType(10))
@@ -107,7 +103,7 @@ public class TestRaptorSplitManager
         nodeManager.addNode(new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
 
         metadata.createTable(SESSION, TEST_TABLE);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());

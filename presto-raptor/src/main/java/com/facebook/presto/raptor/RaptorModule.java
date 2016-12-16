@@ -15,8 +15,6 @@ package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.Distribution;
 import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.ShardDelta;
-import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.systemtables.ShardMetadataSystemTable;
 import com.facebook.presto.raptor.systemtables.TableMetadataSystemTable;
@@ -36,7 +34,6 @@ import org.skife.jdbi.v2.tweak.ConnectionFactory;
 import javax.inject.Singleton;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorModule
@@ -67,9 +64,6 @@ public class RaptorModule
         tableBinder.addBinding().to(ShardMetadataSystemTable.class).in(Scopes.SINGLETON);
         tableBinder.addBinding().to(TableMetadataSystemTable.class).in(Scopes.SINGLETON);
         tableBinder.addBinding().to(TableStatsSystemTable.class).in(Scopes.SINGLETON);
-
-        jsonCodecBinder(binder).bindJsonCodec(ShardInfo.class);
-        jsonCodecBinder(binder).bindJsonCodec(ShardDelta.class);
     }
 
     @ForMetadata

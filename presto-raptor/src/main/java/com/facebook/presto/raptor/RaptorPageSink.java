@@ -44,6 +44,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.allAsList;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -52,9 +53,10 @@ import static java.util.stream.Collectors.toList;
 public class RaptorPageSink
         implements ConnectorPageSink
 {
+    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
+
     private final long transactionId;
     private final StorageManager storageManager;
-    private final JsonCodec<ShardInfo> shardInfoCodec;
     private final PageSorter pageSorter;
     private final List<Long> columnIds;
     private final List<Type> columnTypes;
@@ -71,7 +73,6 @@ public class RaptorPageSink
     public RaptorPageSink(
             PageSorter pageSorter,
             StorageManager storageManager,
-            JsonCodec<ShardInfo> shardInfoCodec,
             long transactionId,
             List<Long> columnIds,
             List<Type> columnTypes,
@@ -87,7 +88,6 @@ public class RaptorPageSink
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
-        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.maxBufferBytes = requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes();
 
         this.sortFields = ImmutableList.copyOf(sortColumnIds.stream().map(columnIds::indexOf).collect(toList()));
@@ -128,7 +128,7 @@ public class RaptorPageSink
             pageBuffer.flush();
             CompletableFuture<List<ShardInfo>> futureShards = pageBuffer.getStoragePageSink().commit();
             return futureShards.thenApply(shards -> shards.stream()
-                    .map(shard -> Slices.wrappedBuffer(shardInfoCodec.toJsonBytes(shard)))
+                    .map(shard -> Slices.wrappedBuffer(SHARD_INFO_CODEC.toJsonBytes(shard)))
                     .collect(toList()));
         }).collect(toList());
 

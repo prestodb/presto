@@ -119,13 +119,14 @@ import static org.joda.time.DateTimeZone.UTC;
 public class OrcStorageManager
         implements StorageManager
 {
+    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+
     private static final long MAX_ROWS = 1_000_000_000;
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 
     private final String nodeId;
     private final StorageService storageService;
     private final Optional<BackupStore> backupStore;
-    private final JsonCodec<ShardDelta> shardDeltaCodec;
     private final ReaderAttributes defaultReaderAttributes;
     private final BackupManager backupManager;
     private final ShardRecoveryManager recoveryManager;
@@ -143,7 +144,6 @@ public class OrcStorageManager
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
-            JsonCodec<ShardDelta> shardDeltaCodec,
             ReaderAttributes readerAttributes,
             StorageManagerConfig config,
             RaptorConnectorId connectorId,
@@ -155,7 +155,6 @@ public class OrcStorageManager
         this(nodeManager.getCurrentNode().getNodeIdentifier(),
                 storageService,
                 backupStore,
-                shardDeltaCodec,
                 readerAttributes,
                 backgroundBackupManager,
                 recoveryManager,
@@ -173,7 +172,6 @@ public class OrcStorageManager
             String nodeId,
             StorageService storageService,
             Optional<BackupStore> backupStore,
-            JsonCodec<ShardDelta> shardDeltaCodec,
             ReaderAttributes readerAttributes,
             BackupManager backgroundBackupManager,
             ShardRecoveryManager recoveryManager,
@@ -189,7 +187,6 @@ public class OrcStorageManager
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
         this.defaultReaderAttributes = requireNonNull(readerAttributes, "readerAttributes is null");
 
         backupManager = requireNonNull(backgroundBackupManager, "backgroundBackupManager is null");
@@ -414,11 +411,11 @@ public class OrcStorageManager
         return shardDelta(shardUuid, Optional.of(shard));
     }
 
-    private Collection<Slice> shardDelta(UUID oldShardUuid, Optional<ShardInfo> shardInfo)
+    private static Collection<Slice> shardDelta(UUID oldShardUuid, Optional<ShardInfo> shardInfo)
     {
         List<ShardInfo> newShards = shardInfo.map(ImmutableList::of).orElse(ImmutableList.of());
         ShardDelta delta = new ShardDelta(ImmutableList.of(oldShardUuid), newShards);
-        return ImmutableList.of(Slices.wrappedBuffer(shardDeltaCodec.toJsonBytes(delta)));
+        return ImmutableList.of(Slices.wrappedBuffer(SHARD_DELTA_CODEC.toJsonBytes(delta)));
     }
 
     private static OrcFileInfo rewriteFile(File input, File output, BitSet rowsToDelete)
