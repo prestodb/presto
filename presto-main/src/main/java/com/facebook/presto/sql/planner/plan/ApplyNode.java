@@ -92,7 +92,15 @@ public class ApplyNode
      */
     public boolean isResolvedScalarSubquery()
     {
-        return isScalar(subquery) && subqueryAssignments.values().stream()
+        return isScalar(subquery) && isResolvedSubquery();
+    }
+
+    /**
+     * @return true when subquery output symbols are directly mapped to ApplyNode output symbols
+     */
+    public boolean isResolvedSubquery()
+    {
+        return subqueryAssignments.values().stream()
                 .allMatch(expression -> expression instanceof SymbolReference);
     }
 
