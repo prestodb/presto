@@ -65,6 +65,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeUtils.isConstantSymbol;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.any;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
@@ -239,15 +240,15 @@ public class AddLocalExchanges
 
             checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
 
-            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
-            // needs to know whether input was received at the query level.
-            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
-                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
-            }
-
             HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
             for (int i = 1; i < node.getGroupingSets().size(); i++) {
                 partitioningRequirement.retainAll(node.getGroupingSets().get(i));
+            }
+
+            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
+            // needs to know whether input was received at the query level.
+            if (node.getGroupingSets().stream().anyMatch(List::isEmpty) || partitioningRequirement.stream().allMatch(symbol -> isConstantSymbol(node.getSource(), symbol))) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
             requiredProperties = parentPreferences.withDefaultParallelism(session).withPartitioning(partitioningRequirement);
