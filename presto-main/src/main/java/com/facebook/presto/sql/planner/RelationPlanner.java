@@ -549,7 +549,7 @@ class RelationPlanner
                     oldField.getRelationAlias(),
                     oldField.getName(),
                     targetColumnTypes[i],
-                    oldField.isHidden(),
+                    oldField.getState(),
                     oldField.getOriginTable(),
                     oldField.isAliased());
         }

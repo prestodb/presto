@@ -612,7 +612,7 @@ class StatementAnalyzer
                                 QualifiedName.of(name),
                                 Optional.of(columnName),
                                 inputField.getType(),
-                                false,
+                                Field.State.VISIBLE,
                                 inputField.getOriginTable(),
                                 inputField.isAliased()));
 
@@ -627,7 +627,7 @@ class StatementAnalyzer
                                     QualifiedName.of(name),
                                     field.getName(),
                                     field.getType(),
-                                    field.isHidden(),
+                                    field.getState(),
                                     field.getOriginTable(),
                                     field.isAliased()))
                             .collect(toImmutableList());
@@ -662,7 +662,7 @@ class StatementAnalyzer
                             QualifiedName.of(name.getObjectName()),
                             Optional.of(column.getName()),
                             column.getType(),
-                            false,
+                            Field.State.VISIBLE,
                             Optional.of(name),
                             false))
                     .collect(toImmutableList());
@@ -689,11 +689,12 @@ class StatementAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            Field.State state = column.isHidden() ? Field.State.INTERNAL : Field.State.VISIBLE;
             Field field = Field.newQualified(
                     table.getName(),
                     Optional.of(column.getName()),
                     column.getType(),
-                    column.isHidden(),
+                    state,
                     Optional.of(name),
                     false);
             fields.add(field);
@@ -848,7 +849,7 @@ class StatementAnalyzer
                     oldField.getRelationAlias(),
                     oldField.getName(),
                     outputFieldTypes[i],
-                    oldField.isHidden(),
+                    oldField.getState(),
                     oldField.getOriginTable(),
                     oldField.isAliased());
         }
@@ -915,15 +916,18 @@ class StatementAnalyzer
                 Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
                 Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
 
-                ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left);
-                ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right);
-                checkState(leftExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
-                checkState(rightExpressionAnalysis.getSubqueryInPredicates().isEmpty(), "INVARIANT");
-                checkState(leftExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
-                checkState(rightExpressionAnalysis.getScalarSubqueries().isEmpty(), "INVARIANT");
+                analyzeExpression(leftExpression, left);
+                analyzeExpression(rightExpression, right);
 
                 addCoercionForJoinCriteria(node, leftExpression, rightExpression);
                 expressions.add(new ComparisonExpression(EQUAL, leftExpression, rightExpression));
+
+                if (node.getType() == Join.Type.LEFT) {
+                    output = createScope(node, scope, left.getRelationType().joinWith(right.hide(rightExpression).getRelationType()));
+                }
+                else {
+                    output = createScope(node, scope, left.hide(leftExpression).getRelationType().joinWith(right.getRelationType()));
+                }
             }
 
             analysis.setJoinCriteria(node, ExpressionUtils.and(expressions));
