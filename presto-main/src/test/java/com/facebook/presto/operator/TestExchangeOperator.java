@@ -287,7 +287,7 @@ public class TestExchangeOperator
                 break;
             }
 
-            if (operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes() > 0) {
+            if (operator.getOperatorContext().getDriverContext().getPipelineContext().getPipelineStats().getSystemMemoryReservation().toBytes() > 0) {
                 greaterThanZero = true;
                 break;
             }

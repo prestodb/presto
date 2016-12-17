@@ -111,8 +111,8 @@ public class TestEventListener
             throws Exception
     {
         // We expect the following events
-        // QueryCreated: 1, QueryCompleted: 1, leaf splits: SPLITS_PER_NODE, aggregation/output split: 1
-        int expectedEvents = SPLITS_PER_NODE + 3;
+        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
         EventsBuilder events = generateEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
 
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(events.getQueryCreatedEvents());
@@ -128,10 +128,10 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getConnectorId(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 1);
+        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
 
         List<SplitCompletedEvent> splitCompletedEvents = events.getSplitCompletedEvents();
-        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 1); // leaf splits + aggregation split
+        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 2); // leaf splits + aggregation split
 
         // All splits must have the same query ID
         Set<String> actual = splitCompletedEvents.stream()

@@ -227,7 +227,10 @@ public class ExchangeClient
     @Override
     public synchronized void close()
     {
-        closed.set(true);
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+
         for (HttpPageBufferClient client : allClients.values()) {
             closeQuietly(client);
         }

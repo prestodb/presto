@@ -253,9 +253,8 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitExchange(ExchangeNode node, List<StreamProperties> inputProperties)
         {
-            // remote exchange always produces a single stream
             if (node.getScope() == REMOTE) {
-                return StreamProperties.singleStream();
+                return StreamProperties.fixedStreams();
             }
 
             switch (node.getType()) {
@@ -552,6 +551,11 @@ final class StreamPropertyDerivations
         private static StreamProperties singleStream()
         {
             return new StreamProperties(SINGLE, false, Optional.of(ImmutableSet.of()), false);
+        }
+
+        private static StreamProperties fixedStreams()
+        {
+            return new StreamProperties(FIXED, false, Optional.empty(), false);
         }
 
         private static StreamProperties ordered()
