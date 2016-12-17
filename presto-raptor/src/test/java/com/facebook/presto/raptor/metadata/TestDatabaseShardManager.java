@@ -671,6 +671,26 @@ public class TestDatabaseShardManager
         assertEquals(after, before);
     }
 
+    @Test
+    public void testMaintenanceBlocked()
+    {
+        long tableId = createTable("test");
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
+        Set<UUID> oldShards = ImmutableSet.of(UUID.randomUUID());
+
+        dbi.onDemand(MetadataDao.class).blockMaintenance(tableId);
+
+        long transactionId = shardManager.beginTransaction();
+        try {
+            shardManager.replaceShardUuids(transactionId, tableId, columns, oldShards, ImmutableSet.of(), OptionalLong.empty());
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
+            assertEquals(e.getMessage(), "Maintenance is blocked for table");
+        }
+    }
+
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
     {
         try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, predicate)) {

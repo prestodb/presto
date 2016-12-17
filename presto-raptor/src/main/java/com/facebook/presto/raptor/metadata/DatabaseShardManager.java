@@ -320,6 +320,10 @@ public class DatabaseShardManager
         runCommit(transactionId, (handle) -> {
             lockTable(handle, tableId);
 
+            if (!updateTime.isPresent() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {
+                throw new PrestoException(TRANSACTION_CONFLICT, "Maintenance is blocked for table");
+            }
+
             ShardStats newStats = shardStats(newShards);
             long rowCount = newStats.getRowCount();
             long compressedSize = newStats.getCompressedSize();

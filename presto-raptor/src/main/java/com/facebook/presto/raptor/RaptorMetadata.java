@@ -72,6 +72,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongConsumer;
 
 import static com.facebook.presto.raptor.RaptorBucketFunction.validateBucketType;
 import static com.facebook.presto.raptor.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
@@ -131,18 +132,26 @@ public class RaptorMetadata
     private final MetadataDao dao;
     private final ShardManager shardManager;
     private final String connectorId;
+    private final LongConsumer beginDeleteForTableId;
 
     private final AtomicReference<Long> currentTransactionId = new AtomicReference<>();
+
+    public RaptorMetadata(String connectorId, IDBI dbi, ShardManager shardManager)
+    {
+        this(connectorId, dbi, shardManager, tableId -> { });
+    }
 
     public RaptorMetadata(
             String connectorId,
             IDBI dbi,
-            ShardManager shardManager)
+            ShardManager shardManager,
+            LongConsumer beginDeleteForTableId)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
+        this.beginDeleteForTableId = requireNonNull(beginDeleteForTableId, "beginDeleteForTableId is null");
     }
 
     @Override
@@ -701,6 +710,8 @@ public class RaptorMetadata
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "tableHandle");
+
+        beginDeleteForTableId.accept(handle.getTableId());
 
         long transactionId = shardManager.beginTransaction();
 

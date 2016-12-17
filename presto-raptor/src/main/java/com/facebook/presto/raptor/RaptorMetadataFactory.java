@@ -19,6 +19,8 @@ import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 
+import java.util.function.LongConsumer;
+
 import static java.util.Objects.requireNonNull;
 
 public class RaptorMetadataFactory
@@ -38,8 +40,8 @@ public class RaptorMetadataFactory
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
     }
 
-    public RaptorMetadata create()
+    public RaptorMetadata create(LongConsumer beginDeleteForTableId)
     {
-        return new RaptorMetadata(connectorId, dbi, shardManager);
+        return new RaptorMetadata(connectorId, dbi, shardManager, beginDeleteForTableId);
     }
 }
