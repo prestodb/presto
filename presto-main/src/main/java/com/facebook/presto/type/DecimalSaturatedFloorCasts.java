@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import java.math.BigDecimal;
@@ -38,6 +37,7 @@ import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.math.BigInteger.ONE;
 import static java.math.RoundingMode.FLOOR;
 
@@ -56,10 +56,10 @@ public final class DecimalSaturatedFloorCasts
             .implementation(b -> b
                     .methods("shortDecimalToShortDecimal", "shortDecimalToLongDecimal", "longDecimalToShortDecimal", "longDecimalToLongDecimal")
                     .withExtraParameters((context) -> {
-                        int sourcePrecision = Ints.checkedCast(context.getLiteral("source_precision"));
-                        int sourceScale = Ints.checkedCast(context.getLiteral("source_scale"));
-                        int resultPrecision = Ints.checkedCast(context.getLiteral("result_precision"));
-                        int resultScale = Ints.checkedCast(context.getLiteral("result_scale"));
+                        int sourcePrecision = toIntExact(context.getLiteral("source_precision"));
+                        int sourceScale = toIntExact(context.getLiteral("source_scale"));
+                        int resultPrecision = toIntExact(context.getLiteral("result_precision"));
+                        int resultScale = toIntExact(context.getLiteral("result_scale"));
                         return ImmutableList.of(sourcePrecision, sourceScale, resultPrecision, resultScale);
                     })
             ).build();
@@ -119,8 +119,8 @@ public final class DecimalSaturatedFloorCasts
             .implementation(b -> b
                     .methods("doubleToShortDecimal", "doubleToLongDecimal")
                     .withExtraParameters((context) -> {
-                        int resultPrecision = Ints.checkedCast(context.getLiteral("result_precision"));
-                        int resultScale = Ints.checkedCast(context.getLiteral("result_scale"));
+                        int resultPrecision = toIntExact(context.getLiteral("result_precision"));
+                        int resultScale = toIntExact(context.getLiteral("result_scale"));
                         return ImmutableList.of(resultPrecision, resultScale);
                     })
             ).build();
@@ -148,8 +148,8 @@ public final class DecimalSaturatedFloorCasts
             .implementation(b -> b
                     .methods("realToShortDecimal", "realToLongDecimal")
                     .withExtraParameters((context) -> {
-                        int resultPrecision = Ints.checkedCast(context.getLiteral("result_precision"));
-                        int resultScale = Ints.checkedCast(context.getLiteral("result_scale"));
+                        int resultPrecision = toIntExact(context.getLiteral("result_precision"));
+                        int resultScale = toIntExact(context.getLiteral("result_scale"));
                         return ImmutableList.of(resultPrecision, resultScale);
                     })
             ).build();
@@ -184,7 +184,7 @@ public final class DecimalSaturatedFloorCasts
                 .implementation(b -> b
                         .methods("shortDecimalToGenericIntegerType", "longDecimalToGenericIntegerType")
                         .withExtraParameters((context) -> {
-                            int sourceScale = Ints.checkedCast(context.getLiteral("source_scale"));
+                            int sourceScale = toIntExact(context.getLiteral("source_scale"));
                             return ImmutableList.of(sourceScale, minValue, maxValue);
                         })
                 ).build();
@@ -233,8 +233,8 @@ public final class DecimalSaturatedFloorCasts
                 .implementation(b -> b
                         .methods("genericIntegerTypeToShortDecimal", "genericIntegerTypeToLongDecimal")
                         .withExtraParameters((context) -> {
-                            int resultPrecision = Ints.checkedCast(context.getLiteral("result_precision"));
-                            int resultScale = Ints.checkedCast(context.getLiteral("result_scale"));
+                            int resultPrecision = toIntExact(context.getLiteral("result_precision"));
+                            int resultScale = toIntExact(context.getLiteral("result_scale"));
                             return ImmutableList.of(resultPrecision, resultScale);
                         })
                 ).build();

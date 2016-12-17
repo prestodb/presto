@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.presto.raptor.util.Closer;
 import com.facebook.presto.raptor.util.SyncingFileSystem;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -47,6 +46,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Math.toIntExact;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createReader;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createWriter;
 import static org.apache.hadoop.hive.ql.io.orc.OrcUtil.getFieldValue;
@@ -75,7 +75,7 @@ public final class OrcFileRewriter
             if (reader.getNumberOfRows() >= Integer.MAX_VALUE) {
                 throw new IOException("File has too many rows");
             }
-            int inputRowCount = Ints.checkedCast(reader.getNumberOfRows());
+            int inputRowCount = toIntExact(reader.getNumberOfRows());
 
             WriterOptions writerOptions = new OrcWriterOptions(CONFIGURATION)
                     .memory(new NullMemoryManager(CONFIGURATION))

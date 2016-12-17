@@ -18,13 +18,13 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.calculateTruncationLength;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.lang.Math.toIntExact;
 
 public class StringEncoding
         implements BinaryColumnEncoding
@@ -73,7 +73,7 @@ public class StringEncoding
     @Override
     public int getValueLength(Slice slice, int offset)
     {
-        return Ints.checkedCast(readVInt(slice, offset));
+        return toIntExact(readVInt(slice, offset));
     }
 
     @Override

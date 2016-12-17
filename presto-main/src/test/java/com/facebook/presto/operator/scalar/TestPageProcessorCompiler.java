@@ -44,7 +44,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.Boolean.TRUE;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
@@ -190,7 +189,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), wrappedIntArray(ids));
+        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), ids);
     }
 
     protected static Slice[] createExpectedValues(int positionCount)

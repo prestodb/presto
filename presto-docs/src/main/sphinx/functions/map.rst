@@ -22,6 +22,12 @@ Map Functions
 
     Returns value for given ``key``, or ``NULL`` if the key is not contained in the map.
 
+.. function:: map() -> map<unknown, unknown>
+
+    Returns an empty map. ::
+
+        SELECT map(); -- {}
+
 .. function:: map(array<K>, array<V>) -> map<K,V>
 
     Returns a map created using the given key/value arrays. ::
@@ -35,6 +41,11 @@ Map Functions
    Returns the union of two maps. If a key is found in both ``x`` and ``y``,
    that key's value in the resulting map comes from ``y``.
 
+.. function:: map_filter(map<K,V>, function) -> map<K,V>
+    :noindex:
+
+    See :func:`map_filter`.
+
 .. function:: map_keys(x<K,V>) -> array<K>
 
     Returns all the keys in the map ``x``.
@@ -42,4 +53,3 @@ Map Functions
 .. function:: map_values(x<K,V>) -> array<V>
 
     Returns all the values in the map ``x``.
-

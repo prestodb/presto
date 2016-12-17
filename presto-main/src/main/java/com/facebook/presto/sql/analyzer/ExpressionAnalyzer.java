@@ -121,6 +121,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregatesOrWindowFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -362,14 +363,16 @@ public class ExpressionAnalyzer
         {
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
-            // If this Dereference looks like column reference, try match it to column first.
-            if (qualifiedName != null) {
-                Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
-                if (resolvedField.isPresent()) {
-                    return handleResolvedField(node, resolvedField.get());
-                }
-                if (!scope.isColumnReference(qualifiedName)) {
-                    throwMissingAttributeException(node, qualifiedName);
+            if (!context.getContext().isInLambda()) {
+                // If this Dereference looks like column reference, try match it to column first.
+                if (qualifiedName != null) {
+                    Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
+                    if (resolvedField.isPresent()) {
+                        return handleResolvedField(node, resolvedField.get());
+                    }
+                    if (!scope.isColumnReference(qualifiedName)) {
+                        throwMissingAttributeException(node, qualifiedName);
+                    }
                 }
             }
 
@@ -781,6 +784,7 @@ public class ExpressionAnalyzer
             for (Expression expression : node.getArguments()) {
                 if (expression instanceof LambdaExpression) {
                     LambdaExpression lambdaExpression = (LambdaExpression) expression;
+                    verifyNoAggregatesOrWindowFunctions(functionRegistry, lambdaExpression.getBody(), "Lambda expression");
 
                     // captures are not supported for now, use empty tuple descriptor
                     Expression lambdaBody = lambdaExpression.getBody();
@@ -1009,7 +1013,9 @@ public class ExpressionAnalyzer
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = createQueryBoundaryScope();
+            Scope subqueryScope = Scope.builder()
+                    .withParent(scope)
+                    .build();
             analyzer.getAnalysis().setScope(node, subqueryScope);
             Scope queryScope = analyzer.process(node.getQuery(), subqueryScope);
 
@@ -1041,7 +1047,7 @@ public class ExpressionAnalyzer
         protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = createQueryBoundaryScope();
+            Scope subqueryScope = Scope.builder().withParent(scope).build();
             analyzer.getAnalysis().setScope(node, subqueryScope);
             analyzer.process(node.getSubquery(), subqueryScope);
 
@@ -1083,14 +1089,6 @@ public class ExpressionAnalyzer
 
             expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
-        }
-
-        private Scope createQueryBoundaryScope()
-        {
-            return Scope.builder()
-                    .withParent(scope)
-                    .markQueryBoundary()
-                    .build();
         }
 
         @Override
@@ -1175,40 +1173,36 @@ public class ExpressionAnalyzer
 
         private Type coerceToSingleType(StackableAstVisitorContext<Context> context, Node node, String message, Expression first, Expression second)
         {
-            Type firstType = null;
+            Type firstType = UNKNOWN;
             if (first != null) {
                 firstType = process(first, context);
             }
-            Type secondType = null;
+            Type secondType = UNKNOWN;
             if (second != null) {
                 secondType = process(second, context);
             }
 
-            if (firstType == null) {
-                return secondType;
-            }
-            if (secondType == null) {
-                return firstType;
-            }
-            if (firstType.equals(secondType)) {
-                return firstType;
+            // coerce types if possible
+            Optional<Type> superTypeOptional = typeManager.getCommonSuperType(firstType, secondType);
+            if (superTypeOptional.isPresent()
+                    && typeManager.canCoerce(firstType, superTypeOptional.get())
+                    && typeManager.canCoerce(secondType, superTypeOptional.get())) {
+                Type superType = superTypeOptional.get();
+                if (!firstType.equals(superType)) {
+                    expressionCoercions.put(first, superType);
+                    if (typeManager.isTypeOnlyCoercion(firstType, superType)) {
+                        typeOnlyCoercions.add(first);
+                    }
+                }
+                if (!secondType.equals(superType)) {
+                    expressionCoercions.put(second, superType);
+                    if (typeManager.isTypeOnlyCoercion(secondType, superType)) {
+                        typeOnlyCoercions.add(second);
+                    }
+                }
+                return superType;
             }
 
-            // coerce types if possible
-            if (typeManager.canCoerce(firstType, secondType)) {
-                expressionCoercions.put(first, secondType);
-                if (typeManager.isTypeOnlyCoercion(firstType, secondType)) {
-                    typeOnlyCoercions.add(first);
-                }
-                return secondType;
-            }
-            if (typeManager.canCoerce(secondType, firstType)) {
-                expressionCoercions.put(second, firstType);
-                if (typeManager.isTypeOnlyCoercion(secondType, firstType)) {
-                    typeOnlyCoercions.add(second);
-                }
-                return firstType;
-            }
             throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
         }
 

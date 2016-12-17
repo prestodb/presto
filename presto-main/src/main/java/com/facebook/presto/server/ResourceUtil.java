@@ -15,7 +15,6 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
-import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
@@ -28,7 +27,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Splitter;
-import io.airlift.units.Duration;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
@@ -37,7 +35,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.security.Principal;
@@ -52,6 +49,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
@@ -65,7 +63,6 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 final class ResourceUtil
 {
@@ -92,7 +89,11 @@ final class ResourceUtil
             accessControl.checkCanSetUser(principal, user);
         }
         catch (AccessDeniedException e) {
-            throw new WebApplicationException(e.getMessage(), Status.FORBIDDEN);
+            throw new WebApplicationException(
+                    e,
+                    Response.status(Status.FORBIDDEN)
+                            .entity("Access denied: " + e.getMessage())
+                            .build());
         }
 
         Identity identity = new Identity(user, Optional.ofNullable(principal));
@@ -103,7 +104,8 @@ final class ResourceUtil
                 .setCatalog(catalog)
                 .setSchema(schema)
                 .setRemoteUserAddress(servletRequest.getRemoteAddr())
-                .setUserAgent(servletRequest.getHeader(USER_AGENT));
+                .setUserAgent(servletRequest.getHeader(USER_AGENT))
+                .setClientInfo(servletRequest.getHeader(PRESTO_CLIENT_INFO));
 
         String timeZoneId = servletRequest.getHeader(PRESTO_TIME_ZONE);
         if (timeZoneId != null) {
@@ -159,54 +161,6 @@ final class ResourceUtil
         }
 
         return session;
-    }
-
-    public static ClientSession createClientSessionForRequest(HttpServletRequest request, URI server, Duration clientRequestTimeout)
-    {
-        requireNonNull(request, "request is null");
-        requireNonNull(server, "server is null");
-        requireNonNull(clientRequestTimeout, "clientRequestTimeout is null");
-
-        String catalog = trimEmptyToNull(request.getHeader(PRESTO_CATALOG));
-        String schema = trimEmptyToNull(request.getHeader(PRESTO_SCHEMA));
-        assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
-
-        String user = trimEmptyToNull(request.getHeader(PRESTO_USER));
-        assertRequest(user != null, "User must be set");
-
-        Principal principal = request.getUserPrincipal();
-
-        String source = request.getHeader(PRESTO_SOURCE);
-
-        Identity identity = new Identity(user, Optional.ofNullable(principal));
-
-        String transactionId = trimEmptyToNull(request.getHeader(PRESTO_TRANSACTION_ID));
-
-        String timeZoneId = request.getHeader(PRESTO_TIME_ZONE);
-
-        String language = request.getHeader(PRESTO_LANGUAGE);
-        Locale locale = null;
-        if (language != null) {
-            locale = Locale.forLanguageTag(language);
-        }
-
-        Map<String, String> sessionProperties = parseSessionHeaders(request);
-
-        Map<String, String> preparedStatements = parsePreparedStatementsHeaders(request);
-
-        return new ClientSession(
-                server,
-                identity.getUser(),
-                source,
-                catalog,
-                schema,
-                timeZoneId,
-                locale,
-                sessionProperties,
-                preparedStatements,
-                transactionId,
-                false,
-                clientRequestTimeout);
     }
 
     private static List<String> splitSessionHeader(Enumeration<String> headers)

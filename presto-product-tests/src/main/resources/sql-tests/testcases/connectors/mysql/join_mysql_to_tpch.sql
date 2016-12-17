@@ -1,4 +1,4 @@
--- database: presto; groups: mysql_connector; tables: mysql.workers_mysql
+-- database: presto; groups: mysql_connector; tables: mysql.test.workers_mysql
 --!
 select t1.first_name, t2.name from mysql.test.workers_mysql t1, tpch.sf1.nation t2 where t1.id_department = t2.nationkey
 --!

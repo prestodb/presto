@@ -63,7 +63,6 @@ import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
 import com.facebook.presto.sql.tree.IntervalLiteral.Sign;
 import com.facebook.presto.sql.tree.Isolation;
 import com.facebook.presto.sql.tree.Join;
-import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
@@ -247,11 +246,11 @@ public class TestSqlParser
     public void testArrayConstructor()
             throws Exception
     {
-        assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.<Expression>of()));
-        assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))));
-        assertExpression("ARRAY [1.0, 2.5]", new ArrayConstructor(ImmutableList.<Expression>of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
-        assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.<Expression>of(new StringLiteral("hi"))));
-        assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.<Expression>of(new StringLiteral("hi"), new StringLiteral("hello"))));
+        assertExpression("ARRAY []", new ArrayConstructor(ImmutableList.of()));
+        assertExpression("ARRAY [1, 2]", new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
+        assertExpression("ARRAY [1.0, 2.5]", new ArrayConstructor(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
+        assertExpression("ARRAY ['hi']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"))));
+        assertExpression("ARRAY ['hi', 'hello']", new ArrayConstructor(ImmutableList.of(new StringLiteral("hi"), new StringLiteral("hello"))));
     }
 
     @Test
@@ -259,7 +258,7 @@ public class TestSqlParser
             throws Exception
     {
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
-                new ArrayConstructor(ImmutableList.<Expression>of(new LongLiteral("1"), new LongLiteral("2"))),
+                new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
                 new LongLiteral("1"))
         );
         try {
@@ -425,7 +424,7 @@ public class TestSqlParser
                                 new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
                                 createSelect123()
                         ), false),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
     }
 
@@ -794,7 +793,7 @@ public class TestSqlParser
     public void testShowSchemas()
             throws Exception
     {
-        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.<String>empty(), Optional.empty()));
+        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.empty(), Optional.empty()));
         assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of("foo"), Optional.empty()));
         assertStatement("SHOW SCHEMAS IN foo LIKE '%'", new ShowSchemas(Optional.of("foo"), Optional.of("%")));
     }
@@ -857,7 +856,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement(format("SELECT substring('%s' FROM 2 FOR 3)", givenString),
@@ -871,7 +870,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
     }
 
@@ -890,7 +889,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement(format("SELECT substring('%s', 2, 3)", givenString),
@@ -904,7 +903,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
     }
 
@@ -927,7 +926,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SELECT col1.f1[0], col2, col3[2].f2.f3, col4[4] FROM table1",
@@ -946,7 +945,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SELECT CAST(ROW(11, 12) AS ROW(COL0 INTEGER, COL1 INTEGER)).col0",
@@ -962,7 +961,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
     }
 
@@ -981,7 +980,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY a, b",
@@ -997,7 +996,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY ()",
@@ -1011,7 +1010,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY GROUPING SETS (a)",
@@ -1025,7 +1024,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY ALL GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
@@ -1045,7 +1044,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 GROUP BY DISTINCT GROUPING SETS ((a, b), (a), ()), CUBE (c), ROLLUP (d)",
@@ -1065,7 +1064,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
     }
 
@@ -1117,14 +1116,16 @@ public class TestSqlParser
     public void testCreateTable()
             throws Exception
     {
-        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT)",
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world')",
                 new CreateTable(QualifiedName.of("foo"),
-                        ImmutableList.of(new ColumnDefinition("a", "VARCHAR"), new ColumnDefinition("b", "BIGINT")),
+                        ImmutableList.of(
+                                new ColumnDefinition("a", "VARCHAR", Optional.empty()),
+                                new ColumnDefinition("b", "BIGINT", Optional.of("hello world"))),
                         false,
                         ImmutableMap.of()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP")),
+                        ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP", Optional.empty())),
                         true,
                         ImmutableMap.of()));
 
@@ -1139,7 +1140,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
@@ -1147,10 +1148,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition("d", "DATE")),
+                                new ColumnDefinition("d", "DATE", Optional.empty())),
                         true,
                         ImmutableMap.of()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
@@ -1163,7 +1164,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1278,7 +1279,7 @@ public class TestSqlParser
     public void testAddColumn()
             throws Exception
     {
-        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition("c", "bigint")));
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition("c", "bigint", Optional.empty())));
     }
 
     @Test
@@ -1334,14 +1335,14 @@ public class TestSqlParser
                         new WithQuery("b", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("y"))), Optional.empty())))),
                         new Table(QualifiedName.of("z")),
                         ImmutableList.of(),
-                        Optional.<String>empty()));
+                        Optional.empty()));
 
         assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
                 new Query(Optional.of(new With(true, ImmutableList.of(
                         new WithQuery("a", simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("x"))), Optional.empty())))),
                         new Table(QualifiedName.of("y")),
                         ImmutableList.of(),
-                        Optional.<String>empty()));
+                        Optional.empty()));
     }
 
     @Test
@@ -1353,7 +1354,7 @@ public class TestSqlParser
                         new Join(Join.Type.IMPLICIT,
                                 new Table(QualifiedName.of("a")),
                                 new Table(QualifiedName.of("b")),
-                                Optional.<JoinCriteria>empty())));
+                                Optional.empty())));
     }
 
     @Test
@@ -1516,7 +1517,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(),
                                 Optional.empty()),
-                        ImmutableList.<SortItem>of(),
+                        ImmutableList.of(),
                         Optional.empty()));
     }
 

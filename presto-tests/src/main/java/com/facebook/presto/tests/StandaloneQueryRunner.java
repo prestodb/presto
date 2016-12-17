@@ -184,7 +184,7 @@ public final class StandaloneQueryRunner
 
     public void createCatalog(String catalogName, String connectorName)
     {
-        createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
+        createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)

@@ -38,6 +38,7 @@ public class TestHiveClientConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
                 .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
+                .setMaxPartitionsPerScan(100_000)
                 .setMaxOutstandingSplits(1_000)
                 .setMaxSplitIteratorThreads(1_000)
                 .setAllowCorruptWritesForTesting(false)
@@ -109,7 +110,8 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab(null)
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
-                .setBucketWritingEnabled(true));
+                .setBucketWritingEnabled(true)
+                .setFileSystemMaxCacheSize(1000));
     }
 
     @Test
@@ -118,6 +120,7 @@ public class TestHiveClientConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.max-split-size", "256MB")
+                .put("hive.max-partitions-per-scan", "123")
                 .put("hive.max-outstanding-splits", "10")
                 .put("hive.max-split-iterator-threads", "10")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
@@ -190,11 +193,13 @@ public class TestHiveClientConfig
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
+                .put("hive.fs.cache.max-size", "1010")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
                 .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
+                .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
@@ -266,7 +271,8 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab("/tmp/presto.keytab")
                 .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
-                .setBucketWritingEnabled(false);
+                .setBucketWritingEnabled(false)
+                .setFileSystemMaxCacheSize(1010);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

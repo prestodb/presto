@@ -14,11 +14,12 @@
 package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.operator.Mergeable;
+import com.facebook.presto.operator.OperatorInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class LocalExchangeBufferInfo
-        implements Mergeable<LocalExchangeBufferInfo>
+        implements Mergeable<LocalExchangeBufferInfo>, OperatorInfo
 {
     private final long bufferedBytes;
     private final int bufferedPages;

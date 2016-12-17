@@ -166,7 +166,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
@@ -238,7 +238,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10), VARBINARY, DATE, BOOLEAN, DOUBLE);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DATE, BOOLEAN, DOUBLE);
 
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
@@ -313,7 +313,7 @@ public class TestOrcStorageManager
 
         long transactionId = TRANSACTION_ID;
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         // create file with 2 rows
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
@@ -363,7 +363,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
@@ -496,7 +496,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager(2, new DataSize(2, MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
@@ -512,7 +512,7 @@ public class TestOrcStorageManager
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(5));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(5));
 
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123L, "hello")

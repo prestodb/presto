@@ -24,11 +24,11 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -149,7 +149,7 @@ public class PartialAggregationPushDown
                 if (!exchange.getOutputSymbols().equals(exchange.getInputs().get(i))) {
                     // Add an identity projection to preserve the inputs to the aggregation, if necessary.
                     // This allows us to avoid having to rewrite the symbols in the aggregation node below.
-                    ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+                    Assignments.Builder assignments = Assignments.builder();
                     for (int outputIndex = 0; outputIndex < exchange.getOutputSymbols().size(); outputIndex++) {
                         Symbol output = exchange.getOutputSymbols().get(outputIndex);
                         Symbol input = exchange.getInputs().get(i).get(outputIndex);

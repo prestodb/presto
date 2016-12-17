@@ -393,9 +393,6 @@ public class ThriftHiveMetastore
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
-        catch (InvalidOperationException | MetaException e) {
-            throw Throwables.propagate(e);
-        }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }

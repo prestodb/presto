@@ -26,6 +26,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -260,9 +261,9 @@ class QueryPlanner
         List<Expression> emptyRow = ImmutableList.of();
         Scope scope = Scope.builder().withParent(analysis.getScope(node)).build();
         return new RelationPlan(
-                new ValuesNode(idAllocator.getNextId(), ImmutableList.<Symbol>of(), ImmutableList.of(emptyRow)),
+                new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow)),
                 scope,
-                ImmutableList.<Symbol>of());
+                ImmutableList.of());
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)
@@ -285,7 +286,7 @@ class QueryPlanner
     {
         TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
 
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+        Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
             Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
             Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(expression));
@@ -329,7 +330,7 @@ class QueryPlanner
     private PlanBuilder explicitCoercionFields(PlanBuilder subPlan, Iterable<Expression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
         TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToSymbolMap);
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
+        Assignments.Builder projections = Assignments.builder();
 
         projections.putAll(coerce(uncoerced, subPlan, translations));
 
@@ -352,18 +353,15 @@ class QueryPlanner
     private PlanBuilder explicitCoercionSymbols(PlanBuilder subPlan, Iterable<Symbol> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
         TranslationMap translations = subPlan.copyTranslations();
-        ImmutableMap.Builder<Symbol, Expression> projections = ImmutableMap.builder();
 
-        projections.putAll(coerce(uncoerced, subPlan, translations));
-
-        for (Symbol symbol : alreadyCoerced) {
-            projections.put(symbol, symbol.toSymbolReference());
-        }
+        Assignments assignments = Assignments.builder().putAll(coerce(uncoerced, subPlan, translations))
+                .putAll(Assignments.identity(alreadyCoerced))
+                .build();
 
         return new PlanBuilder(translations, new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                projections.build()),
+                assignments),
                 analysis.getParameters());
     }
 
@@ -452,16 +450,16 @@ class QueryPlanner
             subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
         }
         else {
-            Map<Symbol, Expression> projections = new HashMap<>();
+            Assignments.Builder assignments = Assignments.builder();
             for (Symbol output : argumentMappings.keySet()) {
-                projections.putIfAbsent(output, argumentMappings.get(output).toSymbolReference());
+                assignments.put(output, argumentMappings.get(output).toSymbolReference());
             }
 
             for (Symbol output : groupingSetMappings.keySet()) {
-                projections.putIfAbsent(output, groupingSetMappings.get(output).toSymbolReference());
+                assignments.put(output, groupingSetMappings.get(output).toSymbolReference());
             }
 
-            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections);
+            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
         }
 

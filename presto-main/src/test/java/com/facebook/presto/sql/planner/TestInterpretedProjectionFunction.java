@@ -149,17 +149,17 @@ public class TestInterpretedProjectionFunction
     {
         Symbol symbol = new Symbol("symbol");
         ImmutableMap<Symbol, Integer> symbolToInputMappings = ImmutableMap.of(symbol, 0);
-        assertProjection("symbol", true, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, true));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, null));
+        assertProjection("symbol", true, symbolToInputMappings, ImmutableMap.of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, true));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BOOLEAN), 0, createBlock(BOOLEAN, null));
 
-        assertProjection("symbol", 42L, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BIGINT), 0, createBlock(BIGINT, 42));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, BIGINT), 0, createBlock(BIGINT, null));
+        assertProjection("symbol", 42L, symbolToInputMappings, ImmutableMap.of(symbol, BIGINT), 0, createBlock(BIGINT, 42));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, BIGINT), 0, createBlock(BIGINT, null));
 
-        assertProjection("symbol", 11.1, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, DOUBLE), 0, createBlock(DOUBLE, 11.1));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, DOUBLE), 0, createBlock(DOUBLE, null));
+        assertProjection("symbol", 11.1, symbolToInputMappings, ImmutableMap.of(symbol, DOUBLE), 0, createBlock(DOUBLE, 11.1));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, DOUBLE), 0, createBlock(DOUBLE, null));
 
-        assertProjection("symbol", "foo", symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, VARCHAR), 0, createBlock(VARCHAR, "foo"));
-        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.<Symbol, Type>of(symbol, VARCHAR), 0, createBlock(VARCHAR, null));
+        assertProjection("symbol", "foo", symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createBlock(VARCHAR, "foo"));
+        assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createBlock(VARCHAR, null));
     }
 
     public static void assertProjection(String expression, @Nullable Object expectedValue)
@@ -167,8 +167,8 @@ public class TestInterpretedProjectionFunction
         assertProjection(
                 expression,
                 expectedValue,
-                ImmutableMap.<Symbol, Integer>of(),
-                ImmutableMap.<Symbol, Type>of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 0);
     }
 

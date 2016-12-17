@@ -17,7 +17,6 @@ import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -33,6 +32,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.lang.Integer.numberOfTrailingZeros;
+import static java.lang.Math.toIntExact;
 
 @NotThreadSafe
 public class PartitionedLookupSource
@@ -108,7 +108,7 @@ public class PartitionedLookupSource
         if (joinPosition < 0) {
             return joinPosition;
         }
-        return encodePartitionedJoinPosition(partition, Ints.checkedCast(joinPosition));
+        return encodePartitionedJoinPosition(partition, toIntExact(joinPosition));
     }
 
     @Override
@@ -121,7 +121,7 @@ public class PartitionedLookupSource
         if (nextJoinPosition < 0) {
             return nextJoinPosition;
         }
-        return encodePartitionedJoinPosition(partition, Ints.checkedCast(nextJoinPosition));
+        return encodePartitionedJoinPosition(partition, toIntExact(nextJoinPosition));
     }
 
     @Override
@@ -149,7 +149,7 @@ public class PartitionedLookupSource
 
     private int decodeJoinPosition(long partitionedJoinPosition)
     {
-        return Ints.checkedCast(partitionedJoinPosition >>> shiftSize);
+        return toIntExact(partitionedJoinPosition >>> shiftSize);
     }
 
     private long encodePartitionedJoinPosition(int partition, int joinPosition)

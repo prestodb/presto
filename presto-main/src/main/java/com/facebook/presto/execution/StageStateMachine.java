@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.util.Failures;
@@ -27,8 +28,10 @@ import org.joda.time.DateTime;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -223,6 +226,7 @@ public class StageStateMachine
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        Map<Integer, OperatorStats> operatorToStats = new HashMap<>();
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -259,6 +263,9 @@ public class StageStateMachine
 
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
+
+            taskStats.getPipelines().forEach(pipeline -> pipeline.getOperatorSummaries()
+                            .forEach(operatorStats -> operatorToStats.compute(operatorStats.getOperatorId(), (k, v) -> v == null ? operatorStats : v.add(operatorStats))));
         }
 
         StageStats stageStats = new StageStats(
@@ -291,7 +298,8 @@ public class StageStateMachine
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(outputDataSize),
-                outputPositions);
+                outputPositions,
+                ImmutableList.copyOf(operatorToStats.values()));
 
         ExecutionFailureInfo failureInfo = null;
         if (state == FAILED) {

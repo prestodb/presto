@@ -81,7 +81,7 @@ public class TestMapOperators
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(actualSliceOutput, actualBlock);
 
-        Block expectedBlock = new InterleavedBlockBuilder(ImmutableList.<Type>of(DOUBLE, new ArrayType(BIGINT)), new BlockBuilderStatus(), 3)
+        Block expectedBlock = new InterleavedBlockBuilder(ImmutableList.of(DOUBLE, new ArrayType(BIGINT)), new BlockBuilderStatus(), 3)
                 .writeLong(doubleToLongBits(1.0))
                 .closeEntry()
                 .writeObject(
@@ -131,6 +131,12 @@ public class TestMapOperators
                 100.0));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
+    }
+
+    @Test
+    public void testEmptyMapConstructor()
+    {
+        assertFunction("MAP()", new MapType(UNKNOWN, UNKNOWN), ImmutableMap.of());
     }
 
     @Test

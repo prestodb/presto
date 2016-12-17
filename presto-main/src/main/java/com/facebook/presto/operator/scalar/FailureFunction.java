@@ -31,7 +31,7 @@ public final class FailureFunction
 
     // We shouldn't be using UNKNOWN as an explicit type. This will be fixed when we fix type inference
     @Description("Decodes json to an exception and throws it")
-    @ScalarFunction
+    @ScalarFunction(hidden = true)
     @SqlType("unknown")
     public static void fail(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
     {

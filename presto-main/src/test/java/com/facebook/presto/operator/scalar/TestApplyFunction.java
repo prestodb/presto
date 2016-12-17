@@ -72,6 +72,12 @@ public class TestApplyFunction
     }
 
     @Test
+    public void testUnreferencedLambdaArgument()
+    {
+        assertFunction("apply(5, x -> 6)", INTEGER, 6);
+    }
+
+    @Test
     public void testSessionDependent()
             throws Exception
     {
@@ -99,6 +105,14 @@ public class TestApplyFunction
     {
         assertFunction("apply(11, x -> apply(x + 7, y -> apply(y * 3, z -> z * 5) + 1) * 2)", INTEGER, 542);
         assertFunction("apply(11, x -> apply(x + 7, x -> apply(x * 3, x -> x * 5) + 1) * 2)", INTEGER, 542);
+    }
+
+    @Test
+    public void testRowAccess()
+            throws Exception
+    {
+        assertFunction("apply(CAST(ROW(1, 'a') AS ROW(x INTEGER, y VARCHAR)), r -> r.x)", INTEGER, 1);
+        assertFunction("apply(CAST(ROW(1, 'a') AS ROW(x INTEGER, y VARCHAR)), r -> r.y)", VARCHAR, "a");
     }
 
     @Test

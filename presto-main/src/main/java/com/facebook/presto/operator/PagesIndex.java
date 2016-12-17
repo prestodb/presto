@@ -321,7 +321,7 @@ public class PagesIndex
         }
 
         // if compilation fails, use interpreter
-        return new SimplePagesHashStrategy(types, ImmutableList.<List<Block>>copyOf(channels), joinChannels, hashChannel);
+        return new SimplePagesHashStrategy(types, ImmutableList.copyOf(channels), joinChannels, hashChannel);
     }
 
     public Supplier<LookupSource> createLookupSourceSupplier(

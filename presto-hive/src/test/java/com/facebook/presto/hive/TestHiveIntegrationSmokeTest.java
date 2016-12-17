@@ -59,7 +59,7 @@ import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
-import static com.facebook.presto.hive.HiveUtil.annotateColumnComment;
+import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.CharType.createCharType;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
@@ -263,7 +263,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
-            assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
+            assertEquals(columnMetadata.getExtraInfo(), columnExtraInfo(partitionKey));
         }
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
@@ -356,10 +356,6 @@ public class TestHiveIntegrationSmokeTest
         // Verify the partition keys are correctly created
         List<String> partitionedBy = ImmutableList.of("partition_bigint", "partition_decimal_long");
         assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
-        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
-            assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
-        }
 
         // Verify the column types
         assertColumnType(tableMetadata, "string_col", createUnboundedVarcharType());
@@ -471,6 +467,9 @@ public class TestHiveIntegrationSmokeTest
         assertColumnType(tableMetadata, "_varchar", createVarcharType(3));
         assertColumnType(tableMetadata, "_char", createCharType(10));
 
+        // assure reader supports basic column reordering and pruning
+        assertQuery(session, "SELECT _integer, _varchar, _integer from test_format_table", "SELECT 2, 'foo', 2");
+
         assertQuery(session, "SELECT * from test_format_table", select);
 
         assertUpdate(session, "DROP TABLE test_format_table");
@@ -504,13 +503,7 @@ public class TestHiveIntegrationSmokeTest
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_partitioned_table_as");
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
-
-        List<String> partitionedBy = ImmutableList.of("ship_priority", "order_status");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
-        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
-            assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
-        }
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("ship_priority", "order_status"));
 
         List<?> partitions = getPartitions("test_create_partitioned_table_as");
         assertEquals(partitions.size(), 3);
@@ -702,13 +695,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("orderstatus");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
-        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
-            assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
-        }
-
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("orderstatus"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey", "custkey2"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
 
@@ -838,13 +825,7 @@ public class TestHiveIntegrationSmokeTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> partitionedBy = ImmutableList.of("partition_key");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
-        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-            boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
-            assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
-        }
-
+        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("partition_key"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
 
@@ -1337,14 +1318,14 @@ public class TestHiveIntegrationSmokeTest
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
         MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
-                .row("grape", canonicalizeTypeName("bigint"), "")
-                .row("orange", canonicalizeTypeName("bigint"), "")
-                .row("pear", canonicalizeTypeName("varchar(65535)"), "")
-                .row("mango", canonicalizeTypeName("integer"), "")
-                .row("lychee", canonicalizeTypeName("smallint"), "")
-                .row("kiwi", canonicalizeTypeName("tinyint"), "")
-                .row("apple", canonicalizeTypeName("varchar"), "Partition Key")
-                .row("pineapple", canonicalizeTypeName("varchar(65535)"), "Partition Key")
+                .row("grape", canonicalizeTypeName("bigint"), "", "")
+                .row("orange", canonicalizeTypeName("bigint"), "", "")
+                .row("pear", canonicalizeTypeName("varchar(65535)"), "", "")
+                .row("mango", canonicalizeTypeName("integer"), "", "")
+                .row("lychee", canonicalizeTypeName("smallint"), "", "")
+                .row("kiwi", canonicalizeTypeName("tinyint"), "", "")
+                .row("apple", canonicalizeTypeName("varchar"), "partition key", "")
+                .row("pineapple", canonicalizeTypeName("varchar(65535)"), "partition key", "")
                 .build();
         assertEquals(actual, expected);
     }
@@ -1525,8 +1506,8 @@ public class TestHiveIntegrationSmokeTest
                         "   c1 bigint,\n" +
                         "   \"c 2\" varchar,\n" +
                         "   \"c'3\" array(bigint),\n" +
-                        "   c4 map(bigint, varchar),\n" +
-                        "   c5 double\n)\n" +
+                        "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
+                        "   c5 double COMMENT 'comment test5'\n)\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +
@@ -1865,7 +1846,7 @@ public class TestHiveIntegrationSmokeTest
             assertEquals(partitionByProperty, partitionKeys);
             for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
                 boolean partitionKey = partitionKeys.contains(columnMetadata.getName());
-                assertEquals(columnMetadata.getComment(), annotateColumnComment(Optional.empty(), partitionKey));
+                assertEquals(columnMetadata.getExtraInfo(), columnExtraInfo(partitionKey));
             }
         }
         else {

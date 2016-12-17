@@ -26,6 +26,8 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
@@ -46,7 +48,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import org.joda.time.DateTime;
@@ -64,6 +65,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
@@ -100,6 +102,7 @@ public class QueryMonitor
                                 queryInfo.getSession().getPrincipal(),
                                 queryInfo.getSession().getRemoteUserAddress(),
                                 queryInfo.getSession().getUserAgent(),
+                                queryInfo.getSession().getClientInfo(),
                                 queryInfo.getSession().getSource(),
                                 queryInfo.getSession().getCatalog(),
                                 queryInfo.getSession().getSchema(),
@@ -145,16 +148,24 @@ public class QueryMonitor
                         input.getConnectorInfo()));
             }
 
+            QueryStats queryStats = queryInfo.getQueryStats();
+
             Optional<QueryOutputMetadata> output = Optional.empty();
             if (queryInfo.getOutput().isPresent()) {
+                Optional<TableFinishInfo> tableFinishInfo = queryStats.getOperatorSummaries().stream()
+                        .map(OperatorStats::getInfo)
+                        .filter(TableFinishInfo.class::isInstance)
+                        .map(TableFinishInfo.class::cast)
+                        .findFirst();
+
                 output = Optional.of(
                         new QueryOutputMetadata(
                                 queryInfo.getOutput().get().getConnectorId().getCatalogName(),
                                 queryInfo.getOutput().get().getSchema(),
-                                queryInfo.getOutput().get().getTable()));
+                                queryInfo.getOutput().get().getTable(),
+                                tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
+                                tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
             }
-
-            QueryStats queryStats = queryInfo.getQueryStats();
 
             eventListenerManager.queryCompleted(
                     new QueryCompletedEvent(
@@ -164,7 +175,7 @@ public class QueryMonitor
                                     queryInfo.getQuery(),
                                     queryInfo.getState().toString(),
                                     queryInfo.getSelf(),
-                                    Optional.ofNullable(toJsonWithLengthLimit(objectMapper, queryInfo.getOutputStage(), Ints.checkedCast(config.getMaxOutputStageJsonSize().toBytes())))),
+                                    Optional.ofNullable(toJsonWithLengthLimit(objectMapper, queryInfo.getOutputStage(), toIntExact(config.getMaxOutputStageJsonSize().toBytes())))),
                             new QueryStatistics(
                                     ofMillis(queryStats.getTotalCpuTime().toMillis()),
                                     ofMillis(queryStats.getTotalScheduledTime().toMillis()),
@@ -175,12 +186,14 @@ public class QueryMonitor
                                     queryStats.getRawInputDataSize().toBytes(),
                                     queryStats.getRawInputPositions(),
                                     queryStats.getCompletedDrivers(),
-                                    queryInfo.isCompleteInfo()),
+                                    queryInfo.isCompleteInfo(),
+                                    objectMapper.writeValueAsString(queryInfo.getQueryStats().getOperatorSummaries())),
                             new QueryContext(
                                     queryInfo.getSession().getUser(),
                                     queryInfo.getSession().getPrincipal(),
                                     queryInfo.getSession().getRemoteUserAddress(),
                                     queryInfo.getSession().getUserAgent(),
+                                    queryInfo.getSession().getClientInfo(),
                                     queryInfo.getSession().getSource(),
                                     queryInfo.getSession().getCatalog(),
                                     queryInfo.getSession().getSchema(),

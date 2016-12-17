@@ -654,7 +654,7 @@ public final class HttpPageBufferClient
 
         public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.<Page>of(), complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete);
         }
 
         private final String taskInstanceId;

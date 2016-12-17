@@ -135,6 +135,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 server,
                 session.getIdentity().getUser(),
                 session.getSource().orElse(null),
+                session.getClientInfo().orElse(null),
                 session.getCatalog().orElse(null),
                 session.getSchema().orElse(null),
                 session.getTimeZoneKey().getId(),

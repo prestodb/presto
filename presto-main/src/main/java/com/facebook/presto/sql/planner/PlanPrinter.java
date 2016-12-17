@@ -37,6 +37,7 @@ import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -76,8 +77,11 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -623,7 +627,12 @@ public class PlanPrinter
 
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 FunctionCall call = entry.getValue().getFunctionCall();
-                print(indent + 2, "%s := %s(%s)", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()));
+                String frameInfo = call.getWindow()
+                        .flatMap(Window::getFrame)
+                        .map(PlanPrinter::formatFrame)
+                        .orElse("");
+
+                print(indent + 2, "%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
             }
             return processChildren(node, indent + 1);
         }
@@ -680,7 +689,7 @@ public class PlanPrinter
             TupleDomain<ColumnHandle> predicate = node.getLayout()
                     .map(layoutHandle -> metadata.getLayout(session, layoutHandle))
                     .map(TableLayout::getPredicate)
-                    .orElse(TupleDomain.<ColumnHandle>all());
+                    .orElse(TupleDomain.all());
 
             if (node.getLayout().isPresent()) {
                 // TODO: find a better way to do this
@@ -743,13 +752,7 @@ public class PlanPrinter
         {
             print(indent, "- Project => [%s]", formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
-                    // skip identity assignments
-                    continue;
-                }
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
-            }
+            printAssignments(node.getAssignments(), indent + 2);
 
             return processChildren(node, indent + 1);
         }
@@ -932,6 +935,7 @@ public class PlanPrinter
         {
             print(indent, "- Apply[%s] => [%s]", node.getCorrelation(), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
+            printAssignments(node.getSubqueryAssignments(), indent + 4);
 
             return processChildren(node, indent + 1);
         }
@@ -949,6 +953,17 @@ public class PlanPrinter
             }
 
             return null;
+        }
+
+        private void printAssignments(Assignments assignments, int indent)
+        {
+            for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
+                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
+                    // skip identity assignments
+                    continue;
+                }
+                print(indent, "%s := %s", entry.getKey(), entry.getValue());
+            }
         }
 
         private String formatOutputs(Iterable<Symbol> symbols)
@@ -1033,6 +1048,25 @@ public class PlanPrinter
         }
 
         return "[" + Joiner.on(", ").join(symbols) + "]";
+    }
+
+    private static String formatFrame(WindowFrame frame)
+    {
+        StringBuilder builder = new StringBuilder(frame.getType().toString());
+        FrameBound start = frame.getStart();
+        if (start.getValue().isPresent()) {
+            builder.append(" ").append(start.getOriginalValue().get());
+        }
+        builder.append(" ").append(start.getType());
+
+        Optional<FrameBound> end = frame.getEnd();
+        if (end.isPresent()) {
+            if (end.get().getOriginalValue().isPresent()) {
+                builder.append(" ").append(end.get().getOriginalValue().get());
+            }
+            builder.append(" ").append(end.get().getType());
+        }
+        return builder.toString();
     }
 
     private static String castToVarchar(Type type, Object value, Metadata metadata, Session session)

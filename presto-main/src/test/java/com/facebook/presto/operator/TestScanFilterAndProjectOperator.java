@@ -23,7 +23,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
@@ -74,15 +73,15 @@ public class TestScanFilterAndProjectOperator
                 },
                 () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
                 () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
-                ImmutableList.<ColumnHandle>of(),
-                ImmutableList.<Type>of(VARCHAR));
+                ImmutableList.of(),
+                ImmutableList.of(VARCHAR));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
-        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), ImmutableList.of(input));
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), toPages(operator));
+        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
 
         assertEquals(actual.getRowCount(), expected.getRowCount());
         assertEquals(actual, expected);
@@ -103,20 +102,20 @@ public class TestScanFilterAndProjectOperator
                     @Override
                     public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
                     {
-                        return new RecordPageSource(new PageRecordSet(ImmutableList.<Type>of(VARCHAR), input));
+                        return new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input));
                     }
                 },
                 () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
                 () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, ImmutableList.of(singleColumn(VARCHAR, 0))),
-                ImmutableList.<ColumnHandle>of(),
-                ImmutableList.<Type>of(VARCHAR));
+                ImmutableList.of(),
+                ImmutableList.of(VARCHAR));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
-        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), ImmutableList.of(input));
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.<Type>of(VARCHAR), toPages(operator));
+        MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), toPages(operator));
 
         assertEquals(actual.getRowCount(), expected.getRowCount());
         assertEquals(actual, expected);

@@ -26,7 +26,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -45,6 +44,7 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.allAsList;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -333,11 +333,11 @@ public class RaptorPageSink
         static TemporalFunction create(Type temporalColumnType)
         {
             if (temporalColumnType.equals(DATE)) {
-                return (temporalBlock, position) -> Ints.checkedCast(DATE.getLong(temporalBlock, position));
+                return (temporalBlock, position) -> toIntExact(DATE.getLong(temporalBlock, position));
             }
 
             if (temporalColumnType.equals(TIMESTAMP)) {
-                return (temporalBlock, position) -> Ints.checkedCast(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
+                return (temporalBlock, position) -> toIntExact(MILLISECONDS.toDays(temporalBlock.getLong(position, 0)));
             }
 
             throw new IllegalArgumentException("Wrong type for temporal column: " + temporalColumnType);

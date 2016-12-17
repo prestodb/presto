@@ -91,7 +91,7 @@ public class TestExternalHiveTable
     private void insertNationPartition(TableInstance nation, int partition)
     {
         onHive().executeQuery(
-                "INSERT INTO " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey=" + partition + ")"
+                "INSERT INTO TABLE " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey=" + partition + ")"
                         + " SELECT p_nationkey, p_name, p_comment FROM " + nation.getNameInDatabase()
                         + " WHERE p_regionkey=" + partition);
     }

@@ -150,19 +150,19 @@ built-in ones:
 .. code-block:: none
 
     presto:tpch> DESCRIBE customer;
-          Column       |  Type   | Null | Partition Key |                   Comment
-    -------------------+---------+------+---------------+---------------------------------------------
-     _partition_id     | bigint  | true | false         | Partition Id
-     _partition_offset | bigint  | true | false         | Offset for the message within the partition
-     _segment_start    | bigint  | true | false         | Segment start offset
-     _segment_end      | bigint  | true | false         | Segment end offset
-     _segment_count    | bigint  | true | false         | Running message count per segment
-     _key              | varchar | true | false         | Key text
-     _key_corrupt      | boolean | true | false         | Key data is corrupt
-     _key_length       | bigint  | true | false         | Total number of key bytes
-     _message          | varchar | true | false         | Message text
-     _message_corrupt  | boolean | true | false         | Message data is corrupt
-     _message_length   | bigint  | true | false         | Total number of message bytes
+          Column       |  Type   | Extra |                   Comment
+    -------------------+---------+-------+---------------------------------------------
+     _partition_id     | bigint  |       | Partition Id
+     _partition_offset | bigint  |       | Offset for the message within the partition
+     _segment_start    | bigint  |       | Segment start offset
+     _segment_end      | bigint  |       | Segment end offset
+     _segment_count    | bigint  |       | Running message count per segment
+     _key              | varchar |       | Key text
+     _key_corrupt      | boolean |       | Key data is corrupt
+     _key_length       | bigint  |       | Total number of key bytes
+     _message          | varchar |       | Message text
+     _message_corrupt  | boolean |       | Message data is corrupt
+     _message_length   | bigint  |       | Total number of message bytes
     (11 rows)
 
     presto:tpch> SELECT count(*) FROM customer;
@@ -226,20 +226,20 @@ The customer table now has an additional column: ``kafka_key``.
 .. code-block:: none
 
     presto:tpch> DESCRIBE customer;
-          Column       |  Type   | Null | Partition Key |                   Comment
-    -------------------+---------+------+---------------+---------------------------------------------
-     kafka_key         | bigint  | true | false         |
-     _partition_id     | bigint  | true | false         | Partition Id
-     _partition_offset | bigint  | true | false         | Offset for the message within the partition
-     _segment_start    | bigint  | true | false         | Segment start offset
-     _segment_end      | bigint  | true | false         | Segment end offset
-     _segment_count    | bigint  | true | false         | Running message count per segment
-     _key              | varchar | true | false         | Key text
-     _key_corrupt      | boolean | true | false         | Key data is corrupt
-     _key_length       | bigint  | true | false         | Total number of key bytes
-     _message          | varchar | true | false         | Message text
-     _message_corrupt  | boolean | true | false         | Message data is corrupt
-     _message_length   | bigint  | true | false         | Total number of message bytes
+          Column       |  Type   | Extra |                   Comment
+    -------------------+---------+-------+---------------------------------------------
+     kafka_key         | bigint  |       |
+     _partition_id     | bigint  |       | Partition Id
+     _partition_offset | bigint  |       | Offset for the message within the partition
+     _segment_start    | bigint  |       | Segment start offset
+     _segment_end      | bigint  |       | Segment end offset
+     _segment_count    | bigint  |       | Running message count per segment
+     _key              | varchar |       | Key text
+     _key_corrupt      | boolean |       | Key data is corrupt
+     _key_length       | bigint  |       | Total number of key bytes
+     _message          | varchar |       | Message text
+     _message_corrupt  | boolean |       | Message data is corrupt
+     _message_length   | bigint  |       | Total number of message bytes
     (12 rows)
 
     presto:tpch> SELECT kafka_key FROM customer ORDER BY kafka_key LIMIT 10;
@@ -343,29 +343,29 @@ the sum query from earlier can operate on the ``account_balance`` column directl
 .. code-block:: none
 
     presto:tpch> DESCRIBE customer;
-          Column       |  Type   | Null | Partition Key |                   Comment
-    -------------------+---------+------+---------------+---------------------------------------------
-     kafka_key         | bigint  | true | false         |
-     row_number        | bigint  | true | false         |
-     customer_key      | bigint  | true | false         |
-     name              | varchar | true | false         |
-     address           | varchar | true | false         |
-     nation_key        | bigint  | true | false         |
-     phone             | varchar | true | false         |
-     account_balance   | double  | true | false         |
-     market_segment    | varchar | true | false         |
-     comment           | varchar | true | false         |
-     _partition_id     | bigint  | true | false         | Partition Id
-     _partition_offset | bigint  | true | false         | Offset for the message within the partition
-     _segment_start    | bigint  | true | false         | Segment start offset
-     _segment_end      | bigint  | true | false         | Segment end offset
-     _segment_count    | bigint  | true | false         | Running message count per segment
-     _key              | varchar | true | false         | Key text
-     _key_corrupt      | boolean | true | false         | Key data is corrupt
-     _key_length       | bigint  | true | false         | Total number of key bytes
-     _message          | varchar | true | false         | Message text
-     _message_corrupt  | boolean | true | false         | Message data is corrupt
-     _message_length   | bigint  | true | false         | Total number of message bytes
+          Column       |  Type   | Extra |                   Comment
+    -------------------+---------+-------+---------------------------------------------
+     kafka_key         | bigint  |       |
+     row_number        | bigint  |       |
+     customer_key      | bigint  |       |
+     name              | varchar |       |
+     address           | varchar |       |
+     nation_key        | bigint  |       |
+     phone             | varchar |       |
+     account_balance   | double  |       |
+     market_segment    | varchar |       |
+     comment           | varchar |       |
+     _partition_id     | bigint  |       | Partition Id
+     _partition_offset | bigint  |       | Offset for the message within the partition
+     _segment_start    | bigint  |       | Segment start offset
+     _segment_end      | bigint  |       | Segment end offset
+     _segment_count    | bigint  |       | Running message count per segment
+     _key              | varchar |       | Key text
+     _key_corrupt      | boolean |       | Key data is corrupt
+     _key_length       | bigint  |       | Total number of key bytes
+     _message          | varchar |       | Message text
+     _message_corrupt  | boolean |       | Message data is corrupt
+     _message_length   | bigint  |       | Total number of message bytes
     (21 rows)
 
     presto:tpch> SELECT * FROM customer LIMIT 5;

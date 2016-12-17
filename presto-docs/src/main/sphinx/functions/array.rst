@@ -78,9 +78,19 @@ Array Functions
     If ``index`` >= 0, this function provides the same functionality as the SQL-standard subscript operator (``[]``).
     If ``index`` < 0, ``element_at`` accesses elements from the last to the first.
 
+.. function:: filter(array, function) -> array
+    :noindex:
+
+    See :func:`filter`.
+
 .. function:: flatten(x) -> array
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
+
+.. function:: reduce(array, initialState, inputFunction, outputFunction) -> x
+    :noindex:
+
+    See :func:`reduce`.
 
 .. function:: reverse(x) -> array
     :noindex:
@@ -109,6 +119,11 @@ Array Functions
 
     Subsets array ``x`` starting from index ``start`` (or starting from the end
     if ``start`` is negative) with a length of ``length``.
+
+.. function:: transform(array, function) -> array
+    :noindex:
+
+    See :func:`transform`.
 
 .. function:: zip(array1, array2[, ...]) -> array<row>
 

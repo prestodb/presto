@@ -60,7 +60,7 @@ public final class HiveBenchmarkQueryRunner
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
 
         // add tpch
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         // add hive
         File hiveDir = new File(tempDir, "hive_data");

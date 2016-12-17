@@ -75,7 +75,7 @@ public class ExampleHttpServer
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.<String, String>of());
+            binder.bind(new TypeLiteral<Map<String, String>>() {}).annotatedWith(TheServlet.class).toInstance(ImmutableMap.of());
             binder.bind(Servlet.class).annotatedWith(TheServlet.class).toInstance(new ExampleHttpServlet());
         }
     }

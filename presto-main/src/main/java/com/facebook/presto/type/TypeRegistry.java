@@ -83,7 +83,7 @@ public final class TypeRegistry
 
     public TypeRegistry()
     {
-        this(ImmutableSet.<Type>of());
+        this(ImmutableSet.of());
     }
 
     @Inject

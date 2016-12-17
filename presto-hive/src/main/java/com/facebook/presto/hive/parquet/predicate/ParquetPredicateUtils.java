@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import parquet.column.ColumnDescriptor;
 import parquet.column.Encoding;
@@ -51,6 +50,7 @@ import java.util.Set;
 import static com.facebook.presto.hive.parquet.ParquetCompressionUtils.decompress;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Math.toIntExact;
 import static parquet.column.Encoding.BIT_PACKED;
 import static parquet.column.Encoding.PLAIN_DICTIONARY;
 import static parquet.column.Encoding.RLE;
@@ -138,7 +138,7 @@ public final class ParquetPredicateUtils
                         columnChunkMetaData.getPath().equals(ColumnPath.get(columnDescriptor.getPath())) &&
                         isOnlyDictionaryEncodingPages(columnChunkMetaData.getEncodings())) {
                     try {
-                        int totalSize = Ints.checkedCast(columnChunkMetaData.getTotalSize());
+                        int totalSize = toIntExact(columnChunkMetaData.getTotalSize());
                         byte[] buffer = new byte[totalSize];
                         dataSource.readFully(columnChunkMetaData.getStartingPos(), buffer);
                         Optional<ParquetDictionaryPage> dictionaryPage = readDictionaryPage(buffer, columnChunkMetaData.getCodec());

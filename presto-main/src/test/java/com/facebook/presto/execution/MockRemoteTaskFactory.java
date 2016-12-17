@@ -28,7 +28,6 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -104,7 +103,7 @@ public class MockRemoteTaskFactory
                         Optional.empty(),
                         TupleDomain.all(),
                         null),
-                ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
+                ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)));
@@ -205,7 +204,7 @@ public class MockRemoteTaskFactory
             return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, failures, 0, 0, new DataSize(0, BYTE)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
-                    ImmutableSet.<PlanNodeId>of(),
+                    ImmutableSet.of(),
                     taskContext.getTaskStats(),
                     true,
                     false);

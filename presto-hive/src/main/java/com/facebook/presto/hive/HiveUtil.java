@@ -730,7 +730,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
@@ -748,7 +748,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();
@@ -767,18 +767,9 @@ public final class HiveUtil
     }
 
     @Nullable
-    public static String annotateColumnComment(Optional<String> comment, boolean partitionKey)
+    public static String columnExtraInfo(boolean partitionKey)
     {
-        String normalizedComment = comment.orElse("").trim();
-        if (partitionKey) {
-            if (normalizedComment.isEmpty()) {
-                normalizedComment = "Partition Key";
-            }
-            else {
-                normalizedComment = "Partition Key: " + normalizedComment;
-            }
-        }
-        return normalizedComment.isEmpty() ? null : normalizedComment;
+        return partitionKey ? "partition key" : null;
     }
 
     public static List<String> toPartitionValues(String partitionName)

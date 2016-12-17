@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.159-SNAPSHOT</version>
+    <version>0.162-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -39,8 +39,8 @@
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
-        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
-        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+        <air.check.skip-checkstyle>${air.check.skip-basic}</air.check.skip-checkstyle>
+        <air.check.fail-checkstyle>${air.check.fail-basic}</air.check.fail-checkstyle>
 
         <air.java.version>1.8.0-60</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
@@ -50,7 +50,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.27</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
-        <dep.tempto.version>1.18</dep.tempto.version>
+        <dep.tempto.version>1.22</dep.tempto.version>
 
         <!--
         Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
@@ -321,25 +321,31 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache1</artifactId>
-                <version>0.3</version>
+                <version>0.4</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>0.9</version>
+                <version>0.10</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-cdh4</artifactId>
-                <version>0.9</version>
+                <version>0.10</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
                 <version>0.19</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto.orc</groupId>
+                <artifactId>orc-protobuf</artifactId>
+                <version>1</version>
             </dependency>
 
             <dependency>
@@ -375,12 +381,6 @@
                         <groupId>commons-logging</groupId>
                     </exclusion>
                 </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.protobuf</groupId>
-                <artifactId>protobuf-java</artifactId>
-                <version>2.4.1</version>
             </dependency>
 
             <dependency>
@@ -1045,7 +1045,7 @@
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>6.15</version>
+                        <version>7.3</version>
                     </dependency>
                 </dependencies>
             </plugin>

@@ -39,10 +39,12 @@ public class TestFeaturesConfig
                 .setDistributedIndexJoinsEnabled(false)
                 .setDistributedJoinsEnabled(true)
                 .setColocatedJoinsEnabled(false)
+                .setJoinReorderingEnabled(false)
                 .setRedistributeWrites(true)
                 .setOptimizeMetadataQueries(false)
                 .setOptimizeHashGeneration(true)
                 .setOptimizeSingleDistinct(true)
+                .setReorderWindows(true)
                 .setPushTableWriteThroughUnion(true)
                 .setProcessingOptimization(DISABLED)
                 .setDictionaryAggregation(false)
@@ -54,7 +56,8 @@ public class TestFeaturesConfig
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB"))
                 .setSpillerSpillPath(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .setSpillerThreads(4)
-                .setOptimizeMixedDistinctAggregations(false));
+                .setOptimizeMixedDistinctAggregations(false)
+                .setLegacyOrderBy(false));
     }
 
     @Test
@@ -63,13 +66,16 @@ public class TestFeaturesConfig
         Map<String, String> propertiesLegacy = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
                 .put("deprecated.legacy-array-agg", "true")
+                .put("deprecated.legacy-order-by", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("colocated-joins-enabled", "true")
+                .put("reorder-joins", "true")
                 .put("redistribute-writes", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.reorder-windows", "false")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.processing-optimization", "columnar_dictionary")
@@ -85,13 +91,16 @@ public class TestFeaturesConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("experimental.resource-groups-enabled", "true")
                 .put("deprecated.legacy-array-agg", "true")
+                .put("deprecated.legacy-order-by", "true")
                 .put("distributed-index-joins-enabled", "true")
                 .put("distributed-joins-enabled", "false")
                 .put("colocated-joins-enabled", "true")
+                .put("reorder-joins", "true")
                 .put("redistribute-writes", "false")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-single-distinct", "false")
+                .put("optimizer.reorder-windows", "false")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.processing-optimization", "columnar_dictionary")
@@ -110,10 +119,12 @@ public class TestFeaturesConfig
                 .setDistributedIndexJoinsEnabled(true)
                 .setDistributedJoinsEnabled(false)
                 .setColocatedJoinsEnabled(true)
+                .setJoinReorderingEnabled(true)
                 .setRedistributeWrites(false)
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeSingleDistinct(false)
+                .setReorderWindows(false)
                 .setOptimizeMixedDistinctAggregations(true)
                 .setPushTableWriteThroughUnion(false)
                 .setProcessingOptimization(COLUMNAR_DICTIONARY)
@@ -125,7 +136,8 @@ public class TestFeaturesConfig
                 .setSpillEnabled(true)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("100MB"))
                 .setSpillerSpillPath("/tmp/custom/spill/path")
-                .setSpillerThreads(42);
+                .setSpillerThreads(42)
+                .setLegacyOrderBy(true);
 
         assertFullMapping(properties, expected);
         assertDeprecatedEquivalence(FeaturesConfig.class, properties, propertiesLegacy);

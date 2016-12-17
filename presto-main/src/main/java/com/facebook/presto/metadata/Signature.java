@@ -71,7 +71,7 @@ public final class Signature
 
     public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        this(name, kind, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false);
+        this(name, kind, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
     public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
@@ -101,7 +101,7 @@ public final class Signature
 
     public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
-        return new Signature(name, SCALAR, ImmutableList.<TypeVariableConstraint>of(), ImmutableList.<LongVariableConstraint>of(), returnType, argumentTypes, false);
+        return new Signature(name, SCALAR, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
     public Signature withAlias(String name)

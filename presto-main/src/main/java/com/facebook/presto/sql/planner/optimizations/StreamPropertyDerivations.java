@@ -147,7 +147,6 @@ final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
-            StreamProperties rightProperties = inputProperties.get(1);
 
             switch (node.getType()) {
                 case INNER:
@@ -289,7 +288,7 @@ final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., identity projections)
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
             return properties.translate(column -> Optional.ofNullable(identities.get(column)));
         }
 
@@ -572,11 +571,7 @@ final class StreamPropertyDerivations
 
         public boolean isExactlyPartitionedOn(Iterable<Symbol> columns)
         {
-            if (!partitioningColumns.isPresent()) {
-                return false;
-            }
-
-            return columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
+            return partitioningColumns.isPresent() && columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
         }
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)
@@ -588,11 +583,6 @@ final class StreamPropertyDerivations
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
             return ImmutableSet.copyOf(columns).containsAll(partitioningColumns.get());
-        }
-
-        public Optional<List<Symbol>> getPartitioningColumns()
-        {
-            return partitioningColumns;
         }
 
         public boolean isOrdered()

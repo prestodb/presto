@@ -100,16 +100,16 @@ public class TestCassandraDistributed
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "")
-                .row("custkey", "bigint", "")
-                .row("orderstatus", "varchar", "")
-                .row("totalprice", "double", "")
-                .row("orderdate", "varchar", "")
-                .row("orderpriority", "varchar", "")
-                .row("clerk", "varchar", "")
-                .row("shippriority", "integer", "")
-                .row("comment", "varchar", "")
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "varchar", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);

@@ -29,6 +29,13 @@ public interface ConnectorPageSink
      */
     CompletableFuture<?> appendPage(Page page);
 
+    /**
+     * Notifies the connector that no more pages will be appended and returns
+     * connector-specific information that will be sent to the coordinator to
+     * complete the write operation. This method may be called immediately
+     * after the previous call to {@link #appendPage} (even if the returned
+     * future is not complete).
+     */
     CompletableFuture<Collection<Slice>> finish();
 
     void abort();

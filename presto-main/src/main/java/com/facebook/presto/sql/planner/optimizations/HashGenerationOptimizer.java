@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -484,7 +485,7 @@ public class HashGenerationOptimizer
                 newSources.add(child.getNode());
 
                 // add hash symbols to inputs in the required order
-                ImmutableList.Builder<Symbol> newInputSymbols = ImmutableList.<Symbol>builder();
+                ImmutableList.Builder<Symbol> newInputSymbols = ImmutableList.builder();
                 newInputSymbols.addAll(node.getInputs().get(sourceId));
                 for (HashComputation preferredHashSymbol : hashSymbolOrder) {
                     HashComputation hashComputation = preferredHashSymbol.translate(outputToInputTranslator).get();
@@ -552,12 +553,12 @@ public class HashGenerationOptimizer
         @Override
         public PlanWithProperties visitProject(ProjectNode node, HashComputationSet parentPreference)
         {
-            Map<Symbol, Symbol> outputToInputMapping = computeIdentityTranslations(node.getAssignments());
+            Map<Symbol, Symbol> outputToInputMapping = computeIdentityTranslations(node.getAssignments().getMap());
             HashComputationSet sourceContext = parentPreference.translate(symbol -> Optional.ofNullable(outputToInputMapping.get(symbol)));
             PlanWithProperties child = plan(node.getSource(), sourceContext);
 
             // create a new project node with all assignments from the original node
-            Map<Symbol, Expression> newAssignments = new HashMap<>();
+            Assignments.Builder newAssignments = Assignments.builder();
             newAssignments.putAll(node.getAssignments());
 
             // and all hash symbols that could be translated to the source symbols
@@ -576,7 +577,7 @@ public class HashGenerationOptimizer
                 allHashSymbols.put(hashComputation, hashSymbol);
             }
 
-            return new PlanWithProperties(new ProjectNode(idAllocator.getNextId(), child.getNode(), newAssignments), allHashSymbols);
+            return new PlanWithProperties(new ProjectNode(idAllocator.getNextId(), child.getNode(), newAssignments.build()), allHashSymbols);
         }
 
         @Override
@@ -651,7 +652,7 @@ public class HashGenerationOptimizer
 
         private PlanWithProperties enforce(PlanWithProperties planWithProperties, HashComputationSet requiredHashes)
         {
-            ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+            Assignments.Builder assignments = Assignments.builder();
 
             Map<HashComputation, Symbol> outputHashSymbols = new HashMap<>();
 

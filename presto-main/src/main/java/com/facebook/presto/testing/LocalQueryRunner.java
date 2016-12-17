@@ -203,7 +203,6 @@ public class LocalQueryRunner
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
     private final TestingAccessControlManager accessControl;
-    private final TestingEventListenerManager eventListener;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final PageSourceManager pageSourceManager;
@@ -273,7 +272,6 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 transactionManager);
         this.accessControl = new TestingAccessControlManager(transactionManager);
-        this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
 
         this.expressionCompiler = new ExpressionCompiler(metadata);
@@ -323,6 +321,7 @@ public class LocalQueryRunner
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),
                 defaultSession.getUserAgent(),
+                defaultSession.getClientInfo(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
@@ -332,7 +331,7 @@ public class LocalQueryRunner
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
-                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, accessControl, new FeaturesConfig()))
+                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, new FeaturesConfig()))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
@@ -639,15 +638,15 @@ public class LocalQueryRunner
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true);
-        return createPlan(session, sql, featuresConfig, planOptimizers.get(), stage);
+        return createPlan(session, sql, planOptimizers.get(), stage);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
     {
-        return createPlan(session, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return createPlan(session, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
     {
         Statement wrapped = sqlParser.createStatement(sql);
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);

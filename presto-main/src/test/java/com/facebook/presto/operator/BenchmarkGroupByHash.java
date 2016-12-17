@@ -261,7 +261,7 @@ public class BenchmarkGroupByHash
         public void setup()
         {
             pages = createPages(POSITIONS, GROUP_COUNT, ImmutableList.of(BIGINT), hashEnabled);
-            types = Collections.<Type>nCopies(1, BIGINT);
+            types = Collections.nCopies(1, BIGINT);
             channels = new int[1];
             for (int i = 0; i < 1; i++) {
                 channels[i] = i;
@@ -306,9 +306,9 @@ public class BenchmarkGroupByHash
         @Setup
         public void setup()
         {
-            pages = createPages(POSITIONS, groupCount, Collections.<Type>nCopies(channelCount, BIGINT), hashEnabled);
+            pages = createPages(POSITIONS, groupCount, Collections.nCopies(channelCount, BIGINT), hashEnabled);
             hashChannel = hashEnabled ? Optional.of(channelCount) : Optional.empty();
-            types = Collections.<Type>nCopies(channelCount, BIGINT);
+            types = Collections.nCopies(channelCount, BIGINT);
             channels = new int[channelCount];
             for (int i = 0; i < channelCount; i++) {
                 channels[i] = i;

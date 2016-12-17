@@ -70,6 +70,7 @@ public class InformationSchemaMetadata
                     .column("is_nullable", createUnboundedVarcharType())
                     .column("data_type", createUnboundedVarcharType())
                     .column("comment", createUnboundedVarcharType())
+                    .column("extra_info", createUnboundedVarcharType())
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
                     .column("table_catalog", createUnboundedVarcharType())

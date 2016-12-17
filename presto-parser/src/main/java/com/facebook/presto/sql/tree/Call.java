@@ -23,7 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class Call
-        extends DataDefinitionStatement
+        extends Statement
 {
     private final QualifiedName name;
     private final List<CallArgument> arguments;

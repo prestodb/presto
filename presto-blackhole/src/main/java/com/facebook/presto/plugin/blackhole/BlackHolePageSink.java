@@ -26,14 +26,16 @@ import java.util.concurrent.CompletableFuture;
 
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class BlackHolePageSink
         implements ConnectorPageSink
 {
+    private static final CompletableFuture<Collection<Slice>> NON_BLOCKED = CompletableFuture.completedFuture(ImmutableList.of());
+
     private final ListeningScheduledExecutorService executorService;
     private final long pageProcessingDelayMillis;
+    private CompletableFuture<Collection<Slice>> appendFuture = NON_BLOCKED;
 
     public BlackHolePageSink(ListeningScheduledExecutorService executorService, Duration pageProcessingDelay)
     {
@@ -44,16 +46,22 @@ class BlackHolePageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
+        appendFuture = scheduleAppend();
+        return appendFuture;
+    }
+
+    private CompletableFuture<Collection<Slice>> scheduleAppend()
+    {
         if (pageProcessingDelayMillis > 0) {
-            return toCompletableFuture(executorService.schedule(() -> null, pageProcessingDelayMillis, MILLISECONDS));
+            return toCompletableFuture(executorService.schedule(() -> ImmutableList.of(), pageProcessingDelayMillis, MILLISECONDS));
         }
-        return NOT_BLOCKED;
+        return NON_BLOCKED;
     }
 
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        return completedFuture(ImmutableList.of());
+        return appendFuture;
     }
 
     @Override

@@ -35,7 +35,6 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -220,7 +219,7 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, Slices.wrappedIntArray(keyIds));
+            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

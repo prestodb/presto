@@ -18,7 +18,7 @@ package com.facebook.presto.sql.tree;
 import java.util.Optional;
 
 public final class Commit
-        extends DataDefinitionStatement
+        extends Statement
 {
     public Commit()
     {

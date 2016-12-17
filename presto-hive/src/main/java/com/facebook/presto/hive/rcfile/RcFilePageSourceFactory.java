@@ -28,6 +28,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -47,8 +48,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveSessionProperties.isRcfileOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
@@ -121,19 +120,15 @@ public class RcFilePageSourceFactory
         }
 
         try {
-            Set<Integer> readColumns = columns.stream()
-                    .map(HiveColumnHandle::getHiveColumnIndex)
-                    .collect(Collectors.toSet());
-            List<Type> types = columns.stream()
-                    .map(HiveColumnHandle::getHiveType)
-                    .map(hiveType -> hiveType.getType(typeManager))
-                    .collect(Collectors.toList());
+            ImmutableMap.Builder<Integer, Type> readColumns = ImmutableMap.builder();
+            for (HiveColumnHandle column : columns) {
+                readColumns.put(column.getHiveColumnIndex(), column.getHiveType().getType(typeManager));
+            }
 
             RcFileReader rcFileReader = new RcFileReader(
                     new HdfsRcFileDataSource(path.toString(), inputStream, size),
-                    types,
                     rcFileEncoding,
-                    readColumns,
+                    readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,

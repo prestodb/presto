@@ -94,7 +94,7 @@ public class CreateTableTask
                 if ((type == null) || type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, column, "Unknown type for column '%s' ", column.getName());
                 }
-                columns.add(new ColumnMetadata(column.getName(), type));
+                columns.add(new ColumnMetadata(column.getName(), type, column.getComment().orElse(null), false));
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;

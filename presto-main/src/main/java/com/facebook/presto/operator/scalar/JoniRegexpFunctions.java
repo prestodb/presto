@@ -23,7 +23,6 @@ import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.JoniRegexpType;
-import com.google.common.primitives.Ints;
 import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
@@ -38,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class JoniRegexpFunctions
@@ -191,7 +191,7 @@ public final class JoniRegexpFunctions
         Matcher matcher = pattern.matcher(source.getBytes());
         validateGroup(groupIndex, matcher.getEagerRegion());
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
-        int group = Ints.checkedCast(groupIndex);
+        int group = toIntExact(groupIndex);
 
         int nextStart = 0;
         while (true) {
@@ -236,7 +236,7 @@ public final class JoniRegexpFunctions
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         validateGroup(groupIndex, matcher.getEagerRegion());
-        int group = Ints.checkedCast(groupIndex);
+        int group = toIntExact(groupIndex);
 
         int offset = matcher.search(0, source.length(), Option.DEFAULT);
         if (offset == -1) {

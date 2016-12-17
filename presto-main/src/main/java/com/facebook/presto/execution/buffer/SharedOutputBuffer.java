@@ -21,7 +21,6 @@ import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -58,6 +57,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -422,7 +422,7 @@ public class SharedOutputBuffer
                 return new BufferInfo(bufferId, true, 0, sequenceId, partition.getInfo());
             }
 
-            int bufferedPages = Math.max(Ints.checkedCast(partition.getPageCount() - sequenceId), 0);
+            int bufferedPages = Math.max(toIntExact(partition.getPageCount() - sequenceId), 0);
             return new BufferInfo(bufferId, finished.get(), bufferedPages, sequenceId, partition.getInfo());
         }
 

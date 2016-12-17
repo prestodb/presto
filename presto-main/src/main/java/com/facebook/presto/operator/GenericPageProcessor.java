@@ -26,8 +26,6 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.SizeOf;
-import io.airlift.slice.Slice;
 
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +36,6 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.util.Arrays.copyOf;
 
 public class GenericPageProcessor
@@ -163,7 +160,7 @@ public class GenericPageProcessor
             dictionarySourceIds.put(dictionaryBlock.getDictionarySourceId(), sourceId);
         }
 
-        return new DictionaryBlock(selectedPositions.length, outputDictionary, wrappedIntArray(outputIds), false, sourceId);
+        return new DictionaryBlock(selectedPositions.length, outputDictionary, outputIds, false, sourceId);
     }
 
     private static BlockBuilder projectColumnar(int[] selectedPositions, BlockBuilder blockBuilder, Block[] inputBlocks, ProjectionFunction projection)
@@ -176,11 +173,11 @@ public class GenericPageProcessor
 
     private static int[] filterIds(ProjectionFunction projection, Page page, int[] selectedPositions)
     {
-        Slice ids = ((DictionaryBlock) page.getBlock(getOnlyElement(projection.getInputChannels()))).getIds();
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) page.getBlock(getOnlyElement(projection.getInputChannels()));
 
         int[] outputIds = new int[selectedPositions.length];
         for (int pos = 0; pos < selectedPositions.length; pos++) {
-            outputIds[pos] = ids.getInt(selectedPositions[pos] * SizeOf.SIZE_OF_INT);
+            outputIds[pos] = dictionaryBlock.getId(selectedPositions[pos]);
         }
         return outputIds;
     }

@@ -1,5 +1,5 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; 
- node_id      | varchar |         |
- http_uri     | varchar |         |
- node_version | varchar |         |
- state        | varchar |         |
+-- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true;
+ node_id      | varchar |       |         |
+ http_uri     | varchar |       |         |
+ node_version | varchar |       |         |
+ state        | varchar |       |         |

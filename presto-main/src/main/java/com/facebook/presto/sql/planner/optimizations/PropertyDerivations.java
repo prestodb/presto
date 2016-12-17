@@ -244,7 +244,7 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties translated = properties.translate(symbol -> node.getGroupingKeys().contains(symbol) ? Optional.of(symbol) : Optional.<Symbol>empty());
+            ActualProperties translated = properties.translate(symbol -> node.getGroupingKeys().contains(symbol) ? Optional.of(symbol) : Optional.empty());
 
             return ActualProperties.builderFrom(translated)
                     .local(LocalProperties.grouped(node.getGroupingKeys()))
@@ -493,7 +493,7 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
 
             ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
 

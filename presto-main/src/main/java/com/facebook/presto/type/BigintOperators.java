@@ -46,6 +46,7 @@ import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.valueOf;
 
@@ -191,9 +192,9 @@ public final class BigintOperators
     public static long castToInteger(@SqlType(StandardTypes.BIGINT) long value)
     {
         try {
-            return Ints.checkedCast(value);
+            return toIntExact(value);
         }
-        catch (IllegalArgumentException e) {
+        catch (ArithmeticException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
         }
     }

@@ -85,7 +85,7 @@ public class MockExchangeRequestProcessor
             throws Exception
     {
         if (request.getMethod().equalsIgnoreCase("DELETE")) {
-            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);
         }
 
         // verify we got a data size and it parses correctly

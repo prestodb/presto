@@ -30,6 +30,7 @@ import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -51,7 +52,6 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
@@ -215,7 +215,7 @@ public class LogicalPlanner
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
-        ImmutableMap.Builder<Symbol, Expression> assignments = ImmutableMap.builder();
+        Assignments.Builder assignments = Assignments.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
                 continue;
@@ -384,11 +384,15 @@ public class LogicalPlanner
     private static IdentityHashMap<LambdaArgumentDeclaration, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
         IdentityHashMap<LambdaArgumentDeclaration, Symbol> resultMap = new IdentityHashMap<>();
-        for (LambdaArgumentDeclaration lambdaArgumentDeclaration : analysis.getLambdaArgumentReferences().values()) {
+        for (Map.Entry<Expression, Type> entry : analysis.getTypes().entrySet()) {
+            if (!(entry.getKey() instanceof LambdaArgumentDeclaration)) {
+                continue;
+            }
+            LambdaArgumentDeclaration lambdaArgumentDeclaration = (LambdaArgumentDeclaration) entry.getKey();
             if (resultMap.containsKey(lambdaArgumentDeclaration)) {
                 continue;
             }
-            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration, analysis.getType(lambdaArgumentDeclaration)));
+            resultMap.put(lambdaArgumentDeclaration, symbolAllocator.newSymbol(lambdaArgumentDeclaration, entry.getValue()));
         }
         return resultMap;
     }

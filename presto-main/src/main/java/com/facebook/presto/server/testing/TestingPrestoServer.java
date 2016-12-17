@@ -145,13 +145,13 @@ public class TestingPrestoServer
     public TestingPrestoServer()
             throws Exception
     {
-        this(ImmutableList.<Module>of());
+        this(ImmutableList.of());
     }
 
     public TestingPrestoServer(List<Module> additionalModules)
             throws Exception
     {
-        this(true, ImmutableMap.<String, String>of(), null, null, new SqlParserOptions(), additionalModules);
+        this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
     public TestingPrestoServer(boolean coordinator,

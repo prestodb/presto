@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class TableWriterOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT, VARBINARY);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
 
     public static class TableWriterOperatorFactory
             implements OperatorFactory

@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
@@ -50,6 +49,7 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
@@ -110,7 +110,7 @@ public class TestDateTimeFunctions
             throws Exception
     {
         // current date is the time at midnight in the session time zone
-        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(Ints.checkedCast(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
+        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(toIntExact(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
     }
 
     @Test
@@ -916,7 +916,7 @@ public class TestDateTimeFunctions
     private static SqlDate toDate(DateTime dateDate)
     {
         long millis = dateDate.getMillis();
-        return new SqlDate(Ints.checkedCast(MILLISECONDS.toDays(millis)));
+        return new SqlDate(toIntExact(MILLISECONDS.toDays(millis)));
     }
 
     private static long millisBetween(ReadableInstant start, ReadableInstant end)

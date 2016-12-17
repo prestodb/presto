@@ -143,7 +143,7 @@ public class PageProcessorBenchmark
 
     private List<RowExpression> getProjections(Type type)
     {
-        ImmutableList.Builder<RowExpression> builder = ImmutableList.<RowExpression>builder();
+        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
         if (type == BIGINT) {
             for (int i = 0; i < columnCount; i++) {
                 builder.add(rowExpression("bigint" + i + " + 5", type));

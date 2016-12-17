@@ -19,7 +19,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class DropTable
-        extends DataDefinitionStatement
+        extends Statement
 {
     private final QualifiedName tableName;
     private final boolean exists;

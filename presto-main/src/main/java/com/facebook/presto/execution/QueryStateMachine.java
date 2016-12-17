@@ -18,6 +18,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
@@ -42,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,6 +63,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.unwrapCompletionException;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
@@ -303,6 +304,7 @@ public class QueryStateMachine
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
@@ -337,6 +339,7 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
+            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
         if (rootStage.isPresent()) {
@@ -382,7 +385,8 @@ public class QueryStateMachine
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(outputDataSize),
-                outputPositions);
+                outputPositions,
+                operatorStatsSummary.build());
 
         return new QueryInfo(queryId,
                 session.toSessionRepresentation(),
@@ -748,14 +752,5 @@ public class QueryStateMachine
     private Duration nanosSince(long start)
     {
         return succinctNanos(tickerNanos() - start);
-    }
-
-    // TODO: move to Airlift MoreFutures
-    private static Throwable unwrapCompletionException(Throwable throwable)
-    {
-        if (throwable instanceof CompletionException) {
-            return throwable.getCause();
-        }
-        return throwable;
     }
 }

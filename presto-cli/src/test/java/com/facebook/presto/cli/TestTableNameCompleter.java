@@ -15,7 +15,6 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,13 +28,13 @@ public class TestTableNameCompleter
     {
         ClientSession session = new ClientOptions().toClientSession();
         QueryRunner runner = QueryRunner.create(session,
-                Optional.<HostAndPort>empty(),
-                Optional.<String>empty(),
-                Optional.<String>empty(),
-                Optional.<String>empty(),
-                Optional.<String>empty(),
-                Optional.<String>empty(),
-                Optional.<String>empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 false,
                 null);
         TableNameCompleter completer = new TableNameCompleter(runner);

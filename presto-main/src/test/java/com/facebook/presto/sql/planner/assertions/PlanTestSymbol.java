@@ -11,20 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.sql.planner.assertions;
 
-import javax.inject.Qualifier;
+import com.facebook.presto.sql.planner.Symbol;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER, METHOD})
-@Qualifier
-public @interface ForExecute
-{}
+public interface PlanTestSymbol
+{
+    Symbol toSymbol(SymbolAliases aliases);
+}

@@ -244,6 +244,7 @@ final class ShowQueriesRewrite
                     selectList(
                             aliasedName("column_name", "Column"),
                             aliasedName("data_type", "Type"),
+                            aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
@@ -392,7 +393,7 @@ final class ShowQueriesRewrite
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
-                        .map(column -> new ColumnDefinition(column.getName(), column.getType().getDisplayName()))
+                        .map(column -> new ColumnDefinition(column.getName(), column.getType().getDisplayName(), Optional.ofNullable(column.getComment())))
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();

@@ -11,22 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.sql.planner.assertions;
 
-package com.facebook.presto.sql.tree;
+import com.facebook.presto.sql.planner.Symbol;
 
-import java.util.Optional;
+import static java.util.Objects.requireNonNull;
 
-public abstract class DataDefinitionStatement
-    extends Statement
+class SymbolAlias
+        implements PlanTestSymbol
 {
-    protected DataDefinitionStatement(Optional<NodeLocation> location)
+    private final String alias;
+
+    SymbolAlias(String alias)
     {
-        super(location);
+        this.alias = requireNonNull(alias, "alias is null");
+    }
+
+    public Symbol toSymbol(SymbolAliases aliases)
+    {
+        return Symbol.from(aliases.get(alias));
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public String toString()
     {
-        return visitor.visitDataDefinitionStatement(this, context);
+        return alias;
     }
 }

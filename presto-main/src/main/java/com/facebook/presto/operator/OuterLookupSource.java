@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
-import com.google.common.primitives.Ints;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -25,6 +24,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -169,7 +169,7 @@ public final class OuterLookupSource
         public synchronized void positionVisited(long position)
         {
             verify(!finished);
-            visitedPositions[Ints.checkedCast(position)] = true;
+            visitedPositions[toIntExact(position)] = true;
         }
 
         public synchronized OuterPositionIterator getOuterPositionIterator()

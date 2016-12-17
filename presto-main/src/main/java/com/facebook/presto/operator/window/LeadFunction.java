@@ -17,12 +17,12 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunctionOptions;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
@@ -60,7 +60,7 @@ public class LeadFunction
 
             if (ignoreNulls) {
                 while (withinParition) {
-                    if (!windowIndex.isNull(valueChannel, Ints.checkedCast(valuePosition))) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
                         break;
                     }
                     valuePosition++;
@@ -69,7 +69,7 @@ public class LeadFunction
             }
 
             if (withinParition) {
-                windowIndex.appendTo(valueChannel, Ints.checkedCast(valuePosition), output);
+                windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else if (defaultChannel >= 0) {
                 windowIndex.appendTo(defaultChannel, currentPosition, output);

@@ -191,16 +191,12 @@ fi
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-# start hadoop container
-environment_compose up -d hadoop-master
+# start external services
+EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
+environment_compose up -d ${EXTERNAL_SERVICES}
 
-# start external database containers
-environment_compose up -d mysql
-environment_compose up -d postgres
-environment_compose up -d cassandra
-
-# start docker logs for hadoop container
-environment_compose logs --no-color hadoop-master &
+# start docker logs for the external services
+environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
 HADOOP_LOGS_PID=$!
 
 # wait until hadoop processes is started
@@ -211,7 +207,7 @@ stop_unnecessary_hadoop_services
 environment_compose up -d ${PRESTO_SERVICES}
 
 # start docker logs for presto containers
-environment_compose logs --no-color ${PRESTO_SERVICES} &
+environment_compose logs --no-color -f ${PRESTO_SERVICES} &
 PRESTO_LOGS_PID=$!
 
 # wait until presto is started
@@ -219,7 +215,7 @@ retry check_presto
 
 # run product tests
 set +e
-run_product_tests "$*"
+run_product_tests "$@"
 EXIT_CODE=$?
 set -e
 

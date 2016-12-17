@@ -102,7 +102,7 @@ class GetFieldBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return (instance == null) ? ImmutableList.<BytecodeNode>of() : ImmutableList.<BytecodeNode>of(instance);
+        return (instance == null) ? ImmutableList.of() : ImmutableList.of(instance);
     }
 
     private static Field getDeclaredField(Class<?> declaringClass, String name)

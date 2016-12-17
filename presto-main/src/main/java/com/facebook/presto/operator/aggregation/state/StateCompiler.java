@@ -541,8 +541,8 @@ public class StateCompiler
     private static List<StateField> enumerateFields(Class<?> clazz)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        final Set<Class<?>> primitiveClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class);
-        Set<Class<?>> supportedClasses = ImmutableSet.<Class<?>>of(byte.class, boolean.class, long.class, double.class, Slice.class, Block.class);
+        final Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class);
+        Set<Class<?>> supportedClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, Slice.class, Block.class);
 
         for (Method method : clazz.getMethods()) {
             if (method.getName().equals("getEstimatedSize")) {

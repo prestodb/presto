@@ -15,11 +15,11 @@ package com.facebook.presto.rcfile.binary;
 
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
+import static java.lang.Math.toIntExact;
 
 public class MapEncoding
         extends BlockEncoding
@@ -38,7 +38,7 @@ public class MapEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         // entries in list
-        int entries = Ints.checkedCast(readVInt(slice, offset));
+        int entries = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice.getByte(offset));
 
         // null bytes

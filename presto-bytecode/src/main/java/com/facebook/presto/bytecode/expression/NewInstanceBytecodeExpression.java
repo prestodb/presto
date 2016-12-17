@@ -62,6 +62,6 @@ class NewInstanceBytecodeExpression
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>copyOf(parameters);
+        return ImmutableList.copyOf(parameters);
     }
 }

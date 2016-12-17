@@ -27,7 +27,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -64,16 +63,16 @@ public class TestMySqlIntegrationSmokeTest
         MaterializedResult actualColumns = computeActual("DESC ORDERS").toJdbcTypes();
 
         // some connectors don't support dates, and some do not support parametrized varchars, so we check multiple options
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "")
-                .row("custkey", "bigint", "")
-                .row("orderstatus", "varchar(255)", "")
-                .row("totalprice", "double", "")
-                .row("orderdate", "date", "")
-                .row("orderpriority", "varchar(255)", "")
-                .row("clerk", "varchar(255)", "")
-                .row("shippriority", "integer", "")
-                .row("comment", "varchar(255)", "")
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(queryRunner.getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(255)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(255)", "", "")
+                .row("clerk", "varchar(255)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(255)", "", "")
                 .build();
         assertEquals(actualColumns, expectedColumns);
     }
@@ -121,8 +120,9 @@ public class TestMySqlIntegrationSmokeTest
         execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
-        MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), TINYINT)
-                .row("c_tinyint", "tinyint", "").build();
+        MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("c_tinyint", "tinyint", "", "")
+                .build();
 
         assertEquals(actual, expected);
 

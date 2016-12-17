@@ -210,7 +210,7 @@ public final class FunctionAssertions
         return metadata;
     }
 
-    public FunctionAssertions addFunctions(List<SqlFunction> functionInfos)
+    public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
     {
         metadata.addFunctions(functionInfos);
         return this;
@@ -589,7 +589,7 @@ public final class FunctionAssertions
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of());
 
-            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.<Type>of());
+            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -646,7 +646,7 @@ public final class FunctionAssertions
                     PAGE_SOURCE_PROVIDER,
                     cursorProcessor,
                     pageProcessor,
-                    ImmutableList.<ColumnHandle>of(),
+                    ImmutableList.of(),
                     ImmutableList.of(expressionTypes.get(projection)));
         }
         catch (Throwable e) {
@@ -713,7 +713,7 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.<Type>of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER))
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER))
                         .addRow(
                                 1234L,
                                 "hello",

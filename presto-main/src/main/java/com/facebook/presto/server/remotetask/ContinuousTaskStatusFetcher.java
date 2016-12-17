@@ -233,6 +233,9 @@ class ContinuousTaskStatusFetcher
         });
 
         if (taskMismatch.get()) {
+            // This will also set the task status to FAILED state directly.
+            // Additionally, this will issue a DELETE for the task to the worker.
+            // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
             onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
     }

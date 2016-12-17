@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -48,6 +47,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxByNAggregationFunction
@@ -86,7 +86,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
             if (n <= 0) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "third argument of max_by/min_by must be a positive integer");
             }
-            heap = new TypedKeyValueHeap(comparator, keyType, valueType, Ints.checkedCast(n));
+            heap = new TypedKeyValueHeap(comparator, keyType, valueType, toIntExact(n));
             state.setTypedKeyValueHeap(heap);
         }
 

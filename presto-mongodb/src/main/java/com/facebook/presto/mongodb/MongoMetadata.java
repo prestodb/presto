@@ -33,6 +33,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -182,7 +183,7 @@ public class MongoMetadata
         MongoTableLayoutHandle layout = checkType(handle, MongoTableLayoutHandle.class, "layout");
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty())
+        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }
@@ -222,9 +223,10 @@ public class MongoMetadata
     }
 
     @Override
-    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         clearRollback();
+        return Optional.empty();
     }
 
     @Override

@@ -20,7 +20,6 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.google.common.primitives.Ints;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTime;
@@ -48,6 +47,7 @@ import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -301,7 +301,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long addFieldValueDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
-        long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), Ints.checkedCast(value));
+        long millis = getDateField(UTC_CHRONOLOGY, unit).add(DAYS.toMillis(date), toIntExact(value));
         return MILLISECONDS.toDays(millis);
     }
 
@@ -311,7 +311,7 @@ public final class DateTimeFunctions
     public static long addFieldValueTime(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.TIME) long time)
     {
         ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        return modulo24Hour(chronology, getTimeField(chronology, unit).add(time, Ints.checkedCast(value)));
+        return modulo24Hour(chronology, getTimeField(chronology, unit).add(time, toIntExact(value)));
     }
 
     @Description("add the specified amount of time to the given time")
@@ -323,7 +323,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone)
     {
         ISOChronology chronology = unpackChronology(timeWithTimeZone);
-        long millis = modulo24Hour(chronology, getTimeField(chronology, unit).add(unpackMillisUtc(timeWithTimeZone), Ints.checkedCast(value)));
+        long millis = modulo24Hour(chronology, getTimeField(chronology, unit).add(unpackMillisUtc(timeWithTimeZone), toIntExact(value)));
         return updateMillisUtc(millis, timeWithTimeZone);
     }
 
@@ -336,7 +336,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).add(timestamp, Ints.checkedCast(value));
+        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).add(timestamp, toIntExact(value));
     }
 
     @Description("add the specified amount of time to the given timestamp")
@@ -347,7 +347,7 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone)
     {
-        long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).add(unpackMillisUtc(timestampWithTimeZone), Ints.checkedCast(value));
+        long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).add(unpackMillisUtc(timestampWithTimeZone), toIntExact(value));
         return updateMillisUtc(millis, timestampWithTimeZone);
     }
 

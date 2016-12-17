@@ -15,10 +15,12 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
 import static org.testng.Assert.assertTrue;
+import static org.testng.AssertJUnit.assertFalse;
 
 public class TestExpressionVerifier
 {
@@ -29,11 +31,30 @@ public class TestExpressionVerifier
     {
         Expression actual = expression("NOT(orderkey = 3 AND custkey = 3 AND orderkey < 10)");
 
-        ExpressionVerifier verifier = new ExpressionVerifier(new ExpressionAliases());
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("X", new SymbolReference("orderkey"))
+                .put("Y", new SymbolReference("custkey"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
         assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
         assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")));
-        assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
+        assertFalse(verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
+    }
+
+    @Test
+    public void testCast()
+            throws Exception
+    {
+        SymbolAliases aliases = SymbolAliases.builder()
+                .put("X", new SymbolReference("orderkey"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(aliases);
+        assertTrue(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS varchar)")));
+        assertFalse(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS bigint)")));
+        assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
     }
 
     private Expression expression(String sql)
@@ -45,7 +66,7 @@ public class TestExpressionVerifier
     {
         try {
             runnable.run();
-            throw new AssertionError("Method din't throw an exception as it was expected");
+            throw new AssertionError("Method didn't throw exception as expected");
         }
         catch (Exception expected) {
         }

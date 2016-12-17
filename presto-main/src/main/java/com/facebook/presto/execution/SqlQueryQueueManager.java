@@ -67,7 +67,7 @@ public class SqlQueryQueueManager
             if (!queue.reserve(queryExecution)) {
                 // Reject query if we couldn't acquire a permit to enter the queue.
                 // The permits will be released when this query fails.
-                queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries!"));
+                queryExecution.fail(new PrestoException(QUERY_QUEUE_FULL, "Too many queued queries"));
                 return;
             }
         }

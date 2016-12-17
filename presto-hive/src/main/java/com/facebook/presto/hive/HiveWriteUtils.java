@@ -39,7 +39,6 @@ import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import org.apache.hadoop.conf.Configuration;
@@ -109,6 +108,7 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -750,7 +750,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            value.set(Ints.checkedCast(IntegerType.INTEGER.getLong(block, position)));
+            value.set(toIntExact(IntegerType.INTEGER.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -899,7 +899,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            value.set(Ints.checkedCast(DateType.DATE.getLong(block, position)));
+            value.set(toIntExact(DateType.DATE.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

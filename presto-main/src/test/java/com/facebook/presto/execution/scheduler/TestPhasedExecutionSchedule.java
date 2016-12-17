@@ -30,7 +30,6 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -195,9 +194,9 @@ public class TestPhasedExecutionSchedule
                 tableScan,
                 new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of()),
                 ImmutableList.of(),
-                Optional.<Expression>empty(),
-                Optional.<Symbol>empty(),
-                Optional.<Symbol>empty());
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
 
         return createFragment(join);
     }
@@ -211,8 +210,8 @@ public class TestPhasedExecutionSchedule
                 new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of()),
                 ImmutableList.of(),
                 Optional.empty(),
-                Optional.<Symbol>empty(),
-                Optional.<Symbol>empty());
+                Optional.empty(),
+                Optional.empty());
 
         return createFragment(planNode);
     }

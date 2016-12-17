@@ -84,7 +84,7 @@ public class OperatorContext
     private final AtomicLong memoryReservation = new AtomicLong();
     private final OperatorSystemMemoryContext systemMemoryContext;
 
-    private final AtomicReference<Supplier<?>> infoSupplier = new AtomicReference<>();
+    private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final boolean collectTimings;
 
     public OperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, DriverContext driverContext, Executor executor)
@@ -324,7 +324,7 @@ public class OperatorContext
         return true;
     }
 
-    public void setInfoSupplier(Supplier<?> infoSupplier)
+    public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoProvider is null");
         this.infoSupplier.set(infoSupplier);
@@ -352,11 +352,8 @@ public class OperatorContext
 
     public OperatorStats getOperatorStats()
     {
-        Supplier<?> infoSupplier = this.infoSupplier.get();
-        Object info = null;
-        if (infoSupplier != null) {
-            info = infoSupplier.get();
-        }
+        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
 
         return new OperatorStats(
                 operatorId,

@@ -1,3 +1,4 @@
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,52 +20,34 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.ValuesNode;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
+import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+
 /**
- * Removes unnecessary apply nodes of the form
- * <p>
- * apply(x, r -> ())
- * <p>
- * or
- * <p>
- * apply(x, r -> scalar(...)), where the scalar subquery produces no columns
- * <p>
- * by rewriting them to x
+ * Remove resolved ApplyNodes with unreferenced scalar input, e.g: "SELECT (SELECT 1)".
  */
-public class RemoveRedundantApply
+public class RemoveUnreferencedScalarInputApplyNodes
         implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
+        return rewriteWith(new Rewriter(), plan, null);
     }
 
     private static class Rewriter
-            extends SimplePlanRewriter<Void>
+            extends SimplePlanRewriter<PlanNode>
     {
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
+        public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
-            // if the subquery produces no columns...
-            if (node.getSubquery().getOutputSymbols().isEmpty()) {
-                // and it's guaranteed to produce a single row
-                if (node.getSubquery() instanceof EnforceSingleRowNode) {
-                    return node.getInput();
-                }
-            }
-
-            // or it's a VALUES with a single row
-            if ((node.getSubquery() instanceof ValuesNode)) {
-                if (((ValuesNode) node.getSubquery()).getRows().size() == 1) {
-                    return node.getInput();
-                }
+            if (node.getInput().getOutputSymbols().isEmpty() && isScalar(node.getInput()) && node.isResolvedScalarSubquery()) {
+                return context.rewrite(node.getSubquery());
             }
 
             return context.defaultRewrite(node);

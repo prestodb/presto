@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -98,7 +99,7 @@ public class ImplementFilteredAggregations
                 return context.defaultRewrite(node, Optional.empty());
             }
 
-            ImmutableMap.Builder<Symbol, Expression> newProjections = ImmutableMap.builder();
+            Assignments.Builder newProjections = Assignments.builder();
             ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.<Symbol, Symbol>builder()
                     .putAll(node.getMasks());
 

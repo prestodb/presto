@@ -68,7 +68,7 @@ public class TestAccessControlManager
             throws Exception
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.<String, String>of());
+        accessControlManager.setSystemAccessControl(ALLOW_ALL_ACCESS_CONTROL, ImmutableMap.of());
         accessControlManager.checkCanSetUser(null, USER_NAME);
     }
 

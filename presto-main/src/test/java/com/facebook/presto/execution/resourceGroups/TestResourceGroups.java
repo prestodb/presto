@@ -62,7 +62,7 @@ public class TestResourceGroups
         MockQueryExecution query3 = new MockQueryExecution(0);
         root.run(query3);
         assertEquals(query3.getState(), FAILED);
-        assertEquals(query3.getFailureCause().getMessage(), "Too many queued queries for \"root\"!");
+        assertEquals(query3.getFailureCause().getMessage(), "Too many queued queries for \"root\"");
     }
 
     @Test(timeOut = 10_000)

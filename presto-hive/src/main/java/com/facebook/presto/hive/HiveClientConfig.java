@@ -49,6 +49,7 @@ public class HiveClientConfig
     private String timeZone = TimeZone.getDefault().getID();
 
     private DataSize maxSplitSize = new DataSize(64, MEGABYTE);
+    private int maxPartitionsPerScan = 100_000;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
@@ -137,6 +138,8 @@ public class HiveClientConfig
 
     private boolean bucketExecutionEnabled = true;
     private boolean bucketWritingEnabled = true;
+
+    private int fileSystemMaxCacheSize = 1000;
 
     public int getMaxInitialSplits()
     {
@@ -244,6 +247,20 @@ public class HiveClientConfig
     public HiveClientConfig setMaxSplitSize(DataSize maxSplitSize)
     {
         this.maxSplitSize = maxSplitSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionsPerScan()
+    {
+        return maxPartitionsPerScan;
+    }
+
+    @Config("hive.max-partitions-per-scan")
+    @ConfigDescription("Maximum allowed partitions for a single table scan")
+    public HiveClientConfig setMaxPartitionsPerScan(int maxPartitionsPerScan)
+    {
+        this.maxPartitionsPerScan = maxPartitionsPerScan;
         return this;
     }
 
@@ -1111,7 +1128,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.bucket-execution")
-    @ConfigDescription("Use bucketing to speed up execution")
+    @ConfigDescription("Enable bucket-aware execution: only use a single worker per bucket")
     public HiveClientConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
@@ -1128,6 +1145,19 @@ public class HiveClientConfig
     public HiveClientConfig setBucketWritingEnabled(boolean bucketWritingEnabled)
     {
         this.bucketWritingEnabled = bucketWritingEnabled;
+        return this;
+    }
+
+    public int getFileSystemMaxCacheSize()
+    {
+        return fileSystemMaxCacheSize;
+    }
+
+    @Config("hive.fs.cache.max-size")
+    @ConfigDescription("Hadoop FileSystem cache size")
+    public HiveClientConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
+    {
+        this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
         return this;
     }
 }

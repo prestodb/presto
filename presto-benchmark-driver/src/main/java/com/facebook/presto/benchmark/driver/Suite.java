@@ -44,7 +44,7 @@ public class Suite
     public Suite(String name, Map<String, String> sessionProperties, Iterable<RegexTemplate> schemaNameTemplates, Iterable<Pattern> queryNamePatterns)
     {
         this.name = requireNonNull(name, "name is null");
-        this.sessionProperties = sessionProperties == null ? ImmutableMap.<String, String>of() : ImmutableMap.copyOf(sessionProperties);
+        this.sessionProperties = sessionProperties == null ? ImmutableMap.of() : ImmutableMap.copyOf(sessionProperties);
         this.schemaNameTemplates = ImmutableList.copyOf(requireNonNull(schemaNameTemplates, "schemaNameTemplates is null"));
         this.queryNamePatterns = ImmutableList.copyOf(requireNonNull(queryNamePatterns, "queryNamePatterns is null"));
     }

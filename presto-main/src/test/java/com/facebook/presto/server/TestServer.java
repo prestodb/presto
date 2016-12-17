@@ -37,6 +37,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
@@ -103,6 +104,7 @@ public class TestServer
                 .setHeader(PRESTO_SOURCE, "source")
                 .setHeader(PRESTO_CATALOG, "catalog")
                 .setHeader(PRESTO_SCHEMA, "schema")
+                .setHeader(PRESTO_CLIENT_INFO, "{\"clientVersion\":\"testVersion\"}")
                 .addHeader(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                 .addHeader(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
                 .addHeader(PRESTO_PREPARED_STATEMENT, "foo=select * from bar")
@@ -119,6 +121,9 @@ public class TestServer
                 .put(DISTRIBUTED_JOIN, "true")
                 .put(HASH_PARTITION_COUNT, "43")
                 .build());
+
+        // verify client info in session
+        assertEquals(queryInfo.getSession().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
 
         // verify prepared statements
         assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.builder()

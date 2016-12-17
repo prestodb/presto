@@ -21,6 +21,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.PageSourceOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
+import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
@@ -146,7 +147,10 @@ public class IndexSourceOperator
         RecordSet result = index.lookup(normalizedRecordSet);
         source = new PageSourceOperator(new RecordPageSource(result), result.getColumnTypes(), operatorContext);
 
-        operatorContext.setInfoSupplier(split::getInfo);
+        Object splitInfo = split.getInfo();
+        if (splitInfo != null) {
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+        }
 
         return Optional::empty;
     }

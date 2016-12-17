@@ -51,6 +51,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HdfsConfigurationUpdater.configureCompression;
@@ -328,7 +329,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR));
+            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
         }
 
         RecordCursor recordCursor = cursorProvider
@@ -361,7 +362,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR));
+            columnHandles.add(new HiveColumnHandle("test", columnName, HiveType.toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
         }
 
         return pageSourceFactory

@@ -20,7 +20,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class RenameColumn
-        extends DataDefinitionStatement
+        extends Statement
 {
     private final QualifiedName table;
     private final String source;

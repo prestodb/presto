@@ -58,6 +58,7 @@ public class TestEventListener
                 .setSystemProperty("task_concurrency", "1")
                 .setCatalog("tpch")
                 .setSchema("tiny")
+                .setClientInfo("{\"clientVersion\":\"testVersion\"}")
                 .build();
         queryRunner = new DistributedQueryRunner(session, 1);
         queryRunner.installPlugin(new TpchPlugin());
@@ -92,10 +93,12 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
+        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(events.getQueryCompletedEvents());
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
+        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
 
         List<SplitCompletedEvent> splitCompletedEvents = events.getSplitCompletedEvents();
@@ -116,11 +119,13 @@ public class TestEventListener
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
+        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT sum(linenumber) FROM lineitem");
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(events.getQueryCompletedEvents());
         assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
         assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
+        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getConnectorId(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 1);
