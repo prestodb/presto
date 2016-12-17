@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
@@ -124,7 +124,7 @@ public class TransformQuantifiedComparisonApplyToScalarApply
             Symbol outputColumnSymbol = getOnlyElement(subqueryPlan.getOutputSymbols());
             Type outputColumnType = types.get(outputColumnSymbol);
             if (!outputColumnType.isOrderable()) {
-                throwNotSupportedException(quantifiedComparison, "Quantified comparison '= ALL' or '<> ANY' for unorderable type " + outputColumnType.getDisplayName());
+                throw notSupportedException(quantifiedComparison, "Quantified comparison '= ALL' or '<> ANY' for unorderable type " + outputColumnType.getDisplayName());
             }
 
             List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());

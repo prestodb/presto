@@ -128,7 +128,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwMissingAttributeException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -226,13 +226,13 @@ public class ExpressionAnalyzer
 
     public Type analyze(Expression expression, Scope scope)
     {
-        Visitor visitor = new Visitor(scope, symbolTypes);
+        Visitor visitor = new Visitor(scope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda()));
     }
 
     private Type analyze(Expression expression, Scope scope, Context context)
     {
-        Visitor visitor = new Visitor(scope, symbolTypes);
+        Visitor visitor = new Visitor(scope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
@@ -256,7 +256,7 @@ public class ExpressionAnalyzer
     {
         private final Scope scope;
 
-        private Visitor(Scope scope, Map<Symbol, Type> symbolTypes)
+        private Visitor(Scope scope)
         {
             this.scope = requireNonNull(scope, "scope is null");
         }
@@ -370,7 +370,7 @@ public class ExpressionAnalyzer
                         return handleResolvedField(node, resolvedField.get());
                     }
                     if (!scope.isColumnReference(qualifiedName)) {
-                        throwMissingAttributeException(node, qualifiedName);
+                        throw missingAttributeException(node, qualifiedName);
                     }
                 }
             }
@@ -390,7 +390,7 @@ public class ExpressionAnalyzer
                 }
             }
             if (rowFieldType == null) {
-                throwMissingAttributeException(node);
+                throw missingAttributeException(node);
             }
 
             expressionTypes.put(node, rowFieldType);
@@ -776,7 +776,6 @@ public class ExpressionAnalyzer
             if (node.getFilter().isPresent()) {
                 Expression expression = node.getFilter().get();
                 process(expression, context);
-                Type type = expressionTypes.get(expression);
             }
 
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
