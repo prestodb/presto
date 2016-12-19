@@ -16,7 +16,6 @@ package com.facebook.presto.operator.window;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.WindowIndex;
 import io.airlift.slice.Slice;
 
@@ -84,9 +83,7 @@ public class PagesWindowIndex
     @Override
     public Block getBlock(int channel, int position)
     {
-        BlockBuilder builder = pagesIndex.getType(channel).createBlockBuilder(new BlockBuilderStatus(), 1);
-        pagesIndex.appendTo(channel, position, builder);
-        return builder.build();
+        return pagesIndex.getBlock(channel, position);
     }
 
     @Override
