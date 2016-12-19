@@ -24,6 +24,7 @@ public class AggregatedMemoryContext
 
     private final AbstractAggregatedMemoryContext parentMemoryContext;
     private long usedBytes;
+    private long usedRevocableBytes;
     private boolean closed;
 
     public AggregatedMemoryContext()
@@ -42,14 +43,25 @@ public class AggregatedMemoryContext
         return usedBytes;
     }
 
+    public long getRevocableBytes()
+    {
+        checkState(!closed);
+        return usedRevocableBytes;
+    }
+
     @Override
-    protected void updateBytes(long bytes)
+    protected void updateBytes(long bytes, boolean revocable)
     {
         checkState(!closed);
         if (parentMemoryContext != null) {
-            parentMemoryContext.updateBytes(bytes);
+            parentMemoryContext.updateBytes(bytes, revocable);
         }
-        usedBytes += bytes;
+        if (revocable) {
+            usedRevocableBytes += bytes;
+        }
+        else {
+            usedBytes += bytes;
+        }
     }
 
     public void close()
@@ -59,9 +71,11 @@ public class AggregatedMemoryContext
         }
         closed = true;
         if (parentMemoryContext != null) {
-            parentMemoryContext.updateBytes(-usedBytes);
+            parentMemoryContext.updateBytes(-usedBytes, false);
+            parentMemoryContext.updateBytes(-usedRevocableBytes, true);
         }
         usedBytes = 0;
+        usedRevocableBytes = 0;
     }
 
     @Override
@@ -69,6 +83,7 @@ public class AggregatedMemoryContext
     {
         return toStringHelper(this)
                 .add("usedBytes", usedBytes)
+                .add("usedRevocableBytes", usedRevocableBytes)
                 .add("closed", closed)
                 .toString();
     }

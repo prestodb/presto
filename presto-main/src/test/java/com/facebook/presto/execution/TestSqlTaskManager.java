@@ -62,10 +62,12 @@ public class TestSqlTaskManager
 
     private final TaskExecutor taskExecutor;
     private final LocalMemoryManager localMemoryManager;
+    private final MemoryRevokingScheduler memoryRevokingScheduler;
 
     public TestSqlTaskManager()
     {
         localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
+        memoryRevokingScheduler = new MemoryRevokingScheduler(localMemoryManager);
         taskExecutor = new TaskExecutor(8, 16);
         taskExecutor.start();
     }
@@ -275,6 +277,7 @@ public class TestSqlTaskManager
                 new QueryMonitor(new ObjectMapperProvider().get(), new EventListenerManager(), new NodeInfo("test"), new NodeVersion("testVersion"), new QueryMonitorConfig()),
                 new NodeInfo("test"),
                 localMemoryManager,
+                memoryRevokingScheduler,
                 config,
                 new NodeMemoryConfig());
     }

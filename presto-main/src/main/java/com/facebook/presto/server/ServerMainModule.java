@@ -25,6 +25,7 @@ import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.QueryMonitorConfig;
 import com.facebook.presto.execution.LocationFactory;
+import com.facebook.presto.execution.MemoryRevokingScheduler;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -238,6 +239,9 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManager.class).to(SqlTaskManager.class).in(Scopes.SINGLETON);
+
+        // memory revoking scheduler
+        binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
 
         // workaround for CodeCache GC issue
         if (JavaVersion.current().getMajor() == 8) {

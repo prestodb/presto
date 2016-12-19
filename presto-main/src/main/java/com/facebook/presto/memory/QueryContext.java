@@ -35,6 +35,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
 public class QueryContext
@@ -58,6 +59,9 @@ public class QueryContext
 
     @GuardedBy("this")
     private long systemReserved;
+
+    @GuardedBy("this")
+    private long revocableSystemReserved;
 
     public QueryContext(QueryId queryId, DataSize maxMemory, MemoryPool memoryPool, MemoryPool systemMemoryPool, Executor executor)
     {
@@ -101,6 +105,15 @@ public class QueryContext
         return future;
     }
 
+    public synchronized ListenableFuture<?> reserveRevocableSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+
+        ListenableFuture<?> future = systemMemoryPool.reserve(queryId, bytes);
+        revocableSystemReserved += bytes;
+        return future;
+    }
+
     public synchronized boolean tryReserveMemory(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
@@ -127,6 +140,14 @@ public class QueryContext
         checkArgument(bytes >= 0, "bytes is negative");
         checkArgument(systemReserved - bytes >= 0, "tried to free more system memory than is reserved");
         systemReserved -= bytes;
+        systemMemoryPool.free(queryId, bytes);
+    }
+
+    public synchronized void freeRevocableSystemMemory(long bytes)
+    {
+        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(revocableSystemReserved - bytes >= 0, "tried to free more revocable system memory than is reserved");
+        revocableSystemReserved -= bytes;
         systemMemoryPool.free(queryId, bytes);
     }
 
@@ -165,5 +186,17 @@ public class QueryContext
         TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitQueryContext(this, context);
+    }
+
+    public <C, R> List<R> acceptChildren(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return taskContexts.stream()
+                .map(taskContext -> taskContext.accept(visitor, context))
+                .collect(toList());
     }
 }

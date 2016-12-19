@@ -44,6 +44,7 @@ public class DriverStats
 
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
+    private final DataSize revocableSystemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -74,6 +75,7 @@ public class DriverStats
 
         this.memoryReservation = new DataSize(0, BYTE);
         this.systemMemoryReservation = new DataSize(0, BYTE);
+        this.revocableSystemMemoryReservation = new DataSize(0, BYTE);
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
@@ -105,6 +107,7 @@ public class DriverStats
 
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("revocableSystemMemoryReservation") DataSize revocableSystemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -133,6 +136,7 @@ public class DriverStats
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+        this.revocableSystemMemoryReservation = requireNonNull(revocableSystemMemoryReservation, "revocableSystemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -199,6 +203,12 @@ public class DriverStats
     public DataSize getSystemMemoryReservation()
     {
         return systemMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getRevocableSystemMemoryReservation()
+    {
+        return revocableSystemMemoryReservation;
     }
 
     @JsonProperty
