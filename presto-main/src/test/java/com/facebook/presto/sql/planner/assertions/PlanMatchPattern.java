@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -81,6 +82,7 @@ public final class PlanMatchPattern
      * Matches to any tree of nodes with children matching to given source matchers.
      * anyNodeTree(tableScanNode("nation")) - will match to any plan which all leafs contain
      * any node containing table scan from nation table.
+     *
      * @note anyTree does not match zero nodes. E.g. output(anyTree(tableScan)) will NOT match TableScan node followed by OutputNode.
      */
     public static PlanMatchPattern anyTree(PlanMatchPattern... sources)
@@ -273,6 +275,12 @@ public final class PlanMatchPattern
         subqueryAssignments.entrySet().forEach(
                 assignment -> result.withAlias(assignment.getKey(), assignment.getValue()));
         return result;
+    }
+
+    public static PlanMatchPattern lateral(List<String> correlationSymbolAliases, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    {
+        return node(LateralJoinNode.class, inputPattern, subqueryPattern)
+                .with(new CorrelationMatcher(correlationSymbolAliases));
     }
 
     public static PlanMatchPattern groupingSet(List<List<Symbol>> groups, PlanMatchPattern source)

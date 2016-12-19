@@ -43,16 +43,16 @@ import com.facebook.presto.sql.planner.optimizations.ProjectionPushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
-import com.facebook.presto.sql.planner.optimizations.RemoveUnreferencedScalarInputApplyNodes;
+import com.facebook.presto.sql.planner.optimizations.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.optimizations.ReorderWindows;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
-import com.facebook.presto.sql.planner.optimizations.TransformExistsApplyToScalarApply;
-import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToScalarApply;
+import com.facebook.presto.sql.planner.optimizations.TransformExistsApplyToLateralJoin;
+import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
-import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedScalarToJoin;
+import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
@@ -87,11 +87,11 @@ public class PlanOptimizers
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
                 new MergeProjections(),
-                new TransformExistsApplyToScalarApply(metadata),
-                new TransformQuantifiedComparisonApplyToScalarApply(metadata),
-                new RemoveUnreferencedScalarInputApplyNodes(),
+                new TransformExistsApplyToLateralJoin(metadata),
+                new TransformQuantifiedComparisonApplyToLateralJoin(metadata),
+                new RemoveUnreferencedScalarLateralNodes(),
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                new TransformUncorrelatedScalarToJoin(),
+                new TransformUncorrelatedLateralToJoin(),
                 new TransformCorrelatedScalarAggregationToJoin(metadata),
                 new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),

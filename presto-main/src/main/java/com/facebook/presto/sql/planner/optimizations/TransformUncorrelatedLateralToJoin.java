@@ -1,4 +1,3 @@
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,38 +18,52 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
+import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
-import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static java.util.Objects.requireNonNull;
 
-/**
- * Remove resolved ApplyNodes with unreferenced scalar input, e.g: "SELECT (SELECT 1)".
- */
-public class RemoveUnreferencedScalarInputApplyNodes
+public class TransformUncorrelatedLateralToJoin
         implements PlanOptimizer
 {
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return rewriteWith(new Rewriter(), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, null);
     }
 
-    private static class Rewriter
+    private class Rewriter
             extends SimplePlanRewriter<PlanNode>
     {
-        @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
-        {
-            if (node.getInput().getOutputSymbols().isEmpty() && isScalar(node.getInput()) && node.isResolvedScalarSubquery()) {
-                return context.rewrite(node.getSubquery());
-            }
+        private final PlanNodeIdAllocator idAllocator;
 
-            return context.defaultRewrite(node);
+        public Rewriter(PlanNodeIdAllocator idAllocator)
+        {
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        }
+
+        @Override
+        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<PlanNode> context)
+        {
+            LateralJoinNode rewrittenNode = (LateralJoinNode) context.defaultRewrite(node, context.get());
+            if (rewrittenNode.getCorrelation().isEmpty()) {
+                return new JoinNode(
+                        idAllocator.getNextId(),
+                        JoinNode.Type.INNER,
+                        rewrittenNode.getInput(),
+                        rewrittenNode.getSubquery(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty());
+            }
+            return rewrittenNode;
         }
     }
 }
