@@ -14,6 +14,10 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.ExistsPredicate;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -57,9 +61,6 @@ public class ApplyNode
      * - expression: input_symbol_X < ALL (subquery_symbol_Y)
      * - meaning: if input_symbol_X is smaller than all subquery values represented by subquery_symbol_Y
      * <p>
-     * Example 3:
-     * - expression: subquery_symbol_Y
-     * - meaning: subquery is scalar (might be enforced), therefore subquery_symbol_Y can be used directly in the rest of the plan
      */
     private final Assignments subqueryAssignments;
 
@@ -78,11 +79,21 @@ public class ApplyNode
         requireNonNull(correlation, "correlation is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
+        checkArgument(
+                subqueryAssignments.getExpressions().stream().allMatch(ApplyNode::isSupportedSubqueryExpression),
+                "Unexpected expression used for subquery expression");
 
         this.input = input;
         this.subquery = subquery;
         this.subqueryAssignments = subqueryAssignments;
         this.correlation = ImmutableList.copyOf(correlation);
+    }
+
+    private static boolean isSupportedSubqueryExpression(Expression expression)
+    {
+        return expression instanceof InPredicate ||
+                expression instanceof ExistsPredicate ||
+                expression instanceof QuantifiedComparisonExpression;
     }
 
     /**
