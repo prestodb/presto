@@ -831,6 +831,12 @@
                 <artifactId>cassandra-driver</artifactId>
                 <version>3.1.4-1</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.skife</groupId>
+                <artifactId>clocked-executor</artifactId>
+                <version>0.0.3</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
