@@ -67,7 +67,7 @@ public class TestSqlTaskManager
     public TestSqlTaskManager()
     {
         localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
-        taskExecutor = new TaskExecutor(8, 16);
+        taskExecutor = new TaskExecutor(new StaticTaskExecutorController(8), new Duration(1, TimeUnit.SECONDS), 16);
         taskExecutor.start();
     }
 

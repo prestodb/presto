@@ -34,7 +34,15 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import javax.management.AttributeNotFoundException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+import javax.management.ReflectionException;
 
+import java.lang.management.ManagementFactory;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -87,7 +95,6 @@ public class TaskExecutor
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorMBean;
 
-    private final int runnerThreads;
     private final int minimumNumberOfDrivers;
 
     private final Ticker ticker;
@@ -134,28 +141,41 @@ public class TaskExecutor
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
+    private final TaskExectorController taskExectorController;
+
+    private final Duration runnerThreadsAdjustmentInterval;
+    @GuardedBy("this")
+    private int targetRunnerThreads;
+    @GuardedBy("this")
+    private int runnerThreads;
+
     private volatile boolean closed;
 
     @Inject
     public TaskExecutor(TaskManagerConfig config)
     {
-        this(requireNonNull(config, "config is null").getMaxWorkerThreads(), config.getMinDrivers());
+        this(createTaskExecutorController(requireNonNull(config, "config is null")), config.getWorkerThreadsAdjustmentInterval(), config.getMinDrivers());
     }
 
-    public TaskExecutor(int runnerThreads, int minDrivers)
+    public TaskExecutor(TaskExectorController controller, Duration workerThreadsAdjustmentInterval, int minDrivers)
     {
-        this(runnerThreads, minDrivers, Ticker.systemTicker());
+        this(controller, workerThreadsAdjustmentInterval, minDrivers, Ticker.systemTicker());
     }
 
     @VisibleForTesting
-    public TaskExecutor(int runnerThreads, int minDrivers, Ticker ticker)
+    public TaskExecutor(TaskExectorController controller, Duration workerThreadsAdjustmentInterval, int minDrivers, Ticker ticker)
     {
-        checkArgument(runnerThreads > 0, "runnerThreads must be at least 1");
+        requireNonNull(controller, "controll is null");
+        requireNonNull(workerThreadsAdjustmentInterval, "workerThreadsAdjustmentInterval is null");
 
         // we manages thread pool size directly, so create an unlimited pool
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
-        this.runnerThreads = runnerThreads;
+
+        this.taskExectorController = controller;
+        this.targetRunnerThreads = 0;
+        this.runnerThreads = 0;
+        this.runnerThreadsAdjustmentInterval = workerThreadsAdjustmentInterval;
 
         this.ticker = requireNonNull(ticker, "ticker is null");
 
@@ -168,9 +188,9 @@ public class TaskExecutor
     public synchronized void start()
     {
         checkState(!closed, "TaskExecutor is closed");
-        for (int i = 0; i < runnerThreads; i++) {
-            addRunnerThread();
-        }
+
+        adjustRunnerThreads(taskExectorController.getNextRunnerThreads(null));
+        addDriverManager();
     }
 
     @PreDestroy
@@ -193,10 +213,41 @@ public class TaskExecutor
                 .toString();
     }
 
-    private synchronized void addRunnerThread()
+    private synchronized void adjustRunnerThreads(int target)
+    {
+        targetRunnerThreads = target;
+
+        int moreThreads = targetRunnerThreads - runnerThreads;
+        if (moreThreads > 0) {
+            addRunnerThreads(moreThreads);
+            runnerThreads = targetRunnerThreads;
+        }
+    }
+
+    private synchronized boolean tryStopRunner()
+    {
+        if (runnerThreads > targetRunnerThreads) {
+            runnerThreads--;
+            return true;
+        }
+        return false;
+    }
+
+    private synchronized void addRunnerThreads(int runnerThreads)
+    {
+        for (int i = 0; i < runnerThreads; i++) {
+            try {
+                executor.execute(new Runner());
+            }
+            catch (RejectedExecutionException ignored) {
+            }
+        }
+    }
+
+    private synchronized void addDriverManager()
     {
         try {
-            executor.execute(new Runner());
+            executor.execute(new DriverManagerThread());
         }
         catch (RejectedExecutionException ignored) {
         }
@@ -706,8 +757,15 @@ public class TaskExecutor
         @Override
         public void run()
         {
+            boolean stopped = false;
             try (SetThreadName runnerName = new SetThreadName("SplitRunner-%s", runnerId)) {
-                while (!closed && !Thread.currentThread().isInterrupted()) {
+                while (true) {
+                    // check if the current thread need to be stopped
+                    stopped = tryStopRunner();
+                    if (closed || stopped || Thread.currentThread().isInterrupted()) {
+                        break;
+                    }
+
                     // select next worker
                     final PrioritizedSplitRunner split;
                     try {
@@ -778,8 +836,8 @@ public class TaskExecutor
             }
             finally {
                 // unless we have been closed, we need to replace this thread
-                if (!closed) {
-                    addRunnerThread();
+                if (!closed && !stopped) {
+                    addRunnerThreads(1);
                 }
             }
         }
@@ -990,5 +1048,144 @@ public class TaskExecutor
     public ThreadPoolExecutorMBean getProcessorExecutor()
     {
         return executorMBean;
+    }
+
+    private static TaskExectorController createTaskExecutorController(TaskManagerConfig config)
+    {
+        requireNonNull(config, "config is null");
+        checkArgument(config.getMinWorkerThreads() <= config.getMaxWorkerThreads(), "minWorkerThreads should be less than maxWorkerThreads");
+
+        if (config.getMinWorkerThreads() == config.getMaxWorkerThreads()) {
+            return new StaticTaskExecutorController(config.getMaxWorkerThreads());
+        }
+
+        // choose conservative parameters for PID (kp, ki, kd) controller as default values,
+        // these parameters (kp, ki, kd) might be exposed to user in the future
+        return new PidTaskExecutorController(
+                config.getTargetCpuUtilization(),
+                config.getMinWorkerThreads(),
+                config.getMaxWorkerThreads(),
+                0.1,
+                0.1,
+                0.01);
+    }
+
+    private class DriverManagerThread
+            implements Runnable
+    {
+        private static final String OS_OBJECT_NAME = "java.lang:type=OperatingSystem";
+        private static final String ATTRIBUTE_NAME = "ProcessCpuTime";
+
+        private final MBeanServer mBeanServer;
+        private long lastWallNanos;
+        private long lastCpuNanos;
+
+        public DriverManagerThread()
+        {
+            mBeanServer = ManagementFactory.getPlatformMBeanServer();
+            Long cpuTime = getProcessCpuTime();
+            if (cpuTime != null) {
+                lastCpuNanos = cpuTime.longValue();
+                lastWallNanos = System.nanoTime();
+            }
+        }
+
+        @Override
+        public void run()
+        {
+            try (SetThreadName runnerName = new SetThreadName("DriverManager")) {
+                while (!closed) {
+                    try {
+                        Thread.sleep(runnerThreadsAdjustmentInterval.toMillis());
+
+                        TaskExectorStat stat = createTaskExectorStat();
+                        if (stat == null) {
+                            continue;
+                        }
+                        System.out.println("cput => " + stat.getCpuUtilization() + ", threads => " + runnerThreads);
+                        adjustRunnerThreads(taskExectorController.getNextRunnerThreads(stat));
+                    }
+                    catch (InterruptedException e) {
+                        // ignore interruption
+                    }
+                }
+            }
+            finally {
+                // unless we have been closed, we need to replace this thread
+                if (!closed) {
+                    addDriverManager();
+                }
+            }
+        }
+
+        private TaskExectorStat createTaskExectorStat()
+        {
+            Long cpuTime = getProcessCpuTime();
+            if (cpuTime == null) {
+                return null;
+            }
+            long currentCpuNanos = cpuTime.longValue();
+            long currentWallNanos = System.nanoTime();
+            TaskExectorStat state = new TaskExectorStat(
+                    new Duration(currentCpuNanos - lastCpuNanos, NANOSECONDS),
+                    new Duration(currentWallNanos - lastWallNanos, NANOSECONDS),
+                    runnerThreads,
+                    allSplits.size());
+            lastCpuNanos = currentCpuNanos;
+            lastWallNanos = currentWallNanos;
+            return state;
+        }
+
+        private Long getProcessCpuTime()
+        {
+            try {
+                return (Long) mBeanServer.getAttribute(new ObjectName(OS_OBJECT_NAME), ATTRIBUTE_NAME);
+            }
+            catch (MBeanException | AttributeNotFoundException | InstanceNotFoundException | MalformedObjectNameException | ReflectionException ignored) {
+                // ignore exception
+            }
+            return null;
+        }
+    }
+
+    public static class TaskExectorStat
+    {
+        private final Duration cpuTime;
+        private final Duration wallTime;
+        private final int runnerThreads;
+        private final int totalSplits;
+
+        public TaskExectorStat(Duration cpuTime, Duration wallTime, int runnerThreads, int totalSplits)
+        {
+            this.cpuTime = cpuTime;
+            this.wallTime = wallTime;
+            this.runnerThreads = runnerThreads;
+            this.totalSplits = totalSplits;
+        }
+
+        public Duration getCpuTime()
+        {
+            return cpuTime;
+        }
+
+        public Duration getWallTime()
+        {
+            return wallTime;
+        }
+
+        public int getRunnerThreads()
+        {
+            return runnerThreads;
+        }
+
+        public int getTotalSplits()
+        {
+            return totalSplits;
+        }
+
+        public double getCpuUtilization()
+        {
+            return cpuTime.getValue(TimeUnit.SECONDS) / (Runtime.getRuntime().availableProcessors() * wallTime.getValue(TimeUnit.SECONDS));
+        }
     }
 }
