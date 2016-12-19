@@ -95,7 +95,7 @@ public final class UrlFunctions
     public static Slice urlExtractQuery(@SqlType(StandardTypes.VARCHAR) Slice url)
     {
         URI uri = parseUrl(url);
-        return (uri == null) ? null : slice(uri.getQuery());
+        return (uri == null) ? null : slice(uri.getRawQuery());
     }
 
     @SqlNullable
@@ -115,11 +115,11 @@ public final class UrlFunctions
     public static Slice urlExtractParameter(@SqlType(StandardTypes.VARCHAR) Slice url, @SqlType(StandardTypes.VARCHAR) Slice parameterName)
     {
         URI uri = parseUrl(url);
-        if ((uri == null) || (uri.getQuery() == null)) {
+        if ((uri == null) || (uri.getRawQuery() == null)) {
             return null;
         }
 
-        Slice query = slice(uri.getQuery());
+        Slice query = slice(uri.getRawQuery());
         String parameter = parameterName.toStringUtf8();
         Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toStringUtf8());
 
