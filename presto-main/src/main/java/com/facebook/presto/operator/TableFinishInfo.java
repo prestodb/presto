@@ -26,11 +26,12 @@ import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.Math.toIntExact;
 
 public class TableFinishInfo
         implements OperatorInfo
 {
-    private static final int JSON_LENGTH_LIMIT = Math.toIntExact(new DataSize(10, MEGABYTE).toBytes());
+    private static final int JSON_LENGTH_LIMIT = toIntExact(new DataSize(10, MEGABYTE).toBytes());
     private static final JsonCodec<Object> INFO_CODEC = jsonCodec(Object.class);
     private static final JsonCodec<JsonNode> JSON_NODE_CODEC = jsonCodec(JsonNode.class);
 
