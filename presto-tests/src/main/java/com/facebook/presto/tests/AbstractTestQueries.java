@@ -6663,21 +6663,21 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT\n" +
                         "  count(*) AS numwait\n" +
                         "FROM\n" +
-                        "  orders l1\n" +
+                        "  nation l1\n" +
                         "WHERE\n" +
                         "  EXISTS(\n" +
                         "    SELECT *\n" +
                         "    FROM\n" +
-                        "      orders l2\n" +
+                        "      nation l2\n" +
                         "    WHERE\n" +
-                        "      l2.orderkey = l1.orderkey\n" +
+                        "      l2.nationkey = l1.nationkey\n" +
                         "  )\n" +
                         "  AND NOT EXISTS(\n" +
                         "    SELECT *\n" +
                         "    FROM\n" +
-                        "      orders l3\n" +
+                        "      nation l3\n" +
                         "    WHERE\n" +
-                        "      l3.orderkey = l1.orderkey\n" +
+                        "      l3.nationkey= l1.nationkey\n" +
                         "  )\n",
                 "VALUES 0"); // EXISTS predicates are contradictory
     }
