@@ -29,6 +29,11 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryTemplate
 {
+    public static QueryTemplate queryTemplate(String queryTemplate, Parameter... parameters)
+    {
+        return new QueryTemplate(queryTemplate, parameters);
+    }
+
     private final String queryTemplate;
     private final List<Parameter> defaultParameters;
 
@@ -67,6 +72,13 @@ public class QueryTemplate
                     !query.contains(queryParameterKey),
                     "Query template parameters was not given: %s", queryParameterKey);
         }
+    }
+
+    public List<String> replaceAll(List<Parameter>... parametersLists)
+    {
+        ImmutableList.Builder<String> queries = ImmutableList.builder();
+        replaceAll(queries::add, parametersLists);
+        return queries.build();
     }
 
     public void replaceAll(Consumer<String> queryConsumer, List<Parameter>... parametersLists)
