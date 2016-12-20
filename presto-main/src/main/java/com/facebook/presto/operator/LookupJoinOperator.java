@@ -174,11 +174,11 @@ public class LookupJoinOperator
         closed = true;
         probe = null;
         pageBuilder.reset();
-        onClose.run();
         // closing lookup source is only here for index join
         if (lookupSource != null) {
             lookupSource.close();
         }
+        onClose.run();
     }
 
     private boolean joinCurrentPosition()
