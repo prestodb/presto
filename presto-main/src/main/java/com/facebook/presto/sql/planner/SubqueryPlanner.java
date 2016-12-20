@@ -264,18 +264,21 @@ class SubqueryPlanner
 
         PlanBuilder subqueryPlan = createPlanBuilder(existsPredicate.getSubquery());
 
-        if (isAggregationWithEmptyGroupBy(subqueryPlan.getRoot())) {
+        PlanNode subqueryPlanRoot = subqueryPlan.getRoot();
+        if (isAggregationWithEmptyGroupBy(subqueryPlanRoot)) {
             subPlan.getTranslations().put(existsPredicate, BooleanLiteral.TRUE_LITERAL);
             return subPlan;
         }
 
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
+        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(
+                subqueryPlanRoot.getOutputSymbols().get(0).toSymbolReference());
         return appendApplyNode(
                 subPlan,
                 existsPredicate.getSubquery(),
                 subqueryPlan,
-                Assignments.of(exists, existsPredicate),
+                Assignments.of(exists, rewrittenExistsPredicate),
                 correlationAllowed);
     }
 
