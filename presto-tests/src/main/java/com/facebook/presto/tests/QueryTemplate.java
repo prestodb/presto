@@ -34,6 +34,11 @@ public class QueryTemplate
         return new QueryTemplate(queryTemplate, parameters);
     }
 
+    public static Parameter parameter(String key)
+    {
+        return new Parameter(key);
+    }
+
     private final String queryTemplate;
     private final List<Parameter> defaultParameters;
 
