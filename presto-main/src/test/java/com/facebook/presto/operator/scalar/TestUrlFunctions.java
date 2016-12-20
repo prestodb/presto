@@ -33,6 +33,7 @@ public class TestUrlFunctions
         validateUrlExtract("mailto:test@example.com", "mailto", "", null, "", "", "");
         validateUrlExtract("foo", "", "", null, "foo", "", "");
         validateUrlExtract("http://example.com/^", null, null, null, null, null, null);
+        validateUrlExtract("http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1#Ref1", "http", "example.com", null, "/path1/p.php", "source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1", "Ref1");
     }
 
     @Test
@@ -47,6 +48,7 @@ public class TestUrlFunctions
         assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", VARCHAR, "");
         assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", VARCHAR, "a=b=c");
         assertFunction("url_extract_parameter('foo', 'k1')", VARCHAR, null);
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?source_url=http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar&k1=v1', 'source_url')", VARCHAR, "http%3a%2f%2fbar.com%3fa%3dfoo%26b%3dbar");
     }
 
     @Test
