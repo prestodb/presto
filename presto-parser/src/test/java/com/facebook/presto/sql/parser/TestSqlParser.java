@@ -1616,15 +1616,15 @@ public class TestSqlParser
     @Test
     public void testExists()
     {
-        assertStatement("SELECT EXISTS(SELECT 1)", simpleQuery(selectList(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))))));
+        assertStatement("SELECT EXISTS(SELECT 1)", simpleQuery(selectList(exists(simpleQuery(selectList(new LongLiteral("1")))))));
 
         assertStatement(
                 "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
                 simpleQuery(
                         selectList(new ComparisonExpression(
                                 ComparisonExpressionType.EQUAL,
-                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
-                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+                                exists(simpleQuery(selectList(new LongLiteral("1")))),
+                                exists(simpleQuery(selectList(new LongLiteral("2"))))))));
 
         assertStatement(
                 "SELECT NOT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
@@ -1633,8 +1633,8 @@ public class TestSqlParser
                                 new NotExpression(
                                         new ComparisonExpression(
                                                 ComparisonExpressionType.EQUAL,
-                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
-                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2")))))))));
+                                                exists(simpleQuery(selectList(new LongLiteral("1")))),
+                                                exists(simpleQuery(selectList(new LongLiteral("2")))))))));
 
         assertStatement(
                 "SELECT (NOT EXISTS(SELECT 1)) = EXISTS(SELECT 2)",
@@ -1642,8 +1642,13 @@ public class TestSqlParser
                         selectList(
                                 new ComparisonExpression(
                                         ComparisonExpressionType.EQUAL,
-                                        new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
-                                        new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+                                        new NotExpression(exists(simpleQuery(selectList(new LongLiteral("1"))))),
+                                        exists(simpleQuery(selectList(new LongLiteral("2"))))))));
+    }
+
+    private static ExistsPredicate exists(Query query)
+    {
+        return new ExistsPredicate(new SubqueryExpression(query));
     }
 
     @Test
