@@ -21,26 +21,26 @@ import static java.util.Objects.requireNonNull;
 public class ExistsPredicate
         extends Expression
 {
-    private final Query subquery;
+    private final Expression subquery;
 
-    public ExistsPredicate(Query subquery)
+    public ExistsPredicate(Expression subquery)
     {
         this(Optional.empty(), subquery);
     }
 
-    public ExistsPredicate(NodeLocation location, Query subquery)
+    public ExistsPredicate(NodeLocation location, Expression subquery)
     {
         this(Optional.of(location), subquery);
     }
 
-    private ExistsPredicate(Optional<NodeLocation> location, Query subquery)
+    private ExistsPredicate(Optional<NodeLocation> location, Expression subquery)
     {
         super(location);
         requireNonNull(subquery, "subquery is null");
         this.subquery = subquery;
     }
 
-    public Query getSubquery()
+    public Node getSubquery()
     {
         return subquery;
     }

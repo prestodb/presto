@@ -263,7 +263,7 @@ class SubqueryPlanner
             return subPlan;
         }
 
-        PlanBuilder subqueryPlan = createPlanBuilder(existsPredicate.getSubquery());
+        PlanBuilder subqueryPlan = createPlanBuilder((Query) existsPredicate.getSubquery());
 
         if (isAggregationWithEmptyGroupBy(subqueryPlan.getRoot())) {
             subPlan.getTranslations().put(existsPredicate, BooleanLiteral.TRUE_LITERAL);
@@ -462,7 +462,9 @@ class SubqueryPlanner
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
         translations.setFieldMappings(relationPlan.getOutputSymbols());
 
-        translations.put(expression, getOnlyElement(relationPlan.getOutputSymbols()));
+        if (relationPlan.getOutputSymbols().size() == 1) {
+            translations.put(expression, getOnlyElement(relationPlan.getOutputSymbols()));
+        }
 
         return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
     }
