@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -114,6 +115,7 @@ public class PlanOptimizers
                 new IterativeOptimizer(
                         stats,
                         ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
                                 new EvaluateZeroLimit(),
                                 new PushLimitThroughProject(),
                                 new MergeLimits(),
@@ -136,7 +138,11 @@ public class PlanOptimizers
                                 new ImplementBernoulliSampleAsFilter())),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
-                new PruneIdentityProjections(),
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableList.of(new PruneIdentityProjections()),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())
+                ),
                 new SetFlatteningOptimizer(),
                 new ImplementIntersectAndExceptAsUnion(),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
@@ -164,7 +170,11 @@ public class PlanOptimizers
                 new ReorderWindows(), // Should be after MergeWindows to avoid unnecessary reordering of mergeable windows
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
-                new PruneIdentityProjections(), // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableList.of(new PruneIdentityProjections()), // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())
+                ),
                 new MetadataQueryOptimizer(metadata),
                 new EliminateCrossJoins(), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 new PredicatePushDown(metadata, sqlParser),
@@ -195,7 +205,10 @@ public class PlanOptimizers
         builder.add(new MergeProjections());
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
-        builder.add(new PruneIdentityProjections());
+        builder.add(new IterativeOptimizer(
+                stats,
+                ImmutableList.of(new PruneIdentityProjections()),
+                ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, sqlParser));
@@ -203,7 +216,10 @@ public class PlanOptimizers
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
         builder.add(new PartialAggregationPushDown(metadata.getFunctionRegistry()));
-        builder.add(new PruneIdentityProjections());
+        builder.add(new IterativeOptimizer(
+                stats,
+                ImmutableList.of(new PruneIdentityProjections()),
+                ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
