@@ -54,9 +54,22 @@ public class PooledTTransportFactory
     }
 
     @Override
+    public void activateObject(PooledObject<TTransport> pooledObject)
+        throws Exception
+    {
+        pooledObject.getObject().flush();
+    }
+
+    @Override
     public boolean validateObject(PooledObject<TTransport> pooledObject)
     {
-        return pooledObject.getObject().isOpen();
+        try {
+            return (pooledObject.getObject().isOpen() &&
+                ((PooledTTransport) pooledObject.getObject()).isReachable(timeoutMillis));
+        }
+        catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
@@ -143,6 +156,12 @@ public class PooledTTransportFactory
             return transport;
         }
 
+        public boolean isReachable(int timeoutMillis)
+            throws ClassCastException, IOException
+        {
+            return ((TSocket) transport).getSocket().getInetAddress().isReachable(timeoutMillis);
+        }
+
         @Override
         public void close()
         {
@@ -192,42 +211,42 @@ public class PooledTTransportFactory
 
         @Override
         public void open()
-                throws TTransportException
+            throws TTransportException
         {
             transport.open();
         }
 
         @Override
         public int readAll(byte[] bytes, int off, int len)
-                throws TTransportException
+            throws TTransportException
         {
             return transport.readAll(bytes, off, len);
         }
 
         @Override
         public int read(byte[] bytes, int off, int len)
-                throws TTransportException
+            throws TTransportException
         {
             return transport.read(bytes, off, len);
         }
 
         @Override
         public void write(byte[] bytes)
-                throws TTransportException
+            throws TTransportException
         {
             transport.write(bytes);
         }
 
         @Override
         public void write(byte[] bytes, int off, int len)
-                throws TTransportException
+            throws TTransportException
         {
             transport.write(bytes, off, len);
         }
 
         @Override
         public void flush()
-                throws TTransportException
+            throws TTransportException
         {
             transport.flush();
         }
