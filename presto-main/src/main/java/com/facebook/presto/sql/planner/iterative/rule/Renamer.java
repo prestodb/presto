@@ -49,6 +49,14 @@ class Renamer
         return new Renamer(result.build());
     }
 
+    public static Renamer merge(Renamer first, Renamer second)
+    {
+        return new Renamer(ImmutableMap.<Symbol, Symbol>builder()
+                .putAll(first.renames)
+                .putAll(second.renames)
+                .build());
+    }
+
     private Renamer(Map<Symbol, Symbol> renames)
     {
         this.renames = renames;

@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupB
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasFilter;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasGroupId;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasJoin;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasOutput;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasProject;
@@ -122,6 +123,7 @@ public class PlanOptimizers
                         new UnaliasTopN(),
                         new UnaliasSetOperation(),
                         new UnaliasUnnest(),
+                        new UnaliasJoin(),
 
                         new RemoveRedundantProjections(),
                         new InlineProjections(),
