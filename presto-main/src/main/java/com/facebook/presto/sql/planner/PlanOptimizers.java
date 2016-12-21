@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.iterative.rule.UnaliasProject;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasSetOperation;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasSort;
 import com.facebook.presto.sql.planner.iterative.rule.UnaliasTopN;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasUnnest;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -120,6 +121,7 @@ public class PlanOptimizers
                         new UnaliasMarkDistinct(),
                         new UnaliasTopN(),
                         new UnaliasSetOperation(),
+                        new UnaliasUnnest(),
 
                         new RemoveRedundantProjections(),
                         new InlineProjections(),
