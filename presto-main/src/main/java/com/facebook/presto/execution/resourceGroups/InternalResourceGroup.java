@@ -16,6 +16,7 @@ package com.facebook.presto.execution.resourceGroups;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroup;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
 import static com.facebook.presto.spi.ErrorType.USER_ERROR;
@@ -125,6 +127,11 @@ public class InternalResourceGroup
             List<ResourceGroupInfo> infos = subGroups.values().stream()
                     .map(InternalResourceGroup::getInfo)
                     .collect(Collectors.toList());
+            Set<QueryId> queryIds = Stream.concat(
+                    runningQueries.stream().map(QueryExecution::getQueryId),
+                    infos.stream().flatMap(info -> info.getQueryIds().stream()))
+                    .collect(Collectors.toSet());
+
             return new ResourceGroupInfo(
                     id,
                     new DataSize(softMemoryLimitBytes, BYTE),
@@ -132,7 +139,9 @@ public class InternalResourceGroup
                     maxQueuedQueries,
                     runningQueries.size() + descendantRunningQueries,
                     queuedQueries.size() + descendantQueuedQueries,
+                    cpuUsageMillis,
                     new DataSize(cachedMemoryUsageBytes, BYTE),
+                    queryIds,
                     infos);
         }
     }
@@ -156,6 +165,22 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             return queuedQueries.size() + descendantQueuedQueries;
+        }
+    }
+
+    @Managed
+    public long getMemoryUsageBytes()
+    {
+        synchronized (root) {
+            return cachedMemoryUsageBytes;
+        }
+    }
+
+    @Managed
+    public long getCpuUsageMillis()
+    {
+        synchronized (root) {
+            return cpuUsageMillis;
         }
     }
 
