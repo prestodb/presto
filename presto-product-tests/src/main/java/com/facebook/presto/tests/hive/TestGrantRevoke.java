@@ -15,9 +15,11 @@
 package com.facebook.presto.tests.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.teradata.tempto.AfterTestWithContext;
 import com.teradata.tempto.BeforeTestWithContext;
 import com.teradata.tempto.ProductTest;
 import com.teradata.tempto.query.QueryExecutor;
+import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.TestGroups.AUTHORIZATION;
@@ -62,6 +64,18 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));
 
         assertAccessDeniedOnAllOperationsOnTable(bobExecutor, tableName);
+    }
+
+    @AfterTestWithContext
+    public void cleanup()
+    {
+        try {
+            aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+            aliceExecutor.executeQuery(format("DROP VIEW IF EXISTS %s", viewName));
+        }
+        catch (Exception e) {
+            Logger.get(getClass()).warn(e, "failed to drop table/view");
+        }
     }
 
     @Test(groups = {HIVE_CONNECTOR, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
