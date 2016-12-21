@@ -71,6 +71,8 @@ public class CassandraClientConfig
     private boolean useWhiteList;
     private List<String> whiteListAddresses = ImmutableList.of();
     private int noHostAvailableRetryCount = 1;
+    private int speculativeExecutionLimit = 1;
+    private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
 
     @Min(0)
     public int getLimitForPartitionKeySelect()
@@ -469,6 +471,32 @@ public class CassandraClientConfig
     public CassandraClientConfig setNoHostAvailableRetryCount(int noHostAvailableRetryCount)
     {
         this.noHostAvailableRetryCount = noHostAvailableRetryCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getSpeculativeExecutionLimit()
+    {
+        return speculativeExecutionLimit;
+    }
+
+    @Config("cassandra.speculative-execution.limit")
+    public CassandraClientConfig setSpeculativeExecutionLimit(int speculativeExecutionLimit)
+    {
+        this.speculativeExecutionLimit = speculativeExecutionLimit;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getSpeculativeExecutionDelay()
+    {
+        return speculativeExecutionDelay;
+    }
+
+    @Config("cassandra.speculative-execution.delay")
+    public CassandraClientConfig setSpeculativeExecutionDelay(Duration speculativeExecutionDelay)
+    {
+        this.speculativeExecutionDelay = speculativeExecutionDelay;
         return this;
     }
 }

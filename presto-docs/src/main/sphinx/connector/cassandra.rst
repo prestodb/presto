@@ -154,6 +154,10 @@ Property Name                                                 Description
 ``cassandra.load-policy.white-list.addresses``                Comma-separated list of hosts for ``WhiteListPolicy``.
 
 ``cassandra.no-host-available-retry-count``                   Retry count for ``NoHostAvailableException`` (defaults to ``1``).
+
+``cassandra.speculative-execution.limit``                     The number of speculative executions (defaults to ``1``).
+
+``cassandra.speculative-execution.delay``                     The delay between each speculative execution (defaults to ``500ms``).
 ============================================================= ======================================================================
 
 Querying Cassandra Tables
