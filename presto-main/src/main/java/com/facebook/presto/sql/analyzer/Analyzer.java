@@ -80,7 +80,7 @@ public class Analyzer
         List<FunctionCall> found = ImmutableList.copyOf(Iterables.concat(extractor.getAggregates(), windowExtractor.getWindowFunctions()));
 
         if (!found.isEmpty()) {
-            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, predicate, "%s clause cannot contain aggregations or window functions: %s", clause, found);
+            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, predicate, "%s cannot contain aggregations or window functions: %s", clause, found);
         }
     }
 }
