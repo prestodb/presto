@@ -120,6 +120,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchan
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -199,6 +200,7 @@ public class AddExchanges
             extends PlanVisitor<Context, PlanWithProperties>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private final SymbolAllocator symbolAllocator;
         private final Map<Symbol, Type> types;
         private final Session session;
         private final boolean distributedIndexJoins;
@@ -209,6 +211,7 @@ public class AddExchanges
         public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
             this.idAllocator = idAllocator;
+            this.symbolAllocator = symbolAllocator;
             this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
             this.session = session;
             this.distributedJoins = SystemSessionProperties.isDistributedJoinEnabled(session);
@@ -1114,11 +1117,9 @@ public class AddExchanges
                 }
             }
 
-            PlanNode result = null;
-            if (!partitionedChildren.isEmpty()) {
-                // add an exchange above partitioned inputs and fold it into the
-                // set of unpartitioned inputs
-                // NOTE: this must provide the explicit imput mapping as unions may drop or duplicate symbols
+            PlanNode result;
+            if (!partitionedChildren.isEmpty() && unpartitionedChildren.isEmpty()) {
+                // add an gathering exchange above partitioned inputs
                 result = new ExchangeNode(
                         idAllocator.getNextId(),
                         GATHER,
@@ -1126,14 +1127,28 @@ public class AddExchanges
                         new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                         partitionedChildren,
                         partitionedOutputLayouts);
-
-                unpartitionedChildren.add(result);
-                unpartitionedOutputLayouts.add(result.getOutputSymbols());
             }
+            else if (!unpartitionedChildren.isEmpty()) {
+                if (!partitionedChildren.isEmpty()) {
+                    // add an gathering exchange above partitioned inputs and fold it into the set of unpartitioned inputs
+                    // NOTE: new symbols for ExchangeNode output are required in order to keep plan logically correct with new local union below
 
-            // if there's at least one unpartitioned input (including the exchange that might have been added in the
-            // previous step), add a local union
-            if (unpartitionedChildren.size() > 1) {
+                    List<Symbol> exchangeOutputLayout = node.getOutputSymbols().stream()
+                            .map(outputSymbol -> symbolAllocator.newSymbol(outputSymbol.getName(), types.get(outputSymbol)))
+                            .collect(toImmutableList());
+
+                    result = new ExchangeNode(
+                            idAllocator.getNextId(),
+                            GATHER,
+                            REMOTE,
+                            new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), exchangeOutputLayout),
+                            partitionedChildren,
+                            partitionedOutputLayouts);
+
+                    unpartitionedChildren.add(result);
+                    unpartitionedOutputLayouts.add(result.getOutputSymbols());
+                }
+
                 ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
                 for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                     for (List<Symbol> outputLayout : unpartitionedOutputLayouts) {
@@ -1141,7 +1156,11 @@ public class AddExchanges
                     }
                 }
 
+                // add local union for all unpartitioned inputs
                 result = new UnionNode(node.getId(), unpartitionedChildren, mappings.build(), ImmutableList.copyOf(mappings.build().keySet()));
+            }
+            else {
+                throw new IllegalStateException("both unpartitionedChildren partitionedChildren are empty");
             }
 
             return new PlanWithProperties(
