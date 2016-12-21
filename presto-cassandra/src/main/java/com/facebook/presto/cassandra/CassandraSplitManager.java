@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +38,8 @@ import java.util.Set;
 
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Collections.shuffle;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraSplitManager
@@ -93,7 +96,7 @@ public class CassandraSplitManager
         String tableName = table.getTableHandle().getTableName();
         String tokenExpression = table.getTokenExpression();
 
-        ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
+        List<ConnectorSplit> splits = new ArrayList<>();
         List<CassandraTokenSplitManager.TokenSplit> tokenSplits;
         try {
             tokenSplits = tokenSplitMgr.getSplits(schema, tableName);
@@ -105,10 +108,11 @@ public class CassandraSplitManager
             String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
             List<HostAddress> addresses = new HostAddressFactory().AddressNamesToHostAddressList(tokenSplit.getHosts());
             CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
-            builder.add(split);
+            splits.add(split);
         }
-
-        return builder.build();
+        // Shuffle splits to avoid spamming on single Cassandra node
+        shuffle(splits);
+        return unmodifiableList(splits);
     }
 
     private static String buildTokenCondition(String tokenExpression, String startToken, String endToken)
