@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
+import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
 import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
@@ -154,6 +155,13 @@ public class CassandraClientModule
         options.setFetchSize(config.getFetchSize());
         options.setConsistencyLevel(config.getConsistencyLevel());
         clusterBuilder.withQueryOptions(options);
+
+        if (config.getSpeculativeExecutionLimit() > 1) {
+            clusterBuilder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
+                    config.getSpeculativeExecutionDelay().toMillis(), // delay before a new execution is launched
+                    config.getSpeculativeExecutionLimit()    // maximum number of executions
+            ));
+        }
 
         return new CassandraSession(
                 connectorId.toString(),
