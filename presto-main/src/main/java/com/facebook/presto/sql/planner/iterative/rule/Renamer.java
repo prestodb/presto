@@ -22,7 +22,10 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 class Renamer
 {
@@ -65,6 +68,20 @@ class Renamer
     public boolean hasRenames()
     {
         return !renames.isEmpty();
+    }
+
+    public List<Symbol> renameAll(List<Symbol> symbols)
+    {
+        return symbols.stream()
+                .map(this::rename)
+                .collect(Collectors.toList());
+    }
+
+    public Set<Symbol> renameAll(Set<Symbol> symbols)
+    {
+        return symbols.stream()
+                .map(this::rename)
+                .collect(Collectors.toSet());
     }
 
     public Symbol rename(Symbol symbol)
