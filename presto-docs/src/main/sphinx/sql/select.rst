@@ -453,7 +453,7 @@ selects the values ``42`` and ``13``::
 
     SELECT 13
     UNION
-    SELECT * FROM VALUES(42, 13);
+    SELECT * FROM (VALUES 42, 13);
 
 .. code-block:: none
 
@@ -467,7 +467,7 @@ selects the values ``42`` and ``13``::
 
     SELECT 13
     UNION ALL
-    SELECT * FROM VALUES(42, 13);
+    SELECT * FROM (VALUES 42, 13);
 
 .. code-block:: none
 
@@ -486,7 +486,7 @@ possible ``INTERSECT`` clauses. It selects the values ``13`` and ``42`` and comb
 this result set with a second query that selects the value ``13``.  Since ``42``
 is only in the result set of the first query, it is not included in the final results.::
 
-    SELECT * FROM VALUES (13, 42)
+    SELECT * FROM (VALUES 13, 42)
     INTERSECT
     SELECT 13;
 
@@ -505,8 +505,8 @@ possible ``EXCEPT`` clauses. It selects the values ``13`` and ``42`` and combine
 this result set with a second query that selects the value ``13``.  Since ``13``
 is also in the result set of the second query, it is not included in the final result.::
 
-    SELECT * FROM VALUES (13, 42)
-     EXCEPT
+    SELECT * FROM (VALUES 13, 42)
+    EXCEPT
     SELECT 13;
 
 .. code-block:: none
