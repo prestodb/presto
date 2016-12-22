@@ -42,6 +42,7 @@ public class QueryManagerConfig
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
+    private boolean retainPlan = false;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
@@ -173,6 +174,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
     {
         this.maxQueryLength = maxQueryLength;
+        return this;
+    }
+
+    public boolean getRetainPlan()
+    {
+        return retainPlan;
+    }
+
+    @Config("query.retain-plan")
+    public QueryManagerConfig setRetainPlan(boolean pruneExpired)
+    {
+        this.retainPlan = pruneExpired;
         return this;
     }
 

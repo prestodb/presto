@@ -56,7 +56,7 @@ public interface QueryExecution
     void recordHeartbeat();
 
     // XXX: This should be removed when the client protocol is improved, so that we don't need to hold onto so much query history
-    void pruneInfo();
+    void pruneInfo(boolean retainPlan);
 
     void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener);
 
