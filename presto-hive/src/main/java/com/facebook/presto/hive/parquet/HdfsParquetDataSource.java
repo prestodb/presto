@@ -20,7 +20,6 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.function.Function;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -31,8 +30,6 @@ import static java.lang.String.format;
 public class HdfsParquetDataSource
         implements ParquetDataSource
 {
-    private static Function<Exception, Exception> exceptionExceptionFunction;
-
     private final String name;
     private final long size;
     private final FSDataInputStream inputStream;
