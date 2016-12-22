@@ -147,4 +147,11 @@ public class TableScanNode
                 .add("originalConstraint", originalConstraint)
                 .toString();
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
+        return this;
+    }
 }

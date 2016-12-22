@@ -123,4 +123,11 @@ public class IndexSourceNode
     {
         return visitor.visitIndexSource(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.isEmpty(), "newChildren is not empty");
+        return this;
+    }
 }

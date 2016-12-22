@@ -105,4 +105,10 @@ public class UnnestNode
     {
         return visitor.visitUnnest(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, unnestSymbols, ordinalitySymbol);
+    }
 }

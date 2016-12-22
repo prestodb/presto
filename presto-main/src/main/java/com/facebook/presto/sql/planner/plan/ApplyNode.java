@@ -139,4 +139,11 @@ public class ApplyNode
     {
         return visitor.visitApply(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
+        return new ApplyNode(getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation);
+    }
 }

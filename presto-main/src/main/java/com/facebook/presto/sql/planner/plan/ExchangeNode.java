@@ -208,4 +208,10 @@ public class ExchangeNode
     {
         return visitor.visitExchange(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new ExchangeNode(getId(), type, scope, partitioningScheme, newChildren, inputs);
+    }
 }

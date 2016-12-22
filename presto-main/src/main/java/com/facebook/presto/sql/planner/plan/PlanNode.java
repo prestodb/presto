@@ -81,6 +81,8 @@ public abstract class PlanNode
 
     public abstract List<Symbol> getOutputSymbols();
 
+    public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
+
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitPlan(this, context);
