@@ -389,6 +389,11 @@ class SubqueryPlanner
                 .orElse(false);
     }
 
+    /**
+     * Implicit coercions are added when mapping an expression to symbol in {@link TranslationMap}. Coercions
+     * for expression are obtained from {@link Analysis} by identity comparison. Create a copy of subquery
+     * in order to get a subquery expression that does not have any coercion assigned to it {@link Analysis}.
+     */
     private SubqueryExpression uncoercedSubquery(SubqueryExpression subquery)
     {
         return new SubqueryExpression(subquery.getQuery());
