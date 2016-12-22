@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,6 +37,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator
@@ -110,11 +112,17 @@ public class HiveFileIterator
             throws IOException
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
-            return directoryLister.list(fileSystem, path);
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getLocatedFileStatusRemoteIterator", () -> directoryLister.list(fileSystem, path));
         }
         catch (IOException | RuntimeException e) {
             namenodeStats.getListLocatedStatus().recordException(e);
             throw e;
+        }
+        catch (Exception e) {
+            namenodeStats.getListLocatedStatus().recordException(e);
+            throw Throwables.propagate(e);
         }
     }
 
