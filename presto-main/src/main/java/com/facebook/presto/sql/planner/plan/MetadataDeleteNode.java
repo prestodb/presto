@@ -83,4 +83,10 @@ public class MetadataDeleteNode
     {
         return visitor.visitMetadataDelete(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new MetadataDeleteNode(getId(), target, output, tableLayout);
+    }
 }

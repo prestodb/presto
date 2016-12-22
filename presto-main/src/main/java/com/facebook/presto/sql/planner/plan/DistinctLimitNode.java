@@ -102,4 +102,10 @@ public class DistinctLimitNode
     {
         return visitor.visitDistinctLimit(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, hashSymbol);
+    }
 }
