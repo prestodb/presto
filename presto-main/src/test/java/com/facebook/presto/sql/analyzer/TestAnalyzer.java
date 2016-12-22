@@ -93,6 +93,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_CANNOT_BE_RECURSIVE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
@@ -880,6 +882,22 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testCreateRecursiveView()
+            throws Exception
+    {
+        assertFails(VIEW_CANNOT_BE_RECURSIVE, "CREATE OR REPLACE VIEW v5 AS SELECT * FROM v5");
+    }
+
+    @Test
+    public void testExistingRecursiveView()
+            throws Exception
+    {
+        analyze("SELECT * FROM v1 a JOIN v1 b ON a.a = b.a");
+        analyze("SELECT * FROM v1 a JOIN (SELECT * from v1) b ON a.a = b.a");
+        assertFails(VIEW_IS_RECURSIVE, "SELECT * FROM v5");
+    }
+
+    @Test
     public void testShowCreateView()
     {
         analyze("SHOW CREATE VIEW v1");
@@ -1161,6 +1179,16 @@ public class TestAnalyzer
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
+
+        // recursive view referencing to itself
+        String viewData5 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select * from v5",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT)),
+                        Optional.of("user")));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
 
         this.metadata = metadata;
     }

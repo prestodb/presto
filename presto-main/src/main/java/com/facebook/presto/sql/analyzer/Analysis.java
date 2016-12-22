@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Stack;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.newIdentityHashSet;
@@ -103,6 +104,9 @@ public class Analysis
 
     // for describe input and describe output
     private final boolean isDescribe;
+
+    // for recursive view detection
+    private final Stack<Table> tablesForView = new Stack<>();
 
     public Analysis(Statement root, List<Expression> parameters, boolean isDescribe)
     {
@@ -512,6 +516,22 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(tableReference, query);
+    }
+
+    public void registerTableForView(Table tableReference)
+    {
+        requireNonNull(tableReference, "table is null");
+        tablesForView.push(tableReference);
+    }
+
+    public void unregisterTableForView()
+    {
+        tablesForView.pop();
+    }
+
+    public boolean hasTableInView(Table tableReference)
+    {
+        return tablesForView.contains(tableReference);
     }
 
     public void setSampleRatio(SampledRelation relation, double ratio)

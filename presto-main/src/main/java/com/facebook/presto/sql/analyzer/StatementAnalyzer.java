@@ -160,6 +160,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_B
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_CANNOT_BE_RECURSIVE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
@@ -641,6 +643,13 @@ class StatementAnalyzer
 
         Optional<ViewDefinition> optionalView = metadata.getView(session, name);
         if (optionalView.isPresent()) {
+            Statement statement = analysis.getStatement();
+            if (statement instanceof CreateView && ((CreateView) statement).isReplace() && ((CreateView) statement).getName().equals(table.getName())) {
+                throw new SemanticException(VIEW_CANNOT_BE_RECURSIVE, table, "Statement would create a recursive view.");
+            }
+            else if (analysis.hasTableInView(table)) {
+                throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
+            }
             ViewDefinition view = optionalView.get();
 
             Query query = parseView(view.getOriginalSql(), name, table);
@@ -648,7 +657,10 @@ class StatementAnalyzer
             analysis.registerNamedQuery(table, query);
 
             accessControl.checkCanSelectFromView(session.getRequiredTransactionId(), session.getIdentity(), name);
+
+            analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
+            analysis.unregisterTableForView();
 
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
@@ -1750,6 +1762,9 @@ class StatementAnalyzer
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);
             Scope queryScope = analyzer.process(query, Scope.create());
             return queryScope.getRelationType().withAlias(name.getObjectName(), null);
+        }
+        catch (SemanticException e) {
+            throw e;
         }
         catch (RuntimeException e) {
             throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());
