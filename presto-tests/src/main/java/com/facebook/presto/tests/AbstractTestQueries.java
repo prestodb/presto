@@ -8028,4 +8028,10 @@ public abstract class AbstractTestQueries
                         "WHERE a = 1)",
                 "VALUES 3008750");
     }
+
+    @Test
+    public void testFormat()
+    {
+        assertQuery("FORMAT SElect * FRom NAtion", "SELECT 'SELECT *\nFROM\n  \"NAtion\"\n'");
+    }
 }

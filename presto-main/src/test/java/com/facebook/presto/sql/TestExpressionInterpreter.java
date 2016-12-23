@@ -1284,10 +1284,12 @@ public class TestExpressionInterpreter
         return evaluate(parsedExpression);
     }
 
-    private static void assertRoundTrip(String expression)
+    private static void assertRoundTrip(String expressionSql)
     {
-        assertEquals(SQL_PARSER.createExpression(expression),
-                SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression), Optional.empty())));
+        Expression expression = SQL_PARSER.createExpression(expressionSql);
+        assertEquals(
+                expression,
+                SQL_PARSER.createExpression(formatExpression(expression, Optional.empty(), 0)));
     }
 
     private static Object evaluate(Expression expression)
