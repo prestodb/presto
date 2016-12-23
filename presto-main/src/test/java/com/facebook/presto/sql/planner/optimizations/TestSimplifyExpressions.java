@@ -65,8 +65,10 @@ public class TestSimplifyExpressions
     }
 
     @Test
-    public void testExtractsCommonPredicate()
+    public void testExtractCommonPredicates()
     {
+        assertSimplifies("X AND Y", "X AND Y");
+        assertSimplifies("X OR Y", "X OR Y");
         assertSimplifies("X AND X", "X");
         assertSimplifies("X OR X", "X");
         assertSimplifies("(X OR Y) AND (X OR Y)", "X OR Y");
@@ -83,9 +85,18 @@ public class TestSimplifyExpressions
         assertSimplifies("((X OR V) AND V) OR ((X OR V) AND V)", "V");
         assertSimplifies("((X OR V) AND X) OR ((X OR V) AND V)", "X OR V");
 
-        assertSimplifies("((X OR V) AND Z) OR ((X OR V) AND V)", "(((X OR V) AND Z) OR V)");
+        assertSimplifies("((X OR V) AND Z) OR ((X OR V) AND V)", "(X OR V) AND (Z OR V)");
         assertSimplifies("X AND ((Y AND Z) OR (Y AND V) OR (Y AND X))", "X AND Y AND (Z OR V OR X)");
         assertSimplifies("(A AND B AND C AND D) OR (A AND B AND E) OR (A AND F)", "A AND ((B AND C AND D) OR (B AND E) OR F)");
+
+        assertSimplifies("((A AND B) OR (A AND C)) AND D", "A AND (B OR C) AND D");
+        assertSimplifies("((A OR B) AND (A OR C)) OR D", "(A OR B OR D) AND (A OR C OR D)");
+        assertSimplifies("(((A AND B) OR (A AND C)) AND D) OR E", "(A OR E) AND (B OR C OR E) AND (D OR E)");
+        assertSimplifies("(((A OR B) AND (A OR C)) OR D) AND E", "(A OR (B AND C) OR D) AND E");
+
+        assertSimplifies("(A AND B) OR (C AND D)", "(A OR C) AND (A OR D) AND (B OR C) AND (B OR D)");
+        // No distribution since it would add too many new terms
+        assertSimplifies("(A AND B) OR (C AND D) OR (E AND F)", "(A AND B) OR (C AND D) OR (E AND F)");
     }
 
     private static void assertSimplifies(String expression, String expected)
