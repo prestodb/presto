@@ -212,11 +212,11 @@ public class SimplifyExpressions
         @Override
         public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
-            List<Expression> predicates = extractPredicates(node.getType(), node).stream()
-                    .map(expression -> treeRewriter.rewrite(expression, NodeContext.NOT_ROOT_NODE))
-                    .collect(toImmutableList());
+            Expression expression = combinePredicates(node.getType(), extractPredicates(node.getType(), node).stream()
+                    .map(expr -> treeRewriter.rewrite(expr, NodeContext.NOT_ROOT_NODE))
+                    .collect(toImmutableList()));
 
-            List<List<Expression>> subPredicates = getSubPredicates(predicates);
+            List<List<Expression>> subPredicates = getSubPredicates(node.getType(), expression);
 
             Set<Expression> commonPredicates = ImmutableSet.copyOf(subPredicates.stream()
                     .map(ExtractCommonPredicatesExpressionRewriter::filterDeterministicPredicates)
@@ -237,7 +237,7 @@ public class SimplifyExpressions
             // Do not simplify top level conjuncts if it would result in top level disjuncts
             // Conjuncts are easier to process when pushing down predicates.
             if (context.isRootNode() && flippedNodeType == OR && !combinedUncorrelatedPredicates.equals(FALSE_LITERAL)) {
-                return combinePredicates(node.getType(), predicates);
+                return expression;
             }
 
             return combinePredicates(flippedNodeType, ImmutableList.<Expression>builder()
@@ -246,9 +246,9 @@ public class SimplifyExpressions
                     .build());
         }
 
-        private static List<List<Expression>> getSubPredicates(List<Expression> predicates)
+        private static List<List<Expression>> getSubPredicates(LogicalBinaryExpression.Type type, Expression expression)
         {
-            return predicates.stream()
+            return extractPredicates(type, expression).stream()
                     .map(predicate -> predicate instanceof LogicalBinaryExpression ?
                             extractPredicates((LogicalBinaryExpression) predicate) : ImmutableList.of(predicate))
                     .collect(toImmutableList());
