@@ -11,17 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
 
-import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
+package com.facebook.presto.execution.buffer;
 
-import java.util.List;
-import java.util.function.Function;
+import com.facebook.presto.spi.block.TestingBlockEncodingSerde;
+import com.facebook.presto.spi.type.TestingTypeManager;
 
-public interface OutputFactory
+public class TestingPagesSerdeFactory
+        extends PagesSerdeFactory
 {
-    OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory);
+    public TestingPagesSerdeFactory()
+    {
+        // compression should be enabled in as many tests as possible
+        super(new TestingBlockEncodingSerde(new TestingTypeManager()), true);
+    }
 }

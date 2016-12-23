@@ -18,8 +18,7 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.SystemMemoryUsageListener;
-import com.facebook.presto.execution.buffer.ClientBuffer.PageReference;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.execution.buffer.ClientBuffer.SerializedPageReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -36,8 +35,6 @@ import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
-import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
-import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -156,16 +153,16 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(Page page)
+    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
     {
         checkState(partitions.size() == 1, "Expected exactly one partition");
-        return enqueue(0, page);
+        return enqueue(0, pages);
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partitionNumber, Page page)
+    public ListenableFuture<?> enqueue(int partitionNumber, List<SerializedPage> pages)
     {
-        requireNonNull(page, "page is null");
+        requireNonNull(pages, "pages is null");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
@@ -173,29 +170,25 @@ public class PartitionedOutputBuffer
             return immediateFuture(true);
         }
 
-        // split the page
-        List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-
         // reserve memory
-        long bytesAdded = pages.stream().mapToLong(Page::getRetainedSizeInBytes).sum();
+        long bytesAdded = pages.stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
         memoryManager.updateMemoryUsage(bytesAdded);
 
         // update stats
-        long rowCount = pages.stream().mapToLong(Page::getPositionCount).sum();
-        checkState(rowCount == page.getPositionCount());
+        long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(pages.size());
 
         // create page reference counts with an initial single reference
-        List<PageReference> pageReferences = pages.stream()
-                .map(pageSplit -> new PageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())))
+        List<SerializedPageReference> serializedPageReferences = pages.stream()
+                .map(bufferedPage -> new SerializedPageReference(bufferedPage, 1, () -> memoryManager.updateMemoryUsage(-bufferedPage.getRetainedSizeInBytes())))
                 .collect(toImmutableList());
 
         // add pages to the buffer (this will increase the reference count by one)
-        partitions.get(partitionNumber).enqueuePages(pageReferences);
+        partitions.get(partitionNumber).enqueuePages(serializedPageReferences);
 
         // drop the initial reference
-        pageReferences.forEach(ClientBuffer.PageReference::dereferencePage);
+        serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
 
         return memoryManager.getNotFullFuture();
     }

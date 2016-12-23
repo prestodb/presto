@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -57,12 +56,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES_TYPE;
-import static com.facebook.presto.block.PagesSerde.readPages;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static com.facebook.presto.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
@@ -99,7 +98,7 @@ public final class HttpPageBufferClient
      */
     public interface ClientCallback
     {
-        boolean addPages(HttpPageBufferClient client, List<Page> pages);
+        boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages);
 
         void requestComplete(HttpPageBufferClient client);
 
@@ -112,7 +111,6 @@ public final class HttpPageBufferClient
     private final DataSize maxResponseSize;
     private final URI location;
     private final ClientCallback clientCallback;
-    private final BlockEncodingSerde blockEncodingSerde;
     private final ScheduledExecutorService executor;
     private final Backoff backoff;
 
@@ -148,10 +146,9 @@ public final class HttpPageBufferClient
             Duration maxErrorDuration,
             URI location,
             ClientCallback clientCallback,
-            BlockEncodingSerde blockEncodingSerde,
             ScheduledExecutorService executor)
     {
-        this(httpClient, maxResponseSize, minErrorDuration, maxErrorDuration, location, clientCallback, blockEncodingSerde, executor, Ticker.systemTicker());
+        this(httpClient, maxResponseSize, minErrorDuration, maxErrorDuration, location, clientCallback, executor, Ticker.systemTicker());
     }
 
     public HttpPageBufferClient(
@@ -161,7 +158,6 @@ public final class HttpPageBufferClient
             Duration maxErrorDuration,
             URI location,
             ClientCallback clientCallback,
-            BlockEncodingSerde blockEncodingSerde,
             ScheduledExecutorService executor,
             Ticker ticker)
     {
@@ -169,7 +165,6 @@ public final class HttpPageBufferClient
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingManager is null");
         this.executor = requireNonNull(executor, "executor is null");
         requireNonNull(minErrorDuration, "minErrorDuration is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
@@ -306,7 +301,7 @@ public final class HttpPageBufferClient
                 prepareGet()
                         .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
-                new PageResponseHandler(blockEncodingSerde));
+                new PageResponseHandler());
 
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<PagesResponse>()
@@ -318,7 +313,7 @@ public final class HttpPageBufferClient
 
                 backoff.success();
 
-                List<Page> pages;
+                List<SerializedPage> pages;
                 try {
                     synchronized (HttpPageBufferClient.this) {
                         if (taskInstanceId == null) {
@@ -347,11 +342,11 @@ public final class HttpPageBufferClient
                 // add pages
                 if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
                     pagesReceived.addAndGet(pages.size());
-                    rowsReceived.addAndGet(pages.stream().mapToLong(Page::getPositionCount).sum());
+                    rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
                 }
                 else {
                     pagesRejected.addAndGet(pages.size());
-                    rowsRejected.addAndGet(pages.stream().mapToLong(Page::getPositionCount).sum());
+                    rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
                 }
 
                 synchronized (HttpPageBufferClient.this) {
@@ -513,13 +508,6 @@ public final class HttpPageBufferClient
     public static class PageResponseHandler
             implements ResponseHandler<PagesResponse, RuntimeException>
     {
-        private final BlockEncodingSerde blockEncodingSerde;
-
-        public PageResponseHandler(BlockEncodingSerde blockEncodingSerde)
-        {
-            this.blockEncodingSerde = blockEncodingSerde;
-        }
-
         @Override
         public PagesResponse handleException(Request request, Exception exception)
         {
@@ -571,7 +559,7 @@ public final class HttpPageBufferClient
                 boolean complete = getComplete(response);
 
                 try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
-                    List<Page> pages = ImmutableList.copyOf(readPages(blockEncodingSerde, input));
+                    List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
                 }
                 catch (IOException e) {
@@ -632,7 +620,7 @@ public final class HttpPageBufferClient
 
     public static class PagesResponse
     {
-        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<Page> pages, boolean complete)
+        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete)
         {
             return new PagesResponse(taskInstanceId, token, nextToken, pages, complete);
         }
@@ -645,10 +633,10 @@ public final class HttpPageBufferClient
         private final String taskInstanceId;
         private final long token;
         private final long nextToken;
-        private final List<Page> pages;
+        private final List<SerializedPage> pages;
         private final boolean clientComplete;
 
-        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<Page> pages, boolean clientComplete)
+        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete)
         {
             this.taskInstanceId = taskInstanceId;
             this.token = token;
@@ -667,7 +655,7 @@ public final class HttpPageBufferClient
             return nextToken;
         }
 
-        public List<Page> getPages()
+        public List<SerializedPage> getPages()
         {
             return pages;
         }

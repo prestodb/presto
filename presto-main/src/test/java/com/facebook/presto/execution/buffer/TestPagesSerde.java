@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block;
+
+package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -27,8 +27,8 @@ import org.testng.annotations.Test;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.block.PagesSerde.readPages;
-import static com.facebook.presto.block.PagesSerde.writePages;
+import static com.facebook.presto.execution.buffer.PagesSerdeUtil.readPages;
+import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writePages;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -37,11 +37,10 @@ import static org.testng.Assert.assertFalse;
 
 public class TestPagesSerde
 {
-    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
-
     @Test
     public void testRoundTrip()
     {
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
         BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 5);
         VARCHAR.writeString(expectedBlockBuilder, "alice");
         VARCHAR.writeString(expectedBlockBuilder, "bob");
@@ -52,10 +51,10 @@ public class TestPagesSerde
         Page expectedPage = new Page(expectedBlock, expectedBlock, expectedBlock);
 
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writePages(blockEncodingManager, sliceOutput, expectedPage, expectedPage, expectedPage);
+        writePages(serde, sliceOutput, expectedPage, expectedPage, expectedPage);
 
         List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, VARCHAR);
-        Iterator<Page> pageIterator = readPages(blockEncodingManager, sliceOutput.slice().getInput());
+        Iterator<Page> pageIterator = readPages(serde, sliceOutput.slice().getInput());
         assertPageEquals(types, pageIterator.next(), expectedPage);
         assertPageEquals(types, pageIterator.next(), expectedPage);
         assertPageEquals(types, pageIterator.next(), expectedPage);
@@ -70,7 +69,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 26); // page overhead
+        assertEquals(pageSize, 35); // page overhead
 
         // page with one value
         BIGINT.writeLong(builder, 123);
@@ -93,7 +92,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 34); // page overhead
+        assertEquals(pageSize, 43); // page overhead
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
@@ -110,11 +109,12 @@ public class TestPagesSerde
 
     private static int serializedSize(List<? extends Type> types, Page expectedPage)
     {
+        PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        writePages(blockEncodingManager, sliceOutput, expectedPage);
+        writePages(serde, sliceOutput, expectedPage);
         Slice slice = sliceOutput.slice();
 
-        Iterator<Page> pageIterator = readPages(blockEncodingManager, slice.getInput());
+        Iterator<Page> pageIterator = readPages(serde, slice.getInput());
         if (pageIterator.hasNext()) {
             assertPageEquals(types, pageIterator.next(), expectedPage);
         }

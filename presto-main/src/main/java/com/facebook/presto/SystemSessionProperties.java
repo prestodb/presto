@@ -68,6 +68,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
     public static final String REORDER_WINDOWS = "reorder_windows";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
+    public static final String EXCHANGE_COMPRESSION = "exchange_compression";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -277,6 +278,11 @@ public final class SystemSessionProperties
                         ITERATIVE_OPTIMIZER,
                         "Experimental: enable iterative optimizer",
                         featuresConfig.isIterativeOptimizerEnabled(),
+                        false),
+                booleanSessionProperty(
+                        EXCHANGE_COMPRESSION,
+                        "Enable compression in exchanges",
+                        featuresConfig.isExchangeCompressionEnabled(),
                         false));
     }
 
@@ -437,5 +443,10 @@ public final class SystemSessionProperties
     public static boolean isNewOptimizerEnabled(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER, Boolean.class);
+    }
+
+    public static boolean isExchangeCompressionEnabled(Session session)
+    {
+        return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
     }
 }

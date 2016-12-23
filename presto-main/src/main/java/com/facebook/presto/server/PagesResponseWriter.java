@@ -13,16 +13,14 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.block.PagesSerde;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.RuntimeIOException;
 import io.airlift.slice.SliceOutput;
 
-import javax.inject.Inject;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
@@ -38,11 +36,12 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
+import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 
 @Provider
 @Produces(PRESTO_PAGES)
 public class PagesResponseWriter
-        implements MessageBodyWriter<List<Page>>
+        implements MessageBodyWriter<List<SerializedPage>>
 {
     private static final MediaType PRESTO_PAGES_TYPE = MediaType.valueOf(PRESTO_PAGES);
     private static final Type LIST_GENERIC_TOKEN;
@@ -56,14 +55,6 @@ public class PagesResponseWriter
         }
     }
 
-    private final BlockEncodingSerde blockEncodingSerde;
-
-    @Inject
-    public PagesResponseWriter(BlockEncodingSerde blockEncodingSerde)
-    {
-        this.blockEncodingSerde = blockEncodingSerde;
-    }
-
     @Override
     public boolean isWriteable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
     {
@@ -73,13 +64,13 @@ public class PagesResponseWriter
     }
 
     @Override
-    public long getSize(List<Page> pages, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
+    public long getSize(List<SerializedPage> serializedPages, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
     {
         return -1;
     }
 
     @Override
-    public void writeTo(List<Page> pages,
+    public void writeTo(List<SerializedPage> serializedPages,
             Class<?> type,
             Type genericType,
             Annotation[] annotations,
@@ -90,7 +81,7 @@ public class PagesResponseWriter
     {
         try {
             SliceOutput sliceOutput = new OutputStreamSliceOutput(output);
-            PagesSerde.writePages(blockEncodingSerde, sliceOutput, pages);
+            writeSerializedPages(sliceOutput, serializedPages);
             // We use flush instead of close, because the underlying stream would be closed and that is not allowed.
             sliceOutput.flush();
         }

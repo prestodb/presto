@@ -19,7 +19,6 @@ import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -62,7 +61,12 @@ public class LazyOutputBuffer
     @GuardedBy("this")
     private final List<PendingRead> pendingReads = new ArrayList<>();
 
-    public LazyOutputBuffer(TaskId taskId, String taskInstanceId, Executor executor, DataSize maxBufferSize, SystemMemoryUsageListener systemMemoryUsageListener)
+    public LazyOutputBuffer(
+            TaskId taskId,
+            String taskInstanceId,
+            Executor executor,
+            DataSize maxBufferSize,
+            SystemMemoryUsageListener systemMemoryUsageListener)
     {
         requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -194,25 +198,25 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(Page page)
+    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             checkState(delegate != null, "Buffer has not been initialized");
             outputBuffer = delegate;
         }
-        return outputBuffer.enqueue(page);
+        return outputBuffer.enqueue(pages);
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partition, Page page)
+    public ListenableFuture<?> enqueue(int partition, List<SerializedPage> pages)
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             checkState(delegate != null, "Buffer has not been initialized");
             outputBuffer = delegate;
         }
-        return outputBuffer.enqueue(partition, page);
+        return outputBuffer.enqueue(partition, pages);
     }
 
     @Override

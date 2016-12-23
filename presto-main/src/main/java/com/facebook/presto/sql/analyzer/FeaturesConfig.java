@@ -53,6 +53,7 @@ public class FeaturesConfig
     private boolean optimizeSingleDistinct = true;
     private boolean optimizerReorderWindows = true;
     private boolean pushTableWriteThroughUnion = true;
+    private boolean exchangeCompressionEnabled = false;
     private boolean legacyArrayAgg;
     private boolean legacyOrderBy;
     private boolean legacyMapSubscript;
@@ -375,6 +376,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
     {
         this.optimizeMixedDistinctAggregations = value;
+        return this;
+    }
+
+    public boolean isExchangeCompressionEnabled()
+    {
+        return exchangeCompressionEnabled;
+    }
+
+    @Config("exchange.compression-enabled")
+    public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
+    {
+        this.exchangeCompressionEnabled = exchangeCompressionEnabled;
         return this;
     }
 }

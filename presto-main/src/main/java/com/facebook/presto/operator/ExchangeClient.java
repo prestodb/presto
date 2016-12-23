@@ -14,9 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.SystemMemoryUsageListener;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -46,17 +45,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.execution.buffer.PageCompression.UNCOMPRESSED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class ExchangeClient
         implements Closeable
 {
-    private static final Page NO_MORE_PAGES = new Page(0);
+    private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, UNCOMPRESSED, 0, 0);
 
-    private final BlockEncodingSerde blockEncodingSerde;
     private final long maxBufferedBytes;
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
@@ -77,7 +77,7 @@ public class ExchangeClient
     private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
 
     private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
-    private final LinkedBlockingDeque<Page> pageBuffer = new LinkedBlockingDeque<>();
+    private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
 
     @GuardedBy("this")
     private final List<SettableFuture<?>> blockedCallers = new ArrayList<>();
@@ -95,7 +95,6 @@ public class ExchangeClient
     private final SystemMemoryUsageListener systemMemoryUsageListener;
 
     public ExchangeClient(
-            BlockEncodingSerde blockEncodingSerde,
             DataSize maxBufferedBytes,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
@@ -105,7 +104,6 @@ public class ExchangeClient
             ScheduledExecutorService executor,
             SystemMemoryUsageListener systemMemoryUsageListener)
     {
-        this.blockEncodingSerde = blockEncodingSerde;
         this.maxBufferedBytes = maxBufferedBytes.toBytes();
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
@@ -148,7 +146,7 @@ public class ExchangeClient
     }
 
     @Nullable
-    public Page pollPage()
+    public SerializedPage pollPage()
     {
         checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
 
@@ -158,13 +156,12 @@ public class ExchangeClient
             return null;
         }
 
-        Page page = pageBuffer.poll();
-        page = postProcessPage(page);
-        return page;
+        SerializedPage page = pageBuffer.poll();
+        return postProcessPage(page);
     }
 
     @Nullable
-    public Page getNextPage(Duration maxWaitTime)
+    public SerializedPage getNextPage(Duration maxWaitTime)
             throws InterruptedException
     {
         checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
@@ -177,17 +174,16 @@ public class ExchangeClient
 
         scheduleRequestIfNecessary();
 
-        Page page = pageBuffer.poll();
+        SerializedPage page = pageBuffer.poll();
         // only wait for a page if we have remote clients
         if (page == null && maxWaitTime.toMillis() >= 1 && !allClients.isEmpty()) {
             page = pageBuffer.poll(maxWaitTime.toMillis(), TimeUnit.MILLISECONDS);
         }
 
-        page = postProcessPage(page);
-        return page;
+        return postProcessPage(page);
     }
 
-    private Page postProcessPage(Page page)
+    private SerializedPage postProcessPage(SerializedPage page)
     {
         checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
 
@@ -276,7 +272,6 @@ public class ExchangeClient
                         maxErrorDuration,
                         location,
                         new ExchangeClientCallback(),
-                        blockEncodingSerde,
                         executor);
                 allClients.put(location, client);
                 queuedClients.add(client);
@@ -314,7 +309,7 @@ public class ExchangeClient
         return future;
     }
 
-    private synchronized boolean addPages(List<Page> pages)
+    private synchronized boolean addPages(List<SerializedPage> pages)
     {
         if (isClosed() || isFailed()) {
             return false;
@@ -326,7 +321,7 @@ public class ExchangeClient
         notifyBlockedCallers();
 
         long memorySize = pages.stream()
-                .mapToLong(Page::getRetainedSizeInBytes)
+                .mapToLong(SerializedPage::getRetainedSizeInBytes)
                 .sum();
 
         bufferBytes += memorySize;
@@ -334,7 +329,7 @@ public class ExchangeClient
         successfulRequests++;
 
         long responseSize = pages.stream()
-                .mapToLong(Page::getSizeInBytes)
+                .mapToLong(SerializedPage::getSizeInBytes)
                 .sum();
         // AVG_n = AVG_(n-1) * (n-1)/n + VALUE_n / n
         averageBytesPerRequest = (long) (1.0 * averageBytesPerRequest * (successfulRequests - 1) / successfulRequests + responseSize / successfulRequests);
@@ -394,7 +389,7 @@ public class ExchangeClient
             implements ClientCallback
     {
         @Override
-        public boolean addPages(HttpPageBufferClient client, List<Page> pages)
+        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
         {
             requireNonNull(client, "client is null");
             requireNonNull(pages, "pages is null");

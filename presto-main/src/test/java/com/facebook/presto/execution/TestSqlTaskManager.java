@@ -128,14 +128,14 @@ public class TestSqlTaskManager
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
             assertEquals(results.isBufferComplete(), false);
-            assertEquals(results.getPages().size(), 1);
-            assertEquals(results.getPages().get(0).getPositionCount(), 1);
+            assertEquals(results.getSerializedPages().size(), 1);
+            assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
             for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
             }
             assertEquals(results.isBufferComplete(), true);
-            assertEquals(results.getPages().size(), 0);
+            assertEquals(results.getSerializedPages().size(), 0);
 
             // complete the task by calling abort on it
             TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);

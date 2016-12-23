@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.block.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Splitter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -38,6 +38,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
@@ -59,6 +60,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.execution.buffer.PagesSerdeUtil.writePages;
 import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -76,7 +78,8 @@ public class TestExchangeOperator
 {
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final Page PAGE = createSequencePage(TYPES, 10, 100);
-    private static final BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private static final PagesSerdeFactory SERDE_FACTORY = new TestingPagesSerdeFactory();
+    private static final PagesSerde SERDE = SERDE_FACTORY.createPagesSerde();
 
     private static final String TASK_1_ID = "task1";
     private static final String TASK_2_ID = "task2";
@@ -106,7 +109,6 @@ public class TestExchangeOperator
         httpClient = new TestingHttpClient(new HttpClientHandler(taskBuffers), executor);
 
         exchangeClientSupplier = (systemMemoryUsageListener) -> new ExchangeClient(
-                blockEncodingSerde,
                 new DataSize(32, MEGABYTE),
                 new DataSize(10, MEGABYTE),
                 3,
@@ -264,7 +266,7 @@ public class TestExchangeOperator
 
     private SourceOperator createExchangeOperator()
     {
-        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, TYPES);
+        ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(0, new PlanNodeId("test"), exchangeClientSupplier, SERDE_FACTORY, TYPES);
 
         DriverContext driverContext = createTaskContext(executor, TEST_SESSION)
                 .addPipelineContext(true, true)
@@ -362,6 +364,11 @@ public class TestExchangeOperator
             this.taskBuffers = taskBuffers;
         }
 
+        private synchronized void writeSerializedPages(SliceOutput output, Page page)
+        {
+            writePages(SERDE, output, page);
+        }
+
         @Override
         public Response handle(Request request)
         {
@@ -386,7 +393,7 @@ public class TestExchangeOperator
                 headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
                 headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
                 DynamicSliceOutput output = new DynamicSliceOutput(256);
-                PagesSerde.writePages(blockEncodingSerde, output, page);
+                writeSerializedPages(output, page);
                 return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
             }
             else if (taskBuffer.isFinished()) {
