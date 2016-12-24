@@ -546,19 +546,19 @@ public class TestSqlParser
         SQL_PARSER.createExpression("1 + 1 x");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '@'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:1: extraneous input '@'\\E.*")
     public void testTokenizeErrorStartOfLine()
     {
         SQL_PARSER.createStatement("@select");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:25: no viable alternative at input '@'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:25: extraneous input '@'\\E.*")
     public void testTokenizeErrorMiddleOfLine()
     {
         SQL_PARSER.createStatement("select * from foo where @what");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:15: no viable alternative at input\\E.*")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:15: extraneous input\\E.*")
     public void testTokenizeErrorIncompleteToken()
     {
         SQL_PARSER.createStatement("select * from 'oops");
@@ -570,7 +570,7 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select *\nfrom x\nfrom");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 3:7: no viable alternative at input 'from'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 3:7: mismatched input 'from'\\E.*")
     public void testParseErrorMiddleOfLine()
     {
         SQL_PARSER.createStatement("select *\nfrom x\nwhere from");
@@ -650,8 +650,8 @@ public class TestSqlParser
             fail("expected exception");
         }
         catch (ParsingException e) {
-            assertEquals(e.getMessage(), "line 3:7: no viable alternative at input 'from'");
-            assertEquals(e.getErrorMessage(), "no viable alternative at input 'from'");
+            assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
+            assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
             assertEquals(e.getLineNumber(), 3);
             assertEquals(e.getColumnNumber(), 7);
         }
@@ -670,13 +670,13 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select foo(,1)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: no viable alternative at input\\E.*")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: mismatched input\\E.*")
     public void testInvalidArguments2()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: no viable alternative at input\\E.*")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: extraneous input\\E.*")
     public void testInvalidArguments3()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT ,1)");
