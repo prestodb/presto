@@ -1059,14 +1059,9 @@ class AstBuilder
     // ********************* primary expressions **********************
 
     @Override
-    public Node visitImplicitRowConstructor(SqlBaseParser.ImplicitRowConstructorContext context)
+    public Node visitParenthesizedExpression(SqlBaseParser.ParenthesizedExpressionContext context)
     {
-        List<Expression> items = visit(context.expression(), Expression.class);
-        if (items.size() == 1) {
-            return items.get(0);
-        }
-
-        return new Row(getLocation(context), items);
+        return visit(context.expression());
     }
 
     @Override
