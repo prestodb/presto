@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -31,7 +32,9 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -59,6 +62,7 @@ public class HiveClientConfig
     private int domainCompactionThreshold = 100;
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
+    private Set<String> respectSplitsInputFormats;
 
     private int maxConcurrentFileRenames = 20;
 
@@ -217,6 +221,25 @@ public class HiveClientConfig
     public boolean getRecursiveDirWalkerEnabled()
     {
         return recursiveDirWalkerEnabled;
+    }
+
+    public Set<String> getRespectSplitsInputFormats()
+    {
+        return respectSplitsInputFormats;
+    }
+
+    @Config("hive.respect-splits.input-formats")
+    @ConfigDescription("Comma Separated List of Input Format Classnames which Presto should simply honor InputFormat.getSplits() to determine the splits")
+    public HiveClientConfig setRespectSplitsInputFormats(String inputFormatList)
+    {
+        this.respectSplitsInputFormats = (inputFormatList == null) ? null : new HashSet<>(SPLITTER.splitToList(inputFormatList));
+        return this;
+    }
+
+    public HiveClientConfig setRespectSplitsInputFormats(Set<String> inputFormats)
+    {
+        this.respectSplitsInputFormats = (inputFormats == null) ? null : ImmutableSet.copyOf(inputFormats);
+        return this;
     }
 
     public DateTimeZone getDateTimeZone()
