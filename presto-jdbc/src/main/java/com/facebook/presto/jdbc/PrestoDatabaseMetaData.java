@@ -135,13 +135,13 @@ public class PrestoDatabaseMetaData
     @Override
     public int getDriverMajorVersion()
     {
-        return PrestoDriver.VERSION_MAJOR;
+        return PrestoDriver.DRIVER_VERSION_MAJOR;
     }
 
     @Override
     public int getDriverMinorVersion()
     {
-        return PrestoDriver.VERSION_MINOR;
+        return PrestoDriver.DRIVER_VERSION_MINOR;
     }
 
     @Override

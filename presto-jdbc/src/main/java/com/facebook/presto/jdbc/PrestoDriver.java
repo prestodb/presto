@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.base.CharMatcher;
+import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
 
 import java.io.Closeable;
@@ -22,20 +24,21 @@ import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 
 public class PrestoDriver
         implements Driver, Closeable
 {
-    static final int VERSION_MAJOR = 1;
-    static final int VERSION_MINOR = 0;
-
     static final String DRIVER_NAME = "Presto JDBC Driver";
-    static final String DRIVER_VERSION = VERSION_MAJOR + "." + VERSION_MINOR;
+    static final String DRIVER_VERSION;
+    static final int DRIVER_VERSION_MAJOR;
+    static final int DRIVER_VERSION_MINOR;
 
     private static final DriverPropertyInfo[] DRIVER_PROPERTY_INFOS = {};
 
@@ -46,6 +49,19 @@ public class PrestoDriver
     private final QueryExecutor queryExecutor;
 
     static {
+        String version = PrestoDriver.class.getPackage().getImplementationVersion();
+        if (version == null) {
+            DRIVER_VERSION = "unknown";
+            DRIVER_VERSION_MAJOR = 0;
+            DRIVER_VERSION_MINOR = 0;
+        }
+        else {
+            DRIVER_VERSION = version;
+            List<String> parts = Splitter.on(CharMatcher.anyOf(".-")).limit(3).splitToList(version);
+            DRIVER_VERSION_MAJOR = parseInt(parts.get(0));
+            DRIVER_VERSION_MINOR = parseInt(parts.get(1));
+        }
+
         try {
             DriverManager.registerDriver(new PrestoDriver());
         }
@@ -98,13 +114,13 @@ public class PrestoDriver
     @Override
     public int getMajorVersion()
     {
-        return VERSION_MAJOR;
+        return DRIVER_VERSION_MAJOR;
     }
 
     @Override
     public int getMinorVersion()
     {
-        return VERSION_MINOR;
+        return DRIVER_VERSION_MINOR;
     }
 
     @Override

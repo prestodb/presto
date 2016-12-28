@@ -49,6 +49,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -369,6 +370,23 @@ public class TestDriver
                 assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
                 assertEquals(metadata.getColumnType(1), Types.LONGNVARCHAR);
             }
+        }
+    }
+
+    @Test
+    public void testGetDriverVersion()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:presto:");
+        assertEquals(driver.getMajorVersion(), 0);
+        assertEquals(driver.getMajorVersion(), 0);
+
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            assertEquals(metaData.getDriverName(), PrestoDriver.DRIVER_NAME);
+            assertEquals(metaData.getDriverVersion(), "unknown");
+            assertEquals(metaData.getDriverMajorVersion(), 0);
+            assertEquals(metaData.getDriverMinorVersion(), 0);
         }
     }
 
