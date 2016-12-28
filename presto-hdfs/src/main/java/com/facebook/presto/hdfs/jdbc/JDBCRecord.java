@@ -51,6 +51,9 @@ public class JDBCRecord extends Properties
      * */
     public void setField(String fieldName, String fieldValue)
     {
+        if (fieldValue == null) {
+            fieldValue = "";
+        }
         put(fieldName, requireNonNull(fieldValue));
     }
 

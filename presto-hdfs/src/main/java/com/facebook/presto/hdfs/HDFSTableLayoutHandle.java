@@ -33,6 +33,16 @@ implements ConnectorTableLayoutHandle
 
     @JsonCreator
     public HDFSTableLayoutHandle(
+            @JsonProperty("tableName") SchemaTableName tableName)
+    {
+        this.tableName = tableName;
+        this.fiberColumn = null;
+        this.timestampColumn = null;
+        this.fiberFunc = null;
+    }
+
+    @JsonCreator
+    public HDFSTableLayoutHandle(
             @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("fiberColumn") HDFSColumnHandle fiberColumn,
             @JsonProperty("timestampColumn") HDFSColumnHandle timestampColumn,

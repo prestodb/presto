@@ -315,6 +315,7 @@ implements MetaServer
     @Override
     public Optional<HDFSTableLayoutHandle> getTableLayout(String databaseName, String tableName)
     {
+        // TODO add fiberCol, timeCol, fiberFunc
         log.debug("Get table layout " + Utils.formName(databaseName, tableName));
         HDFSTableLayoutHandle tableLayout;
         List<JDBCRecord> records;
@@ -327,17 +328,18 @@ implements MetaServer
             log.error("Match more/less than one table");
             return Optional.empty();
         }
-        JDBCRecord record = records.get(0);
-        String fiberColName = record.getString(fields[0]);
-        String timeColName = record.getString(fields[1]);
-        String fiberFunc = record.getString(fields[2]);
+//        JDBCRecord record = records.get(0);
+//        String fiberColName = record.getString(fields[0]);
+//        String timeColName = record.getString(fields[1]);
+//        String fiberFunc = record.getString(fields[2]);
         records.clear();
 
         // construct ColumnHandle
-        HDFSColumnHandle fiberCol = getColumnHandle(fiberColName);
-        HDFSColumnHandle timeCol = getColumnHandle(timeColName);
+//        HDFSColumnHandle fiberCol = getColumnHandle(fiberColName);
+//        HDFSColumnHandle timeCol = getColumnHandle(timeColName);
 
-        tableLayout = new HDFSTableLayoutHandle(new SchemaTableName(databaseName, tableName), fiberCol, timeCol, fiberFunc);
+//        tableLayout = new HDFSTableLayoutHandle(new SchemaTableName(databaseName, tableName), fiberCol, timeCol, fiberFunc);
+        tableLayout = new HDFSTableLayoutHandle(new SchemaTableName(databaseName, tableName));
         return Optional.of(tableLayout);
     }
 
@@ -361,7 +363,7 @@ implements MetaServer
             return Optional.empty();
         }
         for (JDBCRecord record : records) {
-            colName = Utils.formName(databaseName, tableName, record.getString(colFields[0]));
+            colName = record.getString(colFields[0]);
             columnHandles.add(getColumnHandle(colName));
         }
         return Optional.of(columnHandles);
@@ -389,22 +391,22 @@ implements MetaServer
             throw new RecordMoreLessException();
         }
         JDBCRecord fiberColRecord = records.get(0);
-        String colTypeName = fiberColRecord.getString(colFields[0]);
+//        String colTypeName = fiberColRecord.getString(colFields[0]);
         String typeName = fiberColRecord.getString(colFields[1]);
         records.clear();
-        // Deal with colType
-        HDFSColumnHandle.ColumnType colType = getColType(colTypeName);
-        if (colType == HDFSColumnHandle.ColumnType.NOTVALID) {
-            log.error("Col type not match!");
-            throw new RecordMoreLessException();
-        }
+        // TODO Deal with colType
+//        HDFSColumnHandle.ColumnType colType = getColType(colTypeName);
+//        if (colType == HDFSColumnHandle.ColumnType.NOTVALID) {
+//            log.error("Col type non valid!");
+//            throw new ColTypeNonValidException();
+//        }
         // Deal with type
         Type type = getType(typeName);
         if (type == UnknownType.UNKNOWN) {
             log.error("Type unknown!");
             throw new TypeUnknownException();
         }
-        return new HDFSColumnHandle(colName, type, "", colType);
+        return new HDFSColumnHandle(colName, type, "", HDFSColumnHandle.ColumnType.REGULAR);
     }
 
     public Optional<List<ColumnMetadata>> getTableColMetadata(String databaseName, String tableName)
@@ -453,7 +455,7 @@ implements MetaServer
     private HDFSColumnHandle.ColumnType getColType(String typeName)
     {
         log.debug("Get col type " + typeName);
-        switch (typeName) {
+        switch (typeName.toUpperCase()) {
             case "FIBER_COL": return HDFSColumnHandle.ColumnType.FIBER_COL;
             case "TIME_COL": return HDFSColumnHandle.ColumnType.TIME_COL;
             case "REGULAR": return HDFSColumnHandle.ColumnType.REGULAR;
