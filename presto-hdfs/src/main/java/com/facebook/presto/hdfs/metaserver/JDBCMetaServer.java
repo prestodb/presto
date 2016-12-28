@@ -354,7 +354,7 @@ implements MetaServer
         String sql = "SELECT col_name FROM cols WHERE tbl_name='"
                 + databaseTableName
                 + "';";
-        String[] colFields = {"tbl_name"};
+        String[] colFields = {"col_name"};
         records = jdbcDriver.executreQuery(sql, colFields);
         if (records.size() == 0) {
             log.warn("No col matches!");
