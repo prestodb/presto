@@ -202,8 +202,10 @@ public class ExchangeClient
 
         if (page != null) {
             synchronized (this) {
-                bufferBytes -= page.getRetainedSizeInBytes();
-                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+                if (!closed.get()) {
+                    bufferBytes -= page.getRetainedSizeInBytes();
+                    systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+                }
             }
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);

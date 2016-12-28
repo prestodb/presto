@@ -23,6 +23,8 @@ import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import javax.annotation.concurrent.NotThreadSafe;
+
 import java.io.Closeable;
 import java.net.URI;
 import java.util.List;
@@ -87,6 +89,7 @@ public class ExchangeOperator
         }
     }
 
+    @NotThreadSafe
     private static final class UpdateSystemMemory
             implements SystemMemoryUsageListener
     {
