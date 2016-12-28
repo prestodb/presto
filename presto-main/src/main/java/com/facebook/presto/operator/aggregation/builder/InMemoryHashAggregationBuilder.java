@@ -34,7 +34,6 @@ import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterators;
 
-import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -265,9 +264,8 @@ public class InMemoryHashAggregationBuilder
             groupIds.set(i, i);
         }
 
-        List<Integer> wrappedGroupIds = asList(groupIds, groupByHash.getGroupCount());
-        wrappedGroupIds.sort(((leftGroupId, rightGroupId) ->
-                Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId))));
+        groupIds.sort(0, groupByHash.getGroupCount(), (leftGroupId, rightGroupId) ->
+                Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId)));
 
         return new AbstractIntIterator() {
             private final int totalPositions = groupByHash.getGroupCount();
@@ -283,31 +281,6 @@ public class InMemoryHashAggregationBuilder
             public int nextInt()
             {
                 return groupIds.get(position++);
-            }
-        };
-    }
-
-    private static List<Integer> asList(IntBigArray groupIds, int size)
-    {
-        return new AbstractList<Integer>() {
-            @Override
-            public Integer get(int index)
-            {
-                return groupIds.get(index);
-            }
-
-            @Override
-            public int size()
-            {
-                return size;
-            }
-
-            @Override
-            public Integer set(int index, Integer element)
-            {
-                int oldValue = groupIds.get(index);
-                groupIds.set(index, element);
-                return oldValue;
             }
         };
     }
