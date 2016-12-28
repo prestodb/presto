@@ -94,6 +94,12 @@ public final class OuterLookupSource
         return outerPositionTracker.getOuterPositionIterator();
     }
 
+    @Override
+    public void close()
+    {
+        lookupSource.close();
+    }
+
     @ThreadSafe
     private static class SharedLookupOuterPositionIterator
             implements OuterPositionIterator
