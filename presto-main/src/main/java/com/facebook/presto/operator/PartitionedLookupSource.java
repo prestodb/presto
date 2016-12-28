@@ -154,7 +154,7 @@ public class PartitionedLookupSource
 
     private long encodePartitionedJoinPosition(int partition, int joinPosition)
     {
-        return (joinPosition << shiftSize) | (partition);
+        return (((long) joinPosition) << shiftSize) | (partition);
     }
 
     private static class PartitionedLookupOuterPositionIterator
