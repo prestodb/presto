@@ -142,4 +142,9 @@ public final class IntBigArray
         capacity += SEGMENT_SIZE;
         segments++;
     }
+
+    public void sort(int from, int to, IntComparator comparator)
+    {
+        IntBigArrays.quickSort(array, from, to, comparator);
+    }
 }
