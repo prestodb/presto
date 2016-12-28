@@ -34,9 +34,6 @@ public class PrestoDriver
     static final int VERSION_MAJOR = 1;
     static final int VERSION_MINOR = 0;
 
-    static final int JDBC_VERSION_MAJOR = 4;
-    static final int JDBC_VERSION_MINOR = 1;
-
     static final String DRIVER_NAME = "Presto JDBC Driver";
     static final String DRIVER_VERSION = VERSION_MAJOR + "." + VERSION_MINOR;
 

@@ -1264,14 +1264,14 @@ public class PrestoDatabaseMetaData
     public int getJDBCMajorVersion()
             throws SQLException
     {
-        return PrestoDriver.JDBC_VERSION_MAJOR;
+        return 4;
     }
 
     @Override
     public int getJDBCMinorVersion()
             throws SQLException
     {
-        return PrestoDriver.JDBC_VERSION_MINOR;
+        return 2;
     }
 
     @Override
