@@ -68,8 +68,8 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1115,28 +1115,51 @@ public class HiveMetadata
                 ImmutableList.of());
     }
 
-    private static TupleDomain<ColumnHandle> createPredicate(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
+    @VisibleForTesting
+    static TupleDomain<ColumnHandle> createPredicate(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
     {
         if (partitions.isEmpty()) {
             return TupleDomain.none();
         }
 
-        Map<ColumnHandle, Domain> domains = new HashMap<>(partitionColumns.size());
+        return withColumnDomains(
+                partitionColumns.stream()
+                        .collect(Collectors.toMap(
+                                Function.identity(),
+                                column -> buildColumnDomain(column, partitions))));
+    }
+
+    private static Domain buildColumnDomain(ColumnHandle column, List<HivePartition> partitions)
+    {
+        boolean hasNull = false;
+        List<Object> nonNullValues = new ArrayList<>();
+        Type type = null;
 
         for (HivePartition partition : partitions) {
-            Map<ColumnHandle, NullableValue> partitionValues = partition.getKeys();
-            for (ColumnHandle column : partitionColumns) {
-                NullableValue nullableValue = partitionValues.get(column);
-                if (nullableValue == null) {
-                    throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does now have a value for partition column %s", partition, column));
-                }
+            NullableValue value = partition.getKeys().get(column);
+            if (value == null) {
+                throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does not have a value for partition column %s", partition, column));
+            }
 
-                Type type = nullableValue.getType();
-                Domain domain = nullableValue.isNull() ? Domain.onlyNull(type) : Domain.singleValue(type, nullableValue.getValue());
-                domains.merge(column, domain, Domain::union);
+            if (value.isNull()) {
+                hasNull = true;
+            }
+            else {
+                nonNullValues.add(value.getValue());
+            }
+
+            if (type == null) {
+                type = value.getType();
             }
         }
-        return withColumnDomains(domains);
+
+        Domain domain = Domain.multipleValues(type, nonNullValues);
+
+        if (hasNull) {
+            domain = domain.union(Domain.onlyNull(type));
+        }
+
+        return domain;
     }
 
     @Override
