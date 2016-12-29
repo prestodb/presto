@@ -47,6 +47,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -376,7 +377,11 @@ public class TestDriver
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            assertNotNull(connection.getMetaData().getDatabaseProductVersion());
+            DatabaseMetaData metaData = connection.getMetaData();
+            assertEquals(metaData.getDatabaseProductName(), "Presto");
+            assertEquals(metaData.getDatabaseProductVersion(), "testversion");
+            assertEquals(metaData.getDatabaseMajorVersion(), 0);
+            assertEquals(metaData.getDatabaseMinorVersion(), 0);
         }
     }
 

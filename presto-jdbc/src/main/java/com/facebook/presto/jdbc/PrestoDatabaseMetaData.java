@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -25,6 +26,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoDatabaseMetaData
@@ -113,12 +115,7 @@ public class PrestoDatabaseMetaData
     public String getDatabaseProductVersion()
             throws SQLException
     {
-        try {
-            return connection.getServerInfo().getNodeVersion().getVersion();
-        }
-        catch (RuntimeException e) {
-            throw new SQLException("Error fetching version from server", e);
-        }
+        return connection.getServerInfo().getNodeVersion().getVersion();
     }
 
     @Override
@@ -1243,15 +1240,27 @@ public class PrestoDatabaseMetaData
     public int getDatabaseMajorVersion()
             throws SQLException
     {
-        // TODO: get version from server
-        return PrestoDriver.VERSION_MAJOR;
+        return getDatabaseVersionPart(0);
     }
 
     @Override
     public int getDatabaseMinorVersion()
             throws SQLException
     {
-        return PrestoDriver.VERSION_MINOR;
+        return getDatabaseVersionPart(1);
+    }
+
+    private int getDatabaseVersionPart(int part)
+            throws SQLException
+    {
+        String version = getDatabaseProductVersion();
+        List<String> parts = Splitter.on('.').limit(3).splitToList(version);
+        try {
+            return parseInt(parts.get(part));
+        }
+        catch (IndexOutOfBoundsException | NumberFormatException e) {
+            return 0;
+        }
     }
 
     @Override
