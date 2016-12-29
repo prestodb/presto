@@ -49,7 +49,6 @@ import io.airlift.json.JsonCodec;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -125,11 +124,6 @@ public class CassandraSession
     public ResultSet execute(String schemaName, final String cql, final Object... values)
     {
         return executeWithSession(schemaName, session -> session.execute(cql, values));
-    }
-
-    public Collection<Host> getAllHosts()
-    {
-        return executeWithSession("", (SessionCallable<Collection<Host>>) session -> session.getCluster().getMetadata().getAllHosts());
     }
 
     public List<String> getAllSchemas()
