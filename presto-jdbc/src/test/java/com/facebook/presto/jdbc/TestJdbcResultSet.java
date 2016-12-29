@@ -30,7 +30,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.sql.Types;
 
-import static com.facebook.presto.jdbc.TestDriver.closeQuietly;
+import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
