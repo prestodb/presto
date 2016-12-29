@@ -73,7 +73,15 @@ public class LikePredicate
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(value, pattern, escape);
+        ImmutableList.Builder<Node> result = ImmutableList.<Node>builder()
+                .add(value)
+                .add(pattern);
+
+        if (escape != null) {
+            result.add(escape);
+        }
+
+        return result.build();
     }
 
     @Override
