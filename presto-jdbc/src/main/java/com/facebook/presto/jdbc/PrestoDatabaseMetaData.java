@@ -602,7 +602,7 @@ public class PrestoDatabaseMetaData
     public boolean supportsStoredProcedures()
             throws SQLException
     {
-        // TODO: support stored procedures
+        // TODO: support stored procedure escape syntax
         return false;
     }
 
@@ -610,16 +610,14 @@ public class PrestoDatabaseMetaData
     public boolean supportsSubqueriesInComparisons()
             throws SQLException
     {
-        // TODO: support subqueries in comparisons
-        return false;
+        return true;
     }
 
     @Override
     public boolean supportsSubqueriesInExists()
             throws SQLException
     {
-        // TODO: support EXISTS
-        return false;
+        return true;
     }
 
     @Override
@@ -633,16 +631,14 @@ public class PrestoDatabaseMetaData
     public boolean supportsSubqueriesInQuantifieds()
             throws SQLException
     {
-        // TODO: support subqueries in ANY/SOME/ALL predicates
-        return false;
+        return true;
     }
 
     @Override
     public boolean supportsCorrelatedSubqueries()
             throws SQLException
     {
-        // TODO: support correlated subqueries
-        return false;
+        return true;
     }
 
     @Override
@@ -844,23 +840,21 @@ public class PrestoDatabaseMetaData
     public int getDefaultTransactionIsolation()
             throws SQLException
     {
-        // TODO: support transactions
-        return Connection.TRANSACTION_NONE;
+        return Connection.TRANSACTION_READ_UNCOMMITTED;
     }
 
     @Override
     public boolean supportsTransactions()
             throws SQLException
     {
-        // TODO: support transactions
-        return false;
+        return true;
     }
 
     @Override
     public boolean supportsTransactionIsolationLevel(int level)
             throws SQLException
     {
-        return level == Connection.TRANSACTION_NONE;
+        return true;
     }
 
     @Override
