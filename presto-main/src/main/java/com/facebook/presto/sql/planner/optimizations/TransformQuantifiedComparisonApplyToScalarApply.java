@@ -21,7 +21,6 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.ExpressionUtils;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -37,11 +36,11 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +51,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
+import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -116,85 +115,29 @@ public class TransformQuantifiedComparisonApplyToScalarApply
 
             QuantifiedComparisonExpression quantifiedComparison = (QuantifiedComparisonExpression) expression;
 
-            if (quantifiedComparison.getComparisonType() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
-                // A = ALL B <=> min B = max B && A = min B
-                return rewriteQuantifiedEqualsAllApplyNode(node, quantifiedComparison, context);
-            }
-
-            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getComparisonType())) {
-                // A < ALL B <=> A < min B
-                // A > ALL B <=> A > max B
-                // A < ANY B <=> A < max B
-                // A > ANY B <=> A > min B
-                return rewriteQuantifiedOrderableApplyNode(node, quantifiedComparison, context);
-            }
-
-            return context.defaultRewrite(node);
+            return rewriteQuantifiedApplyNode(node, quantifiedComparison, context);
         }
 
-        private PlanNode rewriteQuantifiedEqualsAllApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
+        private PlanNode rewriteQuantifiedApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
-            Symbol outputColumnSymbol = getOnlyElement(subqueryPlan.getOutputSymbols());
-            Type outputColumnType = types.get(outputColumnSymbol);
-            if (!outputColumnType.isOrderable()) {
-                throwNotSupportedException(quantifiedComparison, "Quantified comparison '= ALL' or '<> ANY' for unorderable type " + outputColumnType.getDisplayName());
-            }
 
-            List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
             QualifiedName min = QualifiedName.of("min");
             QualifiedName max = QualifiedName.of("max");
-            Symbol minValue = symbolAllocator.newSymbol(min.toString(), outputColumnType);
-            Symbol maxValue = symbolAllocator.newSymbol(max.toString(), outputColumnType);
-            List<Expression> outputColumnReferences = ImmutableList.of(outputColumnSymbol.toSymbolReference());
-            subqueryPlan = new AggregationNode(
-                    idAllocator.getNextId(),
-                    subqueryPlan,
-                    ImmutableMap.of(
-                            minValue, new FunctionCall(min, outputColumnReferences),
-                            maxValue, new FunctionCall(max, outputColumnReferences)
-                    ),
-                    ImmutableMap.of(
-                            minValue, functionRegistry.resolveFunction(min, fromTypeSignatures(outputColumnTypeSignature)),
-                            maxValue, functionRegistry.resolveFunction(max, fromTypeSignatures(outputColumnTypeSignature))
-                    ),
-                    ImmutableMap.of(),
-                    ImmutableList.of(ImmutableList.of()),
-                    AggregationNode.Step.SINGLE,
-                    Optional.empty(),
-                    Optional.empty());
-
-            PlanNode applyNode = new ApplyNode(
-                    node.getId(),
-                    context.rewrite(node.getInput()),
-                    subqueryPlan,
-                    Assignments.of(minValue, minValue.toSymbolReference(), maxValue, maxValue.toSymbolReference()),
-                    node.getCorrelation());
-
-            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
-            LogicalBinaryExpression valueComparedToSubquery = new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
-                    new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
-                    new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), minValue.toSymbolReference())
-            );
-            return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
-        }
-
-        private PlanNode rewriteQuantifiedOrderableApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
-        {
-            PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
             QualifiedName count = QualifiedName.of("count");
-            QualifiedName aggregationFunction = chooseAggregationFunction(quantifiedComparison);
 
-            Symbol countAllValue = symbolAllocator.newSymbol(count.toString(), BigintType.BIGINT);
-            Symbol countNonNullValue = symbolAllocator.newSymbol(count.toString(), BigintType.BIGINT);
             Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
             Type outputColumnType = types.get(outputColumn);
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
+            Symbol minValue = symbolAllocator.newSymbol(min.toString(), outputColumnType);
+            Symbol maxValue = symbolAllocator.newSymbol(max.toString(), outputColumnType);
+
+            Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
+            Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
+
             FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            Symbol extremeValue = symbolAllocator.newSymbol(aggregationFunction.toString(), outputColumnType);
             List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
 
             ImmutableList<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
@@ -202,12 +145,14 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
-                            extremeValue, new FunctionCall(aggregationFunction, outputColumnReferences),
+                            minValue, new FunctionCall(min, outputColumnReferences),
+                            maxValue, new FunctionCall(max, outputColumnReferences),
                             countAllValue, new FunctionCall(count, emptyList()),
                             countNonNullValue, new FunctionCall(count, outputColumnReferences)
                     ),
                     ImmutableMap.of(
-                            extremeValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(new TypeSignatureProvider(outputColumnType.getTypeSignature()))),
+                            minValue, functionRegistry.resolveFunction(min, fromTypeSignatures(outputColumnTypeSignature)),
+                            maxValue, functionRegistry.resolveFunction(max, fromTypeSignatures(outputColumnTypeSignature)),
                             countAllValue, functionRegistry.resolveFunction(count, emptyList()),
                             countNonNullValue, functionRegistry.resolveFunction(count, fromTypeSignatures(outputColumnTypeSignature))
                     ),
@@ -221,7 +166,7 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    Assignments.of(extremeValue, extremeValue.toSymbolReference()),
+                    Assignments.identity(minValue, maxValue),
                     node.getCorrelation());
 
             BooleanLiteral emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_LITERAL : FALSE_LITERAL;
@@ -229,22 +174,27 @@ public class TransformQuantifiedComparisonApplyToScalarApply
             Function<List<Expression>, Expression> quantifier = quantifiedComparison.getQuantifier().equals(ALL) ?
                     ExpressionUtils::combineConjuncts : ExpressionUtils::combineDisjuncts;
 
-            ComparisonExpression comparisonWithExtremeValue = new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), extremeValue.toSymbolReference());
-            Expression valueComparedToSubquery = new SearchedCaseExpression(
-                    ImmutableList.of(
-                            new WhenClause(
-                                    new ComparisonExpression(EQUAL, countAllValue.toSymbolReference(), new GenericLiteral("bigint", "0")),
-                                    emptySetResult
-                            ),
-                            new WhenClause(
-                                    new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
-                                    quantifier.apply(ImmutableList.of(
-                                            new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()),
-                                            comparisonWithExtremeValue
-                                    ))
+            Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
+
+            Expression valueComparedToSubquery =  new SimpleCaseExpression(
+                    countAllValue.toSymbolReference(),
+                    ImmutableList.of(new WhenClause(
+                            new GenericLiteral("bigint", "0"),
+                            emptySetResult
+                    )),
+                    Optional.of(quantifier.apply(ImmutableList.of(
+                            comparisonWithExtremeValue,
+                            new SearchedCaseExpression(
+                                    ImmutableList.of(
+                                            new WhenClause(
+                                                    new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
+                                                    new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString())
+                                            )
+                                    ),
+                                    Optional.of(emptySetResult)
                             )
-                    ),
-                    Optional.of(comparisonWithExtremeValue)
+                    )))
+
             );
 
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
@@ -263,17 +213,38 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     assignments);
         }
 
-        private static QualifiedName chooseAggregationFunction(QuantifiedComparisonExpression quantifiedComparison)
+        private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue)
+        {
+            if (quantifiedComparison.getComparisonType() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
+                // A = ALL B <=> min B = max B && A = min B
+                return combineConjuncts(
+                        new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
+                        new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference())
+                );
+            }
+
+            if (EnumSet.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL).contains(quantifiedComparison.getComparisonType())) {
+                // A < ALL B <=> A < min B
+                // A > ALL B <=> A > max B
+                // A < ANY B <=> A < max B
+                // A > ANY B <=> A > min B
+                Symbol boundValue = shouldCompareValueWithLowerBound(quantifiedComparison) ? minValue : maxValue;
+                return new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), boundValue.toSymbolReference());
+            }
+            throw new IllegalArgumentException("Unsupported quantified comparison: " + quantifiedComparison);
+        }
+
+        private static boolean shouldCompareValueWithLowerBound(QuantifiedComparisonExpression quantifiedComparison)
         {
             switch (quantifiedComparison.getQuantifier()) {
                 case ALL:
                     switch (quantifiedComparison.getComparisonType()) {
                         case LESS_THAN:
                         case LESS_THAN_OR_EQUAL:
-                            return QualifiedName.of("min");
+                            return true;
                         case GREATER_THAN:
                         case GREATER_THAN_OR_EQUAL:
-                            return QualifiedName.of("max");
+                            return false;
                     }
                     break;
                 case ANY:
@@ -281,10 +252,10 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     switch (quantifiedComparison.getComparisonType()) {
                         case LESS_THAN:
                         case LESS_THAN_OR_EQUAL:
-                            return QualifiedName.of("max");
+                            return false;
                         case GREATER_THAN:
                         case GREATER_THAN_OR_EQUAL:
-                            return QualifiedName.of("min");
+                            return true;
                     }
                     break;
             }
