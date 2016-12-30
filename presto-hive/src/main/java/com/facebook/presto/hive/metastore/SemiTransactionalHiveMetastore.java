@@ -148,6 +148,65 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
+    public synchronized Optional<Map<String, ColumnStatistics>> getTableColumnStatistics(String databaseName, String tableName, Set<String> columnNames)
+    {
+        checkReadable();
+        Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
+        if (tableAction == null) {
+            return delegate.getTableColumnStatistics(databaseName, tableName, columnNames);
+        }
+        switch (tableAction.getType()) {
+            case ADD:
+            case ALTER:
+            case INSERT_EXISTING:
+            case DROP:
+                return Optional.empty();
+            default:
+                throw new IllegalStateException("Unknown action type");
+        }
+    }
+
+    public synchronized Optional<Map<String, Map<String, ColumnStatistics>>> getPartitionColumnStatistics(String databaseName, String tableName, Set<String> partitionNames, Set<String> columnNames)
+    {
+        checkReadable();
+        Optional<Table> table = getTable(databaseName, tableName);
+        if (!table.isPresent()) {
+            return Optional.empty();
+        }
+        TableSource tableSource = getTableSource(databaseName, tableName);
+        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        ImmutableSet.Builder<String> partitionNamesToQuery = ImmutableSet.builder();
+        ImmutableMap.Builder<String, Map<String, ColumnStatistics>> resultBuilder = ImmutableMap.builder();
+        for (String partitionName : partitionNames) {
+            List<String> partitionValues = toPartitionValues(partitionName);
+            Action<PartitionAndMore> partitionAction = partitionActionsOfTable.get(partitionValues);
+            if (partitionAction == null) {
+                switch (tableSource) {
+                    case PRE_EXISTING_TABLE:
+                        partitionNamesToQuery.add(partitionName);
+                        break;
+                    case CREATED_IN_THIS_TRANSACTION:
+                        resultBuilder.put(partitionName, ImmutableMap.of());
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("unknown table source");
+                }
+            }
+            else {
+                resultBuilder.put(partitionName, ImmutableMap.of());
+            }
+        }
+
+        Optional<Map<String, Map<String, ColumnStatistics>>> delegateResult = delegate.getPartitionColumnStatistics(databaseName, tableName, partitionNamesToQuery.build(), columnNames);
+        if (delegateResult.isPresent()) {
+            resultBuilder.putAll(delegateResult.get());
+        }
+        else {
+            partitionNamesToQuery.build().forEach(partionName -> resultBuilder.put(partionName, ImmutableMap.of()));
+        }
+        return Optional.of(resultBuilder.build());
+    }
+
     /**
      * This method can only be called when the table is known to exist
      */

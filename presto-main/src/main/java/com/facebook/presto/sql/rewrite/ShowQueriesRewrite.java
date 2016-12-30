@@ -136,7 +136,7 @@ final class ShowQueriesRewrite
             List<Expression> parameters,
             AccessControl accessControl)
     {
-        return (Statement) new Visitor(metadata, parser, session, parameters).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, parameters, queryExplainer).process(node, null);
     }
 
     private static class Visitor
@@ -146,13 +146,15 @@ final class ShowQueriesRewrite
         private final Session session;
         private final SqlParser sqlParser;
         List<Expression> parameters;
+        Optional<QueryExplainer> queryExplainer;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
+            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         }
 
         @Override
@@ -478,6 +480,7 @@ final class ShowQueriesRewrite
         }
 
         @Override
+
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
