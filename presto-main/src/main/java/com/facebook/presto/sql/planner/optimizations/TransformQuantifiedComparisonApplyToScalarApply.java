@@ -122,25 +122,23 @@ public class TransformQuantifiedComparisonApplyToScalarApply
         {
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
-            QualifiedName min = QualifiedName.of("min");
-            QualifiedName max = QualifiedName.of("max");
-
-            QualifiedName count = QualifiedName.of("count");
-
             Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
             Type outputColumnType = types.get(outputColumn);
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
+            QualifiedName min = QualifiedName.of("min");
+            QualifiedName max = QualifiedName.of("max");
+            QualifiedName count = QualifiedName.of("count");
+
             Symbol minValue = symbolAllocator.newSymbol(min.toString(), outputColumnType);
             Symbol maxValue = symbolAllocator.newSymbol(max.toString(), outputColumnType);
-
             Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
             FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+            List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
             List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
 
-            ImmutableList<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
@@ -169,14 +167,21 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     Assignments.identity(minValue, maxValue),
                     node.getCorrelation());
 
-            BooleanLiteral emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_LITERAL : FALSE_LITERAL;
+            Expression valueComparedToSubquery = rewriteUsingBounds(quantifiedComparison, minValue, maxValue, countAllValue, countNonNullValue);
 
+            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
+
+            return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+        }
+
+        public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
+        {
+            BooleanLiteral emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_LITERAL : FALSE_LITERAL;
             Function<List<Expression>, Expression> quantifier = quantifiedComparison.getQuantifier().equals(ALL) ?
                     ExpressionUtils::combineConjuncts : ExpressionUtils::combineDisjuncts;
-
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
-            Expression valueComparedToSubquery =  new SimpleCaseExpression(
+            return new SimpleCaseExpression(
                     countAllValue.toSymbolReference(),
                     ImmutableList.of(new WhenClause(
                             new GenericLiteral("bigint", "0"),
@@ -194,23 +199,7 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                                     Optional.of(emptySetResult)
                             )
                     )))
-
             );
-
-            Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
-            return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
-        }
-
-        private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
-        {
-            Assignments assignments = Assignments.builder()
-                    .putIdentities(input.getOutputSymbols())
-                    .putAll(subqueryAssignments)
-                    .build();
-            return new ProjectNode(
-                    idAllocator.getNextId(),
-                    input,
-                    assignments);
         }
 
         private Expression getBoundComparisons(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue)
@@ -260,6 +249,18 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     break;
             }
             throw new IllegalArgumentException("Unexpected quantifier: " + quantifiedComparison.getQuantifier());
+        }
+
+        private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
+        {
+            Assignments assignments = Assignments.builder()
+                    .putIdentities(input.getOutputSymbols())
+                    .putAll(subqueryAssignments)
+                    .build();
+            return new ProjectNode(
+                    idAllocator.getNextId(),
+                    input,
+                    assignments);
         }
     }
 }
