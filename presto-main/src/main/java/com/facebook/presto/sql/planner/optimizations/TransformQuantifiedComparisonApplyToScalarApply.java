@@ -16,8 +16,11 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -28,12 +31,18 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -41,18 +50,23 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.NOT_EQUAL;
 import static com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier.ALL;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class TransformQuantifiedComparisonApplyToScalarApply
@@ -168,19 +182,35 @@ public class TransformQuantifiedComparisonApplyToScalarApply
 
         private PlanNode rewriteQuantifiedOrderableApplyNode(ApplyNode node, QuantifiedComparisonExpression quantifiedComparison, RewriteContext<PlanNode> context)
         {
-            QualifiedName aggregationFunction = chooseAggregationFunction(quantifiedComparison);
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
+
+            QualifiedName count = QualifiedName.of("count");
+            QualifiedName aggregationFunction = chooseAggregationFunction(quantifiedComparison);
+
+            Symbol countAllValue = symbolAllocator.newSymbol(count.toString(), BigintType.BIGINT);
+            Symbol countNonNullValue = symbolAllocator.newSymbol(count.toString(), BigintType.BIGINT);
             Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
             Type outputColumnType = types.get(outputColumn);
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
             FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-            Symbol subValue = symbolAllocator.newSymbol(aggregationFunction.toString(), outputColumnType);
+            Symbol extremeValue = symbolAllocator.newSymbol(aggregationFunction.toString(), outputColumnType);
+            List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
+
+            ImmutableList<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
-                    ImmutableMap.of(subValue, new FunctionCall(aggregationFunction, ImmutableList.of(outputColumn.toSymbolReference()))),
-                    ImmutableMap.of(subValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(new TypeSignatureProvider(outputColumnType.getTypeSignature())))),
+                    ImmutableMap.of(
+                            extremeValue, new FunctionCall(aggregationFunction, outputColumnReferences),
+                            countAllValue, new FunctionCall(count, emptyList()),
+                            countNonNullValue, new FunctionCall(count, outputColumnReferences)
+                    ),
+                    ImmutableMap.of(
+                            extremeValue, functionRegistry.resolveFunction(aggregationFunction, ImmutableList.of(new TypeSignatureProvider(outputColumnType.getTypeSignature()))),
+                            countAllValue, functionRegistry.resolveFunction(count, emptyList()),
+                            countNonNullValue, functionRegistry.resolveFunction(count, fromTypeSignatures(outputColumnTypeSignature))
+                    ),
                     ImmutableMap.of(),
                     ImmutableList.of(ImmutableList.of()),
                     AggregationNode.Step.SINGLE,
@@ -191,10 +221,32 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    Assignments.of(subValue, subValue.toSymbolReference()),
+                    Assignments.of(extremeValue, extremeValue.toSymbolReference()),
                     node.getCorrelation());
 
-            ComparisonExpression valueComparedToSubquery = new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), subValue.toSymbolReference());
+            BooleanLiteral emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_LITERAL : FALSE_LITERAL;
+
+            Function<List<Expression>, Expression> quantifier = quantifiedComparison.getQuantifier().equals(ALL) ?
+                    ExpressionUtils::combineConjuncts : ExpressionUtils::combineDisjuncts;
+
+            ComparisonExpression comparisonWithExtremeValue = new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), extremeValue.toSymbolReference());
+            Expression valueComparedToSubquery = new SearchedCaseExpression(
+                    ImmutableList.of(
+                            new WhenClause(
+                                    new ComparisonExpression(EQUAL, countAllValue.toSymbolReference(), new GenericLiteral("bigint", "0")),
+                                    emptySetResult
+                            ),
+                            new WhenClause(
+                                    new ComparisonExpression(NOT_EQUAL, countAllValue.toSymbolReference(), countNonNullValue.toSymbolReference()),
+                                    quantifier.apply(ImmutableList.of(
+                                            new Cast(new NullLiteral(), BooleanType.BOOLEAN.toString()),
+                                            comparisonWithExtremeValue
+                                    ))
+                            )
+                    ),
+                    Optional.of(comparisonWithExtremeValue)
+            );
+
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
             return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
