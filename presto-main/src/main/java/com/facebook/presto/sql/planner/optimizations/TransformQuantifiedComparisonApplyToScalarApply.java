@@ -88,6 +88,10 @@ public class TransformQuantifiedComparisonApplyToScalarApply
             extends SimplePlanRewriter<PlanNode>
 
     {
+        private static final QualifiedName MIN = QualifiedName.of("min");
+        private static final QualifiedName MAX = QualifiedName.of("max");
+        private static final QualifiedName COUNT = QualifiedName.of("count");
+
         private final PlanNodeIdAllocator idAllocator;
         private final Map<Symbol, Type> types;
         private final SymbolAllocator symbolAllocator;
@@ -126,12 +130,8 @@ public class TransformQuantifiedComparisonApplyToScalarApply
             Type outputColumnType = types.get(outputColumn);
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
-            QualifiedName min = QualifiedName.of("min");
-            QualifiedName max = QualifiedName.of("max");
-            QualifiedName count = QualifiedName.of("count");
-
-            Symbol minValue = symbolAllocator.newSymbol(min.toString(), outputColumnType);
-            Symbol maxValue = symbolAllocator.newSymbol(max.toString(), outputColumnType);
+            Symbol minValue = symbolAllocator.newSymbol(MIN.toString(), outputColumnType);
+            Symbol maxValue = symbolAllocator.newSymbol(MAX.toString(), outputColumnType);
             Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
@@ -143,16 +143,16 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
-                            minValue, new FunctionCall(min, outputColumnReferences),
-                            maxValue, new FunctionCall(max, outputColumnReferences),
-                            countAllValue, new FunctionCall(count, emptyList()),
-                            countNonNullValue, new FunctionCall(count, outputColumnReferences)
+                            minValue, new FunctionCall(MIN, outputColumnReferences),
+                            maxValue, new FunctionCall(MAX, outputColumnReferences),
+                            countAllValue, new FunctionCall(COUNT, emptyList()),
+                            countNonNullValue, new FunctionCall(COUNT, outputColumnReferences)
                     ),
                     ImmutableMap.of(
-                            minValue, functionRegistry.resolveFunction(min, fromTypeSignatures(outputColumnTypeSignature)),
-                            maxValue, functionRegistry.resolveFunction(max, fromTypeSignatures(outputColumnTypeSignature)),
-                            countAllValue, functionRegistry.resolveFunction(count, emptyList()),
-                            countNonNullValue, functionRegistry.resolveFunction(count, fromTypeSignatures(outputColumnTypeSignature))
+                            minValue, functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                            maxValue, functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                            countAllValue, functionRegistry.resolveFunction(COUNT, emptyList()),
+                            countNonNullValue, functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature))
                     ),
                     ImmutableMap.of(),
                     ImmutableList.of(ImmutableList.of()),
