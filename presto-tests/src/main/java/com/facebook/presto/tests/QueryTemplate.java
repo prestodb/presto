@@ -17,11 +17,13 @@ package com.facebook.presto.tests;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,11 +81,12 @@ public class QueryTemplate
         }
     }
 
-    public List<String> replaceAll(List<Parameter>... parametersLists)
+    @SafeVarargs
+    public final Stream<String> replaceAll(List<Parameter>... parametersLists)
     {
-        ImmutableList.Builder<String> queries = ImmutableList.builder();
+        List<String> queries = new ArrayList<>();
         replaceAll(queries::add, parametersLists);
-        return queries.build();
+        return queries.stream();
     }
 
     public void replaceAll(Consumer<String> queryConsumer, List<Parameter>... parametersLists)
