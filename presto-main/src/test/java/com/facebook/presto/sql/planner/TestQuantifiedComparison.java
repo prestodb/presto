@@ -82,28 +82,13 @@ public class TestQuantifiedComparison
     @Test
     public void testQuantifiedComparisonEqualAll()
     {
-        String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ALL (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
-
-        assertPlan(query,
-                anyTree(
-                node(JoinNode.class,
-                        anyTree(
-                                tableScan("orders")),
-                        anyTree(
-                                node(AggregationNode.class,
-                                        node(ValuesNode.class))))));
+        assertQuantifiedComparison("SELECT orderkey, custkey FROM orders WHERE orderkey = ALL (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))");
     }
 
     @Test
     public void testQuantifiedComparisonNotEqualAny()
     {
-        String query = "SELECT orderkey, custkey FROM orders WHERE orderkey <> SOME (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))";
-
-        assertPlan(query, anyTree(
-                node(JoinNode.class,
-                        tableScan("orders"),
-                        node(AggregationNode.class,
-                                node(ValuesNode.class)))));
+        assertQuantifiedComparison("SELECT orderkey, custkey FROM orders WHERE orderkey <> SOME (VALUES CAST(5 as BIGINT), CAST(3 as BIGINT))");
     }
 
     private void assertQuantifiedComparison(String query)
