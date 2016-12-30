@@ -18,8 +18,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
-import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class TransformUncorrelatedScalarToJoin
+public class TransformUncorrelatedApplyToJoin
         implements PlanOptimizer
 {
     @Override
@@ -49,13 +49,14 @@ public class TransformUncorrelatedScalarToJoin
         }
 
         @Override
-        public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
+        public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<PlanNode> context)
         {
-            ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.isResolvedScalarSubquery()) {
+            LateralJoinNode rewrittenNode = (LateralJoinNode) context.defaultRewrite(node, context.get());
+            if (rewrittenNode.getCorrelation().isEmpty()) {
+                JoinNode.Type type = node.getType() == LateralJoinNode.Type.INNER ? JoinNode.Type.INNER : JoinNode.Type.LEFT;
                 return new JoinNode(
                         idAllocator.getNextId(),
-                        JoinNode.Type.INNER,
+                        type,
                         rewrittenNode.getInput(),
                         rewrittenNode.getSubquery(),
                         ImmutableList.of(),

@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
@@ -592,6 +593,25 @@ public final class ValidateDependenciesChecker
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
+
+            verifyUniqueId(node);
+
+            return null;
+        }
+
+        @Override
+        public Void visitLateralJoin(LateralJoinNode node, Set<Symbol> boundSymbols)
+        {
+            Set<Symbol> subqueryCorrelation = ImmutableSet.<Symbol>builder()
+                    .addAll(boundSymbols)
+                    .addAll(node.getCorrelation())
+                    .build();
+
+            node.getInput().accept(this, boundSymbols); // visit child
+            node.getSubquery().accept(this, subqueryCorrelation); // visit child
+
+            checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "LATERAL input must provide all the necessary correlation symbols for subquery");
+            checkDependencies(DependencyExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             verifyUniqueId(node);
 

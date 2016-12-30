@@ -277,4 +277,11 @@ public class ChildReplacer
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
         return new AssignUniqueId(node.getId(), Iterables.getOnlyElement(newChildren), node.getIdColumn());
     }
+
+    @Override
+    public PlanNode visitLateralJoin(LateralJoinNode node, List<PlanNode> newChildren)
+    {
+        checkArgument(newChildren.size() == 2, "expected newChildren to contain 1 node");
+        return new LateralJoinNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getCorrelation(), node.getType());
+    }
 }

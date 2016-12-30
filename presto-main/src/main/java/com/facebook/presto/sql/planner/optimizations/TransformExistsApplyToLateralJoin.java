@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -55,12 +56,12 @@ import static java.util.Objects.requireNonNull;
  *           -- subquery
  * </pre>
  */
-public class TransformExistsApplyToScalarApply
+public class TransformExistsApplyToLateralJoin
         implements PlanOptimizer
 {
     private final Metadata metadata;
 
-    public TransformExistsApplyToScalarApply(Metadata metadata)
+    public TransformExistsApplyToLateralJoin(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -125,12 +126,12 @@ public class TransformExistsApplyToScalarApply
                     subquery,
                     Assignments.of(existsSymbol, countGreaterThanZero));
 
-            return new ApplyNode(
+            return new LateralJoinNode(
                     node.getId(),
                     input,
                     subquery,
-                    Assignments.of(existsSymbol, existsSymbol.toSymbolReference()),
-                    node.getCorrelation());
+                    node.getCorrelation(),
+                    LateralJoinNode.Type.INNER);
         }
     }
 }

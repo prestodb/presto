@@ -545,6 +545,16 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (SELECT custkey FROM orders ORDER BY orderkey LIMIT 1) CROSS JOIN (VALUES (10, 1), (20, 2), (30, 3))");
 
         assertQuery("SELECT * FROM orders, UNNEST(ARRAY[1])", "SELECT orders.*, 1 FROM orders");
+
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN UNNEST(x) ON true",
+                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN UNNEST(x) ON true",
+                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN UNNEST(x) ON true",
+                "line .*: UNNEST on other than the right side of CROSS JOIN is not supported");
     }
 
     @Test
@@ -8053,5 +8063,63 @@ public abstract class AbstractTestQueries
                         "       FROM (" + unionLineitem50Times + ")) o(c)) result(a) " +
                         "WHERE a = 1)",
                 "VALUES 3008750");
+    }
+
+    @Test
+    public void testLateralJoin()
+    {
+        assertQuery(
+                "SELECT nationkey, a FROM nation, LATERAL (SELECT max(region.name) FROM region WHERE region.regionkey <= nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
+                "VALUES (0, 'AFRICA')");
+
+        assertQuery(
+                "SELECT nationkey, a FROM nation, LATERAL (SELECT region.name || '_' FROM region WHERE region.regionkey = nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
+                "VALUES (0, 'AFRICA_')");
+
+        assertQuery(
+                "SELECT nationkey, a, b, name FROM nation, LATERAL (SELECT nationkey + 2 AS a), LATERAL (SELECT a * -1 AS b) ORDER BY b LIMIT 1",
+                "VALUES (24, 26, -26, 'UNITED STATES')");
+
+        assertQuery(
+                "SELECT * FROM region r, LATERAL (SELECT * FROM nation) n WHERE n.regionkey = r.regionkey",
+                "SELECT * FROM region, nation WHERE nation.regionkey = region.regionkey"
+        );
+        assertQuery(
+                "SELECT * FROM region, LATERAL (SELECT * FROM nation WHERE nation.regionkey = region.regionkey)",
+                "SELECT * FROM region, nation WHERE nation.regionkey = region.regionkey"
+        );
+
+        assertQuery(
+                "SELECT quantity, extendedprice, avg_price, low, high " +
+                "FROM lineitem, " +
+                "LATERAL (SELECT extendedprice / quantity AS avg_price) average_price, " +
+                "LATERAL (SELECT avg_price * 0.9 AS low) lower_bound, " +
+                "LATERAL (SELECT avg_price * 1.1 AS high) upper_bound " +
+                "LIMIT 1",
+                "VALUES (17.0, 24710.35, 1453.55, 1308.195, 1598.905)"
+        );
+
+        assertQuery(
+                "SELECT y FROM (VALUES array[2, 3]) a(x) CROSS JOIN LATERAL(SELECT x[1]) b(y)",
+                "SELECT 2");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x + 1)",
+                "SELECT 2, 3");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x)",
+                "SELECT 2, 2");
+        assertQuery(
+                "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x, x + 1)",
+                "SELECT 2, 2, 3");
+
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN LATERAL(VALUES x) ON true",
+                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true",
+                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+        assertQueryFails(
+                "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true",
+                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
     }
 }

@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -55,12 +56,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public class TransformQuantifiedComparisonApplyToScalarApply
+public class TransformQuantifiedComparisonApplyToLateralJoin
         implements PlanOptimizer
 {
     private final Metadata metadata;
 
-    public TransformQuantifiedComparisonApplyToScalarApply(Metadata metadata)
+    public TransformQuantifiedComparisonApplyToLateralJoin(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -151,12 +152,12 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     Optional.empty(),
                     Optional.empty());
 
-            PlanNode applyNode = new ApplyNode(
+            PlanNode applyNode = new LateralJoinNode(
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    Assignments.of(minValue, minValue.toSymbolReference(), maxValue, maxValue.toSymbolReference()),
-                    node.getCorrelation());
+                    node.getCorrelation(),
+                    LateralJoinNode.Type.INNER);
 
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
             LogicalBinaryExpression valueComparedToSubquery = new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
@@ -187,16 +188,16 @@ public class TransformQuantifiedComparisonApplyToScalarApply
                     Optional.empty(),
                     Optional.empty());
 
-            PlanNode applyNode = new ApplyNode(
+            PlanNode lateral = new LateralJoinNode(
                     node.getId(),
                     context.rewrite(node.getInput()),
                     subqueryPlan,
-                    Assignments.of(subValue, subValue.toSymbolReference()),
-                    node.getCorrelation());
+                    node.getCorrelation(),
+                    LateralJoinNode.Type.INNER);
 
             ComparisonExpression valueComparedToSubquery = new ComparisonExpression(quantifiedComparison.getComparisonType(), quantifiedComparison.getValue(), subValue.toSymbolReference());
             Symbol quantifiedComparisonSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
-            return projectExpressions(applyNode, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
+            return projectExpressions(lateral, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
         private ProjectNode projectExpressions(PlanNode input, Assignments subqueryAssignments)
