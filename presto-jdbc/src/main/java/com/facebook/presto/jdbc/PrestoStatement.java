@@ -171,7 +171,12 @@ public class PrestoStatement
     public void cancel()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("cancel");
+        // TODO: handle non-query statements
+        checkOpen();
+        ResultSet resultSet = currentResult.get();
+        if (resultSet != null) {
+            resultSet.close();
+        }
     }
 
     @Override
