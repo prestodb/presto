@@ -16,9 +16,9 @@ package com.facebook.presto.mongodb;
 import de.bwaldvogel.mongo.MongoBackend;
 import de.bwaldvogel.mongo.backend.memory.MemoryBackend;
 import de.bwaldvogel.mongo.backend.memory.MemoryDatabase;
+import de.bwaldvogel.mongo.bson.Document;
 import de.bwaldvogel.mongo.exception.MongoServerException;
 import io.netty.channel.Channel;
-import org.bson.BSONObject;
 
 public class SyncMemoryBackend
         extends MemoryBackend
@@ -37,7 +37,7 @@ public class SyncMemoryBackend
         }
 
         @Override
-        public synchronized BSONObject handleCommand(Channel channel, String command, BSONObject query) throws MongoServerException
+        public synchronized Document handleCommand(Channel channel, String command, Document query) throws MongoServerException
         {
             return super.handleCommand(channel, command, query);
         }

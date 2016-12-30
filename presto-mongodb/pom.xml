@@ -13,9 +13,9 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <mongo-java.version>3.1.0</mongo-java.version>
-        <mongo-server.version>1.5.0</mongo-server.version>
-        <netty.version>4.0.32.Final</netty.version>
+        <mongo-java.version>3.4.2</mongo-java.version>
+        <mongo-server.version>1.7.0</mongo-server.version>
+        <netty.version>4.1.10.Final</netty.version>
     </properties>
 
     <dependencies>
@@ -151,6 +151,10 @@
                     <groupId>org.mongodb</groupId>
                     <artifactId>mongo-java-driver</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
             </exclusions>
             <scope>test</scope>
         </dependency>
@@ -159,6 +163,12 @@
             <groupId>de.bwaldvogel</groupId>
             <artifactId>mongo-java-server-core</artifactId>
             <version>${mongo-server.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>test</scope>
         </dependency>
 
@@ -166,6 +176,12 @@
             <groupId>de.bwaldvogel</groupId>
             <artifactId>mongo-java-server-memory-backend</artifactId>
             <version>${mongo-server.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>test</scope>
         </dependency>
 
