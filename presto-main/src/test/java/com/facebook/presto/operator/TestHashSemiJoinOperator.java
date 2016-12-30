@@ -174,7 +174,8 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
+    //Disabled till #6622 is fixed
+    @Test(dataProvider = "hashEnabledValues", enabled = false)
     public void testProbeSideNulls(boolean hashEnabled)
             throws Exception
     {
@@ -224,7 +225,8 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
+    //Disabled till #6622 is fixed
+    @Test(dataProvider = "hashEnabledValues", enabled = false)
     public void testProbeAndBuildNulls(boolean hashEnabled)
             throws Exception
     {

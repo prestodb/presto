@@ -4817,6 +4817,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testNullOnLhsOfInPredicateDisallowed()
+    {
+        String errorMessage = "\\QNULL values are not allowed on the probe side of SemiJoin operator\\E.*";
+        assertQueryFails("SELECT NULL IN (SELECT 1)", errorMessage);
+        assertQueryFails("SELECT x FROM (VALUES NULL) t(x) WHERE x IN (SELECT 1)", errorMessage);
+    }
+
+    @Test
     public void testInSubqueryWithCrossJoin()
     {
         assertQuery("SELECT a FROM (VALUES (1),(2)) t(a) WHERE a IN " +
@@ -5918,7 +5926,8 @@ public abstract class AbstractTestQueries
                 "  LIMIT 10)");
     }
 
-    @Test
+    //Disabled till #6622 is fixed
+    @Test(enabled = false)
     public void testSemiJoinNullHandling()
     {
         assertQuery("" +
@@ -7897,7 +7906,11 @@ public abstract class AbstractTestQueries
         //the following are disabled till #6622 is fixed
         List<String> excludedInPredicateQueries = ImmutableList.of(
                 "SELECT NULL != ALL (SELECT * FROM (SELECT 1 WHERE false))",
-                "SELECT NULL = ANY (SELECT * FROM (SELECT 1 WHERE false))"
+                "SELECT NULL = ANY (SELECT * FROM (SELECT 1 WHERE false))",
+                "SELECT NULL != ALL (SELECT * FROM (SELECT CAST(NULL AS INTEGER)))",
+                "SELECT NULL = ANY (SELECT * FROM (SELECT CAST(NULL AS INTEGER)))",
+                "SELECT NULL = ANY (SELECT * FROM (VALUES (1), (NULL)))",
+                "SELECT NULL != ALL (SELECT * FROM (VALUES (1), (NULL)))"
         );
         Predicate<String> isExcluded = excludedInPredicateQueries::contains;
         return toArgumentsArrays(queries.filter(isExcluded.negate()).map(Arguments::of));
