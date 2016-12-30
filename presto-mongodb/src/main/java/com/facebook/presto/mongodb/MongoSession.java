@@ -14,6 +14,7 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -35,10 +36,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClient;
+import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
-import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
@@ -49,7 +50,7 @@ import org.bson.types.ObjectId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,6 +60,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -66,9 +68,9 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -80,6 +82,7 @@ public class MongoSession
     private static final String TABLE_NAME_KEY = "table";
     private static final String FIELDS_KEY = "fields";
     private static final String FIELDS_NAME_KEY = "name";
+    private static final String FIELDS_ALIAS_KEY = "alias";
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
@@ -104,7 +107,8 @@ public class MongoSession
     private final String schemaCollection;
     private final int cursorBatchSize;
 
-    private final LoadingCache<SchemaTableName, MongoTable> tableCache;
+    private final LoadingCache<SchemaTableName, MongoTableHandle> tableCache;
+
     private final String implicitPrefix;
 
     public MongoSession(TypeManager typeManager, MongoClient client, MongoClientConfig config)
@@ -117,14 +121,13 @@ public class MongoSession
 
         this.tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(1, HOURS)  // TODO: Configure
-                .refreshAfterWrite(1, MINUTES)
-                .build(new CacheLoader<SchemaTableName, MongoTable>()
+                .build(new CacheLoader<SchemaTableName, MongoTableHandle>()
                 {
                     @Override
-                    public MongoTable load(SchemaTableName key)
+                    public MongoTableHandle load(SchemaTableName key)
                             throws TableNotFoundException
                     {
-                        return loadTableSchema(key);
+                        return loadTable(key);
                     }
                 });
     }
@@ -134,49 +137,50 @@ public class MongoSession
         client.close();
     }
 
+    /**
+     * @return lower-case schema names
+     */
     public List<String> getAllSchemas()
     {
-        return ImmutableList.copyOf(client.listDatabaseNames());
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+
+        for (String name : client.listDatabaseNames()) {
+            builder.add(name.toLowerCase(ENGLISH));
+        }
+
+        return builder.build();
     }
 
+    /**
+     * @param schema lower-case schema name
+     * @return A set of lower-case table names of the given schema
+     * @throws SchemaNotFoundException
+     */
     public Set<String> getAllTables(String schema)
             throws SchemaNotFoundException
     {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
-        builder.addAll(ImmutableList.copyOf(client.getDatabase(schema).listCollectionNames()).stream()
-                .filter(name -> !name.equals(schemaCollection))
-                .filter(name -> !SYSTEM_TABLES.contains(name))
-                .collect(toSet()));
-        builder.addAll(getTableMetadataNames(schema));
+        for (String name : client.getDatabase(getDatabaseName(schema)).listCollectionNames()) {
+            if (name.equals(schemaCollection) || SYSTEM_TABLES.contains(name)) {
+                continue;
+            }
+
+            builder.add(name.toLowerCase(ENGLISH));
+        }
 
         return builder.build();
     }
 
-    public MongoTable getTable(SchemaTableName tableName)
+    public MongoTableHandle getTable(SchemaTableName table)
             throws TableNotFoundException
     {
-        return getCacheValue(tableCache, tableName, TableNotFoundException.class);
+        return getCacheValue(tableCache, table, TableNotFoundException.class);
     }
 
-    public void createTable(SchemaTableName name, List<MongoColumnHandle> columns)
+    public List<MongoColumnHandle> getColumns(MongoTableHandle table)
     {
-        createTableMetadata(name, columns);
-        // collection is created implicitly
-    }
-
-    public void dropTable(SchemaTableName tableName)
-    {
-        deleteTableMetadata(tableName);
-        getCollection(tableName).drop();
-
-        tableCache.invalidate(tableName);
-    }
-
-    private MongoTable loadTableSchema(SchemaTableName tableName)
-            throws TableNotFoundException
-    {
-        Document tableMeta = getTableMetadata(tableName);
+        Document tableMeta = getTableMetadata(table);
 
         ImmutableList.Builder<MongoColumnHandle> columnHandles = ImmutableList.builder();
 
@@ -185,43 +189,66 @@ public class MongoSession
             columnHandles.add(columnHandle);
         }
 
-        MongoTableHandle tableHandle = new MongoTableHandle(tableName);
-        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(tableName));
+        return columnHandles.build();
+    }
+
+    public List<MongoIndex> getIndexes(MongoTableHandle table)
+            throws TableNotFoundException
+    {
+        return MongoIndex.parse(getCollection(table).listIndexes());
+    }
+
+    public void createTable(MongoTableHandle table, List<MongoColumnHandle> columns)
+    {
+        createTableMetadata(table, columns);
+        // collection is created implicitly
+    }
+
+    public void dropTable(MongoTableHandle table)
+    {
+        deleteTableMetadata(table);
+        getCollection(table).drop();
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public void renameTable(MongoTableHandle table, SchemaTableName newTableName)
+    {
+        getCollection(table).renameCollection(new MongoNamespace(newTableName.getSchemaName(), newTableName.getTableName()));
+
+        tableCache.invalidate(table.getSchemaTableName());
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
     {
         String name = columnMeta.getString(FIELDS_NAME_KEY);
+        String alias = columnMeta.getString(FIELDS_ALIAS_KEY);
         String typeString = columnMeta.getString(FIELDS_TYPE_KEY);
         boolean hidden = columnMeta.getBoolean(FIELDS_HIDDEN_KEY, false);
 
         Type type = typeManager.getType(TypeSignature.parseTypeSignature(typeString));
 
-        return new MongoColumnHandle(name, type, hidden);
+        return new MongoColumnHandle(name, alias, type, hidden);
     }
 
     private List<Document> getColumnMetadata(Document doc)
     {
-        if (!doc.containsKey(FIELDS_KEY)) {
-            return ImmutableList.of();
-        }
-
-        return (List<Document>) doc.get(FIELDS_KEY);
+        return (List<Document>) doc.getOrDefault(FIELDS_KEY, ImmutableList.of());
     }
 
-    public MongoCollection<Document> getCollection(SchemaTableName tableName)
+    public MongoCollection<Document> getCollection(MongoTableHandle table)
     {
-        return getCollection(tableName.getSchemaName(), tableName.getTableName());
+        return getCollection(table.getDatabaseName(), table.getCollectionName());
+    }
+
+    private MongoCollection<Document> getSchemaCollection(String dbName)
+    {
+        return getCollection(dbName, schemaCollection);
     }
 
     private MongoCollection<Document> getCollection(String schema, String table)
     {
         return client.getDatabase(schema).getCollection(table);
-    }
-
-    public List<MongoIndex> getIndexes(SchemaTableName tableName)
-    {
-        return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
     private static <K, V, E extends Exception> V getCacheValue(LoadingCache<K, V> cache, K key, Class<E> exceptionClass)
@@ -243,7 +270,7 @@ public class MongoSession
         for (MongoColumnHandle column : columns) {
             output.append(column.getName(), 1);
         }
-        MongoCollection<Document> collection = getCollection(split.getSchemaTableName());
+        MongoCollection<Document> collection = getCollection(split.getTable());
         FindIterable<Document> iterable = collection.find(buildQuery(split.getTupleDomain())).projection(output);
 
         if (cursorBatchSize != 0) {
@@ -378,73 +405,31 @@ public class MongoSession
     }
 
     // Internal Schema management
-    private Document getTableMetadata(SchemaTableName schemaTableName)
-            throws TableNotFoundException
+    private Document getTableMetadata(MongoTableHandle table)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
+        MongoCollection<Document> schema = getSchemaCollection(table.getDatabaseName());
 
-        MongoDatabase db = client.getDatabase(schemaName);
-        MongoCollection<Document> schema = db.getCollection(schemaCollection);
+        Document metadata = schema
+                .find(documentOf(TABLE_NAME_KEY, table.getCollectionName())).first();
 
-        Document doc = schema
-                .find(new Document(TABLE_NAME_KEY, tableName)).first();
+        if (metadata == null) {
+            metadata = new Document(TABLE_NAME_KEY, table.getCollectionName());
+            metadata.append(FIELDS_KEY, guessTableFields(table));
 
-        if (doc == null) {
-            if (!collectionExists(db, tableName)) {
-                throw new TableNotFoundException(schemaTableName);
-            }
-            else {
-                Document metadata = new Document(TABLE_NAME_KEY, tableName);
-                metadata.append(FIELDS_KEY, guessTableFields(schemaTableName));
-
-                schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
-                schema.insertOne(metadata);
-
-                return metadata;
-            }
+            schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
+            schema.insertOne(metadata);
         }
 
-        return doc;
+        return metadata;
     }
 
-    public boolean collectionExists(MongoDatabase db, String collectionName)
+    private void createTableMetadata(MongoTableHandle table, List<MongoColumnHandle> columns)
     {
-        for (String name : db.listCollectionNames()) {
-            if (name.equalsIgnoreCase(collectionName)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private Set<String> getTableMetadataNames(String schemaName)
-            throws TableNotFoundException
-    {
-        MongoDatabase db = client.getDatabase(schemaName);
-        MongoCursor<Document> cursor = db.getCollection(schemaCollection)
-                .find().projection(new Document(TABLE_NAME_KEY, true)).iterator();
-
-        HashSet<String> names = new HashSet<>();
-        while (cursor.hasNext()) {
-            names.add((cursor.next()).getString(TABLE_NAME_KEY));
-        }
-
-        return names;
-    }
-
-    private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns)
-            throws TableNotFoundException
-    {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        MongoDatabase db = client.getDatabase(schemaName);
-        Document metadata = new Document(TABLE_NAME_KEY, tableName);
+        Document metadata = new Document(TABLE_NAME_KEY, table.getCollectionName());
 
         ArrayList<Document> fields = new ArrayList<>();
         if (!columns.stream().anyMatch(c -> c.getName().equals("_id"))) {
-            fields.add(new MongoColumnHandle("_id", OBJECT_ID, true).getDocument());
+            fields.add(new MongoColumnHandle("_id", null, OBJECT_ID, true).getDocument());
         }
 
         fields.addAll(columns.stream()
@@ -453,37 +438,25 @@ public class MongoSession
 
         metadata.append(FIELDS_KEY, fields);
 
-        MongoCollection<Document> schema = db.getCollection(schemaCollection);
+        MongoCollection<Document> schema = getSchemaCollection(table.getDatabaseName());
         schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
         schema.insertOne(metadata);
     }
 
-    private boolean deleteTableMetadata(SchemaTableName schemaTableName)
+    private boolean deleteTableMetadata(MongoTableHandle table)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        MongoDatabase db = client.getDatabase(schemaName);
-        if (!collectionExists(db, tableName)) {
-            return false;
-        }
-
-        DeleteResult result = db.getCollection(schemaCollection)
-                .deleteOne(new Document(TABLE_NAME_KEY, tableName));
+        DeleteResult result = getSchemaCollection(table.getDatabaseName())
+                .deleteOne(documentOf(TABLE_NAME_KEY, table.getCollectionName()));
 
         return result.getDeletedCount() == 1;
     }
 
-    private List<Document> guessTableFields(SchemaTableName schemaTableName)
+    private List<Document> guessTableFields(MongoTableHandle table)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        MongoDatabase db = client.getDatabase(schemaName);
-        Document doc = db.getCollection(tableName).find().first();
+        Document doc = getCollection(table).find().first();
         if (doc == null) {
             // no records at the collection
-            return ImmutableList.of();
+            throw new PrestoException(NOT_SUPPORTED, "Empty collection");
         }
 
         ImmutableList.Builder<Document> builder = ImmutableList.builder();
@@ -494,6 +467,7 @@ public class MongoSession
             if (fieldType.isPresent()) {
                 Document metadata = new Document();
                 metadata.append(FIELDS_NAME_KEY, key);
+                metadata.append(FIELDS_ALIAS_KEY, key.toLowerCase(ENGLISH));
                 metadata.append(FIELDS_TYPE_KEY, fieldType.get().toString());
                 metadata.append(FIELDS_HIDDEN_KEY,
                         key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature()));
@@ -572,5 +546,43 @@ public class MongoSession
         }
 
         return Optional.ofNullable(typeSignature);
+    }
+
+    private String getDatabaseName(String lname)
+            throws SchemaNotFoundException
+    {
+        for (String name : client.listDatabaseNames()) {
+            if (name.equalsIgnoreCase(lname)) {
+                return name;
+            }
+        }
+
+        throw new SchemaNotFoundException(lname);
+    }
+
+    private MongoTableHandle loadTable(SchemaTableName table)
+            throws TableNotFoundException
+    {
+        String databaseName;
+        try {
+            databaseName = getDatabaseName(table.getSchemaName());
+        }
+        catch (SchemaNotFoundException e) {
+            throw new TableNotFoundException(table);
+        }
+
+        Map<SchemaTableName, MongoTableHandle> tables = new HashMap<>();
+        for (String collectionName : client.getDatabase(databaseName).listCollectionNames()) {
+            MongoTableHandle tableHandle = new MongoTableHandle(databaseName, collectionName);
+            tables.put(tableHandle.getSchemaTableName(), tableHandle);
+        }
+        tableCache.putAll(tables);
+
+        MongoTableHandle tableHandle = tables.get(table);
+        if (tableHandle == null) {
+            throw new TableNotFoundException(table);
+        }
+
+        return tableHandle;
     }
 }

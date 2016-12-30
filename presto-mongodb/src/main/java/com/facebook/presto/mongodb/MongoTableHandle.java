@@ -25,24 +25,43 @@ import static java.util.Objects.requireNonNull;
 public class MongoTableHandle
         implements ConnectorTableHandle
 {
-    private final SchemaTableName schemaTableName;
+    private final String databaseName; // case sensitive name
+    private final String collectionName; // case sensitive name
+
+    public MongoTableHandle(SchemaTableName table)
+    {
+        this(table.getSchemaName(), table.getTableName());
+    }
 
     @JsonCreator
-    public MongoTableHandle(@JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+    public MongoTableHandle(@JsonProperty("databaseName") String databaseName,
+                            @JsonProperty("collectionName") String collectionName)
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.databaseName = requireNonNull(databaseName, "databaseName is null");
+        this.collectionName = requireNonNull(collectionName, "collectionName is null");
+    }
+
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(databaseName, collectionName);
     }
 
     @JsonProperty
-    public SchemaTableName getSchemaTableName()
+    public String getDatabaseName()
     {
-        return schemaTableName;
+        return databaseName;
+    }
+
+    @JsonProperty
+    public String getCollectionName()
+    {
+        return collectionName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName);
+        return Objects.hash(databaseName, collectionName);
     }
 
     @Override
@@ -55,12 +74,13 @@ public class MongoTableHandle
             return false;
         }
         MongoTableHandle other = (MongoTableHandle) obj;
-        return Objects.equals(this.schemaTableName, other.schemaTableName);
+        return Objects.equals(this.databaseName, other.databaseName) &&
+                Objects.equals(this.collectionName, other.collectionName);
     }
 
     @Override
     public String toString()
     {
-        return schemaTableName.toString();
+        return String.format("%s.%s", databaseName, collectionName);
     }
 }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.SchemaTableName;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -26,11 +25,13 @@ public class TestMongoTableHandle
     @Test
     public void testRoundTrip()
     {
-        MongoTableHandle expected = new MongoTableHandle(new SchemaTableName("schema", "table"));
+        MongoTableHandle expected = new MongoTableHandle("Schema", "Table");
 
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
         assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertEquals(actual.getDatabaseName(), expected.getDatabaseName());
+        assertEquals(actual.getCollectionName(), expected.getCollectionName());
     }
 }

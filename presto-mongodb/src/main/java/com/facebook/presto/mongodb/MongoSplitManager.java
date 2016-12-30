@@ -49,7 +49,7 @@ public class MongoSplitManager
         MongoTableHandle tableHandle = tableLayout.getTable();
 
         MongoSplit split = new MongoSplit(
-                tableHandle.getSchemaTableName(),
+                tableHandle,
                 tableLayout.getTupleDomain(),
                 addresses);
 

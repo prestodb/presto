@@ -16,7 +16,6 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,25 +28,25 @@ import static java.util.Objects.requireNonNull;
 public class MongoSplit
         implements ConnectorSplit
 {
-    private final SchemaTableName schemaTableName;
+    private final MongoTableHandle table;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public MongoSplit(
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("table") MongoTableHandle table,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.table = requireNonNull(table, "table is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
     }
 
     @JsonProperty
-    public SchemaTableName getSchemaTableName()
+    public MongoTableHandle getTable()
     {
-        return schemaTableName;
+        return table;
     }
 
     @JsonProperty

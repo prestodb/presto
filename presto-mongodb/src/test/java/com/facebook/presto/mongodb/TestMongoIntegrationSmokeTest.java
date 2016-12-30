@@ -170,6 +170,16 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
     }
 
+    @Test
+    public void testCamelCase()
+            throws Exception
+    {
+        assertQuery("SELECT name, value FROM cameldb.cameltable", "SELECT 'asdf', 1");
+        assertUpdate("INSERT INTO cameldb.cameltable VALUES('qwer', 2)", 1);
+
+        assertQuery("SELECT value FROM cameldb.cameltable where name = 'qwer'", "SELECT 2");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toJdbcTypes();

@@ -18,8 +18,12 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoClient;
+import com.mongodb.ServerAddress;
+import com.mongodb.client.MongoCollection;
 import de.bwaldvogel.mongo.MongoServer;
 import io.airlift.tpch.TpchTable;
+import org.bson.Document;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -29,6 +33,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+
 import static java.util.Locale.ENGLISH;
 
 public class MongoQueryRunner
@@ -72,6 +77,7 @@ public class MongoQueryRunner
             queryRunner.createCatalog("mongodb", "mongodb", properties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            createNativeTables(queryRunner);
 
             return queryRunner;
         }
@@ -79,6 +85,14 @@ public class MongoQueryRunner
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    private static void createNativeTables(MongoQueryRunner queryRunner)
+    {
+        MongoClient client = new MongoClient(new ServerAddress(queryRunner.getAddress()));
+        MongoCollection<Document> collection = client.getDatabase("CamelDB").getCollection("camelTable");
+
+        collection.insertOne(new Document(ImmutableMap.of("Name", "asdf", "Value", 1)));
     }
 
     public static Session createSession()

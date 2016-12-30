@@ -23,6 +23,8 @@ import org.bson.Document;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class MongoColumnHandle
@@ -31,24 +33,35 @@ public class MongoColumnHandle
     public static final String SAMPLE_WEIGHT_COLUMN_NAME = "presto_sample_weight";
 
     private final String name;
+    private final String alias;
     private final Type type;
     private final boolean hidden;
 
     @JsonCreator
     public MongoColumnHandle(
             @JsonProperty("name") String name,
+            @JsonProperty("alias") String alias,
             @JsonProperty("columnType") Type type,
             @JsonProperty("hidden") boolean hidden)
     {
         this.name = requireNonNull(name, "name is null");
+        this.alias = alias == null ? name.toLowerCase(ENGLISH) : alias;
         this.type = requireNonNull(type, "columnType is null");
         this.hidden = hidden;
+
+        checkArgument(this.alias.toLowerCase(ENGLISH).equals(this.alias), "alias must consist of lowercase letters");
     }
 
     @JsonProperty
     public String getName()
     {
         return name;
+    }
+
+    @JsonProperty
+    public String getAlias()
+    {
+        return alias;
     }
 
     @JsonProperty("columnType")
@@ -65,12 +78,14 @@ public class MongoColumnHandle
 
     public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(name, type, null, hidden);
+        // should be an alias (lower case name)
+        return new ColumnMetadata(alias, type, null, hidden);
     }
 
     public Document getDocument()
     {
         return new Document().append("name", name)
+                .append("alias", alias)
                 .append("type", type.getTypeSignature().toString())
                 .append("hidden", hidden);
     }
@@ -78,7 +93,7 @@ public class MongoColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, hidden);
+        return Objects.hash(name, alias, type, hidden);
     }
 
     @Override
@@ -92,6 +107,7 @@ public class MongoColumnHandle
         }
         MongoColumnHandle other = (MongoColumnHandle) obj;
         return Objects.equals(name, other.name) &&
+                Objects.equals(alias, other.alias) &&
                 Objects.equals(type, other.type) &&
                 Objects.equals(hidden, other.hidden);
     }
@@ -101,6 +117,7 @@ public class MongoColumnHandle
     {
         return toStringHelper(this)
                 .add("name", name)
+                .add("alias", alias)
                 .add("type", type)
                 .add("hidden", hidden)
                 .toString();

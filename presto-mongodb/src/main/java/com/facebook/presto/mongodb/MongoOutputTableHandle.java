@@ -14,7 +14,6 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -26,23 +25,23 @@ import static java.util.Objects.requireNonNull;
 public class MongoOutputTableHandle
         implements ConnectorOutputTableHandle
 {
-    private final SchemaTableName schemaTableName;
+    private final MongoTableHandle table;
     private final List<MongoColumnHandle> columns;
 
     @JsonCreator
     public MongoOutputTableHandle(
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("table") MongoTableHandle table,
             @JsonProperty("columns") List<MongoColumnHandle> columns)
 
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
     @JsonProperty
-    public SchemaTableName getSchemaTableName()
+    public MongoTableHandle getTable()
     {
-        return schemaTableName;
+        return table;
     }
 
     @JsonProperty

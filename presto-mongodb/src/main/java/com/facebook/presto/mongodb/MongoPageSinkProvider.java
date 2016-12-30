@@ -39,13 +39,13 @@ public class MongoPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
-        return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
+        return new MongoPageSink(config, mongoSession, session, handle.getTable(), handle.getColumns());
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
-        return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
+        return new MongoPageSink(config, mongoSession, session, handle.getTable(), handle.getColumns());
     }
 }
