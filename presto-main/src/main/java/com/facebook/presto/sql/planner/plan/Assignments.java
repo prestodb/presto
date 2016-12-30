@@ -37,6 +37,7 @@ import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public class Assignments
@@ -44,6 +45,11 @@ public class Assignments
     public static Builder builder()
     {
         return new Builder();
+    }
+
+    public static Assignments identity(Symbol... symbols)
+    {
+        return identity(asList(symbols));
     }
 
     public static Assignments identity(Iterable<Symbol> symbols)
