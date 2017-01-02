@@ -2556,9 +2556,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithMultipleInSubqueryClauses()
     {
-        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
-        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition", "true");
-        QueryTemplate queryTemplate = new QueryTemplate(
+        QueryTemplate.Parameter type = parameter("type").of("");
+        QueryTemplate.Parameter condition = parameter("condition").of("true");
+        QueryTemplate queryTemplate = queryTemplate(
                 "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
                 type,
                 condition);
@@ -2603,9 +2603,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithInSubqueryToBeExecutedAsPostJoinFilter()
     {
-        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
-        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition", "true");
-        QueryTemplate queryTemplate = new QueryTemplate(
+        QueryTemplate.Parameter type = parameter("type").of("");
+        QueryTemplate.Parameter condition = parameter("condition").of("true");
+        QueryTemplate queryTemplate = queryTemplate(
                 "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
                 type,
                 condition);
@@ -2635,9 +2635,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testOuterJoinWithComplexCorrelatedSubquery()
     {
-        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type");
-        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
-        QueryTemplate queryTemplate = new QueryTemplate(
+        QueryTemplate.Parameter type = parameter("type");
+        QueryTemplate.Parameter condition = parameter("condition");
+        QueryTemplate queryTemplate = queryTemplate(
                 "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
                 type,
                 condition);
@@ -2654,9 +2654,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithMultipleScalarSubqueryClauses()
     {
-        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
-        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
-        QueryTemplate queryTemplate = new QueryTemplate(
+        QueryTemplate.Parameter type = parameter("type").of("");
+        QueryTemplate.Parameter condition = parameter("condition");
+        QueryTemplate queryTemplate = queryTemplate(
                 "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
                 type,
                 condition);
@@ -2685,9 +2685,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinWithScalarSubqueryToBeExecutedAsPostJoinFilter()
     {
-        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
-        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
-        QueryTemplate queryTemplate = new QueryTemplate(
+        QueryTemplate.Parameter type = parameter("type").of("");
+        QueryTemplate.Parameter condition = parameter("condition");
+        QueryTemplate queryTemplate = queryTemplate(
                 "SELECT * FROM (VALUES 1,2,3,4) t(x) %type% JOIN (VALUES 1,2,3,5) t2(y) ON %condition%",
                 type,
                 condition);
@@ -2741,9 +2741,9 @@ public abstract class AbstractTestQueries
     public void testJoinWithScalarSubqueryToBeExecutedAsPostJoinFilterWithEmptyInnerTable()
     {
         String noOutputQuery = "SELECT 1 WHERE false";
-        QueryTemplate.Parameter type = new QueryTemplate.Parameter("type", "");
-        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
-        QueryTemplate queryTemplate = new QueryTemplate(
+        QueryTemplate.Parameter type = parameter("type").of("");
+        QueryTemplate.Parameter condition = parameter("condition");
+        QueryTemplate queryTemplate = queryTemplate(
                 "SELECT * FROM (" + noOutputQuery + ") t(x) %type% JOIN (VALUES 1) t2(y) ON %condition%",
                 type);
 
@@ -6233,9 +6233,9 @@ public abstract class AbstractTestQueries
                 "WHERE EXISTS(SELECT avg(orderkey) FROM orders)");
 
         // subqueries used with joins
-        QueryTemplate.Parameter joinType = new QueryTemplate.Parameter("join_type");
-        QueryTemplate.Parameter condition = new QueryTemplate.Parameter("condition");
-        QueryTemplate queryTemplate = new QueryTemplate(
+        QueryTemplate.Parameter joinType = parameter("join_type");
+        QueryTemplate.Parameter condition = parameter("condition");
+        QueryTemplate queryTemplate = queryTemplate(
                 "SELECT o1.orderkey, COUNT(*) " +
                         "FROM orders o1 %join_type% JOIN (SELECT * FROM orders LIMIT 10) o2 ON %condition% " +
                         "GROUP BY o1.orderkey ORDER BY o1.orderkey LIMIT 5",
@@ -8062,8 +8062,8 @@ public abstract class AbstractTestQueries
     @Test
     public void testSubqueriesWithDisjunction()
     {
-        List<QueryTemplate.Parameter> projections = new QueryTemplate.Parameter("projection").of("count(*)", "*", "%condition%");
-        List<QueryTemplate.Parameter> conditions = new QueryTemplate.Parameter("condition").of(
+        List<QueryTemplate.Parameter> projections = parameter("projection").of("count(*)", "*", "%condition%");
+        List<QueryTemplate.Parameter> conditions = parameter("condition").of(
                 "nationkey IN (SELECT 1) OR TRUE",
                 "EXISTS(SELECT 1) OR TRUE");
 

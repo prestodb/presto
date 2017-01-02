@@ -44,7 +44,7 @@ public class QueryTemplate
     private final String queryTemplate;
     private final List<Parameter> defaultParameters;
 
-    public QueryTemplate(String queryTemplate, Parameter... parameters)
+    private QueryTemplate(String queryTemplate, Parameter... parameters)
     {
         for (Parameter parameter : parameters) {
             String queryParameterKey = asQueryParameterKey(parameter.getKey());
@@ -129,12 +129,12 @@ public class QueryTemplate
         private final String key;
         private final Optional<String> value;
 
-        public Parameter(String key)
+        private Parameter(String key)
         {
             this(key, Optional.empty());
         }
 
-        public Parameter(String key, String value)
+        private Parameter(String key, String value)
         {
             this(key, Optional.of(value));
         }
