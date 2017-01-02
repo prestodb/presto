@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,7 +24,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPagesSupplier
@@ -46,7 +45,7 @@ public final class NestedLoopJoinPagesSupplier
 
     public ListenableFuture<NestedLoopJoinPages> getPagesFuture()
     {
-        return transform(pagesFuture, (AsyncFunction<NestedLoopJoinPages, NestedLoopJoinPages>) Futures::immediateFuture);
+        return transformAsync(pagesFuture, Futures::immediateFuture);
     }
 
     public void setPages(NestedLoopJoinPages nestedLoopJoinPages)

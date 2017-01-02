@@ -59,7 +59,7 @@ public final class Threads
             }
         });
         try {
-            return Futures.get(isSameThreadExecutor, 10, TimeUnit.SECONDS, Exception.class);
+            return Futures.getChecked(isSameThreadExecutor, Exception.class, 10, TimeUnit.SECONDS);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
