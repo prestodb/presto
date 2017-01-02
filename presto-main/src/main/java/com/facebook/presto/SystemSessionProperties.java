@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.booleanSessionPro
 import static com.facebook.presto.spi.session.PropertyMetadata.integerSessionProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -246,11 +247,23 @@ public final class SystemSessionProperties
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
                         false),
-                booleanSessionProperty(
+                new PropertyMetadata<>(
                         SPILL_ENABLED,
                         "Experimental: Enable spilling",
+                        BOOLEAN,
+                        Boolean.class,
                         featuresConfig.isSpillEnabled(),
-                        false),
+                        false,
+                        value -> {
+                            boolean spillEnabled = (Boolean) value;
+                            if (spillEnabled && featuresConfig.getSpillerSpillPaths().isEmpty()) {
+                                throw new PrestoException(
+                                        StandardErrorCode.INVALID_SESSION_PROPERTY,
+                                        format("%s cannot be set to true; no spill paths configured", SPILL_ENABLED));
+                            }
+                            return spillEnabled;
+                        },
+                        value -> value),
                 new PropertyMetadata<>(
                         OPERATOR_MEMORY_LIMIT_BEFORE_SPILL,
                         "Experimental: Operator memory limit before spill",

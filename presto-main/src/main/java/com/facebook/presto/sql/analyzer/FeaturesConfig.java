@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
@@ -73,7 +72,7 @@ public class FeaturesConfig
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
     private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
-    private List<Path> spillerSpillPaths = ImmutableList.of(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills"));
+    private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
@@ -372,7 +371,6 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
         List<String> spillPathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(spillPaths));
-        Preconditions.checkArgument(spillPathsSplit.size() >= 1, "At least one path required for experimental.spiller-spill-path config property");
         this.spillerSpillPaths = spillPathsSplit.stream().map(path -> Paths.get(path)).collect(toImmutableList());
         return this;
     }

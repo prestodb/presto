@@ -17,6 +17,7 @@ import com.facebook.presto.GroupByHashPageIndexerFactory;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.ConnectorId;
@@ -49,6 +50,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -280,7 +282,7 @@ public class LocalQueryRunner
                 featuresConfig,
                 typeRegistry,
                 blockEncodingSerde,
-                new SessionPropertyManager(),
+                new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);

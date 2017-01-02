@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.ProcessingOptimization.COLUMNAR_DICTIONARY;
@@ -58,7 +57,7 @@ public class TestFeaturesConfig
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
                 .setOperatorMemoryLimitBeforeSpill(DataSize.valueOf("4MB"))
-                .setSpillerSpillPaths(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                .setSpillerSpillPaths("")
                 .setSpillerThreads(4)
                 .setSpillMaxUsedSpaceThreshold(0.9)
                 .setOptimizeMixedDistinctAggregations(false)
