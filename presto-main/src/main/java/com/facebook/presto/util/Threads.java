@@ -15,20 +15,20 @@ package com.facebook.presto.util;
 
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Threads
 {
-    private static final Class<? extends ListeningExecutorService> GUAVA_SAME_THREAD_EXECUTOR_CLASS = MoreExecutors.sameThreadExecutor().getClass();
+    private static final Class<? extends ExecutorService> GUAVA_DIRECT_THREAD_EXECUTOR_CLASS = newDirectExecutorService().getClass();
 
     private Threads() {}
 
@@ -44,7 +44,7 @@ public final class Threads
     public static boolean isSameThreadExecutor(Executor executor)
     {
         requireNonNull(executor, "executor is null");
-        if (executor.getClass() == GUAVA_SAME_THREAD_EXECUTOR_CLASS) {
+        if (executor.getClass() == GUAVA_DIRECT_THREAD_EXECUTOR_CLASS) {
             return true;
         }
 
