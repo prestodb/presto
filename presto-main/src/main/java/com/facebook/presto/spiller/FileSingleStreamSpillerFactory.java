@@ -36,9 +36,10 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.lang.String.format;
+import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.delete;
 import static java.nio.file.Files.getFileStore;
 import static java.nio.file.Files.newDirectoryStream;
@@ -87,9 +88,20 @@ public class FileSingleStreamSpillerFactory
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
         requireNonNull(spillPaths, "spillPaths is null");
-        checkArgument(spillPaths.size() >= 1, "At least one spill path required");
         this.spillPaths = ImmutableList.copyOf(spillPaths);
-        spillPaths.forEach(path -> path.toFile().mkdirs());
+        spillPaths.forEach(path -> {
+            try {
+                createDirectories(path);
+            }
+            catch (IOException e) {
+                throw new IllegalArgumentException(
+                        format("could not create spill path %s; adjust experimental.spiller-spill-path config property or filesystem permissions", path), e);
+            }
+            if (!path.toFile().canWrite()) {
+                throw new IllegalArgumentException(
+                        format("spill path %s is not writable; adjust experimental.spiller-spill-path config property or filesystem permissions", path));
+            }
+        });
         this.minimumFreeSpaceThreshold = requireNonNull(maxUsedSpaceThreshold, "maxUsedSpaceThreshold can not be null");
         this.roundRobinIndex = 0;
     }

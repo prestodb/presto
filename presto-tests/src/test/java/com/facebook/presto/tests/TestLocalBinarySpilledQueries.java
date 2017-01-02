@@ -22,6 +22,8 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
+import java.nio.file.Paths;
+
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -44,6 +46,7 @@ public class TestLocalBinarySpilledQueries
                 .build();
 
         FeaturesConfig featuresConfig = new FeaturesConfig();
+        featuresConfig.setSpillerSpillPaths(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString());
         featuresConfig.setOptimizeMixedDistinctAggregations(true);
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession, featuresConfig);

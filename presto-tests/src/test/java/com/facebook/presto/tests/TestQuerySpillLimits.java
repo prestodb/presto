@@ -17,8 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
+import io.airlift.testing.FileUtils;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -30,11 +35,28 @@ public class TestQuerySpillLimits
             .setSchema("tiny")
             .build();
 
+    private File spillPath;
+
+    @BeforeMethod
+    public void setUp()
+            throws Exception
+    {
+        this.spillPath = Files.createTempDir();
+    }
+
+    @AfterMethod
+    public void tearDown()
+            throws Exception
+    {
+        FileUtils.deleteRecursively(spillPath);
+    }
+
     @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local spill limit of 10B")
     public void testMaxSpillPerNodeLimit()
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "1B")
                 .put("experimental.max-spill-per-node", "10B")
@@ -50,6 +72,7 @@ public class TestQuerySpillLimits
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("experimental.spiller-spill-path", spillPath.getAbsolutePath())
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.operator-memory-limit-before-spill", "1B")
                 .put("experimental.query-max-spill-per-node", "10B")
