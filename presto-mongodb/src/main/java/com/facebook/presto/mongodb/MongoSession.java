@@ -505,6 +505,10 @@ public class MongoSession
 
     private Optional<TypeSignature> guessFieldType(Object value)
     {
+        if (value == null) {
+            return Optional.empty();
+        }
+
         TypeSignature typeSignature = null;
         if (value instanceof String) {
             typeSignature = createUnboundedVarcharType().getTypeSignature();
