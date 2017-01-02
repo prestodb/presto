@@ -48,16 +48,9 @@ public final class Threads
             return true;
         }
 
-        final Thread thisThread = Thread.currentThread();
-        final SettableFuture<Boolean> isSameThreadExecutor = SettableFuture.create();
-        executor.execute(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                isSameThreadExecutor.set(thisThread == Thread.currentThread());
-            }
-        });
+        Thread thisThread = Thread.currentThread();
+        SettableFuture<Boolean> isSameThreadExecutor = SettableFuture.create();
+        executor.execute(() -> isSameThreadExecutor.set(thisThread == Thread.currentThread()));
         try {
             return Futures.getChecked(isSameThreadExecutor, Exception.class, 10, TimeUnit.SECONDS);
         }
