@@ -59,7 +59,7 @@ public final class ScalarFunctionImplementation
         // check if nullableArguments and nullFlags match
         for (int i = 0; i < nullFlags.size(); i++) {
             if (nullFlags.get(i)) {
-                checkArgument(nullableArguments.get(i), "argument %s marked as @IsNull is not nullable in method: %s", i, methodHandle);
+                checkArgument((boolean) nullableArguments.get(i), "argument %s marked as @IsNull is not nullable in method: %s", i, methodHandle);
             }
         }
     }
