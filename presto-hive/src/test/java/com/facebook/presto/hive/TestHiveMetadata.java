@@ -32,10 +32,7 @@ import static com.facebook.presto.hive.HiveMetadata.createPredicate;
 
 public class TestHiveMetadata
 {
-    @Test(timeOut = 5000)
-    public void testCreatePredicate()
-    {
-        HiveColumnHandle testColumnHandle = new HiveColumnHandle(
+    private static final HiveColumnHandle TEST_COLUMN_HANDLE = new HiveColumnHandle(
             "test",
             "test",
             HiveType.HIVE_STRING,
@@ -44,18 +41,65 @@ public class TestHiveMetadata
             HiveColumnHandle.ColumnType.PARTITION_KEY,
             Optional.empty());
 
+    @Test(timeOut = 5000)
+    public void testCreatePredicate()
+    {
         ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
 
         for (int i = 0; i < 5_000; i++) {
-            ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(testColumnHandle, Domain.singleValue(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))));
+            ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.singleValue(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))));
             TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
             partitions.add(new HivePartition(
                     SchemaTableName.valueOf("test.test"),
                     tupleDomain,
                     Integer.toString(i),
-                    ImmutableMap.of(testColumnHandle, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
         }
 
-        createPredicate(ImmutableList.of(testColumnHandle), partitions.build());
+        createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
+    }
+
+    @Test
+    public void testCreateOnlyNullsPredicate()
+    {
+        ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
+
+        for (int i = 0; i < 5; i++) {
+            ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.onlyNull(VarcharType.VARCHAR));
+            TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
+            partitions.add(new HivePartition(
+                    SchemaTableName.valueOf("test.test"),
+                    tupleDomain,
+                    Integer.toString(i),
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));
+        }
+
+        createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
+    }
+
+    @Test
+    public void testCreateMixedPredicate()
+    {
+        ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
+
+        for (int i = 0; i < 5; i++) {
+            ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.singleValue(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i))));
+            TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
+            partitions.add(new HivePartition(
+                    SchemaTableName.valueOf("test.test"),
+                    tupleDomain,
+                    Integer.toString(i),
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VarcharType.VARCHAR, Slices.utf8Slice(Integer.toString(i)))), ImmutableList.of()));
+        }
+
+        ColumnDomain<HiveColumnHandle> columnDomain = new ColumnDomain<>(TEST_COLUMN_HANDLE, Domain.onlyNull(VarcharType.VARCHAR));
+        TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.fromColumnDomains(Optional.of(ImmutableList.of(columnDomain)));
+        partitions.add(new HivePartition(
+                SchemaTableName.valueOf("test.test"),
+                tupleDomain,
+                "null",
+                ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VarcharType.VARCHAR)), ImmutableList.of()));
+
+        createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
     }
 }

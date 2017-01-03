@@ -128,6 +128,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
@@ -1131,6 +1132,8 @@ public class HiveMetadata
 
     private static Domain buildColumnDomain(ColumnHandle column, List<HivePartition> partitions)
     {
+        checkArgument(!partitions.isEmpty(), "partitions cannot be empty");
+
         boolean hasNull = false;
         List<Object> nonNullValues = new ArrayList<>();
         Type type = null;
@@ -1153,13 +1156,16 @@ public class HiveMetadata
             }
         }
 
-        Domain domain = Domain.multipleValues(type, nonNullValues);
+        if (!nonNullValues.isEmpty()) {
+            Domain domain = Domain.multipleValues(type, nonNullValues);
+            if (hasNull) {
+                return domain.union(Domain.onlyNull(type));
+            }
 
-        if (hasNull) {
-            domain = domain.union(Domain.onlyNull(type));
+            return domain;
         }
 
-        return domain;
+        return Domain.onlyNull(type);
     }
 
     @Override
