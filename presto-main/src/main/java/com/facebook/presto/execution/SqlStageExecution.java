@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
@@ -87,14 +88,16 @@ public final class SqlStageExecution
             Session session,
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
-            ExecutorService executor)
+            ExecutorService executor,
+            SplitSchedulerStats schedulerStats)
     {
         this(new StageStateMachine(
                         requireNonNull(stageId, "stageId is null"),
                         requireNonNull(location, "location is null"),
                         requireNonNull(session, "session is null"),
                         requireNonNull(fragment, "fragment is null"),
-                        requireNonNull(executor, "executor is null")),
+                        requireNonNull(executor, "executor is null"),
+                        requireNonNull(schedulerStats, "schedulerStats is null")),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo);

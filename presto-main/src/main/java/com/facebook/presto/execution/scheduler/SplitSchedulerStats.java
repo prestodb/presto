@@ -27,6 +27,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class SplitSchedulerStats
 {
     private final TimeStat sleepTime = new TimeStat(MILLISECONDS);
+    private final TimeStat getSplitTime = new TimeStat(MILLISECONDS);
     private final CounterStat waitingForSource = new CounterStat();
     private final CounterStat splitQueuesFull = new CounterStat();
     private final DistributionStat splitsPerIteration = new DistributionStat();
@@ -36,6 +37,13 @@ public class SplitSchedulerStats
     public TimeStat getSleepTime()
     {
         return sleepTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getGetSplitTime()
+    {
+        return getSplitTime;
     }
 
     @Managed

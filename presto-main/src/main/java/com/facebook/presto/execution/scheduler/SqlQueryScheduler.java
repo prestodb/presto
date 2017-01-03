@@ -209,7 +209,8 @@ public class SqlQueryScheduler
                 session,
                 summarizeTaskInfo,
                 nodeTaskMap,
-                executor);
+                executor,
+                schedulerStats);
 
         stages.add(stage);
 

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
+import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TaskStats;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -63,6 +65,7 @@ public class StageStateMachine
     private final URI location;
     private final PlanFragment fragment;
     private final Session session;
+    private final SplitSchedulerStats scheduledStats;
 
     private final StateMachine<StageState> stageState;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
@@ -75,12 +78,19 @@ public class StageStateMachine
     private final AtomicLong peakMemory = new AtomicLong();
     private final AtomicLong currentMemory = new AtomicLong();
 
-    public StageStateMachine(StageId stageId, URI location, Session session, PlanFragment fragment, ExecutorService executor)
+    public StageStateMachine(
+            StageId stageId,
+            URI location,
+            Session session,
+            PlanFragment fragment,
+            ExecutorService executor,
+            SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
         this.location = requireNonNull(location, "location is null");
         this.session = requireNonNull(session, "session is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
+        this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
@@ -318,7 +328,9 @@ public class StageStateMachine
 
     public void recordGetSplitTime(long startNanos)
     {
-        getSplitDistribution.add(System.nanoTime() - startNanos);
+        long elapsedNanos = System.nanoTime() - startNanos;
+        getSplitDistribution.add(elapsedNanos);
+        scheduledStats.getGetSplitTime().add(elapsedNanos, TimeUnit.NANOSECONDS);
     }
 
     public void recordScheduleTaskTime(long startNanos)
