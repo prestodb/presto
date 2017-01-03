@@ -473,7 +473,8 @@ public class TestSourcePartitionedScheduler
                 TEST_SESSION,
                 true,
                 nodeTaskMap,
-                executor);
+                executor,
+                new SplitSchedulerStats());
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)
                 .withBuffer(OUT, 0)
