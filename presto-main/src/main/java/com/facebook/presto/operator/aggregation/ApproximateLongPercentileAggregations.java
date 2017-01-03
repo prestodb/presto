@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.DigestAndPercentileState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -34,7 +35,7 @@ public final class ApproximateLongPercentileAggregations
     private ApproximateLongPercentileAggregations() {}
 
     @InputFunction
-    public static void input(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void input(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         QuantileDigest digest = state.getDigest();
 
@@ -53,7 +54,7 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile)
     {
         checkWeight(weight);
 
@@ -74,7 +75,7 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @InputFunction
-    public static void weightedInput(DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.BIGINT) long weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
         checkWeight(weight);
 
@@ -100,7 +101,7 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @CombineFunction
-    public static void combine(DigestAndPercentileState state, DigestAndPercentileState otherState)
+    public static void combine(@AggregationState DigestAndPercentileState state, DigestAndPercentileState otherState)
     {
         QuantileDigest input = otherState.getDigest();
 
@@ -118,7 +119,7 @@ public final class ApproximateLongPercentileAggregations
     }
 
     @OutputFunction(StandardTypes.BIGINT)
-    public static void output(DigestAndPercentileState state, BlockBuilder out)
+    public static void output(@AggregationState DigestAndPercentileState state, BlockBuilder out)
     {
         QuantileDigest digest = state.getDigest();
         double percentile = state.getPercentile();

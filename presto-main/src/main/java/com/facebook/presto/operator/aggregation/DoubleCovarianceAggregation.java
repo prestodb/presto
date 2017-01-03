@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -34,20 +35,20 @@ public class DoubleCovarianceAggregation
     private DoubleCovarianceAggregation() {}
 
     @InputFunction
-    public static void input(CovarianceState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
+    public static void input(@AggregationState CovarianceState state, @SqlType(StandardTypes.DOUBLE) double dependentValue, @SqlType(StandardTypes.DOUBLE) double independentValue)
     {
         updateCovarianceState(state, independentValue, dependentValue);
     }
 
     @CombineFunction
-    public static void combine(CovarianceState state, CovarianceState otherState)
+    public static void combine(@AggregationState CovarianceState state, @AggregationState CovarianceState otherState)
     {
         mergeCovarianceState(state, otherState);
     }
 
     @AggregationFunction("covar_samp")
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void covarSamp(CovarianceState state, BlockBuilder out)
+    public static void covarSamp(@AggregationState CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() <= 1) {
             out.appendNull();
@@ -60,7 +61,7 @@ public class DoubleCovarianceAggregation
 
     @AggregationFunction("covar_pop")
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void covarPop(CovarianceState state, BlockBuilder out)
+    public static void covarPop(@AggregationState CovarianceState state, BlockBuilder out)
     {
         if (state.getCount() == 0) {
             out.appendNull();

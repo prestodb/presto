@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -32,14 +33,14 @@ public final class RealSumAggregation
     private RealSumAggregation() {}
 
     @InputFunction
-    public static void sum(NullableDoubleState state, @SqlType(StandardTypes.REAL) long value)
+    public static void sum(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.REAL) long value)
     {
         state.setNull(false);
         state.setDouble(state.getDouble() + intBitsToFloat((int) value));
     }
 
     @CombineFunction
-    public static void combine(NullableDoubleState state, NullableDoubleState otherState)
+    public static void combine(@AggregationState NullableDoubleState state, @AggregationState NullableDoubleState otherState)
     {
         if (state.isNull()) {
             if (otherState.isNull()) {
@@ -56,7 +57,7 @@ public final class RealSumAggregation
     }
 
     @OutputFunction(StandardTypes.REAL)
-    public static void output(NullableDoubleState state, BlockBuilder out)
+    public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
     {
         if (state.isNull()) {
             out.appendNull();

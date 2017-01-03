@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.LiteralParameters;
@@ -40,13 +41,13 @@ public final class ApproximateCountDistinctAggregations
     private ApproximateCountDistinctAggregations() {}
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         input(state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -55,39 +56,39 @@ public final class ApproximateCountDistinctAggregations
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value)
     {
         input(state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         input(state, Double.doubleToLongBits(value), maxStandardError);
     }
 
     @InputFunction
     @LiteralParameters("x")
-    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType("varchar(x)") Slice value)
     {
         input(state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @InputFunction
     @LiteralParameters("x")
-    public static void input(HyperLogLogState state, @SqlType("varchar(x)") Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType("varchar(x)") Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         inputBinary(state, value, maxStandardError);
     }
 
     @InputFunction
-    public static void inputBinary(HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value)
+    public static void inputBinary(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value)
     {
         inputBinary(state, value, DEFAULT_STANDARD_ERROR);
     }
 
     @InputFunction
-    public static void inputBinary(HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    public static void inputBinary(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
         HyperLogLog hll = getOrCreateHyperLogLog(state, maxStandardError);
         state.addMemoryUsage(-hll.estimatedInMemorySize());
@@ -121,7 +122,7 @@ public final class ApproximateCountDistinctAggregations
     }
 
     @CombineFunction
-    public static void combineState(HyperLogLogState state, HyperLogLogState otherState)
+    public static void combineState(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
     {
         HyperLogLog input = otherState.getHyperLogLog();
 
@@ -138,7 +139,7 @@ public final class ApproximateCountDistinctAggregations
     }
 
     @OutputFunction(StandardTypes.BIGINT)
-    public static void evaluateFinal(HyperLogLogState state, BlockBuilder out)
+    public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
         HyperLogLog hyperLogLog = state.getHyperLogLog();
         if (hyperLogLog == null) {

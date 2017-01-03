@@ -18,6 +18,7 @@ import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
 import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
@@ -34,19 +35,19 @@ public final class MergeHyperLogLogAggregation
     private MergeHyperLogLogAggregation() {}
 
     @InputFunction
-    public static void input(HyperLogLogState state, @SqlType(StandardTypes.HYPER_LOG_LOG) Slice value)
+    public static void input(@AggregationState HyperLogLogState state, @SqlType(StandardTypes.HYPER_LOG_LOG) Slice value)
     {
         HyperLogLog input = HyperLogLog.newInstance(value);
         merge(state, input);
     }
 
     @CombineFunction
-    public static void combine(HyperLogLogState state, HyperLogLogState otherState)
+    public static void combine(@AggregationState HyperLogLogState state, @AggregationState HyperLogLogState otherState)
     {
         merge(state, otherState.getHyperLogLog());
     }
 
-    private static void merge(HyperLogLogState state, HyperLogLog input)
+    private static void merge(@AggregationState HyperLogLogState state, HyperLogLog input)
     {
         HyperLogLog previous = state.getHyperLogLog();
         if (previous == null) {
@@ -61,7 +62,7 @@ public final class MergeHyperLogLogAggregation
     }
 
     @OutputFunction(StandardTypes.HYPER_LOG_LOG)
-    public static void output(HyperLogLogState state, BlockBuilder out)
+    public static void output(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
         serializer.serialize(state, out);
     }
