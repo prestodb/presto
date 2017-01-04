@@ -48,6 +48,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -313,6 +314,17 @@ public class BackgroundHiveSplitLoader
             return;
         }
 
+        // To support custom input formats, we want to call getSplits()
+        // on the input format to obtain file splits.
+        if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
+            JobConf jobConf = new JobConf(configuration);
+            FileInputFormat.setInputPaths(jobConf, path);
+            InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
+
+            addSplitsToSource(splits, partitionName, partitionKeys, schema, effectivePredicate, partition.getColumnCoercions());
+            return;
+        }
+
         // If only one bucket could match: load that one file
         HiveFileIterator iterator = new HiveFileIterator(path, fs, directoryLister, namenodeStats, partitionName, inputFormat, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
         if (!buckets.isEmpty()) {
@@ -408,6 +420,14 @@ public class BackgroundHiveSplitLoader
             }
         }
         return false;
+    }
+
+    private static boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat)
+    {
+        return Arrays.stream(inputFormat.getClass().getAnnotations())
+                .map(Annotation::annotationType)
+                .map(Class::getSimpleName)
+                .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
     private void addToHiveSplitSourceRoundRobin(List<Iterator<HiveSplit>> iteratorList)
