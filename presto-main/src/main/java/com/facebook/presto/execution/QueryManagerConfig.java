@@ -19,6 +19,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -40,6 +41,7 @@ public class QueryManagerConfig
     private int initialHashPartitions = 100;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
+    private int maxQueryLength = 1_000_000;
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
@@ -157,6 +159,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryHistory(int maxQueryHistory)
     {
         this.maxQueryHistory = maxQueryHistory;
+        return this;
+    }
+
+    @Min(0)
+    @Max(1_000_000_000)
+    public int getMaxQueryLength()
+    {
+        return maxQueryLength;
+    }
+
+    @Config("query.max-length")
+    public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
+    {
+        this.maxQueryLength = maxQueryLength;
         return this;
     }
 
