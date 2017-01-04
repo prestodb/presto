@@ -244,7 +244,7 @@ public class DriverContext
 
     public void moreMemoryAvailable()
     {
-        operatorContexts.stream().forEach(OperatorContext::moreMemoryAvailable);
+        operatorContexts.forEach(OperatorContext::moreMemoryAvailable);
     }
 
     public boolean isVerboseStats()

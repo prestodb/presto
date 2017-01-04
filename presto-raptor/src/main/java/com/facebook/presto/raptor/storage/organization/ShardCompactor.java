@@ -163,7 +163,7 @@ public final class ShardCompactor
             throw e;
         }
         finally {
-            rowSources.stream().forEach(SortedRowSource::closeQuietly);
+            rowSources.forEach(SortedRowSource::closeQuietly);
         }
     }
 

@@ -137,7 +137,7 @@ class ClientBuffer
                 return;
             }
 
-            pages.stream().forEach(PageReference::addReference);
+            pages.forEach(PageReference::addReference);
             this.pages.addAll(pages);
 
             long rowCount = pages.stream().mapToLong(PageReference::getPositionCount).sum();

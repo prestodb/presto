@@ -213,7 +213,7 @@ public class BroadcastOutputBuffer
         Collection<ClientBuffer> buffers;
         synchronized (this) {
             if (state.get().canAddBuffers()) {
-                pageReferences.stream().forEach(ClientBuffer.PageReference::addReference);
+                pageReferences.forEach(ClientBuffer.PageReference::addReference);
                 initialPagesForNewBuffers.addAll(pageReferences);
             }
 
@@ -222,10 +222,10 @@ public class BroadcastOutputBuffer
         }
 
         // add pages to all existing buffers (each buffer will increment the reference count)
-        buffers.stream().forEach(partition -> partition.enqueuePages(pageReferences));
+        buffers.forEach(partition -> partition.enqueuePages(pageReferences));
 
         // drop the initial reference
-        pageReferences.stream().forEach(ClientBuffer.PageReference::dereferencePage);
+        pageReferences.forEach(ClientBuffer.PageReference::dereferencePage);
 
         return memoryManager.getNotFullFuture();
     }
@@ -340,7 +340,7 @@ public class BroadcastOutputBuffer
         }
 
         // dereference outside of synchronized to avoid making a callback while holding a lock
-        pages.stream().forEach(ClientBuffer.PageReference::dereferencePage);
+        pages.forEach(ClientBuffer.PageReference::dereferencePage);
     }
 
     private void checkFlushComplete()

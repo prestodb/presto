@@ -375,7 +375,7 @@ public class EqualityInference
             // Map every expression to the set of equivalent expressions
             Map<Expression, Set<Expression>> map = new HashMap<>();
             for (Set<Expression> expressions : equivalentClasses) {
-                expressions.stream().forEach(expression -> map.put(expression, expressions));
+                expressions.forEach(expression -> map.put(expression, expressions));
             }
 
             // For every non-derived expression, extract the sub-expressions and see if they can be rewritten as other expressions. If so,

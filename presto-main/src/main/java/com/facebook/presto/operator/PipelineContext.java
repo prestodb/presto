@@ -250,7 +250,7 @@ public class PipelineContext
 
     public void moreMemoryAvailable()
     {
-        drivers.stream().forEach(DriverContext::moreMemoryAvailable);
+        drivers.forEach(DriverContext::moreMemoryAvailable);
     }
 
     public boolean isVerboseStats()
