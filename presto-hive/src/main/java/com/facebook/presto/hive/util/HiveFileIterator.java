@@ -114,7 +114,8 @@ public class HiveFileIterator
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
             return retry()
                     .stopOnIllegalExceptions()
-                    .run("getLocatedFileStatusRemoteIterator", () -> directoryLister.list(fileSystem, path));
+                    .run("getLocatedFileStatusRemoteIterator", 
+                            () -> directoryLister.list(fileSystem, path));
         }
         catch (IOException | RuntimeException e) {
             namenodeStats.getListLocatedStatus().recordException(e);
