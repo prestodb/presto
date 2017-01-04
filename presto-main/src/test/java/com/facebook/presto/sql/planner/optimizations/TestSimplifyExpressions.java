@@ -86,6 +86,8 @@ public class TestSimplifyExpressions
         assertSimplifies("((X OR V) AND Z) OR ((X OR V) AND V)", "(((X OR V) AND Z) OR V)");
         assertSimplifies("X AND ((Y AND Z) OR (Y AND V) OR (Y AND X))", "X AND Y AND (Z OR V OR X)");
         assertSimplifies("(A AND B AND C AND D) OR (A AND B AND E) OR (A AND F)", "A AND ((B AND C AND D) OR (B AND E) OR F)");
+
+        assertSimplifies("((A or B) and (A or C)) or D", "A or (B and C) or D");
     }
 
     private static void assertSimplifies(String expression, String expected)
