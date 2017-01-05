@@ -68,11 +68,7 @@ public class CassandraClientModule
         binder.bind(CassandraConnectorRecordSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPartitionManager.class).in(Scopes.SINGLETON);
 
-        binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
-
         configBinder(binder).bindConfig(CassandraClientConfig.class);
-
-        binder.bind(CassandraThriftConnectionFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(CachingCassandraSchemaProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingCassandraSchemaProvider.class).as(generatedNameOf(CachingCassandraSchemaProvider.class, connectorId));
