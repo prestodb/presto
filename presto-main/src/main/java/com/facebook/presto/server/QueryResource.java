@@ -13,38 +13,23 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageId;
-import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.UriInfo;
 
-import java.net.URI;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.server.ResourceUtil.assertRequest;
-import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,17 +39,11 @@ import static java.util.Objects.requireNonNull;
 public class QueryResource
 {
     private final QueryManager queryManager;
-    private final AccessControl accessControl;
-    private final SessionPropertyManager sessionPropertyManager;
-    private final QueryIdGenerator queryIdGenerator;
 
     @Inject
-    public QueryResource(QueryManager queryManager, AccessControl accessControl, SessionPropertyManager sessionPropertyManager, QueryIdGenerator queryIdGenerator)
+    public QueryResource(QueryManager queryManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
     }
 
     @GET
@@ -95,22 +74,6 @@ public class QueryResource
         catch (NoSuchElementException e) {
             return Response.status(Status.GONE).build();
         }
-    }
-
-    @POST
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response createQuery(
-            String statement,
-            @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo)
-    {
-        assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
-
-        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager, queryIdGenerator.createNextQueryId());
-
-        QueryInfo queryInfo = queryManager.createQuery(session, statement);
-        URI pagesUri = uriBuilderFrom(uriInfo.getRequestUri()).appendPath(queryInfo.getQueryId().toString()).build();
-        return Response.created(pagesUri).entity(queryInfo).build();
     }
 
     @DELETE

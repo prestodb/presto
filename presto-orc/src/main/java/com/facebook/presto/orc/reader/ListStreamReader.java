@@ -24,8 +24,6 @@ import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
-import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nonnull;
@@ -39,6 +37,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.StreamReaders.createStreamReader;
 import static com.facebook.presto.orc.stream.MissingStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ListStreamReader
@@ -95,17 +94,21 @@ public class ListStreamReader
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
                 long elementSkipSize = lengthStream.sum(readOffset);
-                elementStreamReader.prepareNextRead(Ints.checkedCast(elementSkipSize));
+                elementStreamReader.prepareNextRead(toIntExact(elementSkipSize));
             }
         }
 
-        int[] offsets = new int[nextBatchSize];
+        // The length vector could be reused, but this simplifies the code below by
+        // taking advantage of null entries being initialized to zero.  The vector
+        // could be reinitialized for each loop, but that is likely just as expensive
+        // as allocating a new array
+        int[] lengthVector = new int[nextBatchSize];
         boolean[] nullVector = new boolean[nextBatchSize];
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsets);
+            lengthStream.nextIntVector(nextBatchSize, lengthVector);
         }
         else {
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
@@ -113,11 +116,13 @@ public class ListStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException("Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, offsets, nullVector);
+                lengthStream.nextIntVector(nextBatchSize, lengthVector, nullVector);
             }
         }
+        int[] offsets = new int[nextBatchSize + 1];
         for (int i = 1; i < offsets.length; i++) {
-            offsets[i] += offsets[i - 1];
+            int length = lengthVector[i - 1];
+            offsets[i] = offsets[i - 1] + length;
         }
 
         Type elementType = type.getTypeParameters().get(0);
@@ -131,7 +136,7 @@ public class ListStreamReader
         else {
             elements = elementType.createBlockBuilder(new BlockBuilderStatus(), 0).build();
         }
-        ArrayBlock arrayBlock = new ArrayBlock(elements, Slices.wrappedIntArray(offsets), 0, Slices.wrappedBooleanArray(nullVector));
+        ArrayBlock arrayBlock = new ArrayBlock(nextBatchSize, nullVector, offsets, elements);
 
         readOffset = 0;
         nextBatchSize = 0;

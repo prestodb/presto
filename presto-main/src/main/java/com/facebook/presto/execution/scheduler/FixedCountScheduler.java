@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -53,6 +52,6 @@ public class FixedCountScheduler
                 .map(entry -> taskScheduler.apply(entry.getValue(), entry.getKey()))
                 .collect(toImmutableList());
 
-        return new ScheduleResult(true, newTasks, CompletableFuture.completedFuture(null));
+        return new ScheduleResult(true, newTasks, 0);
     }
 }

@@ -77,7 +77,7 @@ public class StartTransactionTask
         return true;
     }
 
-    private Optional<IsolationLevel> extractIsolationLevel(StartTransaction startTransaction)
+    private static Optional<IsolationLevel> extractIsolationLevel(StartTransaction startTransaction)
     {
         if (startTransaction.getTransactionModes().stream()
                 .filter(Isolation.class::isInstance)
@@ -93,7 +93,7 @@ public class StartTransactionTask
                 .findFirst();
     }
 
-    private Optional<Boolean> extractReadOnly(StartTransaction startTransaction)
+    private static Optional<Boolean> extractReadOnly(StartTransaction startTransaction)
     {
         if (startTransaction.getTransactionModes().stream()
                 .filter(TransactionAccessMode.class::isInstance)

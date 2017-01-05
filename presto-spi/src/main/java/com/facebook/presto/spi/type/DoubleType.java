@@ -75,7 +75,7 @@ public final class DoubleType
     @Override
     public long hash(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return AbstractLongType.hash(block.getLong(position, 0));
     }
 
     @Override

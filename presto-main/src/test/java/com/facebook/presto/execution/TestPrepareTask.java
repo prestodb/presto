@@ -15,6 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -40,6 +42,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
@@ -71,7 +74,9 @@ public class TestPrepareTask
     @Test
     public void testPrepareNameExists()
     {
-        Session session = TEST_SESSION.withPreparedStatement("my_query", "SELECT bar, baz from foo");
+        Session session = testSessionBuilder()
+                .addPreparedStatement("my_query", "SELECT bar, baz from foo")
+                .build();
 
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
         String sqlString = "PREPARE my_query FROM SELECT * FROM foo";
@@ -97,7 +102,8 @@ public class TestPrepareTask
     private Map<String, String> executePrepare(String statementName, Statement statement, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, executor);
+        AccessControl accessControl = new AccessControlManager(transactionManager);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, accessControl, executor);
         Prepare prepare = new Prepare(statementName, statement);
         new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getAddedPreparedStatements();

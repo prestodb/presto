@@ -74,7 +74,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestExchangeOperator
 {
-    private static final List<Type> TYPES = ImmutableList.<Type>of(VARCHAR);
+    private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final Page PAGE = createSequencePage(TYPES, 10, 100);
     private static final BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
 
@@ -156,7 +156,7 @@ public class TestExchangeOperator
         waitForFinished(operator);
     }
 
-    private Split newRemoteSplit(String taskId)
+    private static Split newRemoteSplit(String taskId)
     {
         return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(URI.create("http://localhost/" + taskId)));
     }
@@ -274,7 +274,7 @@ public class TestExchangeOperator
         return operator;
     }
 
-    private List<Page> waitForPages(Operator operator, int expectedPageCount)
+    private static List<Page> waitForPages(Operator operator, int expectedPageCount)
             throws InterruptedException
     {
         // read expected pages or until 10 seconds has passed
@@ -330,7 +330,7 @@ public class TestExchangeOperator
         return outputPages;
     }
 
-    private void waitForFinished(Operator operator)
+    private static void waitForFinished(Operator operator)
             throws InterruptedException
     {
         // wait for finished or until 10 seconds has passed

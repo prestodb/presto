@@ -127,7 +127,7 @@ public class OrderingCompiler
         return defineClass(classDefinition, PagesIndexComparator.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    private static void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         Parameter pagesIndex = arg("pagesIndex", PagesIndex.class);
         Parameter leftPosition = arg("leftPosition", int.class);

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.Min;
@@ -28,7 +27,11 @@ import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
-@DefunctConfig("resource-group-manager")
+@DefunctConfig({
+        "resource-group-manager",
+        "experimental-syntax-enabled",
+        "analyzer.experimental-syntax-enabled"
+})
 public class FeaturesConfig
 {
     public static class ProcessingOptimization
@@ -40,16 +43,19 @@ public class FeaturesConfig
         public static final List<String> AVAILABLE_OPTIONS = ImmutableList.of(DISABLED, COLUMNAR, COLUMNAR_DICTIONARY);
     }
 
-    private boolean experimentalSyntaxEnabled;
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
+    private boolean reorderJoins;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
     private boolean optimizeSingleDistinct = true;
+    private boolean optimizerReorderWindows = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean legacyArrayAgg;
+    private boolean legacyOrderBy;
+    private boolean optimizeMixedDistinctAggregations;
 
     private String processingOptimization = ProcessingOptimization.DISABLED;
     private boolean dictionaryAggregation;
@@ -72,19 +78,6 @@ public class FeaturesConfig
     public FeaturesConfig setResourceGroupsEnabled(boolean enabled)
     {
         resourceGroups = enabled;
-        return this;
-    }
-
-    public boolean isExperimentalSyntaxEnabled()
-    {
-        return experimentalSyntaxEnabled;
-    }
-
-    @LegacyConfig("analyzer.experimental-syntax-enabled")
-    @Config("experimental-syntax-enabled")
-    public FeaturesConfig setExperimentalSyntaxEnabled(boolean enabled)
-    {
-        experimentalSyntaxEnabled = enabled;
         return this;
     }
 
@@ -117,6 +110,18 @@ public class FeaturesConfig
         return legacyArrayAgg;
     }
 
+    @Config("deprecated.legacy-order-by")
+    public FeaturesConfig setLegacyOrderBy(boolean value)
+    {
+        this.legacyOrderBy = value;
+        return this;
+    }
+
+    public boolean isLegacyOrderBy()
+    {
+        return legacyOrderBy;
+    }
+
     @Config("distributed-joins-enabled")
     public FeaturesConfig setDistributedJoinsEnabled(boolean distributedJoinsEnabled)
     {
@@ -134,6 +139,19 @@ public class FeaturesConfig
     public FeaturesConfig setColocatedJoinsEnabled(boolean colocatedJoinsEnabled)
     {
         this.colocatedJoinsEnabled = colocatedJoinsEnabled;
+        return this;
+    }
+
+    public boolean isJoinReorderingEnabled()
+    {
+        return reorderJoins;
+    }
+
+    @Config("reorder-joins")
+    @ConfigDescription("Experimental: Reorder joins to optimize plan")
+    public FeaturesConfig setJoinReorderingEnabled(boolean reorderJoins)
+    {
+        this.reorderJoins = reorderJoins;
         return this;
     }
 
@@ -182,6 +200,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeSingleDistinct(boolean optimizeSingleDistinct)
     {
         this.optimizeSingleDistinct = optimizeSingleDistinct;
+        return this;
+    }
+
+    public boolean isReorderWindows()
+    {
+        return optimizerReorderWindows;
+    }
+
+    @Config("optimizer.reorder-windows")
+    public FeaturesConfig setReorderWindows(boolean reorderWindows)
+    {
+        this.optimizerReorderWindows = reorderWindows;
         return this;
     }
 
@@ -307,6 +337,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerThreads(int spillerThreads)
     {
         this.spillerThreads = spillerThreads;
+        return this;
+    }
+
+    public boolean isOptimizeMixedDistinctAggregations()
+    {
+        return optimizeMixedDistinctAggregations;
+    }
+
+    @Config("optimizer.optimize-mixed-distinct-aggregations")
+    public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
+    {
+        this.optimizeMixedDistinctAggregations = value;
         return this;
     }
 }

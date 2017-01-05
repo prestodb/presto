@@ -37,11 +37,6 @@ public class MongoTableLayoutHandle
         this.tupleDomain = requireNonNull(tupleDomain, "tuple is null");
     }
 
-    public String getConnectorId()
-    {
-        return table.getConnectorId();
-    }
-
     @JsonProperty
     public MongoTableHandle getTable()
     {

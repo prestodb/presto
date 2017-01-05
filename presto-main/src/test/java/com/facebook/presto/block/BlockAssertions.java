@@ -42,7 +42,6 @@ import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -155,7 +154,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
+        return new DictionaryBlock(length, builder.build(), ids);
     }
 
     public static Block createStringArraysBlock(Iterable<? extends Iterable<String>> values)
@@ -343,7 +342,7 @@ public final class BlockAssertions
         for (int i = 0; i < length; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(length, builder.build(), wrappedIntArray(ids));
+        return new DictionaryBlock(length, builder.build(), ids);
     }
 
     public static Block createLongRepeatBlock(int value, int length)

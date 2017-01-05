@@ -19,7 +19,6 @@ import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -36,9 +35,8 @@ public final class AccumuloColumnHandle
     private final Optional<String> qualifier;
     private final Type type;
     private final String comment;
-
-    private String name;
-    private int ordinal;
+    private final String name;
+    private final int ordinal;
 
     @JsonCreator
     public AccumuloColumnHandle(
@@ -67,12 +65,6 @@ public final class AccumuloColumnHandle
         return name;
     }
 
-    @JsonSetter
-    public void setName(String name)
-    {
-        this.name = name;
-    }
-
     @JsonProperty
     public Optional<String> getFamily()
     {
@@ -95,12 +87,6 @@ public final class AccumuloColumnHandle
     public int getOrdinal()
     {
         return ordinal;
-    }
-
-    @JsonSetter
-    public void setOrdinal(int ordinal)
-    {
-        this.ordinal = ordinal;
     }
 
     @JsonProperty

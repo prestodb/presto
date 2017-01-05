@@ -35,6 +35,8 @@ import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -61,6 +63,7 @@ public class ColumnCardinalityCache
     private final int size;
     private final Duration expireDuration;
 
+    @GuardedBy("this")
     private final Map<String, TableColumnCache> tableToCache = new HashMap<>();
 
     public ColumnCardinalityCache(
@@ -80,7 +83,7 @@ public class ColumnCardinalityCache
      * @param schema Schema name
      * @param table Table name
      */
-    public void deleteCache(String schema, String table)
+    public synchronized void deleteCache(String schema, String table)
     {
         LOG.debug("Deleting cache for %s.%s", schema, table);
         if (tableToCache.containsKey(table)) {
@@ -148,7 +151,7 @@ public class ColumnCardinalityCache
      * @param table Table name
      * @return An existing or new TableColumnCache
      */
-    private TableColumnCache getTableCache(String schema, String table)
+    private synchronized TableColumnCache getTableCache(String schema, String table)
     {
         String fullName = AccumuloTable.getFullTableName(schema, table);
         TableColumnCache cache = tableToCache.get(fullName);

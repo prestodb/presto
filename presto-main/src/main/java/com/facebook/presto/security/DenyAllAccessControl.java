@@ -166,7 +166,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(catalogName, propertyName);
     }

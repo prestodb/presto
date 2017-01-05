@@ -479,6 +479,13 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
+            Optional<Expression> filter = node.getFilter();
+            if (filter.isPresent()) {
+                Expression filterExpression = filter.get();
+                Expression newFilterExpression = rewrite(filterExpression, context.get());
+                filter = Optional.of(newFilterExpression);
+            }
+
             Optional<Window> rewrittenWindow = node.getWindow();
             if (node.getWindow().isPresent()) {
                 Window window = node.getWindow().get();
@@ -508,7 +515,7 @@ public final class ExpressionTreeRewriter<C>
                     if (start.getValue().isPresent()) {
                         Expression value = rewrite(start.getValue().get(), context.get());
                         if (value != start.getValue().get()) {
-                            start = new FrameBound(start.getType(), value);
+                            start = new FrameBound(start.getType(), value, start.getOriginalValue().get());
                         }
                     }
 
@@ -518,7 +525,8 @@ public final class ExpressionTreeRewriter<C>
                         if (value.isPresent()) {
                             Expression rewrittenValue = rewrite(value.get(), context.get());
                             if (rewrittenValue != value.get()) {
-                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(), rewrittenValue));
+                                rewrittenEnd = Optional.of(new FrameBound(rewrittenEnd.get().getType(),
+                                        rewrittenValue, rewrittenEnd.get().getOriginalValue().get()));
                             }
                         }
                     }
@@ -540,10 +548,10 @@ public final class ExpressionTreeRewriter<C>
                 arguments.add(rewrite(expression, context.get()));
             }
 
-            if (!sameElements(node.getArguments(), arguments.build()) || !sameElements(rewrittenWindow, node.getWindow())) {
-                return new FunctionCall(node.getName(), rewrittenWindow, node.isDistinct(), arguments.build());
+            if (!sameElements(node.getArguments(), arguments.build()) || !sameElements(rewrittenWindow, node.getWindow())
+                    || !sameElements(filter, node.getFilter())) {
+                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.isDistinct(), arguments.build());
             }
-
             return node;
         }
 
@@ -788,6 +796,26 @@ public final class ExpressionTreeRewriter<C>
                 if (result != null) {
                     return result;
                 }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteQuantifiedComparison(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression value = rewrite(node.getValue(), context.get());
+            Expression subquery = rewrite(node.getSubquery(), context.get());
+
+            if (node.getValue() != value || node.getSubquery() != subquery) {
+                return new QuantifiedComparisonExpression(node.getComparisonType(), node.getQuantifier(), value, subquery);
             }
 
             return node;

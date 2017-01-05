@@ -146,9 +146,9 @@ public class TestTypeSignature
     public void parseSignature()
             throws Exception
     {
-        assertSignature("bigint", "bigint", ImmutableList.<String>of());
-        assertSignature("boolean", "boolean", ImmutableList.<String>of());
-        assertSignature("varchar", "varchar", ImmutableList.<String>of());
+        assertSignature("bigint", "bigint", ImmutableList.of());
+        assertSignature("boolean", "boolean", ImmutableList.of());
+        assertSignature("varchar", "varchar", ImmutableList.of());
 
         assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
         assertSignature("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));

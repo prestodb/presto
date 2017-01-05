@@ -264,4 +264,15 @@ public class TestSmallintOperators
         assertFunction("cast('37' as smallint)", SMALLINT, (short) 37);
         assertFunction("cast('17' as smallint)", SMALLINT, (short) 17);
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS SMALLINT) IS DISTINCT FROM CAST(NULL AS SMALLINT)", BOOLEAN, false);
+        assertFunction("SMALLINT'37' IS DISTINCT FROM SMALLINT'37'", BOOLEAN, false);
+        assertFunction("SMALLINT'37' IS DISTINCT FROM SMALLINT'38'", BOOLEAN, true);
+        assertFunction("NULL IS DISTINCT FROM SMALLINT'37'", BOOLEAN, true);
+        assertFunction("SMALLINT'37' IS DISTINCT FROM NULL", BOOLEAN, true);
+    }
 }

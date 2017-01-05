@@ -74,11 +74,9 @@ public class CallTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        ConnectorId connectorId = metadata.getCatalogNames().get(procedureName.getCatalogName());
-        if (connectorId == null) {
-            throw new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName());
-        }
-        Procedure procedure = metadata.getProcedureRegistry().resolve(procedureName);
+        ConnectorId connectorId = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
+                .orElseThrow(() -> new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName()));
+        Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();

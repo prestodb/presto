@@ -83,7 +83,7 @@ public class TableJdbcTable
         Optional<String> typeFilter = stringFilter(constraint, 3);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : filter(metadata.getCatalogNames().keySet(), catalogFilter)) {
+        for (String catalog : filter(metadata.getCatalogNames(session).keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {

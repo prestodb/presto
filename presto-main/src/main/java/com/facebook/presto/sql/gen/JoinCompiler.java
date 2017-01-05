@@ -26,18 +26,19 @@ import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.facebook.presto.operator.InMemoryJoinHash;
-import com.facebook.presto.operator.JoinFilterFunction;
-import com.facebook.presto.operator.JoinFilterFunctionVerifier;
+import com.facebook.presto.operator.JoinHash;
+import com.facebook.presto.operator.JoinHashSupplier;
 import com.facebook.presto.operator.LookupSource;
+import com.facebook.presto.operator.PagesHash;
 import com.facebook.presto.operator.PagesHashStrategy;
-import com.facebook.presto.operator.StandardJoinFilterFunctionVerifier;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -48,12 +49,12 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -74,11 +75,11 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final LoadingCache<CacheKey, LookupSourceFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<CacheKey, LookupSourceFactory>()
+    private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<CacheKey, LookupSourceSupplierFactory>()
             {
                 @Override
-                public LookupSourceFactory load(CacheKey key)
+                public LookupSourceSupplierFactory load(CacheKey key)
                         throws Exception
                 {
                     return internalCompileLookupSourceFactory(key.getTypes(), key.getJoinChannels());
@@ -96,22 +97,7 @@ public class JoinCompiler
                 }
             });
 
-    private final LoadingCache<Class<? extends JoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>> joinFilterFunctionVerifierClasses = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<Class<? extends JoinFilterFunction>, Class<? extends JoinFilterFunctionVerifier>>()
-            {
-                @Override
-                public Class<? extends JoinFilterFunctionVerifier> load(Class<? extends JoinFilterFunction> key)
-                        throws Exception
-                {
-                    return IsolatedClass.isolateClass(
-                            new DynamicClassLoader(getClass().getClassLoader()),
-                            JoinFilterFunctionVerifier.class,
-                            StandardJoinFilterFunctionVerifier.class
-                    );
-                }
-            });
-
-    public LookupSourceFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels)
+    public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels)
     {
         try {
             return lookupSourceFactories.get(new CacheKey(types, joinChannels));
@@ -119,21 +105,6 @@ public class JoinCompiler
         catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
             throw Throwables.propagate(e.getCause());
         }
-    }
-
-    public JoinFilterFunctionVerifierFactory compileJoinFilterFunctionVerifierFactory(JoinFilterFunction joinFilterFunction)
-    {
-        return ((filterFunction, channels) -> {
-            try {
-                return joinFilterFunctionVerifierClasses
-                        .get(joinFilterFunction.getClass())
-                        .getConstructor(JoinFilterFunction.class, List.class)
-                        .newInstance(filterFunction, channels);
-            }
-            catch (ExecutionException | UncheckedExecutionException | ExecutionError | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                throw Throwables.propagate(e.getCause());
-            }
-        });
     }
 
     public PagesHashStrategyFactory compilePagesHashStrategyFactory(List<Type> types, List<Integer> joinChannels)
@@ -149,16 +120,18 @@ public class JoinCompiler
         }
     }
 
-    private LookupSourceFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)
+    private LookupSourceSupplierFactory internalCompileLookupSourceFactory(List<Type> types, List<Integer> joinChannels)
     {
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, joinChannels);
 
-        Class<? extends LookupSource> lookupSourceClass = IsolatedClass.isolateClass(
+        Class<? extends Supplier> joinHashSupplierClass = IsolatedClass.isolateClass(
                 new DynamicClassLoader(getClass().getClassLoader()),
-                LookupSource.class,
-                InMemoryJoinHash.class);
+                Supplier.class,
+                JoinHashSupplier.class,
+                JoinHash.class,
+                PagesHash.class);
 
-        return new LookupSourceFactory(lookupSourceClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
+        return new LookupSourceSupplierFactory(joinHashSupplierClass, new PagesHashStrategyFactory(pagesHashStrategyClass));
     }
 
     private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> joinChannels)
@@ -334,7 +307,7 @@ public class JoinCompiler
         appendToBody.ret();
     }
 
-    private void generateIsPositionNull(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
+    private static void generateIsPositionNull(ClassDefinition classDefinition, List<FieldDefinition> joinChannelFields)
     {
         Parameter blockIndex = arg("blockIndex", int.class);
         Parameter blockPosition = arg("blockPosition", int.class);
@@ -698,27 +671,32 @@ public class JoinCompiler
         return type.invoke("equalTo", boolean.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
-    public static class LookupSourceFactory
+    public static class LookupSourceSupplierFactory
     {
-        private final Constructor<? extends LookupSource> constructor;
+        private final Constructor<? extends Supplier> constructor;
         private final PagesHashStrategyFactory pagesHashStrategyFactory;
 
-        public LookupSourceFactory(Class<? extends LookupSource> lookupSourceClass, PagesHashStrategyFactory pagesHashStrategyFactory)
+        public LookupSourceSupplierFactory(Class<? extends Supplier> joinHashSupplierClass, PagesHashStrategyFactory pagesHashStrategyFactory)
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = lookupSourceClass.getConstructor(LongArrayList.class, PagesHashStrategy.class, Optional.class);
+                constructor = joinHashSupplierClass.getConstructor(ConnectorSession.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class);
             }
             catch (NoSuchMethodException e) {
                 throw Throwables.propagate(e);
             }
         }
 
-        public LookupSource createLookupSource(LongArrayList addresses, List<List<Block>> channels, Optional<Integer> hashChannel, Optional<JoinFilterFunctionVerifier> joinFilterFunctionVerifier)
+        public Supplier<LookupSource> createLookupSourceSupplier(
+                ConnectorSession session,
+                LongArrayList addresses,
+                List<List<Block>> channels,
+                Optional<Integer> hashChannel,
+                Optional<JoinFilterFunctionFactory> filterFunctionFactory)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(addresses, pagesHashStrategy, joinFilterFunctionVerifier);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory);
             }
             catch (Exception e) {
                 throw Throwables.propagate(e);
@@ -749,11 +727,6 @@ public class JoinCompiler
                 throw Throwables.propagate(e);
             }
         }
-    }
-
-    public interface JoinFilterFunctionVerifierFactory
-    {
-        JoinFilterFunctionVerifier createJoinFilterFunctionVerifier(JoinFilterFunction filterFunction, List<List<Block>> channels);
     }
 
     private static final class CacheKey

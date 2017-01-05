@@ -60,7 +60,7 @@ public final class SortedRangeSet
 
     static SortedRangeSet none(Type type)
     {
-        return copyOf(type, Collections.<Range>emptyList());
+        return copyOf(type, Collections.emptyList());
     }
 
     static SortedRangeSet all(Type type)

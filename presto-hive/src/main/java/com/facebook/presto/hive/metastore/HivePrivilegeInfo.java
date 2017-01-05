@@ -96,6 +96,13 @@ public class HivePrivilegeInfo
         return null;
     }
 
+    public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
+    {
+        return (getHivePrivilege().equals(hivePrivilegeInfo.getHivePrivilege()) &&
+                (isGrantOption() == hivePrivilegeInfo.isGrantOption() ||
+                        (!isGrantOption() && hivePrivilegeInfo.isGrantOption())));
+    }
+
     @Override
     public int hashCode()
     {

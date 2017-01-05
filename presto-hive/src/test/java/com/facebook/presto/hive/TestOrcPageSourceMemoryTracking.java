@@ -41,6 +41,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.conf.Configuration;
@@ -78,6 +79,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -371,7 +374,7 @@ public class TestOrcPageSourceMemoryTracking
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
                 Type type = hiveType.getType(TYPE_MANAGER);
 
-                columnsBuilder.add(new HiveColumnHandle("client_id", testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR));
+                columnsBuilder.add(new HiveColumnHandle("client_id", testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
                 typesBuilder.add(type);
             }
             columns = columnsBuilder.build();
@@ -390,6 +393,7 @@ public class TestOrcPageSourceMemoryTracking
                     new Configuration(),
                     SESSION,
                     fileSplit.getPath(),
+                    OptionalInt.empty(),
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     schema,
@@ -397,7 +401,8 @@ public class TestOrcPageSourceMemoryTracking
                     columns,
                     partitionKeys,
                     DateTimeZone.UTC,
-                    TYPE_MANAGER)
+                    TYPE_MANAGER,
+                    ImmutableMap.of())
                     .get();
         }
 

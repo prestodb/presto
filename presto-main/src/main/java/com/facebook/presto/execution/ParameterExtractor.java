@@ -18,31 +18,41 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ParameterExtractor
 {
-    private ParameterExtractor(){}
+    private ParameterExtractor() {}
 
     public static int getParameterCount(Statement statement)
     {
         ParameterExtractingVisitor parameterExtractingVisitor = new ParameterExtractingVisitor();
         parameterExtractingVisitor.process(statement, null);
-        return parameterExtractingVisitor.getParameterCount();
+        return parameterExtractingVisitor.getParameters().size();
+    }
+
+    public static List<Parameter> getParameters(Statement statement)
+    {
+        ParameterExtractingVisitor parameterExtractingVisitor = new ParameterExtractingVisitor();
+        parameterExtractingVisitor.process(statement, null);
+        return parameterExtractingVisitor.getParameters();
     }
 
     private static class ParameterExtractingVisitor
             extends DefaultTraversalVisitor<Void, Void>
     {
-        private int parameterCount = 0;
+        private final List<Parameter> parameters = new ArrayList<>();
 
-        private int getParameterCount()
+        public List<Parameter> getParameters()
         {
-            return parameterCount;
+            return parameters;
         }
 
         @Override
         public Void visitParameter(Parameter node, Void context)
         {
-            parameterCount++;
+            parameters.add(node);
             return null;
         }
     }

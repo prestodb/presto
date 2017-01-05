@@ -18,12 +18,14 @@ import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ResourceGroupIdTemplate
@@ -40,6 +42,16 @@ public class ResourceGroupIdTemplate
                 .collect(Collectors.toList());
     }
 
+    public static ResourceGroupIdTemplate forSubGroupNamed(ResourceGroupIdTemplate parent, String name)
+    {
+        return new ResourceGroupIdTemplate(format("%s.%s", requireNonNull(parent, "parent is null"), requireNonNull(name, "name is null")));
+    }
+
+    public static ResourceGroupIdTemplate fromSegments(List<ResourceGroupNameTemplate> segments)
+    {
+        return new ResourceGroupIdTemplate(String.join(".", segments.stream().map(ResourceGroupNameTemplate::toString).collect(Collectors.toList())));
+    }
+
     public ResourceGroupId expandTemplate(SelectionContext context)
     {
         ResourceGroupId id = null;
@@ -53,6 +65,11 @@ public class ResourceGroupIdTemplate
             }
         }
         return id;
+    }
+
+    public List<ResourceGroupNameTemplate> getSegments()
+    {
+        return ImmutableList.copyOf(segments);
     }
 
     @Override

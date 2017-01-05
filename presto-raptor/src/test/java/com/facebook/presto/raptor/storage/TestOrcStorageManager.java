@@ -84,6 +84,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.hash.Hashing.md5;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.hash;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -97,6 +98,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
+import static org.testng.FileAssert.assertDirectory;
 import static org.testng.FileAssert.assertFile;
 
 @Test(singleThreaded = true)
@@ -164,7 +166,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
@@ -182,7 +184,7 @@ public class TestOrcStorageManager
         List<RecordedShard> recordedShards = shardRecorder.getShards();
         assertEquals(recordedShards.size(), 1);
 
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shards.size(), 1);
         ShardInfo shardInfo = Iterables.getOnlyElement(shards);
@@ -236,7 +238,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10), VARBINARY, DATE, BOOLEAN, DOUBLE);
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DATE, BOOLEAN, DOUBLE);
 
         byte[] bytes1 = octets(0x00, 0xFE, 0xFF);
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
@@ -261,7 +263,7 @@ public class TestOrcStorageManager
                 .build();
 
         sink.appendPages(pages);
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shards.size(), 1);
         UUID uuid = Iterables.getOnlyElement(shards).getShardUuid();
@@ -311,7 +313,7 @@ public class TestOrcStorageManager
 
         long transactionId = TRANSACTION_ID;
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         // create file with 2 rows
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
@@ -320,7 +322,7 @@ public class TestOrcStorageManager
                 .row(456L, "bye")
                 .build();
         sink.appendPages(pages);
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shardRecorder.getShards().size(), 1);
 
@@ -352,15 +354,16 @@ public class TestOrcStorageManager
     public void testWriterRollback()
             throws Exception
     {
-        // verify staging directory does not exist
+        // verify staging directory is empty
         File staging = new File(new File(temporary, "data"), "staging");
-        assertFalse(staging.exists());
+        assertDirectory(staging);
+        assertEquals(staging.list(), new String[] {});
 
         // create a shard in staging
         OrcStorageManager manager = createOrcStorageManager();
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
@@ -493,7 +496,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager(2, new DataSize(2, MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(10));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
 
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         List<Page> pages = rowPagesBuilder(columnTypes)
@@ -509,7 +512,7 @@ public class TestOrcStorageManager
             throws Exception
     {
         List<Long> columnIds = ImmutableList.of(3L, 7L);
-        List<Type> columnTypes = ImmutableList.<Type>of(BIGINT, createVarcharType(5));
+        List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(5));
 
         List<Page> pages = rowPagesBuilder(columnTypes)
                 .row(123L, "hello")
@@ -656,7 +659,7 @@ public class TestOrcStorageManager
         OrcStorageManager manager = createOrcStorageManager();
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(rowPagesBuilder(columnTypes).rows(rows).build());
-        List<ShardInfo> shards = sink.commit();
+        List<ShardInfo> shards = getFutureValue(sink.commit());
 
         assertEquals(shards.size(), 1);
         return Iterables.getOnlyElement(shards).getColumnStats();

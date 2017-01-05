@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -46,7 +47,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,12 +55,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -130,7 +130,7 @@ public class TransformCorrelatedScalarAggregationToJoin
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
             ApplyNode rewrittenNode = (ApplyNode) context.defaultRewrite(node, context.get());
-            if (!rewrittenNode.getCorrelation().isEmpty()) {
+            if (!rewrittenNode.getCorrelation().isEmpty() && rewrittenNode.isResolvedScalarSubquery()) {
                 Optional<AggregationNode> aggregation = searchFrom(rewrittenNode.getSubquery())
                         .where(AggregationNode.class::isInstance)
                         .skipOnlyWhen(isInstanceOfAny(ProjectNode.class, EnforceSingleRowNode.class))
@@ -151,8 +151,8 @@ public class TransformCorrelatedScalarAggregationToJoin
             }
 
             Symbol nonNull = symbolAllocator.newSymbol("non_null", BooleanType.BOOLEAN);
-            Map<Symbol, Expression> scalarAggregationSourceAssignments = ImmutableMap.<Symbol, Expression>builder()
-                    .putAll(toAssignments(source.get().getNode().getOutputSymbols()))
+            Assignments scalarAggregationSourceAssignments = Assignments.builder()
+                    .putAll(Assignments.identity(source.get().getNode().getOutputSymbols()))
                     .put(nonNull, TRUE_LITERAL)
                     .build();
             ProjectNode scalarAggregationSourceWithNonNullableSymbol = new ProjectNode(
@@ -204,8 +204,8 @@ public class TransformCorrelatedScalarAggregationToJoin
                     .findFirst();
 
             if (subqueryProjection.isPresent()) {
-                Map<Symbol, Expression> assignments = ImmutableMap.<Symbol, Expression>builder()
-                        .putAll(toAssignments(aggregationNode.get().getOutputSymbols()))
+                Assignments assignments = Assignments.builder()
+                        .putAll(Assignments.identity(aggregationNode.get().getOutputSymbols()))
                         .putAll(subqueryProjection.get().getAssignments())
                         .build();
 
@@ -239,8 +239,7 @@ public class TransformCorrelatedScalarAggregationToJoin
                             symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                     functions.put(symbol, functionRegistry.resolveFunction(
                             count,
-                            scalarAggregationSourceTypeSignatures,
-                            false));
+                            fromTypeSignatures(scalarAggregationSourceTypeSignatures)));
                 }
                 else {
                     aggregations.put(symbol, entry.getValue());
@@ -257,8 +256,6 @@ public class TransformCorrelatedScalarAggregationToJoin
                     scalarAggregation.getMasks(),
                     ImmutableList.of(groupBySymbols),
                     scalarAggregation.getStep(),
-                    scalarAggregation.getSampleWeight(),
-                    scalarAggregation.getConfidence(),
                     scalarAggregation.getHashSymbol(),
                     Optional.empty()));
         }
@@ -306,7 +303,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return decorrelatedNode(correlatedPredicates, node, correlation);
         }
 
-        private Optional<DecorrelatedNode> decorrelatedNode(
+        private static Optional<DecorrelatedNode> decorrelatedNode(
                 List<Expression> correlatedPredicates,
                 PlanNode node,
                 List<Symbol> correlation)
@@ -318,7 +315,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return Optional.of(new DecorrelatedNode(correlatedPredicates, node));
         }
 
-        private Predicate<Expression> isUsingPredicate(List<Symbol> symbols)
+        private static Predicate<Expression> isUsingPredicate(List<Symbol> symbols)
         {
             return expression -> symbols.stream().anyMatch(DependencyExtractor.extractUnique(expression)::contains);
         }
@@ -336,7 +333,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return filterNodeSearcher.replaceAll(newFilterNode);
         }
 
-        private PlanNode removeLimitNode(PlanNode node)
+        private static PlanNode removeLimitNode(PlanNode node)
         {
             node = searchFrom(node)
                     .where(LimitNode.class::isInstance)
@@ -420,18 +417,12 @@ public class TransformCorrelatedScalarAggregationToJoin
                     .filter(symbol -> !rewrittenNode.getOutputSymbols().contains(symbol))
                     .collect(toImmutableList());
 
-            Map<Symbol, Expression> assignments = ImmutableMap.<Symbol, Expression>builder()
+            Assignments assignments = Assignments.builder()
                     .putAll(rewrittenNode.getAssignments())
-                    .putAll(toAssignments(symbolsToAdd))
+                    .putAll(Assignments.identity(symbolsToAdd))
                     .build();
 
             return new ProjectNode(idAllocator.getNextId(), rewrittenNode.getSource(), assignments);
         }
-    }
-
-    private static Map<Symbol, Expression> toAssignments(Collection<Symbol> symbols)
-    {
-        return symbols.stream()
-                .collect(toImmutableMap(s -> s, Symbol::toSymbolReference));
     }
 }

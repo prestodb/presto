@@ -43,7 +43,7 @@ public class CountAggregationBenchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey");
         InternalAggregationFunction countFunction = localQueryRunner.getMetadata().getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
-        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(countFunction.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0)));
+        AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(1, new PlanNodeId("test"), Step.SINGLE, ImmutableList.of(countFunction.bind(ImmutableList.of(0), Optional.empty())));
         return ImmutableList.of(tableScanOperator, aggregationOperator);
     }
 

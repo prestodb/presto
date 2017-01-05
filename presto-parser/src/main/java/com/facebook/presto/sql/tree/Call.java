@@ -62,6 +62,14 @@ public final class Call
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(arguments)
+                .build();
+    }
+
+    @Override
     public boolean equals(Object obj)
     {
         if (this == obj) {

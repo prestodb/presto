@@ -56,6 +56,14 @@ public final class StartTransaction
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(transactionModes)
+                .build();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(transactionModes);

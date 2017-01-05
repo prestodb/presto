@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -35,7 +36,6 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 
 abstract class AbstractPropertyManager
 {
-    private final ConcurrentMap<String, Map<String, PropertyMetadata<?>>> catalogProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
     private final ErrorCodeSupplier propertyError;
 
@@ -54,20 +54,30 @@ abstract class AbstractPropertyManager
         this.propertyError = requireNonNull(propertyError, "propertyError is null");
     }
 
-    public final void addProperties(String catalog, List<PropertyMetadata<?>> properties)
+    public final void addProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(catalog, "catalog is null");
-        checkArgument(!catalog.isEmpty() && catalog.trim().equals(catalog), "Invalid catalog name '%s'", catalog);
+        requireNonNull(connectorId, "connectorId is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
 
-        checkState(catalogProperties.putIfAbsent(catalog, propertiesByName) == null, "Properties for catalog '%s' are already registered", catalog);
+        checkState(connectorProperties.putIfAbsent(connectorId, propertiesByName) == null, "Properties for connector '%s' are already registered", connectorId);
     }
 
-    public final Map<String, Object> getProperties(String catalog, Map<String, Expression> sqlPropertyValues, Session session, Metadata metadata, List<Expression> parameters)
+    public final void removeProperties(ConnectorId connectorId)
     {
-        Map<String, PropertyMetadata<?>> supportedProperties = catalogProperties.get(catalog);
+        connectorProperties.remove(connectorId);
+    }
+
+    public final Map<String, Object> getProperties(
+            ConnectorId connectorId,
+            String catalog, // only use this for error messages
+            Map<String, Expression> sqlPropertyValues,
+            Session session,
+            Metadata metadata,
+            List<Expression> parameters)
+    {
+        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(connectorId);
         if (supportedProperties == null) {
             throw new PrestoException(NOT_FOUND, "Catalog not found: " + catalog);
         }
@@ -128,9 +138,9 @@ abstract class AbstractPropertyManager
         return properties.build();
     }
 
-    public Map<String, Map<String, PropertyMetadata<?>>> getAllProperties()
+    public Map<ConnectorId, Map<String, PropertyMetadata<?>>> getAllProperties()
     {
-        return ImmutableMap.copyOf(catalogProperties);
+        return ImmutableMap.copyOf(connectorProperties);
     }
 
     private Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, List<Expression> parameters)

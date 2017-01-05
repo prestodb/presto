@@ -110,7 +110,7 @@ public class DoWhileLoop
     @Override
     public List<BytecodeNode> getChildNodes()
     {
-        return ImmutableList.<BytecodeNode>of(body, condition);
+        return ImmutableList.of(body, condition);
     }
 
     @Override

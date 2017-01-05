@@ -412,7 +412,7 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
             if (!canQueue && !canRun) {
-                query.fail(new PrestoException(QUERY_QUEUE_FULL, format("Too many queued queries for \"%s\"!", id)));
+                query.fail(new PrestoException(QUERY_QUEUE_FULL, format("Too many queued queries for \"%s\"", id)));
                 return;
             }
             if (canRun) {

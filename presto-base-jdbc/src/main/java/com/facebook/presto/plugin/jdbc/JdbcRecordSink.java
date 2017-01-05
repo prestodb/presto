@@ -69,7 +69,7 @@ public class JdbcRecordSink
     }
 
     @Override
-    public void beginRecord(long sampleWeight)
+    public void beginRecord()
     {
         checkState(field == -1, "already in record");
         field = 0;

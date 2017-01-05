@@ -65,6 +65,12 @@ public class Except
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of(left, right);
+    }
+
+    @Override
     public List<Relation> getRelations()
     {
         return ImmutableList.of(left, right);

@@ -16,7 +16,6 @@ package com.facebook.presto.execution.buffer;
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -37,6 +36,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -87,7 +87,7 @@ class ClientBuffer
         long sequenceId = this.currentSequenceId.get();
 
         // if destroyed the buffered page count must be zero regardless of observation ordering in this lock free code
-        int bufferedPages = destroyed ? 0 : Math.max(Ints.checkedCast(pagesAdded.get() - sequenceId), 0);
+        int bufferedPages = destroyed ? 0 : Math.max(toIntExact(pagesAdded.get() - sequenceId), 0);
 
         PageBufferInfo pageBufferInfo = new PageBufferInfo(bufferId.getId(), bufferedPages, bufferedBytes.get(), rowsAdded.get(), pagesAdded.get());
         return new BufferInfo(bufferId, destroyed, bufferedPages, sequenceId, pageBufferInfo);
@@ -137,7 +137,7 @@ class ClientBuffer
                 return;
             }
 
-            pages.stream().forEach(PageReference::addReference);
+            pages.forEach(PageReference::addReference);
             this.pages.addAll(pages);
 
             long rowCount = pages.stream().mapToLong(PageReference::getPositionCount).sum();
@@ -303,7 +303,7 @@ class ClientBuffer
                 return;
             }
 
-            int pagesToRemove = Ints.checkedCast(sequenceId - oldCurrentSequenceId);
+            int pagesToRemove = toIntExact(sequenceId - oldCurrentSequenceId);
             checkArgument(pagesToRemove <= pages.size(), "Invalid sequence id");
 
             long bytesRemoved = 0;

@@ -38,8 +38,8 @@ public class AccumuloPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final AccumuloClient client;
-    private final AccumuloConfig config;
     private final Connector connector;
+    private final String username;
 
     @Inject
     public AccumuloPageSinkProvider(
@@ -48,15 +48,15 @@ public class AccumuloPageSinkProvider
             AccumuloClient client)
     {
         this.client = requireNonNull(client, "client is null");
-        this.config = requireNonNull(config, "config is null");
         this.connector = requireNonNull(connector, "connector is null");
+        this.username = requireNonNull(config, "config is null").getUsername();
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         AccumuloTableHandle tableHandle = checkType(outputTableHandle, AccumuloTableHandle.class, "tableHandle");
-        return new AccumuloPageSink(connector, config, client.getTable(tableHandle.toSchemaTableName()));
+        return new AccumuloPageSink(connector, client.getTable(tableHandle.toSchemaTableName()), username);
     }
 
     @Override

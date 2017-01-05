@@ -37,18 +37,22 @@ import com.facebook.presto.spi.type.TinyintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.spi.type.VarcharType;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
@@ -104,10 +108,13 @@ import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
+import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
+import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaBooleanObjectInspector;
@@ -145,14 +152,28 @@ public final class HiveWriteUtils
     {
     }
 
-    public static RecordWriter createRecordWriter(Path target, JobConf conf, boolean compress, Properties properties, String outputFormatName)
+    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName)
     {
         try {
+            boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
         }
         catch (IOException | ReflectiveOperationException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    public static Serializer initializeSerializer(Configuration conf, Properties properties, String serializerName)
+    {
+        try {
+            Serializer result = (Serializer) Class.forName(serializerName).getConstructor().newInstance();
+            result.initialize(conf, properties);
+            return result;
+        }
+        catch (SerDeException | ReflectiveOperationException e) {
+            throw Throwables.propagate(e);
         }
     }
 
@@ -312,6 +333,10 @@ public final class HiveWriteUtils
 
     public static void checkTableIsWritable(Table table)
     {
+        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
+        }
+
         checkWritable(
                 new SchemaTableName(table.getDatabaseName(), table.getTableName()),
                 Optional.empty(),
@@ -344,12 +369,18 @@ public final class HiveWriteUtils
 
         // verify online
         if (protectMode.offline) {
-            throw new TableOfflineException(tableName, format("%s is offline", tablePartitionDescription));
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
+            }
+            throw new TableOfflineException(tableName, false, null);
         }
 
         String prestoOffline = parameters.get(PRESTO_OFFLINE);
         if (!isNullOrEmpty(prestoOffline)) {
-            throw new TableOfflineException(tableName, format("%s is offline for Presto: %s", tablePartitionDescription, prestoOffline));
+            if (partitionName.isPresent()) {
+                throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
+            }
+            throw new TableOfflineException(tableName, true, prestoOffline);
         }
 
         // verify not read only
@@ -719,7 +750,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            value.set(Ints.checkedCast(IntegerType.INTEGER.getLong(block, position)));
+            value.set(toIntExact(IntegerType.INTEGER.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -868,7 +899,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            value.set(Ints.checkedCast(DateType.DATE.getLong(block, position)));
+            value.set(toIntExact(DateType.DATE.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

@@ -128,4 +128,11 @@ public class TestUnknownOperators
         assertFunction("cast(NULL as boolean)", BOOLEAN, null);
         assertFunction("cast(null_function() as boolean)", BOOLEAN, null);
     }
+
+    @Test
+    public void testIsDistinctFrom()
+            throws Exception
+    {
+        assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
+    }
 }

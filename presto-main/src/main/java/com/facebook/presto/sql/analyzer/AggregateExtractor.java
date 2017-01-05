@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.google.common.collect.ImmutableList;
@@ -25,21 +25,19 @@ import static java.util.Objects.requireNonNull;
 class AggregateExtractor
         extends DefaultExpressionTraversalVisitor<Void, Void>
 {
-    private final Metadata metadata;
+    private final FunctionRegistry functionRegistry;
 
     private final ImmutableList.Builder<FunctionCall> aggregates = ImmutableList.builder();
 
-    public AggregateExtractor(Metadata metadata)
+    public AggregateExtractor(FunctionRegistry functionRegistry)
     {
-        requireNonNull(metadata, "metadata is null");
-
-        this.metadata = metadata;
+        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
     }
 
     @Override
     protected Void visitFunctionCall(FunctionCall node, Void context)
     {
-        if (metadata.isAggregationFunction(node.getName()) && !node.getWindow().isPresent()) {
+        if (functionRegistry.isAggregationFunction(node.getName()) && !node.getWindow().isPresent()) {
             aggregates.add(node);
             return null;
         }

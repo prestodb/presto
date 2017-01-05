@@ -169,7 +169,8 @@ public class InformationSchemaPageSourceProvider
                         null,
                         "YES",
                         column.getType().getDisplayName(),
-                        column.getComment());
+                        column.getComment(),
+                        column.getExtraInfo());
                 ordinalPosition++;
             }
         }
@@ -247,7 +248,7 @@ public class InformationSchemaPageSourceProvider
             throw new TableNotFoundException(tableName.asSchemaTableName());
         }
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
+        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
 
         if (layouts.size() == 1) {
             Map<ColumnHandle, String> columnHandles = ImmutableBiMap.copyOf(metadata.getColumnHandles(session, tableHandle.get())).inverse();

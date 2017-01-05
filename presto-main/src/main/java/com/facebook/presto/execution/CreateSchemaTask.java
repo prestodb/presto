@@ -14,9 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.Expression;
@@ -28,6 +30,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -63,7 +66,11 @@ public class CreateSchemaTask
             return completedFuture(null);
         }
 
+        ConnectorId connectorId = metadata.getCatalogHandle(session, schema.getCatalogName())
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + schema.getCatalogName()));
+
         Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
+                connectorId,
                 schema.getCatalogName(),
                 statement.getProperties(),
                 session,

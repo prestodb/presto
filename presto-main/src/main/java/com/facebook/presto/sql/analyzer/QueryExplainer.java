@@ -45,7 +45,6 @@ public class QueryExplainer
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
-    private final boolean experimentalSyntaxEnabled;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     @Inject
@@ -54,15 +53,13 @@ public class QueryExplainer
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
-            FeaturesConfig featuresConfig)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this(planOptimizers.get(),
                 metadata,
                 accessControl,
                 sqlParser,
-                dataDefinitionTask,
-                featuresConfig.isExperimentalSyntaxEnabled());
+                dataDefinitionTask);
     }
 
     public QueryExplainer(
@@ -70,14 +67,12 @@ public class QueryExplainer
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
-            boolean experimentalSyntaxEnabled)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
@@ -126,7 +121,7 @@ public class QueryExplainer
     private Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), experimentalSyntaxEnabled, parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -139,7 +134,7 @@ public class QueryExplainer
     private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters)
     {
         // analyze statement
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), experimentalSyntaxEnabled, parameters);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters);
 
         Analysis analysis = analyzer.analyze(statement);
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -148,6 +143,6 @@ public class QueryExplainer
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, planOptimizers, idAllocator, metadata, sqlParser);
         Plan plan = logicalPlanner.plan(analysis);
 
-        return new PlanFragmenter().createSubPlans(session, metadata, plan);
+        return PlanFragmenter.createSubPlans(session, metadata, plan);
     }
 }

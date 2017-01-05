@@ -36,7 +36,7 @@ import static org.testng.Assert.assertEquals;
 public class TestArrayMaxNAggregation
         extends AbstractTestAggregationFunction
 {
-    public Block createLongArraysBlock(Long[] values)
+    public static Block createLongArraysBlock(Long[] values)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), values.length);
@@ -53,7 +53,7 @@ public class TestArrayMaxNAggregation
         return blockBuilder.build();
     }
 
-    public Block createLongArraySequenceBlock(int start, int length)
+    public static Block createLongArraySequenceBlock(int start, int length)
     {
         return createLongArraysBlock(LongStream.range(start, length).boxed().toArray(Long[]::new));
     }

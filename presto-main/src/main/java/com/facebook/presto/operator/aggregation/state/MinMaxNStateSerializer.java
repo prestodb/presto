@@ -22,11 +22,11 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 
 public class MinMaxNStateSerializer
         implements AccumulatorStateSerializer<MinMaxNState>
@@ -72,7 +72,7 @@ public class MinMaxNStateSerializer
     public void deserialize(Block block, int index, MinMaxNState state)
     {
         Block currentBlock = (Block) serializedType.getObject(block, index);
-        int capacity = Ints.checkedCast(BIGINT.getLong(currentBlock, 0));
+        int capacity = toIntExact(BIGINT.getLong(currentBlock, 0));
         Block heapBlock = arrayType.getObject(currentBlock, 1);
         TypedHeap heap = new TypedHeap(blockComparator, elementType, capacity);
         heap.addAll(heapBlock);

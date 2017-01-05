@@ -34,6 +34,7 @@ import java.util.UUID;
 public interface ShardDao
 {
     int CLEANABLE_SHARDS_BATCH_SIZE = 1000;
+    int CLEANUP_TRANSACTIONS_BATCH_SIZE = 10_000;
 
     @SqlUpdate("INSERT INTO nodes (node_identifier) VALUES (:nodeIdentifier)")
     @GetGeneratedKeys
@@ -197,6 +198,16 @@ public interface ShardDao
     @Mapper(BucketNode.Mapper.class)
     List<BucketNode> getBucketNodes(@Bind("distributionId") long distributionId);
 
+    @SqlQuery("SELECT distribution_id, distribution_name, column_types, bucket_count\n" +
+            "FROM distributions\n" +
+            "WHERE distribution_id IN (SELECT distribution_id FROM tables)")
+    List<Distribution> listActiveDistributions();
+
+    @SqlQuery("SELECT SUM(compressed_size)\n" +
+            "FROM tables\n" +
+            "WHERE distribution_id = :distributionId")
+    long getDistributionSizeBytes(@Bind("distributionId") long distributionId);
+
     @SqlUpdate("UPDATE buckets SET node_id = :nodeId\n" +
             "WHERE distribution_id = :distributionId\n" +
             "  AND bucket_number = :bucketNumber")
@@ -204,4 +215,6 @@ public interface ShardDao
             @Bind("distributionId") long distributionId,
             @Bind("bucketNumber") int bucketNumber,
             @Bind("nodeId") int nodeId);
+
+    int deleteOldCompletedTransactions(@Bind("maxEndTime") Timestamp maxEndTime);
 }

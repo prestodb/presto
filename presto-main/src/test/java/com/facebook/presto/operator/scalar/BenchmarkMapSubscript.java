@@ -36,7 +36,6 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -189,12 +188,12 @@ public class BenchmarkMapSubscript
         private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)
         {
             InterleavedBlock interleavedBlock = new InterleavedBlock(new Block[] {keyBlock, valueBlock});
-            int[] offsets = new int[positionCount];
+            int[] offsets = new int[positionCount + 1];
             int mapSize = keyBlock.getPositionCount() / positionCount;
-            for (int i = 0; i < positionCount; i++) {
+            for (int i = 0; i < offsets.length; i++) {
                 offsets[i] = mapSize * 2 * i;
             }
-            return new ArrayBlock(interleavedBlock, Slices.wrappedIntArray(offsets), 0, Slices.allocate(positionCount));
+            return new ArrayBlock(positionCount, new boolean[positionCount], offsets, interleavedBlock);
         }
 
         private static Block createKeyBlock(int positionCount, List<String> keys)
@@ -204,7 +203,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, Slices.wrappedIntArray(keyIds));
+            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, keyIds);
         }
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)
@@ -243,7 +242,7 @@ public class BenchmarkMapSubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, Slices.wrappedIntArray(keyIds));
+            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

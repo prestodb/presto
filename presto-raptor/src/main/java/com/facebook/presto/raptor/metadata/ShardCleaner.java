@@ -50,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.raptor.metadata.ShardDao.CLEANABLE_SHARDS_BATCH_SIZE;
+import static com.facebook.presto.raptor.metadata.ShardDao.CLEANUP_TRANSACTIONS_BATCH_SIZE;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -81,6 +82,7 @@ public class ShardCleaner
     private final Duration backupCleanTime;
     private final ScheduledExecutorService scheduler;
     private final ExecutorService backupExecutor;
+    private final Duration maxCompletedTransactionAge;
 
     private final AtomicBoolean started = new AtomicBoolean();
 
@@ -116,7 +118,8 @@ public class ShardCleaner
                 config.getLocalCleanTime(),
                 config.getBackupCleanerInterval(),
                 config.getBackupCleanTime(),
-                config.getBackupDeletionThreads());
+                config.getBackupDeletionThreads(),
+                config.getMaxCompletedTransactionAge());
     }
 
     public ShardCleaner(
@@ -132,7 +135,8 @@ public class ShardCleaner
             Duration localCleanTime,
             Duration backupCleanerInterval,
             Duration backupCleanTime,
-            int backupDeletionThreads)
+            int backupDeletionThreads,
+            Duration maxCompletedTransactionAge)
     {
         this.dao = shardDaoSupplier.onDemand();
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
@@ -148,6 +152,7 @@ public class ShardCleaner
         this.backupCleanTime = requireNonNull(backupCleanTime, "backupCleanTime is null");
         this.scheduler = newScheduledThreadPool(2, daemonThreadsNamed("shard-cleaner-%s"));
         this.backupExecutor = newFixedThreadPool(backupDeletionThreads, daemonThreadsNamed("shard-cleaner-backup-%s"));
+        this.maxCompletedTransactionAge = requireNonNull(maxCompletedTransactionAge, "maxCompletedTransactionAge is null");
     }
 
     @PostConstruct
@@ -229,6 +234,7 @@ public class ShardCleaner
         scheduler.scheduleWithFixedDelay(() -> {
             try {
                 abortOldTransactions();
+                deleteOldCompletedTransactions();
                 deleteOldShards();
             }
             catch (Throwable t) {
@@ -287,6 +293,17 @@ public class ShardCleaner
             dao.insertDeletedShards(shards);
             dao.deleteCreatedShards(shards);
             backupShardsQueued.update(shards.size());
+        }
+    }
+
+    @VisibleForTesting
+    void deleteOldCompletedTransactions()
+    {
+        while (!Thread.currentThread().isInterrupted()) {
+            int deleted = dao.deleteOldCompletedTransactions(maxTimestamp(maxCompletedTransactionAge));
+            if (deleted < CLEANUP_TRANSACTIONS_BATCH_SIZE) {
+                break;
+            }
         }
     }
 

@@ -50,7 +50,7 @@ public class ThreadResource
     @GET
     @Path("/v1/thread")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<Info> getThreadInfo()
+    public static List<Info> getThreadInfo()
     {
         ThreadMXBean mbean = ManagementFactory.getThreadMXBean();
 

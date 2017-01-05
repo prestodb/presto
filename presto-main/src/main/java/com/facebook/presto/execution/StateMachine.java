@@ -24,7 +24,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -329,40 +328,5 @@ public class StateMachine<T>
     public String toString()
     {
         return get().toString();
-    }
-
-    private static class FutureStateChange<T>
-    {
-        // Use a separate future for each listener so canceled listeners can be removed
-        @GuardedBy("this")
-        private final Set<CompletableFuture<T>> listeners = new HashSet<>();
-
-        public synchronized CompletableFuture<T> createNewListener()
-        {
-            CompletableFuture<T> listener = new CompletableFuture<>();
-            listeners.add(listener);
-
-            // remove the listener when the future completes
-            listener.whenComplete((t, throwable) -> {
-                synchronized (FutureStateChange.this) {
-                    listeners.remove(listener);
-                }
-            });
-
-            return listener;
-        }
-
-        public void complete(T newState)
-        {
-            Set<CompletableFuture<T>> futures;
-            synchronized (this) {
-                futures = ImmutableSet.copyOf(listeners);
-                listeners.clear();
-            }
-
-            for (CompletableFuture<T> future : futures) {
-                future.complete(newState);
-            }
-        }
     }
 }

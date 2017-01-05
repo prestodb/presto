@@ -33,8 +33,6 @@ public class GenericAccumulatorFactory
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final Optional<Integer> maskChannel;
-    private final Optional<Integer> sampleWeightChannel;
-    private final double confidence;
     private final List<Integer> inputChannels;
 
     public GenericAccumulatorFactory(
@@ -43,17 +41,13 @@ public class GenericAccumulatorFactory
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
             List<Integer> inputChannels,
-            Optional<Integer> maskChannel,
-            Optional<Integer> sampleWeightChannel,
-            double confidence)
+            Optional<Integer> maskChannel)
     {
         this.stateSerializer = requireNonNull(stateSerializer, "stateSerializer is null");
         this.stateFactory = requireNonNull(stateFactory, "stateFactory is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
-        this.sampleWeightChannel = requireNonNull(sampleWeightChannel, "sampleWeightChannel is null");
-        this.confidence = confidence;
         this.inputChannels = ImmutableList.copyOf(requireNonNull(inputChannels, "inputChannels is null"));
     }
 
@@ -67,7 +61,7 @@ public class GenericAccumulatorFactory
     public Accumulator createAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel, sampleWeightChannel, confidence);
+            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -78,7 +72,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty(), Optional.empty(), confidence);
+            return accumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), Optional.empty());
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -89,7 +83,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel, sampleWeightChannel, confidence);
+            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, inputChannels, maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);
@@ -100,7 +94,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), maskChannel, Optional.empty(), confidence);
+            return groupedAccumulatorConstructor.newInstance(stateSerializer, stateFactory, ImmutableList.of(), maskChannel);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw Throwables.propagate(e);

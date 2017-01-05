@@ -78,6 +78,15 @@ public class CreateTable
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(elements)
+                .addAll(properties.values())
+                .build();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(name, elements, notExists, properties);

@@ -25,7 +25,7 @@ import io.airlift.slice.Slices;
 
 import java.nio.ByteBuffer;
 
-@Description("Returns textual representation of type of expression passed as a parameter")
+@Description("textual representation of expression type")
 @ScalarFunction("typeof")
 public final class TypeOfFunction
 {

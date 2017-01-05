@@ -62,7 +62,7 @@ public class OperatorStats
     private final DataSize systemMemoryReservation;
     private final Optional<BlockedReason> blockedReason;
 
-    private final Object info;
+    private final OperatorInfo info;
 
     @JsonCreator
     public OperatorStats(
@@ -95,7 +95,7 @@ public class OperatorStats
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("blockedReason") Optional<BlockedReason> blockedReason,
 
-            @JsonProperty("info") Object info)
+            @JsonProperty("info") OperatorInfo info)
     {
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
@@ -272,7 +272,7 @@ public class OperatorStats
 
     @Nullable
     @JsonProperty
-    public Object getInfo()
+    public OperatorInfo getInfo()
     {
         return info;
     }
@@ -309,10 +309,7 @@ public class OperatorStats
         long systemMemoryReservation = this.systemMemoryReservation.toBytes();
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
-        Mergeable<?> base = null;
-        if (info instanceof Mergeable) {
-            base = (Mergeable<?>) info;
-        }
+        Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
 
@@ -343,7 +340,7 @@ public class OperatorStats
                 blockedReason = operator.getBlockedReason();
             }
 
-            Object info = operator.getInfo();
+            OperatorInfo info = operator.getInfo();
             if (base != null && info != null && base.getClass() == info.getClass()) {
                 base = mergeInfo(base, info);
             }
@@ -379,11 +376,51 @@ public class OperatorStats
                 succinctBytes(systemMemoryReservation),
                 blockedReason,
 
-                base);
+                (OperatorInfo) base);
     }
 
-    public static <T extends Mergeable<T>> Mergeable<?> mergeInfo(Object base, Object other)
+    @SuppressWarnings("unchecked")
+    private static Mergeable<OperatorInfo> getMergeableInfoOrNull(OperatorInfo info)
     {
-        return ((T) base).mergeWith(((T) other));
+        Mergeable<OperatorInfo> base = null;
+        if (info instanceof Mergeable) {
+            base = (Mergeable<OperatorInfo>) info;
+        }
+        return base;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Mergeable<T> mergeInfo(Mergeable<T> base, T other)
+    {
+        return (Mergeable<T>) base.mergeWith(other);
+    }
+
+    public OperatorStats summarize()
+    {
+        return new OperatorStats(
+                operatorId,
+                planNodeId,
+                operatorType,
+                addInputCalls,
+                addInputWall,
+                addInputCpu,
+                addInputUser,
+                inputDataSize,
+                inputPositions,
+                getOutputCalls,
+                getOutputWall,
+                getOutputCpu,
+                getOutputUser,
+                outputDataSize,
+                outputPositions,
+                blockedWall,
+                finishCalls,
+                finishWall,
+                finishCpu,
+                finishUser,
+                memoryReservation,
+                systemMemoryReservation,
+                blockedReason,
+                (info != null && info.isFinal()) ? info : null);
     }
 }

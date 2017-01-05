@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -69,7 +68,7 @@ public abstract class SqlAggregationFunction
         requireNonNull(longVariableConstraints, "longVariableConstraints is null");
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        checkArgument(kind == AGGREGATE || kind == APPROXIMATE_AGGREGATE, "kind must be an aggregate");
+        checkArgument(kind == AGGREGATE, "kind must be an aggregate");
         this.signature = new Signature(
                 name,
                 kind,

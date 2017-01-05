@@ -72,7 +72,7 @@ public class ExpressionExtractor
         @Override
         public Void visitProject(ProjectNode node, ImmutableList.Builder<Expression> context)
         {
-            context.addAll(node.getAssignments().values());
+            context.addAll(node.getAssignments().getExpressions());
             return super.visitProject(node, context);
         }
 

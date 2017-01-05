@@ -13,16 +13,15 @@
  */
 package com.facebook.presto.orc.metadata;
 
-import com.facebook.hive.orc.OrcProto;
-import com.facebook.hive.orc.OrcProto.ColumnEncoding.Kind;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
+import com.facebook.presto.orc.proto.DwrfProto;
+import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.primitives.Ints;
-import com.google.protobuf.CodedInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -37,8 +36,10 @@ import static com.facebook.presto.orc.metadata.CompressionKind.UNCOMPRESSED;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMaxSlice;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.getMinSlice;
+import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public class DwrfMetadataReader
         implements MetadataReader
@@ -48,47 +49,48 @@ public class DwrfMetadataReader
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(data, offset, length);
-        OrcProto.PostScript postScript = OrcProto.PostScript.parseFrom(input);
+        DwrfProto.PostScript postScript = DwrfProto.PostScript.parseFrom(input);
 
         return new PostScript(
-                ImmutableList.<Integer>of(),
+                ImmutableList.of(),
                 postScript.getFooterLength(),
                 0,
                 toCompression(postScript.getCompression()),
-                postScript.getCompressionBlockSize());
+                postScript.getCompressionBlockSize(),
+                ORIGINAL); // DWRF doesn't have the equivalent of Hive writer version, and it is not clear if HIVE-8732 has been fixed
     }
 
     @Override
-    public Metadata readMetadata(InputStream inputStream)
+    public Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
-        return new Metadata(ImmutableList.<StripeStatistics>of());
+        return new Metadata(ImmutableList.of());
     }
 
     @Override
-    public Footer readFooter(InputStream inputStream)
+    public Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
-        OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
+        DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
-                toColumnStatistics(footer.getStatisticsList(), false),
+                toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
                 toUserMetadata(footer.getMetadataList()));
     }
 
-    private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
+    private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> types)
     {
         return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toStripeInformation));
     }
 
-    private static StripeInformation toStripeInformation(OrcProto.StripeInformation stripeInformation)
+    private static StripeInformation toStripeInformation(DwrfProto.StripeInformation stripeInformation)
     {
         return new StripeInformation(
-                Ints.checkedCast(stripeInformation.getNumberOfRows()),
+                toIntExact(stripeInformation.getNumberOfRows()),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
@@ -96,30 +98,30 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(HiveWriterVersion hiveWriterVersion, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
-        OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
+        DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
         return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(types, stripeFooter.getColumnsList()));
     }
 
-    private static Stream toStream(OrcProto.Stream stream)
+    private static Stream toStream(DwrfProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), Ints.checkedCast(stream.getLength()), stream.getUseVInts());
+        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), stream.getUseVInts());
     }
 
-    private static List<Stream> toStream(List<OrcProto.Stream> streams)
+    private static List<Stream> toStream(List<DwrfProto.Stream> streams)
     {
         return ImmutableList.copyOf(Iterables.transform(streams, DwrfMetadataReader::toStream));
     }
 
-    private static ColumnEncoding toColumnEncoding(OrcTypeKind type, OrcProto.ColumnEncoding columnEncoding)
+    private static ColumnEncoding toColumnEncoding(OrcTypeKind type, DwrfProto.ColumnEncoding columnEncoding)
     {
         return new ColumnEncoding(toColumnEncodingKind(type, columnEncoding.getKind()), columnEncoding.getDictionarySize());
     }
 
-    private static List<ColumnEncoding> toColumnEncoding(List<OrcType> types, List<OrcProto.ColumnEncoding> columnEncodings)
+    private static List<ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
     {
         checkArgument(types.size() == columnEncodings.size());
 
@@ -132,12 +134,12 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public List<RowGroupIndex> readRowIndexes(InputStream inputStream)
+    public List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
-        OrcProto.RowIndex rowIndex = OrcProto.RowIndex.parseFrom(input);
-        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), DwrfMetadataReader::toRowGroupIndex));
+        DwrfProto.RowIndex rowIndex = DwrfProto.RowIndex.parseFrom(input);
+        return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), rowIndexEntry -> toRowGroupIndex(hiveWriterVersion, rowIndexEntry)));
     }
 
     @Override
@@ -148,7 +150,7 @@ public class DwrfMetadataReader
         return ImmutableList.of();
     }
 
-    private static RowGroupIndex toRowGroupIndex(OrcProto.RowIndexEntry rowIndexEntry)
+    private static RowGroupIndex toRowGroupIndex(HiveWriterVersion hiveWriterVersion, DwrfProto.RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
@@ -160,40 +162,40 @@ public class DwrfMetadataReader
 
             positions.add(intPosition);
         }
-        return new RowGroupIndex(positions.build(), toColumnStatistics(rowIndexEntry.getStatistics(), true));
+        return new RowGroupIndex(positions.build(), toColumnStatistics(hiveWriterVersion, rowIndexEntry.getStatistics(), true));
     }
 
-    private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
+    private static List<ColumnStatistics> toColumnStatistics(HiveWriterVersion hiveWriterVersion, List<DwrfProto.ColumnStatistics> columnStatistics, boolean isRowGroup)
     {
         if (columnStatistics == null) {
             return ImmutableList.of();
         }
-        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(statistics, isRowGroup)));
+        return ImmutableList.copyOf(Iterables.transform(columnStatistics, statistics -> toColumnStatistics(hiveWriterVersion, statistics, isRowGroup)));
     }
 
-    private Map<String, Slice> toUserMetadata(List<OrcProto.UserMetadataItem> metadataList)
+    private Map<String, Slice> toUserMetadata(List<DwrfProto.UserMetadataItem> metadataList)
     {
         ImmutableMap.Builder<String, Slice> mapBuilder = ImmutableMap.builder();
-        for (OrcProto.UserMetadataItem item : metadataList) {
+        for (DwrfProto.UserMetadataItem item : metadataList) {
             mapBuilder.put(item.getName(), Slices.wrappedBuffer(item.getValue().toByteArray()));
         }
         return mapBuilder.build();
     }
 
-    private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
+    private static ColumnStatistics toColumnStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.ColumnStatistics statistics, boolean isRowGroup)
     {
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 toBooleanStatistics(statistics.getBucketStatistics()),
                 toIntegerStatistics(statistics.getIntStatistics()),
                 toDoubleStatistics(statistics.getDoubleStatistics()),
-                toStringStatistics(statistics.getStringStatistics(), isRowGroup),
+                toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup),
                 null,
                 null,
                 null);
     }
 
-    private static BooleanStatistics toBooleanStatistics(OrcProto.BucketStatistics bucketStatistics)
+    private static BooleanStatistics toBooleanStatistics(DwrfProto.BucketStatistics bucketStatistics)
     {
         if (bucketStatistics.getCountCount() == 0) {
             return null;
@@ -202,7 +204,7 @@ public class DwrfMetadataReader
         return new BooleanStatistics(bucketStatistics.getCount(0));
     }
 
-    private static IntegerStatistics toIntegerStatistics(OrcProto.IntegerStatistics integerStatistics)
+    private static IntegerStatistics toIntegerStatistics(DwrfProto.IntegerStatistics integerStatistics)
     {
         if (!integerStatistics.hasMinimum() && !integerStatistics.hasMaximum()) {
             return null;
@@ -213,7 +215,7 @@ public class DwrfMetadataReader
                 integerStatistics.hasMaximum() ? integerStatistics.getMaximum() : null);
     }
 
-    private static DoubleStatistics toDoubleStatistics(OrcProto.DoubleStatistics doubleStatistics)
+    private static DoubleStatistics toDoubleStatistics(DwrfProto.DoubleStatistics doubleStatistics)
     {
         if (!doubleStatistics.hasMinimum() && !doubleStatistics.hasMaximum()) {
             return null;
@@ -231,10 +233,9 @@ public class DwrfMetadataReader
                 doubleStatistics.hasMaximum() ? doubleStatistics.getMaximum() : null);
     }
 
-    private static StringStatistics toStringStatistics(OrcProto.StringStatistics stringStatistics, boolean isRowGroup)
+    private static StringStatistics toStringStatistics(HiveWriterVersion hiveWriterVersion, DwrfProto.StringStatistics stringStatistics, boolean isRowGroup)
     {
-        // TODO remove this when string statistics in ORC are fixed https://issues.apache.org/jira/browse/HIVE-8732
-        if (!isRowGroup) {
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
             return null;
         }
 
@@ -248,17 +249,17 @@ public class DwrfMetadataReader
         return new StringStatistics(minimum, maximum);
     }
 
-    private static OrcType toType(OrcProto.Type type)
+    private static OrcType toType(DwrfProto.Type type)
     {
         return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty());
     }
 
-    private static List<OrcType> toType(List<OrcProto.Type> types)
+    private static List<OrcType> toType(List<DwrfProto.Type> types)
     {
         return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toType));
     }
 
-    private static OrcTypeKind toTypeKind(OrcProto.Type.Kind kind)
+    private static OrcTypeKind toTypeKind(DwrfProto.Type.Kind kind)
     {
         switch (kind) {
             case BOOLEAN:
@@ -294,7 +295,7 @@ public class DwrfMetadataReader
         }
     }
 
-    private static StreamKind toStreamKind(OrcProto.Stream.Kind kind)
+    private static StreamKind toStreamKind(DwrfProto.Stream.Kind kind)
     {
         switch (kind) {
             case PRESENT:
@@ -322,7 +323,7 @@ public class DwrfMetadataReader
         }
     }
 
-    private static ColumnEncodingKind toColumnEncodingKind(OrcTypeKind type, Kind kind)
+    private static ColumnEncodingKind toColumnEncodingKind(OrcTypeKind type, DwrfProto.ColumnEncoding.Kind kind)
     {
         switch (kind) {
             case DIRECT:
@@ -339,7 +340,7 @@ public class DwrfMetadataReader
         }
     }
 
-    private static CompressionKind toCompression(OrcProto.CompressionKind compression)
+    private static CompressionKind toCompression(DwrfProto.CompressionKind compression)
     {
         switch (compression) {
             case NONE:

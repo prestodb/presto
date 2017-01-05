@@ -19,7 +19,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -31,6 +30,7 @@ import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public class DecimalEncoding
         implements BinaryColumnEncoding
@@ -81,7 +81,7 @@ public class DecimalEncoding
 
         // second vint is data length
         int dataLengthLength = decodeVIntSize(slice, offset + scaleLength);
-        int dataLength = Ints.checkedCast(readVInt(slice, offset + scaleLength));
+        int dataLength = toIntExact(readVInt(slice, offset + scaleLength));
 
         return scaleLength + dataLengthLength + dataLength;
     }
@@ -100,11 +100,11 @@ public class DecimalEncoding
     private long parseLong(Slice slice, int offset)
     {
         // first vint is scale
-        int scale = Ints.checkedCast(readVInt(slice, offset));
+        int scale = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice, offset);
 
         // second vint is length
-        int length = Ints.checkedCast(readVInt(slice, offset));
+        int length = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice, offset);
 
         checkState(length <= 8);
@@ -130,11 +130,11 @@ public class DecimalEncoding
     private Slice parseSlice(Slice slice, int offset)
     {
         // first vint is scale, which is ignored
-        int scale = Ints.checkedCast(readVInt(slice, offset));
+        int scale = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice, offset);
 
         // second vint is length
-        int length = Ints.checkedCast(readVInt(slice, offset));
+        int length = toIntExact(readVInt(slice, offset));
         offset += decodeVIntSize(slice, offset);
 
         checkState(length <= 16);

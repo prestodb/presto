@@ -24,6 +24,7 @@ import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -38,6 +39,7 @@ import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -150,11 +152,9 @@ public class TestEffectivePredicateExtractor
                                 equals(EE, FE))),
                 ImmutableMap.of(C, fakeFunction("test"), D, fakeFunction("test")),
                 ImmutableMap.of(C, fakeFunctionHandle("test", AGGREGATE), D, fakeFunctionHandle("test", AGGREGATE)),
-                ImmutableMap.<Symbol, Symbol>of(),
+                ImmutableMap.of(),
                 ImmutableList.of(ImmutableList.of(A, B, C)),
                 AggregationNode.Step.FINAL,
-                Optional.empty(),
-                1.0,
                 Optional.empty(),
                 Optional.empty());
 
@@ -182,8 +182,6 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.of(ImmutableList.of()),
                 AggregationNode.Step.FINAL,
                 Optional.empty(),
-                1.0,
-                Optional.empty(),
                 Optional.empty());
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
@@ -197,7 +195,7 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = filter(baseTableScan,
                 and(
-                        greaterThan(AE, new FunctionCall(QualifiedName.of("rand"), ImmutableList.<Expression>of())),
+                        greaterThan(AE, new FunctionCall(QualifiedName.of("rand"), ImmutableList.of())),
                         lessThan(BE, bigintLiteral(10))));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
@@ -217,7 +215,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                ImmutableMap.of(D, AE, E, CE));
+                Assignments.of(D, AE, E, CE));
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 
@@ -394,7 +392,7 @@ public class TestEffectivePredicateExtractor
     {
         ImmutableListMultimap<Symbol, Symbol> symbolMapping = ImmutableListMultimap.of(A, B, A, C, A, E);
         PlanNode node = new UnionNode(newId(),
-                ImmutableList.<PlanNode>of(
+                ImmutableList.of(
                         filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
                         filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))
@@ -719,17 +717,17 @@ public class TestEffectivePredicateExtractor
 
     private static ComparisonExpression equals(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Type.EQUAL, expression1, expression2);
+        return new ComparisonExpression(ComparisonExpressionType.EQUAL, expression1, expression2);
     }
 
     private static ComparisonExpression lessThan(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Type.LESS_THAN, expression1, expression2);
+        return new ComparisonExpression(ComparisonExpressionType.LESS_THAN, expression1, expression2);
     }
 
     private static ComparisonExpression greaterThan(Expression expression1, Expression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Type.GREATER_THAN, expression1, expression2);
+        return new ComparisonExpression(ComparisonExpressionType.GREATER_THAN, expression1, expression2);
     }
 
     private static IsNullPredicate isNull(Expression expression)
@@ -739,12 +737,12 @@ public class TestEffectivePredicateExtractor
 
     private static FunctionCall fakeFunction(String name)
     {
-        return new FunctionCall(QualifiedName.of("test"), ImmutableList.<Expression>of());
+        return new FunctionCall(QualifiedName.of("test"), ImmutableList.of());
     }
 
     private static Signature fakeFunctionHandle(String name, FunctionKind kind)
     {
-        return new Signature(name, kind, TypeSignature.parseTypeSignature(UnknownType.NAME), ImmutableList.<TypeSignature>of());
+        return new Signature(name, kind, TypeSignature.parseTypeSignature(UnknownType.NAME), ImmutableList.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)
@@ -768,11 +766,11 @@ public class TestEffectivePredicateExtractor
 
         Set<Expression> rewrittenSet = new HashSet<>();
         for (Expression expression : EqualityInference.nonInferrableConjuncts(predicate)) {
-            Expression rewritten = inference.rewriteExpression(expression, Predicates.<Symbol>alwaysTrue());
+            Expression rewritten = inference.rewriteExpression(expression, Predicates.alwaysTrue());
             Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
             rewrittenSet.add(rewritten);
         }
-        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(Predicates.<Symbol>alwaysTrue()).getScopeEqualities());
+        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(Predicates.alwaysTrue()).getScopeEqualities());
 
         return rewrittenSet;
     }

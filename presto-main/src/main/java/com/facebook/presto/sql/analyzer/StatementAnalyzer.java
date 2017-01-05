@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -37,21 +38,34 @@ import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
+import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Call;
+import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateSchema;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.DropSchema;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -62,17 +76,26 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameColumn;
+import com.facebook.presto.sql.tree.RenameSchema;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Revoke;
+import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
@@ -94,7 +117,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.primitives.Ints;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -105,9 +127,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
-import static com.facebook.presto.metadata.FunctionKind.APPROXIMATE_AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -140,8 +163,9 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.expressionOptimizer;
-import static com.facebook.presto.sql.tree.ComparisonExpression.Type.EQUAL;
+import static com.facebook.presto.sql.tree.ComparisonExpressionType.EQUAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static com.facebook.presto.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static com.facebook.presto.sql.tree.FrameBound.Type.FOLLOWING;
@@ -156,6 +180,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.Math.toIntExact;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 class StatementAnalyzer
@@ -164,7 +190,6 @@ class StatementAnalyzer
     private final Analysis analysis;
     private final Metadata metadata;
     private final Session session;
-    private final boolean experimentalSyntaxEnabled;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
 
@@ -172,15 +197,13 @@ class StatementAnalyzer
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
-            AccessControl accessControl, Session session,
-            boolean experimentalSyntaxEnabled)
+            AccessControl accessControl, Session session)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
-        this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
     }
 
     @Override
@@ -291,9 +314,7 @@ class StatementAnalyzer
                 metadata,
                 sqlParser,
                 new AllowAllAccessControl(),
-                session,
-                experimentalSyntaxEnabled
-        );
+                session);
 
         Scope tableScope = analyzer.process(table, scope);
         node.getWhere().ifPresent(where -> analyzer.analyzeWhere(node, tableScope, where));
@@ -325,7 +346,7 @@ class StatementAnalyzer
 
         for (Expression expression : node.getProperties().values()) {
             // analyze table property value expressions which must be constant
-            createConstantAnalyzer(metadata, session, analysis.getParameters())
+            createConstantAnalyzer(metadata, session, analysis.getParameters(), analysis.isDescribe())
                     .analyze(expression, scope);
         }
         analysis.setCreateTableProperties(node.getProperties());
@@ -355,9 +376,7 @@ class StatementAnalyzer
                 metadata,
                 sqlParser,
                 new ViewAccessControl(accessControl),
-                session,
-                experimentalSyntaxEnabled
-        );
+                session);
 
         Scope queryScope = analyzer.process(node.getQuery(), scope);
 
@@ -365,7 +384,127 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
-        return createScope(node, scope, queryScope.getRelationType());
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitSetSession(SetSession node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitResetSession(ResetSession node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitAddColumn(AddColumn node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCreateSchema(CreateSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropSchema(DropSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameSchema(RenameSchema node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCreateTable(CreateTable node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropTable(DropTable node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameTable(RenameTable node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRenameColumn(RenameColumn node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDropView(DropView node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitStartTransaction(StartTransaction node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCommit(Commit node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRollback(Rollback node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitPrepare(Prepare node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitDeallocate(Deallocate node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitExecute(Execute node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitGrant(Grant node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitRevoke(Revoke node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
+    }
+
+    @Override
+    protected Scope visitCall(Call node, Scope scope)
+    {
+        return createScope(node, scope, emptyList());
     }
 
     private static void validateColumns(Statement node, RelationType descriptor)
@@ -404,10 +543,8 @@ class StatementAnalyzer
     protected Scope visitQuery(Query node, Scope scope)
     {
         Scope withScope = analyzeWith(node, scope);
-        boolean approximate = isApproximate(node);
         Scope queryScope = Scope.builder()
                 .withParent(withScope)
-                .withApproximate(approximate)
                 .build();
         Scope queryBodyScope = process(node.getQueryBody(), queryScope);
         analyzeOrderBy(node, queryBodyScope);
@@ -418,22 +555,9 @@ class StatementAnalyzer
         queryScope = Scope.builder()
                 .withParent(withScope)
                 .withRelationType(queryBodyScope.getRelationType())
-                .withApproximate(approximate)
                 .build();
         analysis.setScope(node, queryScope);
         return queryScope;
-    }
-
-    private boolean isApproximate(Query node)
-    {
-        boolean approximate = false;
-        if (node.getApproximate().isPresent()) {
-            if (!experimentalSyntaxEnabled) {
-                throw new SemanticException(NOT_SUPPORTED, node, "approximate queries are not enabled");
-            }
-            approximate = true;
-        }
-        return approximate;
     }
 
     @Override
@@ -488,7 +612,9 @@ class StatementAnalyzer
                                 QualifiedName.of(name),
                                 Optional.of(columnName),
                                 inputField.getType(),
-                                false));
+                                false,
+                                inputField.getOriginTable(),
+                                inputField.isAliased()));
 
                         field++;
                     }
@@ -501,7 +627,9 @@ class StatementAnalyzer
                                     QualifiedName.of(name),
                                     field.getName(),
                                     field.getType(),
-                                    field.isHidden()))
+                                    field.isHidden(),
+                                    field.getOriginTable(),
+                                    field.isAliased()))
                             .collect(toImmutableList());
                 }
 
@@ -534,6 +662,8 @@ class StatementAnalyzer
                             QualifiedName.of(name.getObjectName()),
                             Optional.of(column.getName()),
                             column.getType(),
+                            false,
+                            Optional.of(name),
                             false))
                     .collect(toImmutableList());
 
@@ -544,7 +674,7 @@ class StatementAnalyzer
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
         if (!tableHandle.isPresent()) {
-            if (!metadata.getCatalogNames().containsKey(name.getCatalogName())) {
+            if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                 throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
             }
             if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
@@ -559,7 +689,13 @@ class StatementAnalyzer
         // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            Field field = Field.newQualified(table.getName(), Optional.of(column.getName()), column.getType(), column.isHidden());
+            Field field = Field.newQualified(
+                    table.getName(),
+                    Optional.of(column.getName()),
+                    column.getType(),
+                    column.isHidden(),
+                    Optional.of(name),
+                    false);
             fields.add(field);
             ColumnHandle columnHandle = columnHandles.get(column.getName());
             checkArgument(columnHandle != null, "Unknown field %s", field);
@@ -592,10 +728,6 @@ class StatementAnalyzer
     @Override
     protected Scope visitSampledRelation(SampledRelation relation, Scope scope)
     {
-        if (relation.getColumnsToStratifyOn().isPresent()) {
-            throw new SemanticException(NOT_SUPPORTED, relation, "STRATIFY ON is not yet implemented");
-        }
-
         if (!DependencyExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
             throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
         }
@@ -606,7 +738,8 @@ class StatementAnalyzer
                 sqlParser,
                 ImmutableMap.of(),
                 relation.getSamplePercentage(),
-                analysis.getParameters());
+                analysis.getParameters(),
+                analysis.isDescribe());
         ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
         Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
@@ -622,12 +755,8 @@ class StatementAnalyzer
         if (samplePercentageValue < 0.0) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
         }
-        if ((samplePercentageValue > 100.0) && ((relation.getType() != SampledRelation.Type.POISSONIZED) || relation.isRescaled())) {
+        if ((samplePercentageValue > 100.0)) {
             throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
-        }
-
-        if (relation.isRescaled() && !experimentalSyntaxEnabled) {
-            throw new SemanticException(NOT_SUPPORTED, relation, "Rescaling is not enabled");
         }
 
         analysis.setSampleRatio(relation, samplePercentageValue / 100);
@@ -638,7 +767,7 @@ class StatementAnalyzer
     @Override
     protected Scope visitTableSubquery(TableSubquery node, Scope scope)
     {
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, experimentalSyntaxEnabled);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         Scope queryScope = analyzer.process(node.getQuery(), scope);
         return createScope(node, scope, queryScope.getRelationType());
     }
@@ -661,7 +790,12 @@ class StatementAnalyzer
         List<Expression> orderByExpressions = analyzeOrderBy(node, sourceScope, outputScope, outputExpressions);
         analyzeHaving(node, sourceScope);
 
-        analyzeAggregations(node, sourceScope, groupByExpressions, outputExpressions, orderByExpressions, analysis.getColumnReferences());
+        List<Expression> expressions = new ArrayList<>();
+        expressions.addAll(outputExpressions);
+        expressions.addAll(orderByExpressions);
+        node.getHaving().ifPresent(expressions::add);
+
+        analyzeAggregations(node, sourceScope, groupByExpressions, analysis.getColumnReferences(), expressions);
         analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
         return outputScope;
@@ -710,7 +844,13 @@ class StatementAnalyzer
         RelationType firstDescriptor = relationScopes.get(0).getRelationType().withOnlyVisibleFields();
         for (int i = 0; i < outputFieldTypes.length; i++) {
             Field oldField = firstDescriptor.getFieldByIndex(i);
-            outputDescriptorFields[i] = new Field(oldField.getRelationAlias(), oldField.getName(), outputFieldTypes[i], oldField.isHidden());
+            outputDescriptorFields[i] = new Field(
+                    oldField.getRelationAlias(),
+                    oldField.getName(),
+                    outputFieldTypes[i],
+                    oldField.isHidden(),
+                    oldField.getOriginTable(),
+                    oldField.isAliased());
         }
 
         for (int i = 0; i < node.getRelations().size(); i++) {
@@ -793,7 +933,7 @@ class StatementAnalyzer
 
             // ensure all names can be resolved, types match, etc (we don't need to record resolved names, subexpression types, etc. because
             // we do it further down when after we determine which subexpressions apply to left vs right tuple)
-            ExpressionAnalyzer analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
+            ExpressionAnalyzer analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl);
 
             Type clauseType = analyzer.analyze(expression, output);
             if (!clauseType.equals(BOOLEAN)) {
@@ -804,7 +944,7 @@ class StatementAnalyzer
                 analysis.addCoercion(expression, BOOLEAN, false);
             }
 
-            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, expression, "JOIN");
+            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), expression, "JOIN clause");
 
             // expressionInterpreter/optimizer only understands a subset of expression types
             // TODO: remove this when the new expression tree is implemented
@@ -829,7 +969,7 @@ class StatementAnalyzer
             }
             // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
             // to re-analyze coercions that might be necessary
-            analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl, experimentalSyntaxEnabled);
+            analyzer = ExpressionAnalyzer.create(analysis, session, metadata, sqlParser, accessControl);
             analyzer.analyze((Expression) optimizedExpression, output);
             analysis.addCoercions(analyzer.getExpressionCoercions(), analyzer.getTypeOnlyCoercions());
 
@@ -847,11 +987,11 @@ class StatementAnalyzer
 
                     Expression leftExpression = null;
                     Expression rightExpression = null;
-                    if (firstDependencies.stream().allMatch(left.getRelationType().canResolvePredicate()) && secondDependencies.stream().allMatch(right.getRelationType().canResolvePredicate())) {
+                    if (firstDependencies.stream().allMatch(left.getRelationType()::canResolve) && secondDependencies.stream().allMatch(right.getRelationType()::canResolve)) {
                         leftExpression = conjunctFirst;
                         rightExpression = conjunctSecond;
                     }
-                    else if (firstDependencies.stream().allMatch(right.getRelationType().canResolvePredicate()) && secondDependencies.stream().allMatch(left.getRelationType().canResolvePredicate())) {
+                    else if (firstDependencies.stream().allMatch(right.getRelationType()::canResolve) && secondDependencies.stream().allMatch(left.getRelationType()::canResolve)) {
                         leftExpression = conjunctSecond;
                         rightExpression = conjunctFirst;
                     }
@@ -996,6 +1136,11 @@ class StatementAnalyzer
         List<FunctionCall> windowFunctions = extractor.getWindowFunctions();
 
         for (FunctionCall windowFunction : windowFunctions) {
+            // filter with window function is not supported yet
+            if (windowFunction.getFilter().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
+            }
+
             Window window = windowFunction.getWindow().get();
 
             WindowFunctionExtractor nestedExtractor = new WindowFunctionExtractor();
@@ -1031,8 +1176,8 @@ class StatementAnalyzer
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-            FunctionKind kind = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false).getKind();
-            if (kind != AGGREGATE && kind != APPROXIMATE_AGGREGATE && kind != WINDOW) {
+            FunctionKind kind = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), fromTypeSignatures(argumentTypes)).getKind();
+            if (kind != AGGREGATE && kind != WINDOW) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }
         }
@@ -1087,6 +1232,75 @@ class StatementAnalyzer
 
     private List<Expression> analyzeOrderBy(QuerySpecification node, Scope sourceScope, Scope outputScope, List<Expression> outputExpressions)
     {
+        if (SystemSessionProperties.isLegacyOrderByEnabled(session)) {
+            return legacyAnalyzeOrderBy(node, sourceScope, outputScope, outputExpressions);
+        }
+
+        List<SortItem> items = node.getOrderBy();
+
+        ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
+
+        if (!items.isEmpty()) {
+            for (SortItem item : items) {
+                Expression expression = item.getSortKey();
+
+                Expression orderByExpression;
+                if (expression instanceof LongLiteral) {
+                    // this is an ordinal in the output tuple
+
+                    long ordinal = ((LongLiteral) expression).getValue();
+                    if (ordinal < 1 || ordinal > outputExpressions.size()) {
+                        throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
+                    }
+
+                    int field = toIntExact(ordinal - 1);
+                    Type type = outputScope.getRelationType().getFieldByIndex(field).getType();
+                    if (!type.isOrderable()) {
+                        throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
+                    }
+
+                    orderByExpression = outputExpressions.get(field);
+                }
+                else {
+                    // Analyze the original expression using a synthetic scope (which delegates to the source scope for any missing name)
+                    // to catch any semantic errors (due to type mismatch, etc)
+                    Scope synthetic = Scope.builder()
+                            .withParent(sourceScope)
+                            .withRelationType(outputScope.getRelationType())
+                            .build();
+
+                    analyzeExpression(expression, synthetic);
+
+                    orderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node)), expression);
+
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
+                    analysis.recordSubqueries(node, expressionAnalysis);
+                }
+
+                Type type = analysis.getType(orderByExpression);
+                if (!type.isOrderable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
+                }
+
+                orderByExpressionsBuilder.add(orderByExpression);
+            }
+        }
+
+        List<Expression> orderByExpressions = orderByExpressionsBuilder.build();
+        analysis.setOrderByExpressions(node, orderByExpressions);
+
+        if (node.getSelect().isDistinct() && !outputExpressions.containsAll(orderByExpressions)) {
+            throw new SemanticException(ORDER_BY_MUST_BE_IN_SELECT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+        }
+        return orderByExpressions;
+    }
+
+    /**
+     * Preserve the old column resolution behavior for ORDER BY while we transition workloads to new semantics
+     * TODO: remove this
+     */
+    private List<Expression> legacyAnalyzeOrderBy(QuerySpecification node, Scope sourceScope, Scope outputScope, List<Expression> outputExpressions)
+    {
         List<SortItem> items = node.getOrderBy();
 
         ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
@@ -1130,7 +1344,7 @@ class StatementAnalyzer
                         throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
-                    int field = Ints.checkedCast(ordinal - 1);
+                    int field = toIntExact(ordinal - 1);
                     Type type = outputScope.getRelationType().getFieldByIndex(field).getType();
                     if (!type.isOrderable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "The type of expression in position %s is not orderable (actual: %s), and therefore cannot be used in ORDER BY", ordinal, type);
@@ -1165,6 +1379,62 @@ class StatementAnalyzer
         return orderByExpressions;
     }
 
+    private static Multimap<QualifiedName, Expression> extractNamedOutputExpressions(QuerySpecification node)
+    {
+        // Compute aliased output terms so we can resolve order by expressions against them first
+        ImmutableMultimap.Builder<QualifiedName, Expression> assignments = ImmutableMultimap.builder();
+        for (SelectItem item : node.getSelect().getSelectItems()) {
+            if (item instanceof SingleColumn) {
+                SingleColumn column = (SingleColumn) item;
+                Optional<String> alias = column.getAlias();
+                if (alias.isPresent()) {
+                    assignments.put(QualifiedName.of(alias.get()), column.getExpression()); // TODO: need to know if alias was quoted
+                }
+                else if (column.getExpression() instanceof QualifiedNameReference) {
+                    assignments.put(((QualifiedNameReference) column.getExpression()).getName(), column.getExpression());
+                }
+            }
+        }
+
+        return assignments.build();
+    }
+
+    private static class OrderByExpressionRewriter
+            extends ExpressionRewriter<Void>
+    {
+        private final Multimap<QualifiedName, Expression> assignments;
+
+        public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
+        {
+            this.assignments = assignments;
+        }
+
+        @Override
+        public Expression rewriteQualifiedNameReference(QualifiedNameReference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            if (reference.getName().getPrefix().isPresent()) {
+                return reference;
+            }
+
+            // if this is a simple name reference, try to resolve against output columns
+            QualifiedName name = reference.getName();
+            Set<Expression> expressions = assignments.get(name)
+                    .stream()
+                    .collect(Collectors.toSet());
+
+            if (expressions.size() > 1) {
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name.getSuffix());
+            }
+
+            if (expressions.size() == 1) {
+                return Iterables.getOnlyElement(expressions);
+            }
+
+            // otherwise, couldn't resolve name against output aliases, so fall through...
+            return reference;
+        }
+    }
+
     private List<List<Expression>> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
     {
         List<Set<Expression>> computedGroupingSets = ImmutableList.of(); // empty list = no aggregations
@@ -1178,7 +1448,7 @@ class StatementAnalyzer
             computedGroupingSets = computeGroupingSetsCrossProduct(enumeratedGroupingSets, node.getGroupBy().get().isDistinct());
             checkState(!computedGroupingSets.isEmpty(), "computed grouping sets cannot be empty");
         }
-        else if (!extractAggregates(node).isEmpty()) {
+        else if (hasAggregates(node)) {
             // if there are aggregates, but no group by, create a grand total grouping set (global aggregation)
             computedGroupingSets = ImmutableList.of(ImmutableSet.of());
         }
@@ -1191,7 +1461,7 @@ class StatementAnalyzer
         return analyzedGroupingSets;
     }
 
-    private List<Set<Expression>> computeGroupingSetsCrossProduct(List<List<Set<Expression>>> enumeratedGroupingSets, boolean isDistinct)
+    private static List<Set<Expression>> computeGroupingSetsCrossProduct(List<List<Set<Expression>>> enumeratedGroupingSets, boolean isDistinct)
     {
         checkState(!enumeratedGroupingSets.isEmpty(), "enumeratedGroupingSets cannot be empty");
 
@@ -1236,7 +1506,7 @@ class StatementAnalyzer
                     throw new SemanticException(INVALID_ORDINAL, groupingColumn, "GROUP BY position %s is not in select list", ordinal);
                 }
 
-                groupByExpression = outputExpressions.get(Ints.checkedCast(ordinal - 1));
+                groupByExpression = outputExpressions.get(toIntExact(ordinal - 1));
             }
             else {
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(groupingColumn, scope);
@@ -1244,7 +1514,7 @@ class StatementAnalyzer
                 groupByExpression = groupingColumn;
             }
 
-            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, groupByExpression, "GROUP BY");
+            Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), groupByExpression, "GROUP BY clause");
             Type type = analysis.getType(groupByExpression);
             if (!type.isComparable()) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
@@ -1265,28 +1535,39 @@ class StatementAnalyzer
                 Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
 
                 for (Field field : scope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
-                    outputFields.add(Field.newUnqualified(field.getName(), field.getType()));
+                    outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getOriginTable(), false));
                 }
             }
             else if (item instanceof SingleColumn) {
                 SingleColumn column = (SingleColumn) item;
-                Expression expression = column.getExpression();
 
-                Optional<String> alias = column.getAlias();
-                if (!alias.isPresent()) {
-                    QualifiedName name = null;
-                    if (expression instanceof QualifiedNameReference) {
-                        name = ((QualifiedNameReference) expression).getName();
-                    }
-                    else if (expression instanceof DereferenceExpression) {
-                        name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
-                    }
-                    if (name != null) {
-                        alias = Optional.of(getLast(name.getOriginalParts()));
+                Expression expression = column.getExpression();
+                Optional<String> fieldName = column.getAlias();
+
+                Optional<QualifiedObjectName> originTable = Optional.empty();
+                QualifiedName name = null;
+
+                if (expression instanceof QualifiedNameReference) {
+                    name = ((QualifiedNameReference) expression).getName();
+                }
+                else if (expression instanceof DereferenceExpression) {
+                    name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
+                }
+
+                if (name != null) {
+                    List<Field> matchingFields = scope.getRelationType().resolveFields(name);
+                    if (!matchingFields.isEmpty()) {
+                        originTable = matchingFields.get(0).getOriginTable();
                     }
                 }
 
-                outputFields.add(Field.newUnqualified(alias, analysis.getType(expression))); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                if (!fieldName.isPresent()) {
+                    if (name != null) {
+                        fieldName = Optional.of(getLast(name.getOriginalParts()));
+                    }
+                }
+
+                outputFields.add(Field.newUnqualified(fieldName, analysis.getType(expression), originTable, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
             }
             else {
                 throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -1350,7 +1631,7 @@ class StatementAnalyzer
 
     public void analyzeWhere(Node node, Scope scope, Expression predicate)
     {
-        Analyzer.verifyNoAggregatesOrWindowFunctions(metadata, predicate, "WHERE");
+        Analyzer.verifyNoAggregatesOrWindowFunctions(metadata.getFunctionRegistry(), predicate, "WHERE clause");
 
         ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
         analysis.recordSubqueries(node, expressionAnalysis);
@@ -1380,17 +1661,14 @@ class StatementAnalyzer
             QuerySpecification node,
             Scope scope,
             List<List<Expression>> groupingSets,
-            List<Expression> outputExpressions,
-            List<Expression> orderByExpressions,
-            Set<Expression> columnReferences)
+            Set<Expression> columnReferences,
+            List<Expression> expressions)
     {
-        List<FunctionCall> aggregates = extractAggregates(node);
-
-        if (scope.isApproximate()) {
-            if (aggregates.stream().anyMatch(FunctionCall::isDistinct)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT aggregations not supported for approximate queries");
-            }
+        AggregateExtractor extractor = new AggregateExtractor(metadata.getFunctionRegistry());
+        for (Expression expression : expressions) {
+            extractor.process(expression);
         }
+        analysis.setAggregates(node, extractor.getAggregates());
 
         // is this an aggregation query?
         if (!groupingSets.isEmpty()) {
@@ -1404,37 +1682,28 @@ class StatementAnalyzer
                     .distinct()
                     .collect(toImmutableList());
 
-            for (Expression expression : Iterables.concat(outputExpressions, orderByExpressions)) {
+            for (Expression expression : expressions) {
                 verifyAggregations(distinctGroupingColumns, scope, expression, columnReferences);
-            }
-
-            if (node.getHaving().isPresent()) {
-                verifyAggregations(distinctGroupingColumns, scope, node.getHaving().get(), columnReferences);
             }
         }
     }
 
-    private List<FunctionCall> extractAggregates(QuerySpecification node)
+    private boolean hasAggregates(QuerySpecification node)
     {
-        AggregateExtractor extractor = new AggregateExtractor(metadata);
-        for (SelectItem item : node.getSelect().getSelectItems()) {
-            if (item instanceof SingleColumn) {
-                extractor.process(((SingleColumn) item).getExpression(), null);
-            }
-        }
+        AggregateExtractor extractor = new AggregateExtractor(metadata.getFunctionRegistry());
 
-        for (SortItem item : node.getOrderBy()) {
-            extractor.process(item.getSortKey(), null);
-        }
+        node.getSelect()
+                .getSelectItems().stream()
+                .filter(SingleColumn.class::isInstance)
+                .forEach(extractor::process);
 
-        if (node.getHaving().isPresent()) {
-            extractor.process(node.getHaving().get(), null);
-        }
+        node.getOrderBy().stream()
+                .forEach(extractor::process);
 
-        List<FunctionCall> aggregates = extractor.getAggregates();
-        analysis.setAggregates(node, aggregates);
+        node.getHaving()
+                .ifPresent(extractor::process);
 
-        return aggregates;
+        return !extractor.getAggregates().isEmpty();
     }
 
     private void verifyAggregations(
@@ -1443,7 +1712,7 @@ class StatementAnalyzer
             Expression expression,
             Set<Expression> columnReferences)
     {
-        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, scope, columnReferences, analysis.getParameters());
+        AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, metadata, scope, columnReferences, analysis.getParameters(), analysis.isDescribe());
         analyzer.analyze(expression);
     }
 
@@ -1473,10 +1742,12 @@ class StatementAnalyzer
                     .setLocale(session.getLocale())
                     .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                     .setUserAgent(session.getUserAgent().orElse(null))
+                    .setClientInfo(session.getClientInfo().orElse(null))
                     .setStartTime(session.getStartTime())
+                    .setSystemProperty(LEGACY_ORDER_BY, session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class).toString())
                     .build();
 
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, experimentalSyntaxEnabled);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession);
             Scope queryScope = analyzer.process(query, Scope.create());
             return queryScope.getRelationType().withAlias(name.getObjectName(), null);
         }
@@ -1524,7 +1795,6 @@ class StatementAnalyzer
                 sqlParser,
                 scope,
                 analysis,
-                experimentalSyntaxEnabled,
                 expression);
     }
 
@@ -1596,7 +1866,7 @@ class StatementAnalyzer
                     throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
                 }
 
-                expression = new FieldReference(Ints.checkedCast(ordinal - 1));
+                expression = new FieldReference(toIntExact(ordinal - 1));
             }
 
             ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
@@ -1604,7 +1874,6 @@ class StatementAnalyzer
                     accessControl, sqlParser,
                     scope,
                     analysis,
-                    experimentalSyntaxEnabled,
                     expression);
             analysis.recordSubqueries(node, expressionAnalysis);
 

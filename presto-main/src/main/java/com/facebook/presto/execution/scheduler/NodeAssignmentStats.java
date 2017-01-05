@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class NodeAssignmentStats
@@ -40,8 +41,7 @@ public final class NodeAssignmentStats
         }
 
         for (RemoteTask task : existingTasks) {
-            String nodeId = task.getNodeId();
-            queuedSplitCountByNode.put(nodeId, queuedSplitCountByNode.getOrDefault(nodeId, 0) + task.getQueuedPartitionedSplitCount());
+            checkArgument(queuedSplitCountByNode.put(task.getNodeId(), task.getQueuedPartitionedSplitCount()) == null, "A single stage may not have multiple tasks running on the same node");
         }
     }
 

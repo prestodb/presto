@@ -18,7 +18,7 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
-import com.facebook.presto.operator.LookupSourceSupplier;
+import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -37,7 +37,7 @@ import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQuer
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
 {
-    private LookupSourceSupplier lookupSourceSupplier;
+    private LookupSourceFactory lookupSourceFactory;
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
     {
@@ -52,7 +52,7 @@ public class HashJoinBenchmark
     @Override
     protected List<Driver> createDrivers(TaskContext taskContext)
     {
-        if (lookupSourceSupplier == null) {
+        if (lookupSourceFactory == null) {
             OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
             HashBuilderOperatorFactory hashBuilder = new HashBuilderOperatorFactory(
                     1,
@@ -63,19 +63,20 @@ public class HashJoinBenchmark
                     Optional.empty(),
                     false,
                     Optional.empty(),
-                    1_500_000);
+                    1_500_000,
+                    1);
 
             DriverContext driverContext = taskContext.addPipelineContext(false, false).addDriverContext();
             Driver driver = new DriverFactory(false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty()).createDriver(driverContext);
-            while (!driver.isFinished()) {
+            while (!hashBuilder.getLookupSourceFactory().createLookupSource().isDone()) {
                 driver.process();
             }
-            lookupSourceSupplier = hashBuilder.getLookupSourceSupplier();
+            lookupSourceFactory = hashBuilder.getLookupSourceFactory();
         }
 
         OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
 
-        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, new PlanNodeId("test"), lookupSourceSupplier, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty(), false);
+        OperatorFactory joinOperator = LookupJoinOperators.innerJoin(1, new PlanNodeId("test"), lookupSourceFactory, lineItemTableScan.getTypes(), Ints.asList(0), Optional.empty(), false);
 
         NullOutputOperatorFactory output = new NullOutputOperatorFactory(2, new PlanNodeId("test"), joinOperator.getTypes());
 

@@ -50,7 +50,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.Iterators;
-import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -94,6 +93,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
@@ -192,8 +192,8 @@ public class PrestoS3FileSystem
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
                 .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
-                .withConnectionTimeout(Ints.checkedCast(connectTimeout.toMillis()))
-                .withSocketTimeout(Ints.checkedCast(socketTimeout.toMillis()))
+                .withConnectionTimeout(toIntExact(connectTimeout.toMillis()))
+                .withSocketTimeout(toIntExact(socketTimeout.toMillis()))
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(S3_USER_AGENT_SUFFIX);

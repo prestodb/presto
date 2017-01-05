@@ -18,6 +18,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -25,6 +27,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class CodeCacheGcConfig
 {
     private Duration codeCacheCheckInterval = new Duration(20, SECONDS);
+    private int codeCacheCollectionThreshold = 40;
 
     @NotNull
     @MinDuration("1s")
@@ -38,6 +41,21 @@ public class CodeCacheGcConfig
     public CodeCacheGcConfig setCodeCacheCheckInterval(Duration codeCacheCheckInterval)
     {
         this.codeCacheCheckInterval = codeCacheCheckInterval;
+        return this;
+    }
+
+    @Min(1)
+    @Max(100)
+    public int getCodeCacheCollectionThreshold()
+    {
+        return codeCacheCollectionThreshold;
+    }
+
+    @Config("code-cache-collection-threshold")
+    @ConfigDescription("Maximum code cache usage (percentage) before attempting to force a collection")
+    public CodeCacheGcConfig setCodeCacheCollectionThreshold(int codeCacheCollectionThreshold)
+    {
+        this.codeCacheCollectionThreshold = codeCacheCollectionThreshold;
         return this;
     }
 }

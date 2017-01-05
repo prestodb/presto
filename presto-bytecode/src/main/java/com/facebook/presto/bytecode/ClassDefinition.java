@@ -73,7 +73,7 @@ public class ClassDefinition
         this.superClass = superClass;
         this.interfaces.addAll(ImmutableList.copyOf(interfaces));
 
-        classInitializer = new MethodDefinition(this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.<Parameter>of());
+        classInitializer = new MethodDefinition(this, a(STATIC), "<clinit>", ParameterizedType.type(void.class), ImmutableList.of());
     }
 
     public Set<Access> getAccess()

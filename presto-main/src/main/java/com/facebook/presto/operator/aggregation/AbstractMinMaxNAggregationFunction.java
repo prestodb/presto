@@ -29,7 +29,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -47,6 +46,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxNAggregationFunction
@@ -69,6 +69,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         this.typeToComparator = typeToComparator;
     }
 
+    @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("E");
@@ -100,11 +101,10 @@ public abstract class AbstractMinMaxNAggregationFunction
                 MinMaxNState.class,
                 stateSerializer,
                 new MinMaxNStateFactory(),
-                outputType,
-                false);
+                outputType);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, outputType, true, false, factory);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        return new InternalAggregationFunction(getSignature().getName(), inputTypes, intermediateType, outputType, true, factory);
     }
 
     public static void input(BlockComparator comparator, Type type, MinMaxNState state, Block block, long n, int blockIndex)
@@ -114,7 +114,7 @@ public abstract class AbstractMinMaxNAggregationFunction
             if (n <= 0) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be positive");
             }
-            heap = new TypedHeap(comparator, type, Ints.checkedCast(n));
+            heap = new TypedHeap(comparator, type, toIntExact(n));
             state.setTypedHeap(heap);
         }
         long startSize = heap.getEstimatedSize();

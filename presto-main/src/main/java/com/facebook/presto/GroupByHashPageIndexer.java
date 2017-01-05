@@ -18,12 +18,12 @@ import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class GroupByHashPageIndexer
@@ -52,7 +52,7 @@ public class GroupByHashPageIndexer
         GroupByIdBlock groupIds = hash.getGroupIds(page);
         int[] indexes = new int[page.getPositionCount()];
         for (int i = 0; i < indexes.length; i++) {
-            indexes[i] = Ints.checkedCast(groupIds.getGroupId(i));
+            indexes[i] = toIntExact(groupIds.getGroupId(i));
         }
         return indexes;
     }

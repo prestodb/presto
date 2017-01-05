@@ -19,6 +19,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -72,9 +73,7 @@ public class TestGroupIdOperator
                 new GroupIdOperatorFactory(0,
                         new PlanNodeId("test"),
                         ImmutableList.of(VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT),
-                        ImmutableList.of(ImmutableList.of(1, 2), ImmutableList.of(3)),
-                        ImmutableList.of(1, 2, 3),
-                        ImmutableList.of(0));
+                        ImmutableList.of(ImmutableMap.of(0, 1, 1, 2, 3, 0), ImmutableMap.of(2, 3, 3, 0)));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BOOLEAN, BIGINT, BIGINT, BIGINT)
                 .row("400", true, null, 100L, 0L)

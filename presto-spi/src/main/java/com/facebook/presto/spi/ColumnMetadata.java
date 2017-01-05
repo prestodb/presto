@@ -24,6 +24,7 @@ public class ColumnMetadata
     private final String name;
     private final Type type;
     private final String comment;
+    private final String extraInfo;
     private final boolean hidden;
 
     public ColumnMetadata(String name, Type type)
@@ -32,6 +33,11 @@ public class ColumnMetadata
     }
 
     public ColumnMetadata(String name, Type type, String comment, boolean hidden)
+    {
+        this(name, type, comment, null, hidden);
+    }
+
+    public ColumnMetadata(String name, Type type, String comment, String extraInfo, boolean hidden)
     {
         if (name == null || name.isEmpty()) {
             throw new NullPointerException("name is null or empty");
@@ -43,6 +49,7 @@ public class ColumnMetadata
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
         this.comment = comment;
+        this.extraInfo = extraInfo;
         this.hidden = hidden;
     }
 
@@ -61,6 +68,11 @@ public class ColumnMetadata
         return comment;
     }
 
+    public String getExtraInfo()
+    {
+        return extraInfo;
+    }
+
     public boolean isHidden()
     {
         return hidden;
@@ -75,6 +87,9 @@ public class ColumnMetadata
         if (comment != null) {
             sb.append(", comment='").append(comment).append('\'');
         }
+        if (extraInfo != null) {
+            sb.append(", extraInfo='").append(extraInfo).append('\'');
+        }
         if (hidden) {
             sb.append(", hidden");
         }
@@ -85,7 +100,7 @@ public class ColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, comment, hidden);
+        return Objects.hash(name, type, comment, extraInfo, hidden);
     }
 
     @Override
@@ -101,6 +116,7 @@ public class ColumnMetadata
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.comment, other.comment) &&
+                Objects.equals(this.extraInfo, other.extraInfo) &&
                 Objects.equals(this.hidden, other.hidden);
     }
 }

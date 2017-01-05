@@ -23,8 +23,8 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddColumn;
+import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
 
 import java.util.List;
@@ -64,7 +64,7 @@ public class AddColumnTask
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
-        TableElement element = statement.getColumn();
+        ColumnDefinition element = statement.getColumn();
         Type type = metadata.getType(parseTypeSignature(element.getType()));
         if ((type == null) || type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type for column '%s' ", element.getName());

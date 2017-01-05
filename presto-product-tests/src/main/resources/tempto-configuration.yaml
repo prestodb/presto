@@ -4,9 +4,6 @@ hdfs:
     host: ${databases.hive.host}
     port: 50070
 
-presto_rest:
-  base_uri: http://${databases.presto.server_address}/
-
 databases:
   default:
     alias: presto
@@ -26,30 +23,37 @@ databases:
 
   presto:
     host: localhost
-    server_address: ${databases.presto.host}:8080
+    port: 8080
+    server_address: http://${databases.presto.host}:${databases.presto.port}
     jdbc_driver_class: com.facebook.presto.jdbc.PrestoDriver
-    jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
+    jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}
     jdbc_user: hdfs
     jdbc_password: na
     jdbc_pooling: false
 
   alice@presto:
-    host: localhost
-    server_address: ${databases.presto.host}:8080
+    host: ${databases.presto.host}
+    port: ${databases.presto.port}
+    server_address: ${databases.presto.server_address}
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
+    jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: alice
     jdbc_password: na
     jdbc_pooling: false
+    https_keystore_path: ${databases.presto.https_keystore_path}
+    https_keystore_password: ${databases.presto.https_keystore_password}
 
   bob@presto:
-    host: localhost
-    server_address: ${databases.presto.host}:8080
+    host: ${databases.presto.host}
+    port: ${databases.presto.port}
+    server_address: ${databases.presto.server_address}
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
-    jdbc_url: jdbc:presto://${databases.presto.server_address}/hive/${databases.hive.schema}
+    jdbc_url: ${databases.presto.jdbc_url}
     jdbc_user: bob
     jdbc_password: na
     jdbc_pooling: false
+    https_keystore_path: ${databases.presto.https_keystore_path}
+    https_keystore_password: ${databases.presto.https_keystore_password}
 
   mysql:
     jdbc_driver_class: com.mysql.jdbc.Driver

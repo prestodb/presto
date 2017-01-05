@@ -99,7 +99,6 @@ public class PushTableWriteThroughUnion
                         unionNode.sourceOutputLayout(i),
                         node.getColumnNames(),
                         newSymbols.build(),
-                        node.getSampleWeightSymbol(),
                         node.getPartitioningScheme()));
             }
 

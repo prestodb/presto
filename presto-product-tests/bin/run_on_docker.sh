@@ -36,7 +36,10 @@ function stop_unnecessary_hadoop_services() {
 }
 
 function run_in_application_runner_container() {
-  environment_compose run --rm -T application-runner "$@"
+  local CONTAINER_NAME=$( environment_compose run -d application-runner "$@" )
+  echo "Showing logs from $CONTAINER_NAME:"
+  docker logs -f $CONTAINER_NAME
+  return $( docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME )
 }
 
 function check_presto() {
@@ -103,12 +106,16 @@ function stop_docker_compose_containers() {
 }
 
 function prefetch_images_silently() {
-  local IMAGES=`environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq`
+  local IMAGES=$( docker_images_used )
   for IMAGE in $IMAGES
   do
     echo "Pulling docker image [$IMAGE]"
     docker pull $IMAGE > /dev/null
   done
+}
+
+function docker_images_used() {
+  environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq
 }
 
 function environment_compose() {
@@ -175,20 +182,21 @@ stop_all_containers
 
 if [[ "$CONTINUOUS_INTEGRATION" == 'true' ]]; then
     prefetch_images_silently
+    # This has to be done after fetching the images
+    # or will present stale / no data for images that changed.
+    echo "Docker images versions:"
+    docker_images_used | xargs -n 1 docker inspect --format='ID: {{.ID}}, tags: {{.RepoTags}}'
 fi
 
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-# start hadoop container
-environment_compose up -d hadoop-master
+# start external services
+EXTERNAL_SERVICES="hadoop-master mysql postgres cassandra"
+environment_compose up -d ${EXTERNAL_SERVICES}
 
-# start external database containers
-environment_compose up -d mysql
-environment_compose up -d postgres
-
-# start docker logs for hadoop container
-environment_compose logs --no-color hadoop-master &
+# start docker logs for the external services
+environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
 HADOOP_LOGS_PID=$!
 
 # wait until hadoop processes is started
@@ -199,7 +207,7 @@ stop_unnecessary_hadoop_services
 environment_compose up -d ${PRESTO_SERVICES}
 
 # start docker logs for presto containers
-environment_compose logs --no-color ${PRESTO_SERVICES} &
+environment_compose logs --no-color -f ${PRESTO_SERVICES} &
 PRESTO_LOGS_PID=$!
 
 # wait until presto is started
@@ -207,7 +215,7 @@ retry check_presto
 
 # run product tests
 set +e
-run_product_tests "$*"
+run_product_tests "$@"
 EXIT_CODE=$?
 set -e
 

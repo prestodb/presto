@@ -954,7 +954,7 @@ public class TestExpressionCompiler
                         expected = "else";
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' else 'else' end",
-                            Arrays.<Object>asList(value, firstTest, value, secondTest),
+                            Arrays.asList(value, firstTest, value, secondTest),
                             ImmutableList.of("double", "bigint", "double", "double"));
                     assertExecute(expressions, createVarcharType(6), expected);
                 }
@@ -985,7 +985,7 @@ public class TestExpressionCompiler
                         expected = null;
                     }
                     List<String> expressions = formatExpression("case when %s = %s then 'first' when %s = %s then 'second' end",
-                            Arrays.<Object>asList(value, firstTest, value, secondTest),
+                            Arrays.asList(value, firstTest, value, secondTest),
                             ImmutableList.of("double", "bigint", "double", "double"));
                     assertExecute(expressions, createVarcharType(6), expected);
                 }
@@ -1535,31 +1535,31 @@ public class TestExpressionCompiler
         return formatExpression(expressionPattern, first, "varchar", second, "integer", third, "integer");
     }
 
-    private List<String> formatExpression(String expressionPattern, Object value, String type)
+    private static List<String> formatExpression(String expressionPattern, Object value, String type)
     {
         return formatExpression(expressionPattern,
-                Arrays.<Object>asList(value),
+                Arrays.asList(value),
                 ImmutableList.of(type));
     }
 
-    private List<String> formatExpression(String expressionPattern, Object left, final String leftType, Object right, final String rightType)
+    private static List<String> formatExpression(String expressionPattern, Object left, final String leftType, Object right, final String rightType)
     {
         return formatExpression(expressionPattern,
-                Arrays.<Object>asList(left, right),
+                Arrays.asList(left, right),
                 ImmutableList.of(leftType, rightType));
     }
 
-    private List<String> formatExpression(String expressionPattern,
+    private static List<String> formatExpression(String expressionPattern,
             Object first, String firstType,
             Object second, String secondType,
             Object third, String thirdType)
     {
         return formatExpression(expressionPattern,
-                Arrays.<Object>asList(first, second, third),
+                Arrays.asList(first, second, third),
                 ImmutableList.of(firstType, secondType, thirdType));
     }
 
-    private List<String> formatExpression(String expressionPattern, List<Object> values, List<String> types)
+    private static List<String> formatExpression(String expressionPattern, List<Object> values, List<String> types)
     {
         Preconditions.checkArgument(values.size() == types.size());
 
@@ -1633,7 +1633,7 @@ public class TestExpressionCompiler
         }
     }
 
-    private Type getDecimalType(BigDecimal decimal)
+    private static Type getDecimalType(BigDecimal decimal)
     {
         if (decimal == null) {
             return createDecimalType(1, 0);

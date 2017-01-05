@@ -15,6 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -31,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Collections.emptyList;
@@ -53,7 +56,9 @@ public class TestDeallocateTask
     @Test
     public void testDeallocate()
     {
-        Session session = TEST_SESSION.withPreparedStatement("my_query", "SELECT bar, baz FROM foo");
+        Session session = testSessionBuilder()
+                .addPreparedStatement("my_query", "SELECT bar, baz FROM foo")
+                .build();
         Set<String> statements = executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", session);
         assertEquals(statements, ImmutableSet.of("my_query"));
     }
@@ -74,7 +79,8 @@ public class TestDeallocateTask
     private Set<String> executeDeallocate(String statementName, String sqlString, Session session)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, executor);
+        AccessControl accessControl = new AccessControlManager(transactionManager);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), sqlString, session, URI.create("fake://uri"), false, transactionManager, accessControl, executor);
         Deallocate deallocate = new Deallocate(statementName);
         new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getDeallocatedPreparedStatements();

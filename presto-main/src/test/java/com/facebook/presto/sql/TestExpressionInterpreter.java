@@ -1073,7 +1073,7 @@ public class TestExpressionInterpreter
     public void testLikeOptimization()
             throws Exception
     {
-        assertOptimizedEquals("unbound_string like 'abc'", "unbound_string = 'abc'");
+        assertOptimizedEquals("unbound_string like 'abc'", "unbound_string = CAST('abc' AS VARCHAR)");
 
         assertOptimizedEquals("bound_string like bound_pattern", "true");
         assertOptimizedEquals("'abc' like bound_pattern", "false");

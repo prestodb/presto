@@ -48,6 +48,8 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
+import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -59,6 +61,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
@@ -319,6 +322,27 @@ public final class SqlToRowExpressionTranslator
         }
 
         @Override
+        protected RowExpression visitSymbolReference(SymbolReference node, Void context)
+        {
+            return new VariableReferenceExpression(node.getName(), types.get(node));
+        }
+
+        @Override
+        protected RowExpression visitLambdaExpression(LambdaExpression node, Void context)
+        {
+            RowExpression body = process(node.getBody(), context);
+
+            Type type = types.get(node);
+            List<Type> typeParameters = type.getTypeParameters();
+            List<Type> argumentTypes = typeParameters.subList(0, typeParameters.size() - 1);
+            List<String> argumentNames = node.getArguments().stream()
+                    .map(LambdaArgumentDeclaration::getName)
+                    .collect(toImmutableList());
+
+            return new LambdaDefinitionExpression(argumentTypes, argumentNames, body);
+        }
+
+        @Override
         protected RowExpression visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
         {
             RowExpression left = process(node.getLeft(), context);
@@ -375,7 +399,7 @@ public final class SqlToRowExpressionTranslator
             return call(castSignature(types.get(node), value.getType()), types.get(node), value);
         }
 
-        private RowExpression changeType(RowExpression value, Type targetType)
+        private static RowExpression changeType(RowExpression value, Type targetType)
         {
             ChangeTypeVisitor visitor = new ChangeTypeVisitor(targetType);
             return value.accept(visitor, null);
@@ -407,6 +431,18 @@ public final class SqlToRowExpressionTranslator
             public RowExpression visitConstant(ConstantExpression literal, Void context)
             {
                 return new ConstantExpression(literal.getValue(), targetType);
+            }
+
+            @Override
+            public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+            {
+                return new VariableReferenceExpression(reference.getName(), targetType);
             }
         }
 

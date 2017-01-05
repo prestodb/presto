@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class LimitPushDown
@@ -138,7 +137,6 @@ public class LimitPushDown
                     node.getAggregations().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
-                checkArgument(!node.getSampleWeight().isPresent(), "DISTINCT aggregation has sample weight symbol");
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
                 return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, Optional.empty());
             }

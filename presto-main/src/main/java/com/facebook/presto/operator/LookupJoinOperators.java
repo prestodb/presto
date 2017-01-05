@@ -35,23 +35,23 @@ public class LookupJoinOperators
 
     private static final JoinProbeCompiler JOIN_PROBE_COMPILER = new JoinProbeCompiler();
 
-    public static OperatorFactory innerJoin(int operatorId, PlanNodeId planNodeId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public static OperatorFactory innerJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes, probeJoinChannel, probeHashChannel, JoinType.INNER, filterFunctionPresent);
+        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.INNER, filterFunctionPresent);
     }
 
-    public static OperatorFactory probeOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public static OperatorFactory probeOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes, probeJoinChannel, probeHashChannel, JoinType.PROBE_OUTER, filterFunctionPresent);
+        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.PROBE_OUTER, filterFunctionPresent);
     }
 
-    public static OperatorFactory lookupOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public static OperatorFactory lookupOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes, probeJoinChannel, probeHashChannel, JoinType.LOOKUP_OUTER, filterFunctionPresent);
+        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.LOOKUP_OUTER, filterFunctionPresent);
     }
 
-    public static OperatorFactory fullOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceSupplier lookupSourceSupplier, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    public static OperatorFactory fullOuterJoin(int operatorId, PlanNodeId planNodeId, LookupSourceFactory lookupSourceFactory, List<? extends Type> probeTypes, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
     {
-        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes, probeJoinChannel, probeHashChannel, JoinType.FULL_OUTER, filterFunctionPresent);
+        return JOIN_PROBE_COMPILER.compileJoinOperatorFactory(operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeHashChannel, JoinType.FULL_OUTER, filterFunctionPresent);
     }
 }

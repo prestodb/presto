@@ -30,6 +30,7 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
@@ -39,6 +40,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.server.ResourceUtil.createSessionForRequest;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestResourceUtil
@@ -55,13 +57,19 @@ public class TestResourceUtil
                         .put(PRESTO_SCHEMA, "testSchema")
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_CLIENT_INFO, "null")
                         .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                         .put(PRESTO_SESSION, DISTRIBUTED_JOIN + "=true," + HASH_PARTITION_COUNT + " = 43")
                         .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
                         .build(),
                 "testRemote");
 
-        Session session = createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager(), new QueryId("test_query_id"));
+        Session session = createSessionForRequest(
+                request,
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                new SessionPropertyManager(),
+                new QueryId("test_query_id"));
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -71,6 +79,7 @@ public class TestResourceUtil
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
         assertEquals(session.getRemoteUserAddress().get(), "testRemote");
+        assertEquals(session.getClientInfo().get(), "null");
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(DISTRIBUTED_JOIN, "true")
@@ -94,9 +103,15 @@ public class TestResourceUtil
                         .put(PRESTO_SCHEMA, "testSchema")
                         .put(PRESTO_LANGUAGE, "zh-TW")
                         .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_CLIENT_INFO, "null")
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
                 "testRemote");
-        createSessionForRequest(request, new AllowAllAccessControl(), new SessionPropertyManager(), new QueryId("test_query_id"));
+        createSessionForRequest(
+                request,
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                new SessionPropertyManager(),
+                new QueryId("test_query_id"));
     }
 }

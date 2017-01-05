@@ -64,7 +64,7 @@ public class TestWindowOperator
     private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty());
 
     private static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
-            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.<Type>of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME)
+            window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME)
     );
 
     private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(

@@ -17,8 +17,11 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.SqlTimestamp;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +42,7 @@ import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -50,6 +54,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.type.JsonType.JSON;
+import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -435,14 +440,13 @@ public class TestArrayOperators
     public void testElementAt()
             throws Exception
     {
-        String outOfBounds = "Array subscript out of bounds";
-        assertInvalidFunction("ELEMENT_AT(ARRAY [], -1)", outOfBounds);
         assertInvalidFunction("ELEMENT_AT(ARRAY [], 0)", "SQL array indices start at 1");
-        assertInvalidFunction("ELEMENT_AT(ARRAY [], 1)", outOfBounds);
         assertInvalidFunction("ELEMENT_AT(ARRAY [1, 2, 3], 0)", "SQL array indices start at 1");
-        assertInvalidFunction("ELEMENT_AT(ARRAY [1, 2, 3], 4)", outOfBounds);
-        assertInvalidFunction("ELEMENT_AT(ARRAY [1, 2, 3], -4)", outOfBounds);
 
+        assertFunction("ELEMENT_AT(ARRAY [], 1)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY [], -1)", UNKNOWN, null);
+        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], 4)", INTEGER, null);
+        assertFunction("ELEMENT_AT(ARRAY [1, 2, 3], -4)", INTEGER, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL], 1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL], -1)", UNKNOWN, null);
         assertFunction("ELEMENT_AT(ARRAY [NULL, NULL, NULL], 3)", UNKNOWN, null);
@@ -759,6 +763,26 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testDistinctFrom()
+            throws Exception
+    {
+        assertFunction("CAST(NULL AS ARRAY(UNKNOWN)) IS DISTINCT FROM CAST(NULL AS ARRAY(UNKNOWN))", BOOLEAN, false);
+        assertFunction("ARRAY [NULL] IS DISTINCT FROM ARRAY [NULL]", BOOLEAN, false);
+        assertFunction("NULL IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, false);
+        assertFunction("ARRAY [1, 2, 3] IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, true);
+        assertFunction("ARRAY [1, 2] IS DISTINCT FROM ARRAY [1, 3]", BOOLEAN, true);
+        assertFunction("ARRAY [1, NULL] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, false);
+        assertFunction("ARRAY [1, NULL] IS DISTINCT FROM ARRAY [1, NULL]", BOOLEAN, false);
+        assertFunction("ARRAY [1, 2, NULL] IS DISTINCT FROM ARRAY [1, 2]", BOOLEAN, true);
+        assertFunction("ARRAY ['puppies', 'kittens'] IS DISTINCT FROM ARRAY ['puppies', 'kittens']", BOOLEAN, false);
+        assertFunction("ARRAY ['puppies', NULL] IS DISTINCT FROM ARRAY ['puppies', 'kittens']", BOOLEAN, true);
+        assertFunction("ARRAY ['puppies', NULL] IS DISTINCT FROM ARRAY [NULL, 'kittens']", BOOLEAN, true);
+    }
+
+    @Test
     public void testArrayRemove()
             throws Exception
     {
@@ -861,6 +885,7 @@ public class TestArrayOperators
         assertInvalidFunction("SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)", INVALID_FUNCTION_ARGUMENT);
     }
 
+    @Override
     public void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
     {
         try {
@@ -915,6 +940,20 @@ public class TestArrayOperators
         assertFunction("flatten(ARRAY [NULL, ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(new MapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
     }
 
+    @Test
+    public void testArrayHashOperator()
+    {
+        assertArrayHashOperator("ARRAY[1, 2]", INTEGER, ImmutableList.of(1, 2));
+        assertArrayHashOperator("ARRAY[true, false]", BOOLEAN, ImmutableList.of(true, false));
+
+        // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
+        MapType mapType = new MapType(INTEGER, INTEGER);
+        BlockBuilder mapBuilder = new InterleavedBlockBuilder(ImmutableList.of(INTEGER, INTEGER), new BlockBuilderStatus(), 2);
+        INTEGER.writeLong(mapBuilder, 1);
+        INTEGER.writeLong(mapBuilder, 2);
+        assertArrayHashOperator("ARRAY[MAP(ARRAY[1], ARRAY[2])]", mapType, ImmutableList.of(mapBuilder.build()));
+    }
+
     public void assertInvalidFunction(String projection, ErrorCode errorCode)
     {
         try {
@@ -926,12 +965,25 @@ public class TestArrayOperators
         }
     }
 
-    private SqlTimestamp sqlTimestamp(long millisUtc)
+    private void assertArrayHashOperator(String inputArray, Type elementType, List<Object> elements)
+    {
+        ArrayType arrayType = new ArrayType(elementType);
+        BlockBuilder arrayArrayBuilder = arrayType.createBlockBuilder(new BlockBuilderStatus(), 1);
+        BlockBuilder arrayBuilder = elementType.createBlockBuilder(new BlockBuilderStatus(), elements.size());
+        for (Object element : elements) {
+            appendToBlockBuilder(elementType, element, arrayBuilder);
+        }
+        arrayType.writeObject(arrayArrayBuilder, arrayBuilder.build());
+
+        assertOperator(HASH_CODE, inputArray, BIGINT, arrayType.hash(arrayArrayBuilder.build(), 0));
+    }
+
+    private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
         return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 
-    private SqlTimestamp sqlTimestamp(String dateString) throws ParseException
+    private static SqlTimestamp sqlTimestamp(String dateString) throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));

@@ -26,24 +26,17 @@ import static java.util.Objects.requireNonNull;
 public class MongoOutputTableHandle
         implements ConnectorOutputTableHandle
 {
-    private final String connectorId;
     private final SchemaTableName schemaTableName;
     private final List<MongoColumnHandle> columns;
 
     @JsonCreator
-    public MongoOutputTableHandle(@JsonProperty("connectorId") String connectorId,
-                                  @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                                  @JsonProperty("columns") List<MongoColumnHandle> columns)
+    public MongoOutputTableHandle(
+            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("columns") List<MongoColumnHandle> columns)
+
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty

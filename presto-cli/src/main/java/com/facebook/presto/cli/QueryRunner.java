@@ -20,9 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
-import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.jetty.JettyHttpClient;
-import io.airlift.http.client.jetty.JettyIoPool;
 import io.airlift.http.client.spnego.KerberosConfig;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -68,8 +66,8 @@ public class QueryRunner
                         kerberosRemoteServiceName,
                         authenticationEnabled),
                 kerberosConfig,
-                Optional.<JettyIoPool>empty(),
-                ImmutableList.<HttpRequestFilter>of());
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     public ClientSession getSession()

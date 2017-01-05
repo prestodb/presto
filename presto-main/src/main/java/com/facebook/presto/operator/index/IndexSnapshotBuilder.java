@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesIndex;
@@ -34,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IndexSnapshotBuilder
 {
+    private final Session session;
     private final int expectedPositions;
     private final List<Type> outputTypes;
     private final List<Type> missingKeysTypes;
@@ -63,6 +65,7 @@ public class IndexSnapshotBuilder
         requireNonNull(maxMemoryInBytes, "maxMemoryInBytes is null");
         checkArgument(expectedPositions > 0, "expectedPositions must be greater than zero");
 
+        this.session = driverContext.getSession();
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
         this.keyOutputChannels = ImmutableList.copyOf(keyOutputChannels);
@@ -81,7 +84,7 @@ public class IndexSnapshotBuilder
 
         this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
         this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions);
-        this.missingKeys = missingKeysIndex.createLookupSource(this.missingKeysChannels);
+        this.missingKeys = missingKeysIndex.createLookupSourceSupplier(session, this.missingKeysChannels).get();
     }
 
     public List<Type> getOutputTypes()
@@ -118,7 +121,7 @@ public class IndexSnapshotBuilder
         }
         pages.clear();
 
-        LookupSource lookupSource = outputPagesIndex.createLookupSource(keyOutputChannels, keyOutputHashChannel, Optional.empty());
+        LookupSource lookupSource = outputPagesIndex.createLookupSourceSupplier(session, keyOutputChannels, keyOutputHashChannel, Optional.empty()).get();
 
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         PageBuilder missingKeysPageBuilder = new PageBuilder(missingKeysIndex.getTypes());
@@ -146,7 +149,7 @@ public class IndexSnapshotBuilder
         // only update missing keys if we have new missing keys
         if (!missingKeysPageBuilder.isEmpty()) {
             missingKeysIndex.addPage(missingKeysPage);
-            missingKeys = missingKeysIndex.createLookupSource(missingKeysChannels);
+            missingKeys = missingKeysIndex.createLookupSourceSupplier(session, missingKeysChannels).get();
         }
 
         return new IndexSnapshot(lookupSource, missingKeys);

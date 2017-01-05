@@ -25,15 +25,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class PageSinkManager
         implements PageSinkProvider
 {
     private final ConcurrentMap<ConnectorId, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSinkProvider(ConnectorId connectorId, ConnectorPageSinkProvider connectorPageSinkProvider)
+    public void addConnectorPageSinkProvider(ConnectorId connectorId, ConnectorPageSinkProvider pageSinkProvider)
     {
-        pageSinkProviders.put(connectorId, connectorPageSinkProvider);
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        checkState(pageSinkProviders.put(connectorId, pageSinkProvider) == null, "PageSinkProvider for connector '%s' is already registered", connectorId);
+    }
+
+    public void removeConnectorPageSinkProvider(ConnectorId connectorId)
+    {
+        pageSinkProviders.remove(connectorId);
     }
 
     @Override

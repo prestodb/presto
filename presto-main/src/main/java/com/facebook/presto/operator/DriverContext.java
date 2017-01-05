@@ -97,18 +97,13 @@ public class DriverContext
 
     public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType)
     {
-        return addOperatorContext(operatorId, planNodeId, operatorType, Long.MAX_VALUE);
-    }
-
-    public OperatorContext addOperatorContext(int operatorId, PlanNodeId planNodeId, String operatorType, long maxMemoryReservation)
-    {
         checkArgument(operatorId >= 0, "operatorId is negative");
 
         for (OperatorContext operatorContext : operatorContexts) {
             checkArgument(operatorId != operatorContext.getOperatorId(), "A context already exists for operatorId %s", operatorId);
         }
 
-        OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, executor, maxMemoryReservation);
+        OperatorContext operatorContext = new OperatorContext(operatorId, planNodeId, operatorType, this, executor);
         operatorContexts.add(operatorContext);
         return operatorContext;
     }
@@ -189,11 +184,6 @@ public class DriverContext
         return finished.get() || pipelineContext.isDone();
     }
 
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return pipelineContext.getOperatorPreAllocatedMemory();
-    }
-
     public void transferMemoryToTaskContext(long bytes)
     {
         pipelineContext.transferMemoryToTaskContext(bytes);
@@ -254,7 +244,7 @@ public class DriverContext
 
     public void moreMemoryAvailable()
     {
-        operatorContexts.stream().forEach(OperatorContext::moreMemoryAvailable);
+        operatorContexts.forEach(OperatorContext::moreMemoryAvailable);
     }
 
     public boolean isVerboseStats()

@@ -78,12 +78,20 @@ h4 {
     font-size: 1.2em;
 }
 
+p {
+    text-align: left;
+}
+
 div.content {
     font-size: 1.0em;
 }
 
 div.content ul > li {
     background-image: url(bullet.png);
+}
+
+div.topic {
+    border: none;
 }
 
 div.admonition {

@@ -20,6 +20,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
 import com.facebook.presto.execution.scheduler.SqlQueryScheduler;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
@@ -89,7 +90,6 @@ public final class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
-    private final boolean experimentalSyntaxEnabled;
     private final ExecutorService queryExecutor;
 
     private final QueryExplainer queryExplainer;
@@ -97,6 +97,7 @@ public final class SqlQueryExecution
     private final NodeTaskMap nodeTaskMap;
     private final ExecutionPolicy executionPolicy;
     private final List<Expression> parameters;
+    private final SplitSchedulerStats schedulerStats;
 
     public SqlQueryExecution(QueryId queryId,
             String query,
@@ -114,12 +115,12 @@ public final class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
-            boolean experimentalSyntaxEnabled,
             ExecutorService queryExecutor,
             NodeTaskMap nodeTaskMap,
             QueryExplainer queryExplainer,
             ExecutionPolicy executionPolicy,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            SplitSchedulerStats schedulerStats)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryId)) {
             this.statement = requireNonNull(statement, "statement is null");
@@ -132,11 +133,11 @@ public final class SqlQueryExecution
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
-            this.experimentalSyntaxEnabled = experimentalSyntaxEnabled;
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.parameters = requireNonNull(parameters);
+            this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -145,7 +146,7 @@ public final class SqlQueryExecution
             requireNonNull(query, "query is null");
             requireNonNull(session, "session is null");
             requireNonNull(self, "self is null");
-            this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, queryExecutor);
+            this.stateMachine = QueryStateMachine.begin(queryId, query, session, self, false, transactionManager, accessControl, queryExecutor);
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             stateMachine.addStateChangeListener(state -> {
@@ -280,7 +281,7 @@ public final class SqlQueryExecution
         long analysisStart = System.nanoTime();
 
         // analyze query
-        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), experimentalSyntaxEnabled, parameters);
+        Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
         Analysis analysis = analyzer.analyze(statement);
 
         stateMachine.setUpdateType(analysis.getUpdateType());
@@ -299,7 +300,7 @@ public final class SqlQueryExecution
         stateMachine.setOutput(output);
 
         // fragment the plan
-        SubPlan subplan = new PlanFragmenter().createSubPlans(stateMachine.getSession(), metadata, plan);
+        SubPlan subplan = PlanFragmenter.createSubPlans(stateMachine.getSession(), metadata, plan);
 
         // record analysis time
         stateMachine.recordAnalysisTime(analysisStart);
@@ -344,7 +345,8 @@ public final class SqlQueryExecution
                 queryExecutor,
                 rootOutputBuffers,
                 nodeTaskMap,
-                executionPolicy);
+                executionPolicy,
+                schedulerStats);
 
         queryScheduler.set(scheduler);
 
@@ -475,8 +477,8 @@ public final class SqlQueryExecution
     public static class SqlQueryExecutionFactory
             implements QueryExecutionFactory<SqlQueryExecution>
     {
+        private final SplitSchedulerStats schedulerStats;
         private final int scheduleSplitBatchSize;
-        private final boolean experimentalSyntaxEnabled;
         private final Metadata metadata;
         private final AccessControl accessControl;
         private final SqlParser sqlParser;
@@ -508,9 +510,11 @@ public final class SqlQueryExecution
                 @ForQueryExecution ExecutorService executor,
                 NodeTaskMap nodeTaskMap,
                 QueryExplainer queryExplainer,
-                Map<String, ExecutionPolicy> executionPolicies)
+                Map<String, ExecutionPolicy> executionPolicies,
+                SplitSchedulerStats schedulerStats)
         {
             requireNonNull(config, "config is null");
+            this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -523,7 +527,6 @@ public final class SqlQueryExecution
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             requireNonNull(featuresConfig, "featuresConfig is null");
-            this.experimentalSyntaxEnabled = featuresConfig.isExperimentalSyntaxEnabled();
             this.executor = requireNonNull(executor, "executor is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
@@ -557,12 +560,12 @@ public final class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    experimentalSyntaxEnabled,
                     executor,
                     nodeTaskMap,
                     queryExplainer,
                     executionPolicy,
-                    parameters);
+                    parameters,
+                    schedulerStats);
         }
     }
 }

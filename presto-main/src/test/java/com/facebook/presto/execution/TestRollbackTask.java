@@ -17,6 +17,8 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -60,11 +62,12 @@ public class TestRollbackTask
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
+        AccessControl accessControl = new AccessControlManager(transactionManager);
 
         Session session = sessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, executor);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor);
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
@@ -80,10 +83,11 @@ public class TestRollbackTask
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
+        AccessControl accessControl = new AccessControlManager(transactionManager);
 
         Session session = sessionBuilder()
                 .build();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, executor);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor);
 
         try {
             try {
@@ -108,11 +112,12 @@ public class TestRollbackTask
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
+        AccessControl accessControl = new AccessControlManager(transactionManager);
 
         Session session = sessionBuilder()
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
                 .build();
-        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, executor);
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "ROLLBACK", session, URI.create("fake://uri"), true, transactionManager, accessControl, executor);
 
         new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
         assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId()); // Still issue clear signal

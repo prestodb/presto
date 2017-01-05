@@ -38,8 +38,6 @@ public class Scope
 {
     private final Optional<Scope> parent;
     private final RelationType relation;
-    private final boolean approximate;
-    private final boolean queryBoundary;
     private final Map<String, WithQuery> namedQueries;
 
     public static Scope create()
@@ -55,15 +53,11 @@ public class Scope
     private Scope(
             Optional<Scope> parent,
             RelationType relation,
-            Map<String, WithQuery> namedQueries,
-            boolean approximate,
-            boolean queryBoundary)
+            Map<String, WithQuery> namedQueries)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
-        this.approximate = approximate;
-        this.queryBoundary = queryBoundary;
     }
 
     public RelationType getRelationType()
@@ -85,7 +79,7 @@ public class Scope
         return Optional.empty();
     }
 
-    private QualifiedName asQualifiedName(Expression expression)
+    private static QualifiedName asQualifiedName(Expression expression)
     {
         QualifiedName name = null;
         if (expression instanceof QualifiedNameReference) {
@@ -106,30 +100,19 @@ public class Scope
     {
         List<Field> matches = relation.resolveFields(name);
         if (matches.size() > 1) {
-            throwAmbiguousAttributeException(node, name);
+            throw throwAmbiguousAttributeException(node, name);
         }
-
-        if (matches.isEmpty()) {
+        else if (matches.size() == 1) {
+            return Optional.of(asResolvedField(getOnlyElement(matches), local));
+        }
+        else {
             if (isColumnReference(name, relation)) {
                 return Optional.empty();
             }
-            Scope boundary = this;
-            while (!boundary.queryBoundary) {
-                if (boundary.parent.isPresent()) {
-                    boundary = boundary.parent.get();
-                }
-                else {
-                    return Optional.empty();
-                }
-            }
-            if (boundary.parent.isPresent()) {
-                // jump over the query boundary
-                return boundary.parent.get().resolveField(node, name, false);
+            if (parent.isPresent()) {
+                return parent.get().resolveField(node, name, false);
             }
             return Optional.empty();
-        }
-        else {
-            return Optional.of(asResolvedField(getOnlyElement(matches), local));
         }
     }
 
@@ -146,14 +129,13 @@ public class Scope
             if (isColumnReference(name, current.relation)) {
                 return true;
             }
-
             current = current.parent.orElse(null);
         }
 
         return false;
     }
 
-    private boolean isColumnReference(QualifiedName name, RelationType relation)
+    private static boolean isColumnReference(QualifiedName name, RelationType relation)
     {
         while (name.getPrefix().isPresent()) {
             name = name.getPrefix().get();
@@ -177,16 +159,10 @@ public class Scope
         return Optional.empty();
     }
 
-    public boolean isApproximate()
-    {
-        return approximate;
-    }
-
     public static final class Builder
     {
         private RelationType relationType = new RelationType();
         private Optional<Boolean> approximate = Optional.empty();
-        private boolean queryBoundary = false;
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
 
@@ -199,18 +175,6 @@ public class Scope
         public Builder withParent(Scope parent)
         {
             this.parent = Optional.of(parent);
-            return this;
-        }
-
-        public Builder markQueryBoundary()
-        {
-            this.queryBoundary = true;
-            return this;
-        }
-
-        public Builder withApproximate(boolean approximate)
-        {
-            this.approximate = Optional.of(approximate);
             return this;
         }
 
@@ -228,8 +192,7 @@ public class Scope
 
         public Scope build()
         {
-            boolean approximate = this.approximate.orElse(parent.map(Scope::isApproximate).orElse(false));
-            return new Scope(parent, relationType, namedQueries, approximate, queryBoundary);
+            return new Scope(parent, relationType, namedQueries);
         }
     }
 }

@@ -77,6 +77,12 @@ public class TestStatementBuilder
         printStatement("select count(*) x from src group by grouping sets ((k, v), (v))");
         printStatement("select count(*) x from src group by grouping sets (k, v, k)");
 
+        printStatement("select count(*) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y from t");
+        printStatement("select sum(x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(distinct x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
+        printStatement("select sum(x) filter (where x > 4) over (partition by y) z from t");
+
         printStatement("" +
                 "select depname, empno, salary\n" +
                 ", count(*) over ()\n" +
@@ -122,18 +128,11 @@ public class TestStatementBuilder
         printStatement("select * from a.b.c");
         printStatement("select * from a.b.c.e.f.g");
 
-        printStatement("select \"TOTALPRICE\" \"my price\" from \"ORDERS\"");
+        printStatement("select \"TOTALPRICE\" \"my price\" from \"$MY\"\"ORDERS\"");
 
         printStatement("select * from foo tablesample system (10+1)");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on a.id = b.id");
         printStatement("select * from foo tablesample system (10) join bar tablesample bernoulli (30) on not(a.id > b.id)");
-
-        printStatement("select * from foo tablesample bernoulli (10) stratify on (id)");
-        printStatement("select * from foo tablesample system (50) stratify on (id, name)");
-
-        printStatement("select * from foo tablesample poissonized (100)");
-
-        printStatement("select * from foo approximate at 90 confidence");
 
         printStatement("create table foo as (select * from abc)");
         printStatement("create table if not exists foo as (select * from abc)");
@@ -190,6 +189,7 @@ public class TestStatementBuilder
         printStatement("alter schema foo.bar rename to baz");
 
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
+        printStatement("create table test (a boolean, b bigint comment 'test')");
         printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
         printStatement("drop table test");
@@ -228,6 +228,10 @@ public class TestStatementBuilder
         printStatement("revoke insert, delete on foo from public"); //check support for public
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
+
+        printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
+        printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
+        printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
     }
 
     @Test

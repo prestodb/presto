@@ -38,11 +38,14 @@ public class TestHiveClientConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
                 .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
+                .setMaxPartitionsPerScan(100_000)
                 .setMaxOutstandingSplits(1_000)
                 .setMaxSplitIteratorThreads(1_000)
                 .setAllowCorruptWritesForTesting(false)
                 .setMetastoreCacheTtl(new Duration(1, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(1, TimeUnit.SECONDS))
+                .setMetastoreCacheMaximumSize(10000)
+                .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setMaxMetastoreRefreshThreads(100)
                 .setMetastoreSocksProxy(null)
                 .setMetastoreTimeout(new Duration(10, TimeUnit.SECONDS))
@@ -107,7 +110,8 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab(null)
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
-                .setBucketWritingEnabled(true));
+                .setBucketWritingEnabled(true)
+                .setFileSystemMaxCacheSize(1000));
     }
 
     @Test
@@ -116,11 +120,14 @@ public class TestHiveClientConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.max-split-size", "256MB")
+                .put("hive.max-partitions-per-scan", "123")
                 .put("hive.max-outstanding-splits", "10")
                 .put("hive.max-split-iterator-threads", "10")
                 .put("hive.allow-corrupt-writes-for-testing", "true")
                 .put("hive.metastore-cache-ttl", "2h")
                 .put("hive.metastore-refresh-interval", "30m")
+                .put("hive.metastore-cache-maximum-size", "5000")
+                .put("hive.per-transaction-metastore-cache-maximum-size", "500")
                 .put("hive.metastore-refresh-max-threads", "2500")
                 .put("hive.metastore.thrift.client.socks-proxy", "localhost:1080")
                 .put("hive.metastore-timeout", "20s")
@@ -186,16 +193,20 @@ public class TestHiveClientConfig
                 .put("hive.skip-deletion-for-alter", "true")
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
+                .put("hive.fs.cache.max-size", "1010")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
                 .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
+                .setMaxPartitionsPerScan(123)
                 .setMaxOutstandingSplits(10)
                 .setMaxSplitIteratorThreads(10)
                 .setAllowCorruptWritesForTesting(true)
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
+                .setMetastoreCacheMaximumSize(5000)
+                .setPerTransactionMetastoreCacheMaximumSize(500)
                 .setMaxMetastoreRefreshThreads(2500)
                 .setMetastoreSocksProxy(HostAndPort.fromParts("localhost", 1080))
                 .setMetastoreTimeout(new Duration(20, TimeUnit.SECONDS))
@@ -260,7 +271,8 @@ public class TestHiveClientConfig
                 .setHdfsPrestoKeytab("/tmp/presto.keytab")
                 .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
-                .setBucketWritingEnabled(false);
+                .setBucketWritingEnabled(false)
+                .setFileSystemMaxCacheSize(1010);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -28,6 +28,8 @@ public class TestTypeOfFunction
         assertFunction("typeof(CAST(1 AS INTEGER))", VarcharType.VARCHAR, "integer");
         assertFunction("typeof(CAST(1 AS VARCHAR))", VarcharType.VARCHAR, "varchar");
         assertFunction("typeof(CAST(1 AS DOUBLE))", VarcharType.VARCHAR, "double");
+        assertFunction("typeof(123)", VarcharType.VARCHAR, "integer");
+        assertFunction("typeof('cat')", VarcharType.VARCHAR, "varchar(3)");
         assertFunction("typeof(NULL)", VarcharType.VARCHAR, "unknown");
     }
 

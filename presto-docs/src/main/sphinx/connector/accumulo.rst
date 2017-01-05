@@ -1,26 +1,16 @@
 Accumulo Connector
 ==================
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
+Overview
+--------
+
 The Accumulo connector supports reading and writing data from Apache Accumulo.
 Please read this page thoroughly to understand the capabilities and features of the connector.
-
-Table of Contents
------------------
-
-#. `Installing the Iterator Dependency <#installing-the-iterator-dependency>`__
-#. `Connector Configuration <#connector-configuration>`__
-#. `Unsupported Features <#unsupported-features>`__
-#. `Usage <#usage>`__
-#. `Indexing Columns <#indexing-columns>`__
-#. `Loading Data <#loading-data>`__
-#. `External Tables <#external-tables>`__
-#. `Table Properties <#table-properties>`__
-#. `Session Properties <#session-properties>`__
-#. `Adding Columns <#adding-columns>`__
-#. `Serializers <#serializers>`__
-#. `Metadata Management <#metadata-management>`__
-#. `Converting Table from Internal to External <#converting-table-from-internal-to-external>`__
-
 
 Installing the Iterator Dependency
 ----------------------------------
@@ -110,12 +100,12 @@ Simply issue a ``CREATE TABLE`` statement to create a new Presto/Accumulo table:
 
 .. code-block:: none
 
-      Column   |  Type   |                      Comment
-    -----------+---------+---------------------------------------------------
-     recordkey | varchar | Accumulo row ID
-     name      | varchar | Accumulo column name:name. Indexed: false
-     age       | bigint  | Accumulo column age:age. Indexed: false
-     birthday  | date    | Accumulo column birthday:birthday. Indexed: false
+      Column   |  Type   | Extra |                      Comment
+    -----------+---------+-------+---------------------------------------------------
+     recordkey | varchar |       | Accumulo row ID
+     name      | varchar |       | Accumulo column name:name. Indexed: false
+     age       | bigint  |       | Accumulo column age:age. Indexed: false
+     birthday  | date    |       | Accumulo column birthday:birthday. Indexed: false
 
 This command will create a new Accumulo table with the ``recordkey`` column
 as the Accumulo row ID. The name, age, and birthday columns are mapped to
@@ -156,12 +146,12 @@ For example:
 
 .. code-block:: none
 
-      Column   |  Type   |                    Comment
-    -----------+---------+-----------------------------------------------
-     recordkey | varchar | Accumulo row ID
-     name      | varchar | Accumulo column metadata:name. Indexed: false
-     age       | bigint  | Accumulo column metadata:age. Indexed: false
-     birthday  | date    | Accumulo column metadata:date. Indexed: false
+      Column   |  Type   | Extra |                    Comment
+    -----------+---------+-------+-----------------------------------------------
+     recordkey | varchar |       | Accumulo row ID
+     name      | varchar |       | Accumulo column metadata:name. Indexed: false
+     age       | bigint  |       | Accumulo column metadata:age. Indexed: false
+     birthday  | date    |       | Accumulo column metadata:date. Indexed: false
 
 You can then issue ``INSERT`` statements to put data into Accumulo.
 
@@ -675,11 +665,11 @@ when creating the external table.
 
 .. code-block:: none
 
-     Column |  Type   |               Comment
-    --------+---------+-------------------------------------
-     a      | varchar | Accumulo row ID
-     b      | bigint  | Accumulo column b:b. Indexed: true
-     c      | date    | Accumulo column c:c. Indexed: true
+     Column |  Type   | Extra |               Comment
+    --------+---------+-------+-------------------------------------
+     a      | varchar |       | Accumulo row ID
+     b      | bigint  |       | Accumulo column b:b. Indexed: true
+     c      | date    |       | Accumulo column c:c. Indexed: true
 
 2. Using the ZooKeeper CLI, delete the corresponding znode.  Note this uses the default ZooKeeper
 metadata root of ``/presto-accumulo``

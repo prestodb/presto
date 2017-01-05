@@ -37,8 +37,8 @@ public final class RaptorTableHandle
     private final OptionalLong distributionId;
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
+    private final boolean organized;
     private final OptionalLong transactionId;
-    private final Optional<RaptorColumnHandle> sampleWeightColumnHandle;
     private final boolean delete;
 
     @JsonCreator
@@ -50,8 +50,8 @@ public final class RaptorTableHandle
             @JsonProperty("distributionId") OptionalLong distributionId,
             @JsonProperty("distributionName") Optional<String> distributionName,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("organized") boolean organized,
             @JsonProperty("transactionId") OptionalLong transactionId,
-            @JsonProperty("sampleWeightColumnHandle") Optional<RaptorColumnHandle> sampleWeightColumnHandle,
             @JsonProperty("delete") boolean delete)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
@@ -61,10 +61,10 @@ public final class RaptorTableHandle
         checkArgument(tableId > 0, "tableId must be greater than zero");
         this.tableId = tableId;
 
-        this.sampleWeightColumnHandle = requireNonNull(sampleWeightColumnHandle, "sampleWeightColumnHandle is null");
         this.distributionName = requireNonNull(distributionName, "distributionName is null");
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
+        this.organized = organized;
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
 
         this.delete = delete;
@@ -113,15 +113,15 @@ public final class RaptorTableHandle
     }
 
     @JsonProperty
-    public OptionalLong getTransactionId()
+    public boolean isOrganized()
     {
-        return transactionId;
+        return organized;
     }
 
     @JsonProperty
-    public Optional<RaptorColumnHandle> getSampleWeightColumnHandle()
+    public OptionalLong getTransactionId()
     {
-        return sampleWeightColumnHandle;
+        return transactionId;
     }
 
     @JsonProperty

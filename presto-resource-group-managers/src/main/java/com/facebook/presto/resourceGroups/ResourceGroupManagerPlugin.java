@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.resourceGroups;
 
+import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +26,9 @@ public class ResourceGroupManagerPlugin
     @Override
     public Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
     {
-        return ImmutableList.of(new FileResourceGroupConfigurationManagerFactory(getClassLoader()));
+        return ImmutableList.of(
+                new FileResourceGroupConfigurationManagerFactory(getClassLoader()),
+                new DbResourceGroupConfigurationManagerFactory(getClassLoader()));
     }
 
     private static ClassLoader getClassLoader()

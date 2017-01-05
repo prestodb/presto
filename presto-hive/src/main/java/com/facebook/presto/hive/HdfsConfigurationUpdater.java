@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
-import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
@@ -34,6 +33,7 @@ import java.util.List;
 
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
@@ -70,6 +70,7 @@ public class HdfsConfigurationUpdater
     private final boolean pinS3ClientToCurrentRegion;
     private final String s3UserAgentPrefix;
     private final HiveCompressionCodec compressionCodec;
+    private final int fileSystemMaxCacheSize;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
@@ -106,6 +107,7 @@ public class HdfsConfigurationUpdater
         this.pinS3ClientToCurrentRegion = hiveClientConfig.isPinS3ClientToCurrentRegion();
         this.s3UserAgentPrefix = hiveClientConfig.getS3UserAgentPrefix();
         this.compressionCodec = hiveClientConfig.getHiveCompressionCodec();
+        this.fileSystemMaxCacheSize = hiveClientConfig.getFileSystemMaxCacheSize();
     }
 
     public void updateConfiguration(Configuration config)
@@ -133,9 +135,9 @@ public class HdfsConfigurationUpdater
             config.setBooleanIfUnset("dfs.client.read.shortcircuit", true);
         }
 
-        config.setInt("dfs.socket.timeout", Ints.checkedCast(dfsTimeout.toMillis()));
-        config.setInt("ipc.ping.interval", Ints.checkedCast(ipcPingInterval.toMillis()));
-        config.setInt("ipc.client.connect.timeout", Ints.checkedCast(dfsConnectTimeout.toMillis()));
+        config.setInt("dfs.socket.timeout", toIntExact(dfsTimeout.toMillis()));
+        config.setInt("ipc.ping.interval", toIntExact(ipcPingInterval.toMillis()));
+        config.setInt("ipc.client.connect.timeout", toIntExact(dfsConnectTimeout.toMillis()));
         config.setInt("ipc.client.connect.max.retries", dfsConnectMaxRetries);
 
         // re-map filesystem schemes to match Amazon Elastic MapReduce
@@ -160,6 +162,8 @@ public class HdfsConfigurationUpdater
         if (s3SignerType != null) {
             config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, s3SignerType.getSignerType());
         }
+
+        config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
 
         configureCompression(config, compressionCodec);
 
@@ -198,7 +202,7 @@ public class HdfsConfigurationUpdater
         config.set(HIVE_ORC_COMPRESSION.varname, compressionCodec.getOrcCompressionKind().name());
         // For ORC
         config.set(OrcTableProperties.COMPRESSION.getPropName(), compressionCodec.getOrcCompressionKind().name());
-        // For RCFile
+        // For RCFile and Text
         if (compressionCodec.getCodec().isPresent()) {
             config.set("mapred.output.compression.codec", compressionCodec.getCodec().get().getName());
             config.set(FileOutputFormat.COMPRESS_CODEC, compressionCodec.getCodec().get().getName());

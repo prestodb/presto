@@ -35,7 +35,6 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -176,12 +175,12 @@ public class BenchmarkArraySubscript
 
         private static Block createArrayBlock(int positionCount, Block elementsBlock)
         {
-            int[] offsets = new int[positionCount];
+            int[] offsets = new int[positionCount + 1];
             int arraySize = elementsBlock.getPositionCount() / positionCount;
-            for (int i = 0; i < positionCount; i++) {
-                offsets[i] = arraySize * (i + 1);
+            for (int i = 0; i < offsets.length; i++) {
+                offsets[i] = arraySize * i;
             }
-            return new ArrayBlock(elementsBlock, Slices.wrappedIntArray(offsets), 0, Slices.allocate(positionCount));
+            return new ArrayBlock(positionCount, new boolean[positionCount], offsets, elementsBlock);
         }
 
         private static Block createFixWidthValueBlock(int positionCount, int mapSize)
@@ -220,7 +219,7 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = ThreadLocalRandom.current().nextInt(0, dictionarySize);
             }
-            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, Slices.wrappedIntArray(keyIds));
+            return new DictionaryBlock(positionCount * mapSize, dictionaryBlock, keyIds);
         }
 
         private static String randomString(int length)

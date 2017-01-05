@@ -15,6 +15,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -33,6 +34,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.MODULUS;
@@ -228,5 +230,22 @@ public final class TinyintOperators
     public static long hashCode(@SqlType(StandardTypes.TINYINT) long value)
     {
         return TinyintType.hash((byte) value);
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(
+            @SqlType(StandardTypes.TINYINT) long left,
+            @IsNull boolean leftNull,
+            @SqlType(StandardTypes.TINYINT) long right,
+            @IsNull boolean rightNull)
+    {
+        if (leftNull != rightNull) {
+            return true;
+        }
+        if (leftNull) {
+            return false;
+        }
+        return notEqual(left, right);
     }
 }

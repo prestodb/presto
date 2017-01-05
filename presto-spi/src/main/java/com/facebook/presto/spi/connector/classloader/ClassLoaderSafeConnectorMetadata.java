@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.connector.classloader;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnIdentity;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -29,8 +30,10 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
@@ -141,22 +144,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSampleWeightColumnHandle(session, tableHandle);
-        }
-    }
-
-    @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.canCreateSampledTables(session);
-        }
-    }
-
-    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -253,10 +240,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.finishCreateTable(session, tableHandle, fragments);
+            return delegate.finishCreateTable(session, tableHandle, fragments);
         }
     }
 
@@ -269,10 +256,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.finishInsert(session, insertHandle, fragments);
+            return delegate.finishInsert(session, insertHandle, fragments);
         }
     }
 
@@ -369,6 +356,38 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.revokeTablePrivileges(session, tableName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public TableIdentity getTableIdentity(ConnectorTableHandle connectorTableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableIdentity(connectorTableHandle);
+        }
+    }
+
+    @Override
+    public TableIdentity deserializeTableIdentity(byte[] bytes)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.deserializeTableIdentity(bytes);
+        }
+    }
+
+    @Override
+    public ColumnIdentity getColumnIdentity(ColumnHandle columnHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getColumnIdentity(columnHandle);
+        }
+    }
+
+    @Override
+    public ColumnIdentity deserializeColumnIdentity(byte[] bytes)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.deserializeColumnIdentity(bytes);
         }
     }
 }

@@ -31,9 +31,21 @@
         <property name="format" value="\n\n\Z" />
         <property name="message" value="Blank line before end of file" />
     </module>
-    <module name="RegexpMultiline">
+    <module name="RegexpSingleline">
         <property name="format" value="Preconditions\.checkNotNull" />
-        <property name="message" value="Use of checkNotNull" />
+        <property name="message" value="Use java.util.Objects.requireNonNull instead of Preconditions\.checkNotNull" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="^([^i]|i[^m]|im[^p]|imp[^o]|impo[^r]|impor[^t]|import[^ ]).*Objects\.requireNonNull" />
+        <property name="message" value="Objects.requireNonNull should only be used with static imports" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="Ints\.checkedCast" />
+        <property name="message" value="Use Math.toIntExact instead of Ints.checkedCast" />
+    </module>
+    <module name="RegexpSingleline">
+        <property name="format" value="^([^i]|i[^m]|im[^p]|imp[^o]|impo[^r]|impor[^t]|import[^ ]).*Math\.toIntExact" />
+        <property name="message" value="Math.toIntExact should only be used with static imports" />
     </module>
     <module name="RegexpMultiline">
         <property name="format" value="^[ \t]*import com.google.common.base.MoreObjects;$" />

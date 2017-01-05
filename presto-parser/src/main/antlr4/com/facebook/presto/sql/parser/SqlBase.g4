@@ -47,7 +47,7 @@ statement
     | ALTER TABLE tableName=qualifiedName
         RENAME COLUMN from=identifier TO to=identifier                 #renameColumn
     | ALTER TABLE tableName=qualifiedName
-        ADD COLUMN column=tableElement                                 #addColumn
+        ADD COLUMN column=columnDefinition                             #addColumn
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query                 #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
@@ -83,6 +83,8 @@ statement
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+    | DESCRIBE INPUT identifier                                        #describeInput
+    | DESCRIBE OUTPUT identifier                                       #describeOutput
     ;
 
 query
@@ -94,7 +96,16 @@ with
     ;
 
 tableElement
-    : identifier type
+    : columnDefinition
+    | likeClause
+    ;
+
+columnDefinition
+    : identifier type (COMMENT STRING)?
+    ;
+
+likeClause
+    : LIKE qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
     ;
 
 tableProperties
@@ -109,7 +120,6 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (LIMIT limit=(INTEGER_VALUE | ALL))?
-      (APPROXIMATE AT confidence=number CONFIDENCE)?
     ;
 
 queryTerm
@@ -197,8 +207,6 @@ joinCriteria
 sampledRelation
     : aliasedRelation (
         TABLESAMPLE sampleType '(' percentage=expression ')'
-        RESCALED?
-        (STRATIFY ON '(' stratify+=expression (',' stratify+=expression)* ')')?
       )?
     ;
 
@@ -243,6 +251,7 @@ predicated
 
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression                            #comparison
+    | comparisonOperator comparisonQuantifier '(' query ')'               #quantifiedComparison
     | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
     | NOT? IN '(' expression (',' expression)* ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
@@ -261,42 +270,44 @@ valueExpression
     ;
 
 primaryExpression
-    : NULL                                                                           #nullLiteral
-    | interval                                                                       #intervalLiteral
-    | identifier STRING                                                              #typeConstructor
-    | DOUBLE_PRECISION STRING                                                        #typeConstructor
-    | number                                                                         #numericLiteral
-    | booleanValue                                                                   #booleanLiteral
-    | STRING                                                                         #stringLiteral
-    | BINARY_LITERAL                                                                 #binaryLiteral
-    | '?'                                                                            #parameter
-    | POSITION '(' valueExpression IN valueExpression ')'                            #position
-    | '(' expression (',' expression)+ ')'                                           #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                       #rowConstructor
-    | qualifiedName '(' ASTERISK ')' over?                                           #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?     #functionCall
-    | identifier '->' expression                                                     #lambda
-    | '(' identifier (',' identifier)* ')' '->' expression                           #lambda
-    | '(' query ')'                                                                  #subqueryExpression
+    : NULL                                                                                #nullLiteral
+    | interval                                                                            #intervalLiteral
+    | identifier STRING                                                                   #typeConstructor
+    | DOUBLE_PRECISION STRING                                                             #typeConstructor
+    | number                                                                              #numericLiteral
+    | booleanValue                                                                        #booleanLiteral
+    | STRING                                                                              #stringLiteral
+    | BINARY_LITERAL                                                                      #binaryLiteral
+    | '?'                                                                                 #parameter
+    | POSITION '(' valueExpression IN valueExpression ')'                                 #position
+    // This case handles both an implicit row constructor or a simple parenthesized
+    // expression. We can't make the two separate alternatives because it needs
+    // unbounded look-ahead to figure out which one to take while it looks for the comma
+    | '(' expression (',' expression)* ')'                                                #implicitRowConstructor
+    | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter? over?  #functionCall
+    | identifier '->' expression                                                          #lambda
+    | '(' identifier (',' identifier)* ')' '->' expression                                #lambda
+    | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
-    | EXISTS '(' query ')'                                                           #exists
-    | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END         #simpleCase
-    | CASE whenClause+ (ELSE elseExpression=expression)? END                         #searchedCase
-    | CAST '(' expression AS type ')'                                                #cast
-    | TRY_CAST '(' expression AS type ')'                                            #cast
-    | ARRAY '[' (expression (',' expression)*)? ']'                                  #arrayConstructor
-    | value=primaryExpression '[' index=valueExpression ']'                          #subscript
-    | identifier                                                                     #columnReference
-    | base=primaryExpression '.' fieldName=identifier                                #dereference
-    | name=CURRENT_DATE                                                              #specialDateTimeFunction
-    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
-    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                      #specialDateTimeFunction
-    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
-    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                         #specialDateTimeFunction
-    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'  #substring
-    | NORMALIZE '(' valueExpression (',' normalForm)? ')'                            #normalize
-    | EXTRACT '(' identifier FROM valueExpression ')'                                #extract
-    | '(' expression ')'                                                             #parenthesizedExpression
+    | EXISTS '(' query ')'                                                                #exists
+    | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END              #simpleCase
+    | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
+    | CAST '(' expression AS type ')'                                                     #cast
+    | TRY_CAST '(' expression AS type ')'                                                 #cast
+    | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
+    | value=primaryExpression '[' index=valueExpression ']'                               #subscript
+    | identifier                                                                          #columnReference
+    | base=primaryExpression '.' fieldName=identifier                                     #dereference
+    | name=CURRENT_DATE                                                                   #specialDateTimeFunction
+    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #specialDateTimeFunction
+    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #specialDateTimeFunction
+    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #specialDateTimeFunction
+    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
+    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
+    | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
+    | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     ;
 
 timeZoneSpecifier
@@ -306,6 +317,10 @@ timeZoneSpecifier
 
 comparisonOperator
     : EQ | NEQ | LT | LTE | GT | GTE
+    ;
+
+comparisonQuantifier
+    : ALL | SOME | ANY
     ;
 
 booleanValue
@@ -341,6 +356,10 @@ baseType
 
 whenClause
     : WHEN condition=expression THEN result=expression
+    ;
+
+filter
+    : FILTER '(' WHERE booleanExpression ')'
     ;
 
 over
@@ -416,25 +435,27 @@ number
 nonReserved
     : SHOW | TABLES | COLUMNS | COLUMN | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | ADD
+    | FILTER
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
     | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
-    | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | SET | RESET
     | VIEW | REPLACE
     | IF | NULLIF | COALESCE
-    | TRY
     | normalForm
     | POSITION
     | NO | DATA
     | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
     | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
+    | COMMENT
     | CALL
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
+    | INPUT | OUTPUT
+    | INCLUDING | EXCLUDING | PROPERTIES
     ;
 
 normalForm
@@ -459,9 +480,7 @@ ROLLUP: 'ROLLUP';
 ORDER: 'ORDER';
 HAVING: 'HAVING';
 LIMIT: 'LIMIT';
-APPROXIMATE: 'APPROXIMATE';
 AT: 'AT';
-CONFIDENCE: 'CONFIDENCE';
 OR: 'OR';
 AND: 'AND';
 IN: 'IN';
@@ -518,6 +537,7 @@ FULL: 'FULL';
 NATURAL: 'NATURAL';
 USING: 'USING';
 ON: 'ON';
+FILTER: 'FILTER';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
 RANGE: 'RANGE';
@@ -533,6 +553,7 @@ VALUES: 'VALUES';
 CREATE: 'CREATE';
 SCHEMA: 'SCHEMA';
 TABLE: 'TABLE';
+COMMENT: 'COMMENT';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
 INSERT: 'INSERT';
@@ -553,7 +574,6 @@ TEXT: 'TEXT';
 GRAPHVIZ: 'GRAPHVIZ';
 LOGICAL: 'LOGICAL';
 DISTRIBUTED: 'DISTRIBUTED';
-TRY: 'TRY';
 CAST: 'CAST';
 TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';
@@ -574,8 +594,6 @@ SYSTEM: 'SYSTEM';
 BERNOULLI: 'BERNOULLI';
 POISSONIZED: 'POISSONIZED';
 TABLESAMPLE: 'TABLESAMPLE';
-RESCALED: 'RESCALED';
-STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
@@ -604,8 +622,13 @@ CALL: 'CALL';
 PREPARE: 'PREPARE';
 DEALLOCATE: 'DEALLOCATE';
 EXECUTE: 'EXECUTE';
+INPUT: 'INPUT';
+OUTPUT: 'OUTPUT';
 CASCADE: 'CASCADE';
 RESTRICT: 'RESTRICT';
+INCLUDING: 'INCLUDING';
+EXCLUDING: 'EXCLUDING';
+PROPERTIES: 'PROPERTIES';
 
 NORMALIZE: 'NORMALIZE';
 NFD : 'NFD';

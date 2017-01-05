@@ -112,4 +112,42 @@ public final class Chars
         }
         return 0;
     }
+
+    public static int compareChars(Slice left, Slice right)
+    {
+        if (left.length() < right.length()) {
+            return compareCharsShorterToLonger(left, right);
+        }
+        else {
+            return -compareCharsShorterToLonger(right, left);
+        }
+    }
+
+    private static int compareCharsShorterToLonger(Slice shorter, Slice longer)
+    {
+        for (int i = 0; i < shorter.length(); ++i) {
+            int result = compareUnsignedBytes(shorter.getByte(i), longer.getByte(i));
+            if (result != 0) {
+                return result;
+            }
+        }
+
+        for (int i = shorter.length(); i < longer.length(); ++i) {
+            int result = compareUnsignedBytes((byte) ' ', longer.getByte(i));
+            if (result != 0) {
+                return result;
+            }
+        }
+        return 0;
+    }
+
+    private static int compareUnsignedBytes(byte thisByte, byte thatByte)
+    {
+        return unsignedByteToInt(thisByte) - unsignedByteToInt(thatByte);
+    }
+
+    private static int unsignedByteToInt(byte thisByte)
+    {
+        return thisByte & 0xFF;
+    }
 }

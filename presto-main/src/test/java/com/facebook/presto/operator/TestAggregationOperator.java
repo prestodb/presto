@@ -97,15 +97,15 @@ public class TestAggregationOperator
                 0,
                 new PlanNodeId("test"),
                 Step.SINGLE,
-                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
-                        LONG_SUM.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0),
-                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0),
-                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty(), Optional.empty(), 1.0),
-                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty(), Optional.empty(), 1.0),
-                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty(), Optional.empty(), 1.0),
-                        REAL_SUM.bind(ImmutableList.of(4), Optional.empty(), Optional.empty(), 1.0),
-                        DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty(), Optional.empty(), 1.0),
-                        maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty(), Optional.empty(), 1.0)));
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
+                        LONG_SUM.bind(ImmutableList.of(1), Optional.empty()),
+                        LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty()),
+                        maxVarcharColumn.bind(ImmutableList.of(2), Optional.empty()),
+                        countVarcharColumn.bind(ImmutableList.of(0), Optional.empty()),
+                        LONG_SUM.bind(ImmutableList.of(3), Optional.empty()),
+                        REAL_SUM.bind(ImmutableList.of(4), Optional.empty()),
+                        DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty()),
+                        maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty())));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR)
                 .row(100L, 4950L, 49.5, "399", 100L, 54950L, 44950.0f, 54950.0, "599")

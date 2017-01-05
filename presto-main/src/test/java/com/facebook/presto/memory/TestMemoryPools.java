@@ -18,7 +18,6 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -31,10 +30,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -47,14 +45,16 @@ public class TestMemoryPools
     public void testBlocking()
             throws Exception
     {
-        Session session = TEST_SESSION
-                .withSystemProperty("task_default_concurrency", "1");
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .setSystemProperty("task_default_concurrency", "1")
+                .build();
 
         LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
         // add tpch
-        NodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
 
         // reserve all the memory in the pool
         MemoryPool pool = new MemoryPool(new MemoryPoolId("test"), new DataSize(10, MEGABYTE));
@@ -65,8 +65,8 @@ public class TestMemoryPools
         QueryContext queryContext = new QueryContext(new QueryId("query"), new DataSize(10, MEGABYTE), pool, systemPool, localQueryRunner.getExecutor());
         // discard all output
         OutputFactory outputFactory = new PageConsumerOutputFactory(types -> (page -> { }));
-        TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session, new DataSize(0, BYTE));
-        List<Driver> drivers = localQueryRunner.createDrivers("SELECT COUNT(*), clerk FROM orders GROUP BY clerk", outputFactory, taskContext);
+        TaskContext taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session);
+        List<Driver> drivers = localQueryRunner.createDrivers("SELECT COUNT(*) FROM orders JOIN lineitem USING (orderkey)", outputFactory, taskContext);
 
         // run driver, until it blocks
         while (!isWaitingForMemory(drivers)) {

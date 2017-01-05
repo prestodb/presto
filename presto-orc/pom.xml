@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.153-SNAPSHOT</version>
+        <version>0.162-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-orc</artifactId>
@@ -22,18 +22,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf-shims</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
+            <groupId>com.facebook.presto.orc</groupId>
+            <artifactId>orc-protobuf</artifactId>
         </dependency>
 
         <dependency>
@@ -123,6 +113,18 @@
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
             <artifactId>hadoop-cdh4</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.hive</groupId>
+            <artifactId>hive-dwrf</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.hive</groupId>
+            <artifactId>hive-dwrf-shims</artifactId>
             <scope>test</scope>
         </dependency>
 

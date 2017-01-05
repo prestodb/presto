@@ -30,7 +30,6 @@ import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
@@ -45,7 +44,7 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.transaction.TransactionId;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -123,6 +122,7 @@ public class StatementResource
     private static final long DESIRED_RESULT_BYTES = new DataSize(1, MEGABYTE).toBytes();
 
     private final QueryManager queryManager;
+    private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
@@ -134,12 +134,14 @@ public class StatementResource
     @Inject
     public StatementResource(
             QueryManager queryManager,
+            TransactionManager transactionManager,
             AccessControl accessControl,
             SessionPropertyManager sessionPropertyManager,
             ExchangeClientSupplier exchangeClientSupplier,
             QueryIdGenerator queryIdGenerator)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
@@ -164,7 +166,7 @@ public class StatementResource
     {
         assertRequest(!isNullOrEmpty(statement), "SQL statement is empty");
 
-        Session session = createSessionForRequest(servletRequest, accessControl, sessionPropertyManager, queryIdGenerator.createNextQueryId());
+        Session session = createSessionForRequest(servletRequest, transactionManager, accessControl, sessionPropertyManager, queryIdGenerator.createNextQueryId());
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> { });
         Query query = new Query(session, statement, queryManager, exchangeClient);
@@ -526,17 +528,11 @@ public class StatementResource
             if (!outputStage.getState().isDone()) {
                 for (TaskInfo taskInfo : outputStage.getTasks()) {
                     OutputBufferInfo outputBuffers = taskInfo.getOutputBuffers();
-                    List<BufferInfo> buffers = outputBuffers.getBuffers();
-                    if (buffers.isEmpty() || outputBuffers.getState().canAddBuffers()) {
-                        // output buffer has not been created yet
+                    if (outputBuffers.getState().canAddBuffers()) {
+                        // output buffer are still being created
                         continue;
                     }
-                    Preconditions.checkState(buffers.size() == 1,
-                            "Expected a single output buffer for task %s, but found %s",
-                            taskInfo.getTaskStatus().getTaskId(),
-                            buffers);
-
-                    OutputBufferId bufferId = Iterables.getOnlyElement(buffers).getBufferId();
+                    OutputBufferId bufferId = new OutputBufferId(0);
                     URI uri = uriBuilderFrom(taskInfo.getTaskStatus().getSelf()).appendPath("results").appendPath(bufferId.toString()).build();
                     exchangeClient.addLocation(uri);
                 }

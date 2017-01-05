@@ -14,18 +14,38 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.testing.TestingSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.testing.Assertions;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_TABLE;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_VIEW;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -35,71 +55,68 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestDistributedQueries
-        extends AbstractTestApproximateQueries
+        extends AbstractTestQueries
 {
     protected AbstractTestDistributedQueries(QueryRunner queryRunner)
     {
         super(queryRunner);
     }
 
-    protected AbstractTestDistributedQueries(QueryRunner queryRunner, Session sampledSession)
+    protected boolean supportsViews()
     {
-        super(queryRunner, sampledSession);
+        return true;
     }
 
     @Test
     public void testSetSession()
-            throws Exception
     {
         MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
         assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
 
-        result = computeActual("SET SESSION connector.connector_long = 999");
+        result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "999"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
 
-        result = computeActual("SET SESSION connector.connector_string = 'baz'");
+        result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_string", "baz"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
 
-        result = computeActual("SET SESSION connector.connector_string = 'ban' || 'ana'");
+        result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_string", "banana"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
 
-        result = computeActual("SET SESSION connector.connector_long = 444");
+        result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "444"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
 
-        result = computeActual("SET SESSION connector.connector_long = 111 + 111");
+        result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_long", "222"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
 
-        result = computeActual("SET SESSION connector.connector_boolean = 111 < 3");
+        result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_boolean", "false"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
 
-        result = computeActual("SET SESSION connector.connector_double = 11.1");
+        result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("connector.connector_double", "11.1"));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
     }
 
     @Test
     public void testResetSession()
-            throws Exception
     {
         MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
         assertTrue((Boolean) getOnlyElement(result).getField(0));
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
 
-        result = computeActual(getSession(), "RESET SESSION connector.connector_string");
+        result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
         assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("connector.connector_string"));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
     @Test
     public void testCreateTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
         assertTrue(queryRunner.tableExists(getSession(), "test_create"));
@@ -118,11 +135,25 @@ public abstract class AbstractTestDistributedQueries
 
         assertUpdate("DROP TABLE test_create_table_if_not_exists");
         assertFalse(queryRunner.tableExists(getSession(), "test_create_table_if_not_exists"));
+
+        // Test CREATE TABLE LIKE
+        assertUpdate("CREATE TABLE test_create_original (a bigint, b double, c varchar)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_original"));
+        assertTableColumnNames("test_create_original", "a", "b", "c");
+
+        assertUpdate("CREATE TABLE test_create_like (LIKE test_create_original, d boolean, e varchar)");
+        assertTrue(queryRunner.tableExists(getSession(), "test_create_like"));
+        assertTableColumnNames("test_create_like", "a", "b", "c", "d", "e");
+
+        assertUpdate("DROP TABLE test_create_original");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_original"));
+
+        assertUpdate("DROP TABLE test_create_like");
+        assertFalse(queryRunner.tableExists(getSession(), "test_create_like"));
     }
 
     @Test
     public void testCreateTableAsSelect()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_create_table_as_if_not_exists (a bigint, b double)");
         assertTrue(queryRunner.tableExists(getSession(), "test_create_table_as_if_not_exists"));
@@ -173,12 +204,6 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT * FROM orders LIMIT 0",
                 "SELECT 0");
 
-        assertCreateTableAsSelect(
-                "test_sampled",
-                "SELECT orderkey FROM tpch_sampled.tiny.orders ORDER BY orderkey LIMIT 10",
-                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
-                "SELECT 10");
-
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
         assertCreateTableAsSelect(
@@ -189,7 +214,7 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT count(*) FROM orders");
 
         assertCreateTableAsSelect(
-                getSession().withSystemProperty("redistribute_writes", "true"),
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
                 "test_union_all",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
@@ -198,7 +223,7 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT count(*) + 1 FROM orders");
 
         assertCreateTableAsSelect(
-                getSession().withSystemProperty("redistribute_writes", "false"),
+                Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
                 "test_union_all",
                 "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
@@ -265,19 +290,16 @@ public abstract class AbstractTestDistributedQueries
     }
 
     protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
-            throws Exception
     {
         assertCreateTableAsSelect(getSession(), table, query, query, rowCountQuery);
     }
 
     protected void assertCreateTableAsSelect(String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-            throws Exception
     {
         assertCreateTableAsSelect(getSession(), table, query, expectedQuery, rowCountQuery);
     }
 
     protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String expectedQuery, @Language("SQL") String rowCountQuery)
-            throws Exception
     {
         assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
         assertQuery(session, "SELECT * FROM " + table, expectedQuery);
@@ -288,7 +310,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testRenameTable()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_rename AS SELECT 123 x", 1);
 
@@ -309,7 +330,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testRenameColumn()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_rename_column AS SELECT 123 x", 1);
 
@@ -327,7 +347,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testAddColumn()
-            throws Exception
     {
         assertUpdate("CREATE TABLE test_add_column AS SELECT 123 x", 1);
         assertUpdate("CREATE TABLE test_add_column_a AS SELECT 234 x, 111 a", 1);
@@ -367,7 +386,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testInsert()
-            throws Exception
     {
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
@@ -417,7 +435,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testDelete()
-            throws Exception
     {
         // delete half the table, then delete the rest
 
@@ -537,7 +554,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testDropTableIfExists()
-            throws Exception
     {
         assertFalse(queryRunner.tableExists(getSession(), "test_drop_if_exists"));
         assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
@@ -546,8 +562,9 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testView()
-            throws Exception
     {
+        skipTestUnless(supportsViews());
+
         @Language("SQL") String query = "SELECT orderkey, orderstatus, totalprice / 2 half FROM orders";
 
         assertUpdate("CREATE VIEW test_view AS SELECT 123 x");
@@ -569,8 +586,9 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testViewCaseSensitivity()
-            throws Exception
     {
+        skipTestUnless(supportsViews());
+
         computeActual("CREATE VIEW test_view_uppercase AS SELECT X FROM (SELECT 123 X)");
         computeActual("CREATE VIEW test_view_mixedcase AS SELECT XyZ FROM (SELECT 456 XyZ)");
         assertQuery("SELECT * FROM test_view_uppercase", "SELECT X FROM (SELECT 123 X)");
@@ -579,8 +597,9 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testCompatibleTypeChangeForView()
-            throws Exception
     {
+        skipTestUnless(supportsViews());
+
         assertUpdate("CREATE TABLE test_table_1 AS SELECT 'abcdefg' a", 1);
         assertUpdate("CREATE VIEW test_view_1 AS SELECT a FROM test_table_1");
 
@@ -598,8 +617,9 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testCompatibleTypeChangeForView2()
-            throws Exception
     {
+        skipTestUnless(supportsViews());
+
         assertUpdate("CREATE TABLE test_table_2 AS SELECT BIGINT '1' v", 1);
         assertUpdate("CREATE VIEW test_view_2 AS SELECT * FROM test_table_2");
 
@@ -617,8 +637,9 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testViewMetadata()
-            throws Exception
     {
+        skipTestUnless(supportsViews());
+
         @Language("SQL") String query = "SELECT BIGINT '123' x, 'foo' y";
         assertUpdate("CREATE VIEW meta_test_view AS " + query);
 
@@ -666,9 +687,9 @@ public abstract class AbstractTestDistributedQueries
         // test SHOW COLUMNS
         actual = computeActual("SHOW COLUMNS FROM meta_test_view");
 
-        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR)
-                .row("x", "bigint", "")
-                .row("y", "varchar(3)", "")
+        expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("x", "bigint", "", "")
+                .row("y", "varchar(3)", "", "")
                 .build();
 
         assertEquals(actual, expected);
@@ -690,14 +711,12 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testLargeQuerySuccess()
-            throws Exception
     {
         assertQuery("SELECT " + Joiner.on(" AND ").join(nCopies(500, "1 = 1")), "SELECT true");
     }
 
     @Test
     public void testShowSchemasFromOther()
-            throws Exception
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
@@ -705,7 +724,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testTableSampleSystem()
-            throws Exception
     {
         int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
 
@@ -722,7 +740,6 @@ public abstract class AbstractTestDistributedQueries
 
     @Test
     public void testTableSampleSystemBoundaryValues()
-            throws Exception
     {
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
         MaterializedResult emptySample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (0)");
@@ -732,18 +749,6 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 
-    @Override
-    @Test
-    public void testTableSamplePoissonizedRescaled()
-            throws Exception
-    {
-        MaterializedResult sample = computeActual("SELECT * FROM orders TABLESAMPLE POISSONIZED (10) RESCALED");
-        MaterializedResult all = computeExpected("SELECT * FROM orders", sample.getTypes());
-
-        assertTrue(!sample.getMaterializedRows().isEmpty());
-        assertContains(all, sample);
-    }
-
     @Test
     public void testSymbolAliasing()
             throws Exception
@@ -751,5 +756,108 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE TABLE test_symbol_aliasing AS SELECT 1 foo_1, 2 foo_2_4", 1);
         assertQuery("SELECT foo_1, foo_2_4 FROM test_symbol_aliasing", "SELECT 1, 2");
         assertUpdate("DROP TABLE test_symbol_aliasing");
+    }
+
+    @Test
+    public void testNonQueryAccessControl()
+            throws Exception
+    {
+        skipTestUnless(supportsViews());
+
+        assertAccessDenied("SET SESSION " + QUERY_MAX_MEMORY + " = '10MB'",
+                "Cannot set system session property " + QUERY_MAX_MEMORY,
+                privilege(QUERY_MAX_MEMORY, SET_SESSION));
+
+        assertAccessDenied("CREATE TABLE foo (pk bigint)", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
+        assertAccessDenied("DROP TABLE orders", "Cannot drop table .*.orders.*", privilege("orders", DROP_TABLE));
+        assertAccessDenied("ALTER TABLE orders RENAME TO foo", "Cannot rename table .*.orders.* to .*.foo.*", privilege("orders", RENAME_TABLE));
+        assertAccessDenied("ALTER TABLE orders ADD COLUMN foo bigint", "Cannot add a column to table .*.orders.*", privilege("orders", ADD_COLUMN));
+        assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
+        assertAccessDenied("CREATE VIEW foo as SELECT * FROM orders", "Cannot create view .*.foo.*", privilege("foo", CREATE_VIEW));
+        // todo add DROP VIEW test... not all connectors have view support
+
+        try {
+            assertAccessDenied("SELECT 1", "Principal .* cannot become user " + getSession().getUser() + ".*", privilege(getSession().getUser(), SET_USER));
+        }
+        catch (AssertionError e) {
+            // There is no clean exception message for authorization failure.  We simply get a 403
+            Assertions.assertContains(e.getMessage(), "statusCode=403");
+        }
+    }
+
+    @Test
+    public void testViewAccessControl()
+            throws Exception
+    {
+        skipTestUnless(supportsViews());
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        // verify creation of view over a table requires special view creation privileges for the table
+        assertAccessDenied(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                "Cannot select from table .*.orders.*",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_TABLE));
+
+        // create the view
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_view_access AS SELECT * FROM orders",
+                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
+
+        // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
+        assertAccessDenied(
+                "SELECT * FROM test_view_access",
+                "Cannot select from table .*.orders.*",
+                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
+
+        // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_TABLE));
+        assertAccessAllowed(
+                "SELECT * FROM test_view_access",
+                privilege(getSession().getUser(), "orders", SELECT_TABLE));
+
+        Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty()))
+                .setCatalog(getSession().getCatalog().get())
+                .setSchema(getSession().getSchema().get())
+                .build();
+
+        // verify creation of view over a view requires special view creation privileges for the view
+        assertAccessDenied(
+                nestedViewOwnerSession,
+                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
+                "Cannot select from view .*.test_view_access.*",
+                privilege("test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
+
+        // create the nested view
+        assertAccessAllowed(
+                nestedViewOwnerSession,
+                "CREATE VIEW test_nested_view_access AS SELECT * FROM test_view_access",
+                privilege("bogus", "bogus privilege to disable security", SELECT_TABLE));
+
+        // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
+        assertAccessDenied(
+                "SELECT * FROM test_nested_view_access",
+                "Cannot select from view .*.test_view_access.*",
+                privilege(nestedViewOwnerSession.getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
+
+        // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
+        assertAccessAllowed(
+                "SELECT * FROM test_nested_view_access",
+                privilege(getSession().getUser(), "test_view_access", CREATE_VIEW_WITH_SELECT_VIEW));
+        assertAccessAllowed(
+                "SELECT * FROM test_nested_view_access",
+                privilege(getSession().getUser(), "test_view_access", SELECT_VIEW));
+
+        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
     }
 }

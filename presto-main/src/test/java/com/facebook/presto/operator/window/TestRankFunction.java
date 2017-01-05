@@ -44,7 +44,7 @@ public class TestRankFunction
                 resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
                         .row(3L, "F", 1L)
                         .row(5L, "F", 1L)
-                        .row(null, "F", 1L)
+                        .row(6L, "F", 1L)
                         .row(null, "F", 1L)
                         .row(34L, "O", 5L)
                         .row(null, "O", 5L)

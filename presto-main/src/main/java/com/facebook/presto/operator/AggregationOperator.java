@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.Page;
@@ -36,6 +37,8 @@ import static java.util.Objects.requireNonNull;
 public class AggregationOperator
         implements Operator
 {
+    private final boolean partial;
+
     public static class AggregationOperatorFactory
             implements OperatorFactory
     {
@@ -90,6 +93,7 @@ public class AggregationOperator
     }
 
     private final OperatorContext operatorContext;
+    private final LocalMemoryContext systemMemoryContext;
     private final List<Type> types;
     private final List<Aggregator> aggregates;
 
@@ -98,10 +102,12 @@ public class AggregationOperator
     public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        this.systemMemoryContext = operatorContext.getSystemMemoryContext().newLocalMemoryContext();
 
         requireNonNull(step, "step is null");
-        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
+        this.partial = step.isOutputPartial();
 
+        requireNonNull(accumulatorFactories, "accumulatorFactories is null");
         this.types = toTypes(step, accumulatorFactories);
 
         // wrapper each function with an aggregator
@@ -155,8 +161,12 @@ public class AggregationOperator
             aggregate.processPage(page);
             memorySize += aggregate.getEstimatedSize();
         }
-        memorySize -= operatorContext.getOperatorPreAllocatedMemory().toBytes();
-        operatorContext.setMemoryReservation(Math.max(0, memorySize));
+        if (partial) {
+            systemMemoryContext.setBytes(memorySize);
+        }
+        else {
+            operatorContext.setMemoryReservation(memorySize);
+        }
     }
 
     @Override

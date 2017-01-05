@@ -17,11 +17,13 @@ package com.facebook.presto.tests;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -29,6 +31,16 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryTemplate
 {
+    public static QueryTemplate queryTemplate(String queryTemplate, Parameter... parameters)
+    {
+        return new QueryTemplate(queryTemplate, parameters);
+    }
+
+    public static Parameter parameter(String key)
+    {
+        return new Parameter(key);
+    }
+
     private final String queryTemplate;
     private final List<Parameter> defaultParameters;
 
@@ -67,6 +79,14 @@ public class QueryTemplate
                     !query.contains(queryParameterKey),
                     "Query template parameters was not given: %s", queryParameterKey);
         }
+    }
+
+    @SafeVarargs
+    public final Stream<String> replaceAll(List<Parameter>... parametersLists)
+    {
+        List<String> queries = new ArrayList<>();
+        replaceAll(queries::add, parametersLists);
+        return queries.stream();
     }
 
     public void replaceAll(Consumer<String> queryConsumer, List<Parameter>... parametersLists)

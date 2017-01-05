@@ -25,22 +25,12 @@ import static java.util.Objects.requireNonNull;
 public class MongoTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final SchemaTableName schemaTableName;
 
     @JsonCreator
-    public MongoTableHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+    public MongoTableHandle(@JsonProperty("schemaTableName") SchemaTableName schemaTableName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -52,7 +42,7 @@ public class MongoTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaTableName);
+        return Objects.hash(schemaTableName);
     }
 
     @Override
@@ -65,13 +55,12 @@ public class MongoTableHandle
             return false;
         }
         MongoTableHandle other = (MongoTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.schemaTableName, other.schemaTableName);
+        return Objects.equals(this.schemaTableName, other.schemaTableName);
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + schemaTableName;
+        return schemaTableName.toString();
     }
 }

@@ -15,9 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -175,8 +174,8 @@ public class TestInterpretedFilterFunction
     @Test
     public void testComparisonExpressionWithNulls()
     {
-        for (ComparisonExpression.Type type : ComparisonExpression.Type.values()) {
-            if (type == ComparisonExpression.Type.IS_DISTINCT_FROM) {
+        for (ComparisonExpressionType type : ComparisonExpressionType.values()) {
+            if (type == ComparisonExpressionType.IS_DISTINCT_FROM) {
                 // IS DISTINCT FROM has different NULL semantics
                 continue;
             }
@@ -193,11 +192,11 @@ public class TestInterpretedFilterFunction
 
     public static void assertFilter(String expression, boolean expectedValue)
     {
-        Expression parsed = createExpression(expression, METADATA, ImmutableMap.<Symbol, Type>of());
+        Expression parsed = createExpression(expression, METADATA, ImmutableMap.of());
 
-        InterpretedFilterFunction filterFunction = new InterpretedFilterFunction(parsed,
-                ImmutableMap.<Symbol, Type>of(),
-                ImmutableMap.<Symbol, Integer>of(),
+        InterpretedInternalFilterFunction filterFunction = new InterpretedInternalFilterFunction(parsed,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
                 METADATA,
                 SQL_PARSER,
                 TEST_SESSION

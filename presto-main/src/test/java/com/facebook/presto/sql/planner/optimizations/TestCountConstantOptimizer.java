@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -58,14 +59,12 @@ public class TestCountConstantOptimizer
                         new ProjectNode(
                                 planNodeIdAllocator.getNextId(),
                                 valuesNode,
-                                ImmutableMap.of(new Symbol("expr"), new LongLiteral("42"))),
+                                Assignments.of(new Symbol("expr"), new LongLiteral("42"))),
                         aggregations,
                         functions,
                         ImmutableMap.of(),
                         ImmutableList.of(ImmutableList.of()),
                         AggregationNode.Step.INTERMEDIATE,
-                        Optional.empty(),
-                        1.0,
                         Optional.empty(),
                         Optional.empty());
 
@@ -80,14 +79,12 @@ public class TestCountConstantOptimizer
                         new ProjectNode(
                                 planNodeIdAllocator.getNextId(),
                                 valuesNode,
-                                ImmutableMap.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x")))))),
+                                Assignments.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x")))))),
                         aggregations,
                         functions,
                         ImmutableMap.of(),
                         ImmutableList.of(ImmutableList.of()),
                         AggregationNode.Step.INTERMEDIATE,
-                        Optional.empty(),
-                        1.0,
                         Optional.empty(),
                         Optional.empty());
 

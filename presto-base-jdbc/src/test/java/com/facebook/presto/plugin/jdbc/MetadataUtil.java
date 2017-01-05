@@ -16,7 +16,6 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -41,7 +40,7 @@ final class MetadataUtil
 
     static {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer()));
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
         COLUMN_CODEC = codecFactory.jsonCodec(JdbcColumnHandle.class);
         TABLE_CODEC = codecFactory.jsonCodec(JdbcTableHandle.class);
@@ -51,7 +50,7 @@ final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = ImmutableMap.<String, Type>of(
+        private final Map<String, Type> types = ImmutableMap.of(
                 StandardTypes.BIGINT, BIGINT,
                 StandardTypes.VARCHAR, VARCHAR);
 

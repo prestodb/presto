@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,6 +82,15 @@ public class CreateTableAsSelect
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitCreateTableAsSelect(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        nodes.add(query);
+        nodes.addAll(properties.values());
+        return nodes.build();
     }
 
     @Override

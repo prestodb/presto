@@ -29,7 +29,6 @@ public class TestJdbcDistributedQueries
 
     @Override
     public void testLargeIn()
-            throws Exception
     {
     }
 }

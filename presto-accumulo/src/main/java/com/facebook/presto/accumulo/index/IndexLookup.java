@@ -62,7 +62,6 @@ public class IndexLookup
     private static final Range METRICS_TABLE_ROWID_RANGE = new Range(Indexer.METRICS_TABLE_ROWID_AS_TEXT);
     private final ColumnCardinalityCache cardinalityCache;
     private final Connector connector;
-    private Authorizations auths;
 
     public IndexLookup(
             Connector connector,
@@ -70,18 +69,7 @@ public class IndexLookup
             Authorizations auths)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.auths = requireNonNull(auths, "auths is null");
         this.cardinalityCache = new ColumnCardinalityCache(connector, requireNonNull(config, "config is null"), auths);
-    }
-
-    public Authorizations getAuths()
-    {
-        return auths;
-    }
-
-    public void setAuths(Authorizations auths)
-    {
-        this.auths = auths;
     }
 
     public void dropCache(String schema, String table)
@@ -107,6 +95,7 @@ public class IndexLookup
      * @param rowIdRanges Collection of Accumulo ranges based on any predicate against a record key
      * @param tabletSplits Output parameter containing the bundles of row IDs determined by the use of the index.
      * @param serializer Instance of a row serializer
+     * @param auths Scan-time authorizations
      * @return True if the tablet splits are valid and should be used, false otherwise
      * @throws Exception If something bad happens. What are the odds?
      */
@@ -117,7 +106,8 @@ public class IndexLookup
             Collection<AccumuloColumnConstraint> constraints,
             Collection<Range> rowIdRanges,
             List<TabletSplitMetadata> tabletSplits,
-            AccumuloRowSerializer serializer)
+            AccumuloRowSerializer serializer,
+            Authorizations auths)
             throws Exception
     {
         // Early out if index is disabled
@@ -141,7 +131,7 @@ public class IndexLookup
         if (!AccumuloSessionProperties.isIndexMetricsEnabled(session)) {
             LOG.debug("Use of index metrics is disabled");
             // Get the ranges via the index table
-            List<Range> indexRanges = getIndexRanges(Indexer.getIndexTableName(schema, table), constraintRanges, rowIdRanges);
+            List<Range> indexRanges = getIndexRanges(Indexer.getIndexTableName(schema, table), constraintRanges, rowIdRanges, auths);
 
             if (!indexRanges.isEmpty()) {
                 // Bin the ranges into TabletMetadataSplits and return true to use the tablet splits
@@ -157,7 +147,7 @@ public class IndexLookup
         else {
             LOG.debug("Use of index metrics is enabled");
             // Get ranges using the metrics
-            return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges, tabletSplits);
+            return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges, tabletSplits, auths);
         }
     }
 
@@ -186,7 +176,8 @@ public class IndexLookup
             String table,
             Multimap<AccumuloColumnConstraint, Range> constraintRanges,
             Collection<Range> rowIdRanges,
-            List<TabletSplitMetadata> tabletSplits)
+            List<TabletSplitMetadata> tabletSplits,
+            Authorizations auths)
             throws Exception
     {
         // Get the cardinalities from the metrics table
@@ -199,7 +190,7 @@ public class IndexLookup
         Entry<Long, AccumuloColumnConstraint> lowestCardinality = entry.get();
         String indexTable = Indexer.getIndexTableName(schema, table);
         String metricsTable = Indexer.getMetricsTableName(schema, table);
-        long numRows = getNumRowsInTable(metricsTable);
+        long numRows = getNumRowsInTable(metricsTable, auths);
         double threshold = AccumuloSessionProperties.getIndexThreshold(session);
         List<Range> indexRanges;
 
@@ -218,7 +209,7 @@ public class IndexLookup
 
             // Else, get the intersection of all row IDs for all column constraints
             LOG.debug("%d indexed columns, intersecting ranges", constraintRanges.size());
-            indexRanges = getIndexRanges(indexTable, constraintRanges, rowIdRanges);
+            indexRanges = getIndexRanges(indexTable, constraintRanges, rowIdRanges, auths);
             LOG.debug("Intersection results in %d ranges from secondary index", indexRanges.size());
         }
         else {
@@ -227,7 +218,7 @@ public class IndexLookup
             LOG.debug("Not intersecting columns, using column with lowest cardinality ");
             ImmutableMultimap.Builder<AccumuloColumnConstraint, Range> lcBldr = ImmutableMultimap.builder();
             lcBldr.putAll(lowestCardinality.getValue(), constraintRanges.get(lowestCardinality.getValue()));
-            indexRanges = getIndexRanges(indexTable, lcBldr.build(), rowIdRanges);
+            indexRanges = getIndexRanges(indexTable, lcBldr.build(), rowIdRanges, auths);
         }
 
         if (indexRanges.isEmpty()) {
@@ -262,7 +253,7 @@ public class IndexLookup
         return ratio > threshold;
     }
 
-    private long getNumRowsInTable(String metricsTable)
+    private long getNumRowsInTable(String metricsTable, Authorizations auths)
             throws TableNotFoundException
     {
         // Create scanner against the metrics table, pulling the special column and the rows column
@@ -284,7 +275,7 @@ public class IndexLookup
         return numRows;
     }
 
-    private List<Range> getIndexRanges(String indexTable, Multimap<AccumuloColumnConstraint, Range> constraintRanges, Collection<Range> rowIDRanges)
+    private List<Range> getIndexRanges(String indexTable, Multimap<AccumuloColumnConstraint, Range> constraintRanges, Collection<Range> rowIDRanges, Authorizations auths)
             throws TableNotFoundException
     {
         Set<Range> finalRanges = null;

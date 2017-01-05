@@ -21,6 +21,7 @@ import java.util.List;
 import static com.facebook.presto.spi.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.spi.block.BlockUtil.intSaturatedCast;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 
 public class LongArrayBlock
         implements Block
@@ -108,7 +109,7 @@ public class LongArrayBlock
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
-        return Math.toIntExact(values[position + arrayOffset]);
+        return toIntExact(values[position + arrayOffset]);
     }
 
     @Override

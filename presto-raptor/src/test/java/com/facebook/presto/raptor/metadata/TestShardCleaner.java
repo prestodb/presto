@@ -101,7 +101,8 @@ public class TestShardCleaner
                 config.getLocalCleanTime(),
                 config.getBackupCleanerInterval(),
                 config.getBackupCleanTime(),
-                config.getBackupDeletionThreads());
+                config.getBackupDeletionThreads(),
+                config.getMaxCompletedTransactionAge());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -291,6 +292,57 @@ public class TestShardCleaner
                 row(shard3));
     }
 
+    @Test
+    public void testDeleteOldCompletedTransactions()
+            throws Exception
+    {
+        TestingDao dao = dbi.onDemand(TestingDao.class);
+        ShardDao shardDao = dbi.onDemand(ShardDao.class);
+
+        long now = System.currentTimeMillis();
+        Timestamp yesterdayStart = new Timestamp(now - HOURS.toMillis(27));
+        Timestamp yesterdayEnd = new Timestamp(now - HOURS.toMillis(26));
+        Timestamp todayEnd = new Timestamp(now - HOURS.toMillis(1));
+
+        long txn1 = dao.insertTransaction(yesterdayStart);
+        long txn2 = dao.insertTransaction(yesterdayStart);
+        long txn3 = dao.insertTransaction(yesterdayStart);
+        long txn4 = dao.insertTransaction(yesterdayStart);
+        long txn5 = dao.insertTransaction(new Timestamp(now));
+        long txn6 = dao.insertTransaction(new Timestamp(now));
+
+        assertEquals(shardDao.finalizeTransaction(txn1, true), 1);
+        assertEquals(shardDao.finalizeTransaction(txn2, false), 1);
+        assertEquals(shardDao.finalizeTransaction(txn3, false), 1);
+        assertEquals(shardDao.finalizeTransaction(txn5, true), 1);
+        assertEquals(shardDao.finalizeTransaction(txn6, false), 1);
+
+        assertEquals(dao.updateTransactionEndTime(txn1, yesterdayEnd), 1);
+        assertEquals(dao.updateTransactionEndTime(txn2, yesterdayEnd), 1);
+        assertEquals(dao.updateTransactionEndTime(txn3, yesterdayEnd), 1);
+        assertEquals(dao.updateTransactionEndTime(txn5, todayEnd), 1);
+        assertEquals(dao.updateTransactionEndTime(txn6, todayEnd), 1);
+
+        shardDao.insertCreatedShard(randomUUID(), txn2);
+        shardDao.insertCreatedShard(randomUUID(), txn2);
+
+        assertQuery("SELECT transaction_id, successful, end_time FROM transactions",
+                row(txn1, true, yesterdayEnd),  // old successful
+                row(txn2, false, yesterdayEnd), // old failed, shards present
+                row(txn3, false, yesterdayEnd), // old failed, no referencing shards
+                row(txn4, null, null),          // old not finished
+                row(txn5, true, todayEnd),      // new successful
+                row(txn6, false, todayEnd));    // new failed, no referencing shards
+
+        cleaner.deleteOldCompletedTransactions();
+
+        assertQuery("SELECT transaction_id, successful, end_time FROM transactions",
+                row(txn2, false, yesterdayEnd),
+                row(txn4, null, null),
+                row(txn5, true, todayEnd),
+                row(txn6, false, todayEnd));
+    }
+
     private boolean shardFileExists(UUID uuid)
     {
         return storageService.getStorageFile(uuid).exists();
@@ -362,5 +414,8 @@ public class TestShardCleaner
         void insertDeletedShard(
                 @Bind("shardUuid") UUID shardUuid,
                 @Bind("deleteTime") Timestamp deleteTime);
+
+        @SqlUpdate("UPDATE transactions SET end_time = :endTime WHERE transaction_id = :transactionId")
+        int updateTransactionEndTime(@Bind("transactionId") long transactionId, @Bind("endTime") Timestamp endTime);
     }
 }

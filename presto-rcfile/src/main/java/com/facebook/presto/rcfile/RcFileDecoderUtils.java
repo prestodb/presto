@@ -16,7 +16,6 @@ package com.facebook.presto.rcfile;
 import com.facebook.presto.spi.type.CharType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -28,6 +27,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -136,13 +136,13 @@ public final class RcFileDecoderUtils
 
         // read 1 MB chunks at a time, but only skip ahead 1 MB - SYNC_SEQUENCE_LENGTH bytes
         // this causes a re-read of SYNC_SEQUENCE_LENGTH bytes each time, but is much simpler code
-        byte[] buffer = new byte[Ints.checkedCast(min(1 << 20, length + (SYNC_SEQUENCE_LENGTH - 1)))];
+        byte[] buffer = new byte[toIntExact(min(1 << 20, length + (SYNC_SEQUENCE_LENGTH - 1)))];
         Slice bufferSlice = Slices.wrappedBuffer(buffer);
         for (long position = 0; position < length; position += bufferSlice.length() - (SYNC_SEQUENCE_LENGTH - 1)) {
             // either fill the buffer entirely, or read enough to allow all bytes in offset + length to be a start sequence
-            int bufferSize = Ints.checkedCast(min(buffer.length, length + (SYNC_SEQUENCE_LENGTH - 1) - position));
+            int bufferSize = toIntExact(min(buffer.length, length + (SYNC_SEQUENCE_LENGTH - 1) - position));
             // don't read off the end of the file
-            bufferSize = Ints.checkedCast(min(bufferSize, dataSource.getSize() - offset - position));
+            bufferSize = toIntExact(min(bufferSize, dataSource.getSize() - offset - position));
 
             dataSource.readFully(offset + position, buffer, 0, bufferSize);
 

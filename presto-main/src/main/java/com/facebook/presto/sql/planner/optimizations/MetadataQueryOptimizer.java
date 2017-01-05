@@ -133,7 +133,7 @@ public class MetadataQueryOptimizer
             // with a Values node
             TableLayout layout = null;
             if (!tableScan.getLayout().isPresent()) {
-                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
+                List<TableLayoutResult> layouts = metadata.getLayouts(session, tableScan.getTable(), Constraint.alwaysTrue(), Optional.empty());
                 if (layouts.size() == 1) {
                     layout = Iterables.getOnlyElement(layouts).getLayout();
                 }
@@ -180,7 +180,7 @@ public class MetadataQueryOptimizer
             return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 
-        private Optional<TableScanNode> findTableScan(PlanNode source)
+        private static Optional<TableScanNode> findTableScan(PlanNode source)
         {
             while (true) {
                 // allow any chain of linear transformations
@@ -194,7 +194,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().values(), DeterminismEvaluator::isDeterministic)) {
+                    if (!Iterables.all(project.getAssignments().getExpressions(), DeterminismEvaluator::isDeterministic)) {
                         return Optional.empty();
                     }
                     source = project.getSource();

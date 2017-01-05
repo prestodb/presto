@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class DeleteOperator
         implements Operator
 {
-    public static final List<Type> TYPES = ImmutableList.<Type>of(BIGINT, VARBINARY);
+    public static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
 
     public static class DeleteOperatorFactory
             implements OperatorFactory

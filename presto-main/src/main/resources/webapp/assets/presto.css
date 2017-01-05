@@ -99,6 +99,13 @@ pre {
     font-size: 16px;
 }
 
+/** Common elements **/
+/** ====== **/
+
+.copy-button:hover {
+    color: #fff;
+}
+
 /** ===================== **/
 /** Cluster Overview Page **/
 /** ===================== **/
@@ -241,16 +248,25 @@ pre {
     padding: 2px 0 1px 0;
 }
 
-.stat-header {
-    margin-left: -15px;
-    background-color: #1b1b1b;
-    margin-right: -35px;
+.query-header {
     padding: 4px 0 4px 0;
+    background-color: #1b1b1b;
+    margin: 0;
 }
 
-.stat-header-queryid {
+.query-header-queryid {
+    margin-left: -15px;
+    margin-right: -35px;
+    padding: 8px 0 8px 0;
+}
+
+.query-header-timestamp {
     text-align: right;
     color: #b1b1b1;
+}
+
+.query-progress-container {
+    padding: 0;
 }
 
 /** Query List Toolbar **/
@@ -344,7 +360,7 @@ pre {
 }
 
 .query-links {
-    text-align: right;
+    float: right;
     margin-top: 20px;
 }
 
@@ -401,9 +417,15 @@ pre {
 }
 
 .stage-id {
-    font-size:72px;
+    font-size: 90px;
     color: #b5b5b5;
     text-align: center;
+}
+
+.stage-state-color {
+    border-left: 3px solid #4a4a4a;
+    margin-left: -8px;
+    padding-left: 8px;
 }
 
 .single-stage-table > tbody > tr > td {
@@ -472,16 +494,16 @@ pre {
 }
 
 .table > tbody > tr > td .expand-charts-container {
-    padding-top: 40px;
+    padding-top: 50px;
 }
 
 .expand-charts-button {
-    padding: 34px 3px 34px 4px;
+    padding: 45px 3px 45px 4px;
     background-color: #3A3F4C;
 }
 
 .expanded-chart-title {
-    width: 100px;
+    width: auto;
     padding-right: 5px;
 }
 

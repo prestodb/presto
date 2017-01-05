@@ -159,11 +159,12 @@ public class PerfTest
                         server,
                         "test-" + i,
                         "presto-perf",
+                        null,
                         catalog,
                         schema,
                         TimeZone.getDefault().getID(),
                         Locale.getDefault(),
-                        ImmutableMap.<String, String>of(),
+                        ImmutableMap.of(),
                         null,
                         debug,
                         clientRequestTimeout);

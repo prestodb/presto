@@ -182,11 +182,11 @@ This table can be described in Presto::
 
 .. code-block:: none
 
-     Column  |  Type   | Null | Partition Key | Comment
-    ---------+---------+------+---------------+---------
-     user_id | bigint  | true | true          |
-     fname   | varchar | true | false         |
-     lname   | varchar | true | false         |
+     Column  |  Type   | Extra | Comment
+    ---------+---------+-------+---------
+     user_id | bigint  |       |
+     fname   | varchar |       |
+     lname   | varchar |       |
     (3 rows)
 
 This table can then be queried in Presto::

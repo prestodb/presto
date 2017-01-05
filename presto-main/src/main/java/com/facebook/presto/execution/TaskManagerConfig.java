@@ -29,13 +29,17 @@ import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
-@DefunctConfig({"experimental.big-query-max-task-memory", "task.max-memory", "task.http-notification-threads", "task.info-refresh-max-wait"})
+@DefunctConfig({
+        "experimental.big-query-max-task-memory",
+        "task.max-memory",
+        "task.http-notification-threads",
+        "task.info-refresh-max-wait",
+        "task.operator-pre-allocated-memory"})
 public class TaskManagerConfig
 {
     private boolean verboseStats;
     private boolean taskCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = new DataSize(16, Unit.MEGABYTE);
-    private DataSize operatorPreAllocatedMemory = new DataSize(16, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = new DataSize(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
@@ -51,10 +55,10 @@ public class TaskManagerConfig
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
-    private Duration infoUpdateInterval = new Duration(200, TimeUnit.MILLISECONDS);
+    private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
 
     private int writerCount = 1;
-    private int taskConcurrency = 1;
+    private int taskConcurrency = 16;
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
@@ -125,19 +129,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setMaxPartialAggregationMemoryUsage(DataSize maxPartialAggregationMemoryUsage)
     {
         this.maxPartialAggregationMemoryUsage = maxPartialAggregationMemoryUsage;
-        return this;
-    }
-
-    @NotNull
-    public DataSize getOperatorPreAllocatedMemory()
-    {
-        return operatorPreAllocatedMemory;
-    }
-
-    @Config("task.operator-pre-allocated-memory")
-    public TaskManagerConfig setOperatorPreAllocatedMemory(DataSize operatorPreAllocatedMemory)
-    {
-        this.operatorPreAllocatedMemory = operatorPreAllocatedMemory;
         return this;
     }
 

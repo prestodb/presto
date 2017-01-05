@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
@@ -23,6 +24,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
@@ -95,5 +97,16 @@ public final class UnknownOperators
     public static Long hashCode(@SqlType("unknown") @SqlNullable Void value)
     {
         return null;
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(
+            @SqlType("unknown") @SqlNullable Void left,
+            @IsNull boolean leftNull,
+            @SqlType("unknown") @SqlNullable Void right,
+            @IsNull boolean rightNull)
+    {
+        return false;
     }
 }

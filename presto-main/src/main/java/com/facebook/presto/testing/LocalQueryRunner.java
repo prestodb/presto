@@ -19,7 +19,6 @@ import com.facebook.presto.ScheduledSplit;
 import com.facebook.presto.Session;
 import com.facebook.presto.TaskSource;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
@@ -38,6 +37,7 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PrepareTask;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
@@ -49,6 +49,7 @@ import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -83,7 +84,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
@@ -138,7 +138,6 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
-import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -174,6 +173,8 @@ import static com.facebook.presto.execution.SqlQueryManager.unwrapExecuteStateme
 import static com.facebook.presto.execution.SqlQueryManager.validateParameters;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.testing.TreeAssertions.assertFormattedSql;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -202,7 +203,6 @@ public class LocalQueryRunner
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
     private final TestingAccessControlManager accessControl;
-    private final TestingEventListenerManager eventListener;
     private final SplitManager splitManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final PageSourceManager pageSourceManager;
@@ -223,7 +223,7 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), false);
+        this(defaultSession, new FeaturesConfig().setOptimizeMixedDistinctAggregations(true), false);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
@@ -253,13 +253,15 @@ public class LocalQueryRunner
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService));
         this.pageSinkManager = new PageSinkManager();
+        CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = TransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 transactionCheckExecutor,
+                catalogManager,
                 executor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
-        this.splitManager = new SplitManager();
+        this.splitManager = new SplitManager(new QueryManagerConfig());
         this.blockEncodingSerde = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
                 featuresConfig,
@@ -270,7 +272,6 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 transactionManager);
         this.accessControl = new TestingAccessControlManager(transactionManager);
-        this.eventListener = new TestingEventListenerManager();
         this.pageSourceManager = new PageSourceManager();
 
         this.expressionCompiler = new ExpressionCompiler(metadata);
@@ -278,6 +279,7 @@ public class LocalQueryRunner
 
         this.connectorManager = new ConnectorManager(
                 metadata,
+                catalogManager,
                 accessControl,
                 splitManager,
                 pageSourceManager,
@@ -294,14 +296,17 @@ public class LocalQueryRunner
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
-                new CatalogSystemTable(metadata),
-                new SchemaPropertiesSystemTable(metadata),
-                new TablePropertiesSystemTable(metadata),
+                new CatalogSystemTable(transactionManager),
+                new SchemaPropertiesSystemTable(transactionManager, metadata),
+                new TablePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
                 ImmutableSet.of());
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
+
+        // add bogus connector for testing session properties
+        catalogManager.registerCatalog(createBogusTestingCatalog(TESTING_CATALOG));
 
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
@@ -316,15 +321,17 @@ public class LocalQueryRunner
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),
                 defaultSession.getUserAgent(),
+                defaultSession.getClientInfo(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
-                defaultSession.getCatalogProperties(),
+                defaultSession.getConnectorProperties(),
+                defaultSession.getUnprocessedCatalogProperties(),
                 metadata.getSessionPropertyManager(),
                 defaultSession.getPreparedStatements());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
-                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, accessControl, new FeaturesConfig()))
+                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, new FeaturesConfig()))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
@@ -344,7 +351,7 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithInitialTransaction(Session defaultSession)
     {
         checkArgument(!defaultSession.getTransactionId().isPresent(), "Already in transaction!");
-        return new LocalQueryRunner(defaultSession, new FeaturesConfig().setExperimentalSyntaxEnabled(true), true);
+        return new LocalQueryRunner(defaultSession, new FeaturesConfig(), true);
     }
 
     @Override
@@ -360,11 +367,6 @@ public class LocalQueryRunner
     public int getNodeCount()
     {
         return 1;
-    }
-
-    public NodeManager getNodeManager()
-    {
-        return new ConnectorAwareNodeManager(nodeManager, "testenv", new ConnectorId("test"));
     }
 
     public TypeRegistry getTypeManager()
@@ -408,14 +410,6 @@ public class LocalQueryRunner
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }
 
-    @Deprecated
-    public void createCatalog(String catalogName, com.facebook.presto.spi.ConnectorFactory connectorFactory, Map<String, String> properties)
-    {
-        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
-        connectorManager.addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
-        connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
-    }
-
     @Override
     public void installPlugin(Plugin plugin)
     {
@@ -439,7 +433,7 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            return transaction(transactionManager)
+            return transaction(transactionManager, accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
                         return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
@@ -455,7 +449,7 @@ public class LocalQueryRunner
     {
         lock.readLock().lock();
         try {
-            return transaction(transactionManager)
+            return transaction(transactionManager, accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
                         return MetadataUtil.tableExists(getMetadata(), transactionSession, table);
@@ -485,7 +479,7 @@ public class LocalQueryRunner
 
     public <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(transactionManager)
+        return transaction(transactionManager, accessControl)
                 .singleStatement()
                 .execute(session, transactionSessionConsumer);
     }
@@ -547,7 +541,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, session));
         }
 
-        SubPlan subplan = new PlanFragmenter().createSubPlans(session, metadata, plan);
+        SubPlan subplan = PlanFragmenter.createSubPlans(session, metadata, plan);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -641,19 +635,18 @@ public class LocalQueryRunner
         assertFormattedSql(sqlParser, statement);
 
         FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setExperimentalSyntaxEnabled(true)
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
         PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true);
-        return createPlan(session, sql, featuresConfig, planOptimizers.get(), stage);
+        return createPlan(session, sql, planOptimizers.get(), stage);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers)
     {
-        return createPlan(session, sql, featuresConfig, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
+        return createPlan(session, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, FeaturesConfig featuresConfig, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage)
     {
         Statement wrapped = sqlParser.createStatement(sql);
         Statement statement = unwrapExecuteStatement(wrapped, sqlParser, session);
@@ -673,19 +666,13 @@ public class LocalQueryRunner
                 metadata,
                 accessControl,
                 sqlParser,
-                dataDefinitionTask,
-                featuresConfig.isExperimentalSyntaxEnabled());
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), featuresConfig.isExperimentalSyntaxEnabled(), parameters);
+                dataDefinitionTask);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), parameters);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, idAllocator, metadata, sqlParser);
 
         Analysis analysis = analyzer.analyze(statement);
         return logicalPlanner.plan(analysis, stage);
-    }
-
-    public OperatorFactory createTableScanOperator(int operatorId, PlanNodeId planNodeId, String tableName, String... columnNames)
-    {
-        return createTableScanOperator(defaultSession, operatorId, planNodeId, tableName, columnNames);
     }
 
     public OperatorFactory createTableScanOperator(
@@ -750,7 +737,7 @@ public class LocalQueryRunner
         };
     }
 
-    public OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
+    public static OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> columnTypes)
     {
         ImmutableList.Builder<ProjectionFunction> projectionFunctions = ImmutableList.builder();
         for (int i = 0; i < columnTypes.size(); i++) {

@@ -97,7 +97,7 @@ public class TestFilterAndProjectOperator
                 0,
                 new PlanNodeId("test"),
                 () -> new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
-                ImmutableList.<Type>of(VARCHAR, BIGINT));
+                ImmutableList.of(VARCHAR, BIGINT));
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("10", 15L)

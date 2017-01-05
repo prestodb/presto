@@ -77,8 +77,8 @@ public class CountColumn
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(CountColumn.class.getClassLoader());
 
-        AccumulatorStateSerializer<LongState> stateSerializer = new StateCompiler().generateStateSerializer(LongState.class, classLoader);
-        AccumulatorStateFactory<LongState> stateFactory = new StateCompiler().generateStateFactory(LongState.class, classLoader);
+        AccumulatorStateSerializer<LongState> stateSerializer = StateCompiler.generateStateSerializer(LongState.class, classLoader);
+        AccumulatorStateFactory<LongState> stateFactory = StateCompiler.generateStateFactory(LongState.class, classLoader);
         Type intermediateType = stateSerializer.getSerializedType();
 
         List<Type> inputTypes = ImmutableList.of(type);
@@ -92,11 +92,10 @@ public class CountColumn
                 LongState.class,
                 stateSerializer,
                 stateFactory,
-                BIGINT,
-                false);
+                BIGINT);
 
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, false, factory);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, BIGINT, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

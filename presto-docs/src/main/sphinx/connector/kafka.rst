@@ -2,6 +2,14 @@
 Kafka Connector
 ===============
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
+Overview
+--------
+
 This connector allows the use of Apache Kafka topics as tables in Presto.
 Each message is presented as a row in Presto.
 

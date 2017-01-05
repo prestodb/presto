@@ -121,7 +121,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitSample(SampleNode node, List<PlanNode> newChildren)
     {
-        return new SampleNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getSampleRatio(), node.getSampleType(), node.isRescaled(), node.getSampleWeightSymbol());
+        return new SampleNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getSampleRatio(), node.getSampleType());
     }
 
     @Override
@@ -162,8 +162,6 @@ public class ChildReplacer
                 node.getMasks(),
                 node.getGroupingSets(),
                 node.getStep(),
-                node.getSampleWeight(),
-                node.getConfidence(),
                 node.getHashSymbol(),
                 node.getGroupIdSymbol());
     }
@@ -171,7 +169,7 @@ public class ChildReplacer
     @Override
     public PlanNode visitGroupId(GroupIdNode node, List<PlanNode> newChildren)
     {
-        return new GroupIdNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupingSets(), node.getIdentityMappings(), node.getGroupIdSymbol());
+        return new GroupIdNode(node.getId(), Iterables.getOnlyElement(newChildren), node.getGroupingSets(), node.getGroupingSetMappings(), node.getArgumentMappings(), node.getGroupIdSymbol());
     }
 
     @Override
@@ -227,7 +225,6 @@ public class ChildReplacer
                 node.getColumns(),
                 node.getColumnNames(),
                 node.getOutputSymbols(),
-                node.getSampleWeightSymbol(),
                 node.getPartitioningScheme());
     }
 
@@ -271,7 +268,7 @@ public class ChildReplacer
     public PlanNode visitApply(ApplyNode node, List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new ApplyNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getCorrelation());
+        return new ApplyNode(node.getId(), newChildren.get(0), newChildren.get(1), node.getSubqueryAssignments(), node.getCorrelation());
     }
 
     @Override

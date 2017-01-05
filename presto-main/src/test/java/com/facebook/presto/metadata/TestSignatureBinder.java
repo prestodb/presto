@@ -15,10 +15,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,7 +34,12 @@ import static com.facebook.presto.metadata.Signature.comparableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.metadata.Signature.withVariadicBound;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -983,11 +988,97 @@ public class TestSignatureBinder
     }
 
     @Test
+    public void testFunction()
+            throws Exception
+    {
+        Signature simple = functionSignature()
+                .returnType(parseTypeSignature("boolean"))
+                .argumentTypes(parseTypeSignature("function(integer,integer)"))
+                .build();
+
+        assertThat(simple)
+                .boundTo("function(integer,integer)")
+                .succeeds();
+        // TODO: This should eventually be supported
+        assertThat(simple)
+                .boundTo("function(integer,smallint)")
+                .withCoercion()
+                .fails();
+        assertThat(simple)
+                .boundTo("function(integer,bigint)")
+                .withCoercion()
+                .fails();
+
+        Signature applyTwice = functionSignature()
+                .returnType(parseTypeSignature("V"))
+                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T,U)"), parseTypeSignature("function(U,V)"))
+                .typeVariableConstraints(typeVariable("T"), typeVariable("U"), typeVariable("V"))
+                .build();
+        assertThat(applyTwice)
+                .boundTo("integer", "function(integer,varchar)", "function(varchar,double)")
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .setTypeVariable("U", VARCHAR)
+                        .setTypeVariable("V", DOUBLE)
+                        .build());
+        assertThat(applyTwice)
+                .boundTo(
+                        "integer",
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .setTypeVariable("U", VARCHAR)
+                        .setTypeVariable("V", DOUBLE)
+                        .build());
+        assertThat(applyTwice)
+                .boundTo(
+                        // pass function argument to non-function position of a function
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                .fails();
+        assertThat(applyTwice)
+                .boundTo(
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(integer,varchar)")),
+                        // pass non-function argument to function position of a function
+                        "integer",
+                        new TypeSignatureProvider(functionArgumentTypes -> TypeSignature.parseTypeSignature("function(varchar,double)")))
+                .fails();
+
+        Signature flatMap = functionSignature()
+                .returnType(parseTypeSignature("array(T)"))
+                .argumentTypes(parseTypeSignature("array(T)"), parseTypeSignature("function(T, array(T))"))
+                .typeVariableConstraints(typeVariable("T"))
+                .build();
+        assertThat(flatMap)
+                .boundTo("array(integer)", "function(integer, array(integer))")
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .build());
+
+        Signature varargApply = functionSignature()
+                .returnType(parseTypeSignature("T"))
+                .argumentTypes(parseTypeSignature("T"), parseTypeSignature("function(T, T)"))
+                .typeVariableConstraints(typeVariable("T"))
+                .setVariableArity(true)
+                .build();
+        assertThat(varargApply)
+                .boundTo("integer", "function(integer, integer)", "function(integer, integer)", "function(integer, integer)")
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", INTEGER)
+                        .build());
+        assertThat(varargApply)
+                .boundTo("integer", "function(integer, integer)", "function(integer, double)", "function(double, double)")
+                .fails();
+    }
+
+    @Test
     public void testBindParameters()
             throws Exception
     {
         BoundVariables boundVariables = BoundVariables.builder()
-                .setTypeVariable("T1", DoubleType.DOUBLE)
+                .setTypeVariable("T1", DOUBLE)
                 .setTypeVariable("T2", BigintType.BIGINT)
                 .setTypeVariable("T3", DecimalType.createDecimalType(5, 3))
                 .setLongVariable("p", 1L)
@@ -1011,7 +1102,7 @@ public class TestSignatureBinder
         assertBindVariablesFails("T1(bigint)", boundVariables, "Unbounded parameters can not have parameters");
     }
 
-    private void assertBindVariablesFails(String typeSignature, BoundVariables boundVariables, String reason)
+    private static void assertBindVariablesFails(String typeSignature, BoundVariables boundVariables, String reason)
     {
         try {
             SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), boundVariables);
@@ -1022,7 +1113,7 @@ public class TestSignatureBinder
         }
     }
 
-    private void assertThat(String typeSignature, BoundVariables boundVariables, String expectedTypeSignature)
+    private static void assertThat(String typeSignature, BoundVariables boundVariables, String expectedTypeSignature)
     {
         assertEquals(
                 SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), boundVariables).toString(),
@@ -1030,7 +1121,7 @@ public class TestSignatureBinder
         );
     }
 
-    private SignatureBuilder functionSignature()
+    private static SignatureBuilder functionSignature()
     {
         return new SignatureBuilder()
                 .name("function")
@@ -1059,7 +1150,7 @@ public class TestSignatureBinder
     private class BindSignatureAssertion
     {
         private final Signature function;
-        private List<Type> argumentTypes = null;
+        private List<TypeSignatureProvider> argumentTypes = null;
         private Type returnType = null;
         private boolean allowCoercion = false;
 
@@ -1076,13 +1167,31 @@ public class TestSignatureBinder
 
         public BindSignatureAssertion boundTo(String... arguments)
         {
-            this.argumentTypes = types(arguments);
+            this.argumentTypes = fromTypes(types(arguments));
+            return this;
+        }
+
+        public BindSignatureAssertion boundTo(Object... arguments)
+        {
+            ImmutableList.Builder<TypeSignatureProvider> builder = ImmutableList.builder();
+            for (Object argument : arguments) {
+                if (argument instanceof String) {
+                    builder.add(new TypeSignatureProvider(TypeSignature.parseTypeSignature((String) argument)));
+                    continue;
+                }
+                if (argument instanceof TypeSignatureProvider) {
+                    builder.add((TypeSignatureProvider) argument);
+                    continue;
+                }
+                throw new IllegalArgumentException(format("argument is of type %s. It should be String or TypeSignatureProvider", argument.getClass()));
+            }
+            this.argumentTypes = builder.build();
             return this;
         }
 
         public BindSignatureAssertion boundTo(List<String> arguments, String returnType)
         {
-            this.argumentTypes = types(arguments.toArray(new String[arguments.size()]));
+            this.argumentTypes = fromTypes(types(arguments.toArray(new String[arguments.size()])));
             this.returnType = type(returnType);
             return this;
         }

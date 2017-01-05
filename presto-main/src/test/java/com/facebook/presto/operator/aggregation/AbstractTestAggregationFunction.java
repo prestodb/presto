@@ -23,6 +23,7 @@ import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
@@ -31,17 +32,19 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 
 public abstract class AbstractTestAggregationFunction
 {
     protected final TypeRegistry typeRegistry = new TypeRegistry();
-    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+    protected final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
     public abstract Block[] getSequenceBlocks(int start, int length);
 
     protected final InternalAggregationFunction getFunction()
     {
-        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature), isApproximate());
+        List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
+        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), parameterTypes);
         return functionRegistry.getAggregateFunctionImplementation(signature);
     }
 
@@ -49,17 +52,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected abstract List<String> getFunctionParameterTypes();
 
-    protected boolean isApproximate()
-    {
-        return false;
-    }
-
     public abstract Object getExpectedValue(int start, int length);
-
-    public double getConfidence()
-    {
-        return 1.0;
-    }
 
     public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
@@ -149,6 +142,6 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
-        assertAggregation(getFunction(), getConfidence(), expectedValue, blocks);
+        assertAggregation(getFunction(), expectedValue, blocks);
     }
 }

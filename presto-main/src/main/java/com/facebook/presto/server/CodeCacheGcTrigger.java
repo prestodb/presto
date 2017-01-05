@@ -30,11 +30,13 @@ final class CodeCacheGcTrigger
     private static final AtomicBoolean installed = new AtomicBoolean();
 
     private final Duration interval;
+    private final int collectionThreshold;
 
     @Inject
     public CodeCacheGcTrigger(CodeCacheGcConfig config)
     {
         this.interval = config.getCodeCacheCheckInterval();
+        this.collectionThreshold = config.getCodeCacheCollectionThreshold();
     }
 
     @PostConstruct
@@ -61,7 +63,7 @@ final class CodeCacheGcTrigger
                 if (used > 0.95 * max) {
                     log.error("Code Cache is more than 95% full. JIT may stop working.");
                 }
-                if (used > 0.7 * max) {
+                if (used > (max * collectionThreshold) / 100) {
                     // Due to some obscure bug in hotspot (java 8), once the code cache fills up the JIT stops compiling
                     // By forcing a GC, we let the code cache evictor make room before the cache fills up.
                     log.info("Triggering GC to avoid Code Cache eviction bugs");

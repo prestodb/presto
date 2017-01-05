@@ -50,7 +50,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -103,13 +102,16 @@ import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharTyp
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
+import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.Math.min;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
@@ -134,6 +136,7 @@ public class OrcStorageManager
     private final DataSize minAvailableSpace;
     private final TypeManager typeManager;
     private final ExecutorService deletionExecutor;
+    private final ExecutorService commitExecutor;
 
     @Inject
     public OrcStorageManager(
@@ -200,12 +203,14 @@ public class OrcStorageManager
         this.shardRecorder = requireNonNull(shardRecorder, "shardRecorder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.deletionExecutor = newFixedThreadPool(deletionThreads, daemonThreadsNamed("raptor-delete-" + connectorId + "-%s"));
+        this.commitExecutor = newCachedThreadPool(daemonThreadsNamed("raptor-commit-" + connectorId + "-%s"));
     }
 
     @PreDestroy
     public void shutdown()
     {
         deletionExecutor.shutdownNow();
+        commitExecutor.shutdown();
     }
 
     @Override
@@ -291,7 +296,12 @@ public class OrcStorageManager
 
     private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
     {
-        return rowsToDelete -> supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete), deletionExecutor);
+        return rowsToDelete -> {
+            if (rowsToDelete.isEmpty()) {
+                return completedFuture(ImmutableList.of());
+            }
+            return supplyAsync(() -> rewriteShard(transactionId, bucketNumber, shardUuid, rowsToDelete), deletionExecutor);
+        };
     }
 
     private void writeShard(UUID shardUuid)
@@ -593,20 +603,19 @@ public class OrcStorageManager
         }
 
         @Override
-        public List<ShardInfo> commit()
+        public CompletableFuture<List<ShardInfo>> commit()
         {
             checkState(!committed, "already committed");
             committed = true;
 
             flush();
 
-            // backup jobs depend on the staging files, so wait until all backups have finished
-            futures.forEach(MoreFutures::getFutureValue);
-
-            for (ShardInfo shard : shards) {
-                writeShard(shard.getShardUuid());
-            }
-            return ImmutableList.copyOf(shards);
+            return allAsList(futures).thenApplyAsync(ignored -> {
+                for (ShardInfo shard : shards) {
+                    writeShard(shard.getShardUuid());
+                }
+                return ImmutableList.copyOf(shards);
+            }, commitExecutor);
         }
 
         @SuppressWarnings("ResultOfMethodCallIgnored")

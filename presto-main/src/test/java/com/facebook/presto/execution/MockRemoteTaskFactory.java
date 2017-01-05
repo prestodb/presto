@@ -28,7 +28,6 @@ import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -73,6 +72,7 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -103,7 +103,7 @@ public class MockRemoteTaskFactory
                         Optional.empty(),
                         TupleDomain.all(),
                         null),
-                ImmutableMap.<Symbol, Type>of(symbol, VARCHAR),
+                ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)));
@@ -149,7 +149,10 @@ public class MockRemoteTaskFactory
         private final Multimap<PlanNodeId, Split> splits = HashMultimap.create();
 
         @GuardedBy("this")
-        private int runningDrivers;
+        private int runningDrivers = 0;
+
+        @GuardedBy("this")
+        private CompletableFuture<?> whenSplitQueueHasSpace = new CompletableFuture<>();
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
@@ -164,7 +167,7 @@ public class MockRemoteTaskFactory
 
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             MemoryPool memorySystemPool = new MemoryPool(new MemoryPoolId("testSystem"), new DataSize(1, GIGABYTE));
-            this.taskContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, new DataSize(1, MEGABYTE), true, true);
+            this.taskContext = new QueryContext(taskId.getQueryId(), new DataSize(1, MEGABYTE), memoryPool, memorySystemPool, executor).addTaskContext(taskStateMachine, TEST_SESSION, true, true);
 
             this.location = URI.create("fake://task/" + taskId);
 
@@ -174,6 +177,7 @@ public class MockRemoteTaskFactory
             splits.putAll(initialSplits);
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            updateSplitQueueSpace();
         }
 
         @Override
@@ -200,7 +204,7 @@ public class MockRemoteTaskFactory
             return new TaskInfo(new TaskStatus(taskStateMachine.getTaskId(), TASK_INSTANCE_ID, nextTaskInfoVersion.getAndIncrement(), state, location, failures, 0, 0, new DataSize(0, BYTE)),
                     DateTime.now(),
                     outputBuffer.getInfo(),
-                    ImmutableSet.<PlanNodeId>of(),
+                    ImmutableSet.of(),
                     taskContext.getTaskStats(),
                     true,
                     false);
@@ -221,6 +225,20 @@ public class MockRemoteTaskFactory
                     stats.getMemoryReservation());
         }
 
+        private synchronized void updateSplitQueueSpace()
+        {
+            if (getQueuedPartitionedSplitCount() < 9) {
+                if (!whenSplitQueueHasSpace.isDone()) {
+                    whenSplitQueueHasSpace.complete(null);
+                }
+            }
+            else {
+                if (whenSplitQueueHasSpace.isDone()) {
+                    whenSplitQueueHasSpace = new CompletableFuture<>();
+                }
+            }
+        }
+
         public synchronized void finishSplits(int splits)
         {
             List<Map.Entry<PlanNodeId, Split>> toRemove = new ArrayList<>();
@@ -231,6 +249,7 @@ public class MockRemoteTaskFactory
             for (Map.Entry<PlanNodeId, Split> entry : toRemove) {
                 this.splits.remove(entry.getKey(), entry.getValue());
             }
+            updateSplitQueueSpace();
         }
 
         public synchronized void clearSplits()
@@ -238,12 +257,14 @@ public class MockRemoteTaskFactory
             splits.clear();
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             runningDrivers = 0;
+            updateSplitQueueSpace();
         }
 
         public synchronized void startSplits(int maxRunning)
         {
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
+            updateSplitQueueSpace();
         }
 
         @Override
@@ -263,6 +284,7 @@ public class MockRemoteTaskFactory
                 this.splits.putAll(splits);
             }
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            updateSplitQueueSpace();
         }
 
         @Override
@@ -293,9 +315,9 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public CompletableFuture<TaskStatus> getStateChange(TaskStatus taskStatus)
+        public synchronized CompletableFuture<?> whenSplitQueueHasSpace(int threshold)
         {
-            return taskStateMachine.getStateChange(taskStatus.getState()).thenApply(ignored -> getTaskStatus());
+            return unmodifiableFuture(whenSplitQueueHasSpace);
         }
 
         @Override
@@ -328,7 +350,7 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public int getQueuedPartitionedSplitCount()
+        public synchronized int getQueuedPartitionedSplitCount()
         {
             if (taskStateMachine.getState().isDone()) {
                 return 0;

@@ -17,7 +17,6 @@ import com.datastax.driver.core.Cluster;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
@@ -35,7 +34,6 @@ public final class CassandraQueryRunner
     }
 
     private static final String TPCH_SCHEMA = "tpch";
-    private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
 
     public static DistributedQueryRunner createCassandraQueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -51,16 +49,12 @@ public final class CassandraQueryRunner
         try (Cluster cluster = CassandraTestingUtils.getCluster();
                 com.datastax.driver.core.Session session = cluster.connect()) {
             createOrReplaceKeyspace(session, "tpch");
-            createOrReplaceKeyspace(session, "tpch_sampled");
         }
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
-
-        queryRunner.installPlugin(new SampledTpchPlugin());
-        queryRunner.createCatalog("tpch_sampled", "tpch_sampled");
 
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
@@ -69,7 +63,6 @@ public final class CassandraQueryRunner
                 "cassandra.allow-drop-table", "true"));
 
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-        copyTpchTables(queryRunner, "tpch_sampled", TINY_SCHEMA_NAME, createSampledSession(), tables);
 
         return queryRunner;
     }
@@ -77,11 +70,6 @@ public final class CassandraQueryRunner
     public static Session createSession()
     {
         return createCassandraSession(TPCH_SCHEMA);
-    }
-
-    public static Session createSampledSession()
-    {
-        return createCassandraSession(TPCH_SAMPLED_SCHEMA);
     }
 
     public static Session createCassandraSession(String schema)

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
@@ -25,9 +24,10 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static io.airlift.slice.Slices.wrappedIntArray;
+import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestPage
 {
@@ -64,23 +64,41 @@ public class TestPage
     public void testCompactDictionaryBlocks()
             throws Exception
     {
-        Slice[] expectedValues = createExpectedValues(10);
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(new BlockBuilderStatus(), expectedValues.length);
-        for (Slice expectedValue : expectedValues) {
-            BIGINT.writeLong(blockBuilder, expectedValue.length());
-        }
-        Block lengthsDictionary = blockBuilder.build();
+        int positionCount = 100;
 
         // Create 2 dictionary blocks with the same source id
         DictionaryId commonSourceId = randomDictionaryId();
-        DictionaryBlock commonSourceIdBlock1 = createDictionaryBlock(expectedValues, 100, commonSourceId);
-        DictionaryBlock commonSourceIdBlock2 = new DictionaryBlock(commonSourceIdBlock1.getPositionCount(), lengthsDictionary, commonSourceIdBlock1.getIds(), commonSourceId);
+        int commonDictionaryUsedPositions = 20;
+        int[] commonDictionaryIds = getDictionaryIds(positionCount, commonDictionaryUsedPositions);
 
-        // Create block with a different source id
-        DictionaryBlock randomSourceIdBlock = createDictionaryBlock(expectedValues, 100, randomDictionaryId());
+        // first dictionary contains "varbinary" values
+        Slice[] dictionaryValues1 = createExpectedValues(50);
+        SliceArrayBlock dictionary1 = new SliceArrayBlock(dictionaryValues1.length, dictionaryValues1);
+        DictionaryBlock commonSourceIdBlock1 = new DictionaryBlock(positionCount, dictionary1, commonDictionaryIds, commonSourceId);
+
+        // second dictionary block is "length(firstColumn)"
+        BlockBuilder dictionary2 = BIGINT.createBlockBuilder(new BlockBuilderStatus(), dictionary1.getPositionCount());
+        for (Slice expectedValue : dictionaryValues1) {
+            BIGINT.writeLong(dictionary2, expectedValue.length());
+        }
+        DictionaryBlock commonSourceIdBlock2 = new DictionaryBlock(positionCount, dictionary2.build(), commonDictionaryIds, commonSourceId);
+
+        // Create block with a different source id, dictionary size, used
+        int otherDictionaryUsedPositions = 30;
+        int[] otherDictionaryIds = getDictionaryIds(positionCount, otherDictionaryUsedPositions);
+        SliceArrayBlock dictionary3 = new SliceArrayBlock(70, createExpectedValues(70));
+        DictionaryBlock randomSourceIdBlock = new DictionaryBlock(positionCount, dictionary3, otherDictionaryIds);
 
         Page page = new Page(commonSourceIdBlock1, randomSourceIdBlock, commonSourceIdBlock2);
         page.compact();
+
+        // dictionary blocks should all be compact
+        assertTrue(((DictionaryBlock) page.getBlock(0)).isCompact());
+        assertTrue(((DictionaryBlock) page.getBlock(1)).isCompact());
+        assertTrue(((DictionaryBlock) page.getBlock(2)).isCompact());
+        assertEquals(((DictionaryBlock) page.getBlock(0)).getDictionary().getPositionCount(), commonDictionaryUsedPositions);
+        assertEquals(((DictionaryBlock) page.getBlock(1)).getDictionary().getPositionCount(), otherDictionaryUsedPositions);
+        assertEquals(((DictionaryBlock) page.getBlock(2)).getDictionary().getPositionCount(), commonDictionaryUsedPositions);
 
         // Blocks that had the same source id before compacting page should have the same source id after compacting page
         assertNotEquals(((DictionaryBlock) page.getBlock(0)).getDictionarySourceId(), ((DictionaryBlock) page.getBlock(1)).getDictionarySourceId());
@@ -96,7 +114,7 @@ public class TestPage
         return expectedValues;
     }
 
-    protected static Slice createExpectedValue(int length)
+    private static Slice createExpectedValue(int length)
     {
         DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(16);
         for (int index = 0; index < length; index++) {
@@ -105,14 +123,13 @@ public class TestPage
         return dynamicSliceOutput.slice();
     }
 
-    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount, DictionaryId dictionaryId)
+    private static int[] getDictionaryIds(int positionCount, int dictionarySize)
     {
-        int dictionarySize = expectedValues.length;
+        checkArgument(positionCount > dictionarySize);
         int[] ids = new int[positionCount];
-
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(positionCount, new SliceArrayBlock(dictionarySize, expectedValues), wrappedIntArray(ids), dictionaryId);
+        return ids;
     }
 }

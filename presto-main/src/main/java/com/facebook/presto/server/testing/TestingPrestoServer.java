@@ -23,6 +23,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -96,6 +97,7 @@ public class TestingPrestoServer
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
     private final TestingHttpServer server;
+    private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
@@ -143,13 +145,13 @@ public class TestingPrestoServer
     public TestingPrestoServer()
             throws Exception
     {
-        this(ImmutableList.<Module>of());
+        this(ImmutableList.of());
     }
 
     public TestingPrestoServer(List<Module> additionalModules)
             throws Exception
     {
-        this(true, ImmutableMap.<String, String>of(), null, null, new SqlParserOptions(), additionalModules);
+        this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
     public TestingPrestoServer(boolean coordinator,
@@ -176,8 +178,7 @@ public class TestingPrestoServer
                 .put("http-client.max-threads", "16")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                .put("exchange.client-threads", "4")
-                .put("experimental-syntax-enabled", "true");
+                .put("exchange.client-threads", "4");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
             serverProperties.put("query.max-memory-per-node", "512MB");
@@ -245,6 +246,7 @@ public class TestingPrestoServer
         connectorManager = injector.getInstance(ConnectorManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
+        catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
@@ -327,6 +329,11 @@ public class TestingPrestoServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromParts(getBaseUrl().getHost(), getBaseUrl().getPort());
+    }
+
+    public CatalogManager getCatalogManager()
+    {
+        return catalogManager;
     }
 
     public TransactionManager getTransactionManager()

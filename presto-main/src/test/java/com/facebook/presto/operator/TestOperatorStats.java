@@ -13,22 +13,25 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.PartitionedOutputOperator.PartitionedOutputInfo;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestOperatorStats
 {
+    private static final ExchangeClientStatus NON_MERGEABLE_INFO = new ExchangeClientStatus(0, 1, 2, false, ImmutableList.of());
+    private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1, 2);
+
     public static final OperatorStats EXPECTED = new OperatorStats(
             41,
             new PlanNodeId("test"),
@@ -58,7 +61,7 @@ public class TestOperatorStats
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
             Optional.empty(),
-            "20");
+            NON_MERGEABLE_INFO);
 
     public static final OperatorStats MERGEABLE = new OperatorStats(
             41,
@@ -89,7 +92,7 @@ public class TestOperatorStats
             new DataSize(18, BYTE),
             new DataSize(19, BYTE),
             Optional.empty(),
-            new LongMergeable(20));
+            MERGEABLE_INFO);
 
     @Test
     public void testJson()
@@ -130,7 +133,8 @@ public class TestOperatorStats
 
         assertEquals(actual.getMemoryReservation(), new DataSize(18, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(19, BYTE));
-        assertEquals(actual.getInfo(), "20");
+        assertEquals(actual.getInfo().getClass(), ExchangeClientStatus.class);
+        assertEquals(((ExchangeClientStatus) actual.getInfo()).getAverageBytesPerRequest(), NON_MERGEABLE_INFO.getAverageBytesPerRequest());
     }
 
     @Test
@@ -196,50 +200,7 @@ public class TestOperatorStats
         assertEquals(actual.getFinishUser(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getMemoryReservation(), new DataSize(3 * 18, BYTE));
         assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 19, BYTE));
-        assertEquals(actual.getInfo(), new LongMergeable(20 * 3));
-    }
-
-    private static class LongMergeable
-            implements Mergeable<LongMergeable>
-    {
-        private final long value;
-
-        private LongMergeable(long value)
-        {
-            this.value = value;
-        }
-
-        @Override
-        public LongMergeable mergeWith(LongMergeable other)
-        {
-            return new LongMergeable(value + other.value);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(value);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            LongMergeable other = (LongMergeable) obj;
-            return Objects.equals(this.value, other.value);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("value", value)
-                    .toString();
-        }
+        assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
+        assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
     }
 }

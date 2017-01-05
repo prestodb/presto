@@ -56,6 +56,14 @@ public final class Values
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(rows)
+                .build();
+    }
+
+    @Override
     public String toString()
     {
         return "(" + Joiner.on(", ").join(rows) + ")";

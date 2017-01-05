@@ -43,9 +43,9 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final AccumuloConfig config;
     private final Connector connector;
     private final String connectorId;
+    private final String username;
 
     @Inject
     public AccumuloRecordSetProvider(
@@ -53,9 +53,9 @@ public class AccumuloRecordSetProvider
             AccumuloConnectorId connectorId,
             AccumuloConfig config)
     {
-        this.config = requireNonNull(config, "config is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.username = requireNonNull(config, "config is null").getUsername();
     }
 
     @Override
@@ -75,6 +75,6 @@ public class AccumuloRecordSetProvider
         }
 
         // Return new record set
-        return new AccumuloRecordSet(connector, session, config, accSplit, handles.build());
+        return new AccumuloRecordSet(connector, session, accSplit, username, handles.build());
     }
 }

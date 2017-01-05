@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.google.common.collect.ImmutableList;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -47,6 +50,12 @@ public final class ScalarQueryUtil
         }
 
         @Override
+        public Boolean visitAggregation(AggregationNode node, Void context)
+        {
+            return node.getGroupingSets().equals(ImmutableList.of(ImmutableList.of()));
+        }
+
+        @Override
         public Boolean visitExchange(ExchangeNode node, Void context)
         {
             return (node.getSources().size() == 1) &&
@@ -63,6 +72,11 @@ public final class ScalarQueryUtil
         public Boolean visitFilter(FilterNode node, Void context)
         {
             return node.getSource().accept(this, null);
+        }
+
+        public Boolean visitValues(ValuesNode node, Void context)
+        {
+            return node.getRows().size() == 1;
         }
     }
 }

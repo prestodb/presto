@@ -38,6 +38,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -86,7 +87,8 @@ public class TestTopNOperator
                 2,
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST),
-                false);
+                false,
+                new DataSize(16, MEGABYTE));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(6L, 0.6)
@@ -119,7 +121,8 @@ public class TestTopNOperator
                 3,
                 ImmutableList.of(0, 1),
                 ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST),
-                false);
+                false,
+                new DataSize(16, MEGABYTE));
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("f", 3L)
@@ -154,7 +157,8 @@ public class TestTopNOperator
                 2,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                false);
+                false,
+                new DataSize(16, MEGABYTE));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(-1L, -0.1)
@@ -177,7 +181,8 @@ public class TestTopNOperator
                 0,
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST),
-                false);
+                false,
+                new DataSize(16, MEGABYTE));
 
         try (Operator operator = factory.createOperator(driverContext)) {
             MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT).build();
@@ -203,7 +208,7 @@ public class TestTopNOperator
                 .row(2L)
                 .build();
 
-        DriverContext smallDiverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, BYTE), new DataSize(0, BYTE))
+        DriverContext smallDiverContext = createTaskContext(executor, TEST_SESSION, new DataSize(1, BYTE))
                 .addPipelineContext(true, true)
                 .addDriverContext();
 
@@ -214,7 +219,8 @@ public class TestTopNOperator
                 100,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                true);
+                true,
+                new DataSize(0, MEGABYTE));
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)

@@ -57,6 +57,7 @@ import static com.facebook.presto.testing.MaterializedResult.materializeSourceDa
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.io.Files.createTempDir;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.FileUtils.deleteRecursively;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
@@ -264,7 +265,7 @@ public class TestShardCompactor
         for (int shardNum = 0; shardNum < shardCount; shardNum++) {
             createSortedShard(columnTypes, sortChannels, sortOrders, sink);
         }
-        return sink.commit();
+        return getFutureValue(sink.commit());
     }
 
     private static void createSortedShard(List<Type> columnTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, StoragePageSink sink)
@@ -293,7 +294,7 @@ public class TestShardCompactor
             sink.appendPages(createPages(columnTypes));
             sink.flush();
         }
-        return sink.commit();
+        return getFutureValue(sink.commit());
     }
 
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)

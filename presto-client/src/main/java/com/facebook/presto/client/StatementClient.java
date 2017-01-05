@@ -129,6 +129,9 @@ public class StatementClient
         if (session.getSource() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_SOURCE, session.getSource());
         }
+        if (session.getClientInfo() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_CLIENT_INFO, session.getClientInfo());
+        }
         if (session.getCatalog() != null) {
             builder.setHeader(PrestoHeaders.PRESTO_CATALOG, session.getCatalog());
         }
@@ -136,7 +139,9 @@ public class StatementClient
             builder.setHeader(PrestoHeaders.PRESTO_SCHEMA, session.getSchema());
         }
         builder.setHeader(PrestoHeaders.PRESTO_TIME_ZONE, session.getTimeZoneId());
-        builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
+        if (session.getLocale() != null) {
+            builder.setHeader(PrestoHeaders.PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
+        }
 
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {

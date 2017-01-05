@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -33,12 +34,14 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
@@ -238,5 +241,36 @@ public final class IntegerOperators
     public static long hashCode(@SqlType(StandardTypes.INTEGER) long value)
     {
         return AbstractIntType.hash((int) value);
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(
+            @SqlType(StandardTypes.INTEGER) long left,
+            @IsNull boolean leftNull,
+            @SqlType(StandardTypes.INTEGER) long right,
+            @IsNull boolean rightNull)
+    {
+        if (leftNull != rightNull) {
+            return true;
+        }
+        if (leftNull) {
+            return false;
+        }
+        return notEqual(left, right);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.SMALLINT)
+    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        return Shorts.saturatedCast(value);
+    }
+
+    @ScalarOperator(SATURATED_FLOOR_CAST)
+    @SqlType(StandardTypes.TINYINT)
+    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.INTEGER) long value)
+    {
+        return SignedBytes.saturatedCast(value);
     }
 }

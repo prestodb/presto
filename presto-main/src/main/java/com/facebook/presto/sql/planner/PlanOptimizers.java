@@ -22,16 +22,19 @@ import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
 import com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions;
 import com.facebook.presto.sql.planner.optimizations.CountConstantOptimizer;
 import com.facebook.presto.sql.planner.optimizations.DesugaringOptimizer;
+import com.facebook.presto.sql.planner.optimizations.EliminateCrossJoins;
 import com.facebook.presto.sql.planner.optimizations.EmptyDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
+import com.facebook.presto.sql.planner.optimizations.ImplementFilteredAggregations;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import com.facebook.presto.sql.planner.optimizations.ImplementSampleAsFilter;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.LimitPushDown;
-import com.facebook.presto.sql.planner.optimizations.MergeIdenticalWindows;
 import com.facebook.presto.sql.planner.optimizations.MergeProjections;
+import com.facebook.presto.sql.planner.optimizations.MergeWindows;
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
+import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import com.facebook.presto.sql.planner.optimizations.PartialAggregationPushDown;
 import com.facebook.presto.sql.planner.optimizations.PickLayout;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -40,10 +43,14 @@ import com.facebook.presto.sql.planner.optimizations.ProjectionPushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneIdentityProjections;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
+import com.facebook.presto.sql.planner.optimizations.RemoveUnreferencedScalarInputApplyNodes;
+import com.facebook.presto.sql.planner.optimizations.ReorderWindows;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.SingleDistinctOptimizer;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
+import com.facebook.presto.sql.planner.optimizations.TransformExistsApplyToScalarApply;
+import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToScalarApply;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedScalarToJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
@@ -67,9 +74,11 @@ public class PlanOptimizers
     {
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
-        builder.add(new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
-                new ImplementSampleAsFilter(),
+        builder.add(
+                new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new CanonicalizeExpressions(),
+                new ImplementFilteredAggregations(),
+                new ImplementSampleAsFilter(),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
@@ -78,6 +87,9 @@ public class PlanOptimizers
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
                 new MergeProjections(),
+                new TransformExistsApplyToScalarApply(metadata),
+                new TransformQuantifiedComparisonApplyToScalarApply(metadata),
+                new RemoveUnreferencedScalarInputApplyNodes(),
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                 new TransformUncorrelatedScalarToJoin(),
                 new TransformCorrelatedScalarAggregationToJoin(metadata),
@@ -90,16 +102,22 @@ public class PlanOptimizers
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new CountConstantOptimizer(),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
-                new MergeIdenticalWindows(),
+                new MergeWindows(),
+                new ReorderWindows(), // Should be after MergeWindows to avoid unnecessary reordering of mergeable windows
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new PruneIdentityProjections(), // This MUST run after PruneUnreferencedOutputs as it may introduce new redundant projections
-                new MetadataQueryOptimizer(metadata));
+                new MetadataQueryOptimizer(metadata),
+                new EliminateCrossJoins(), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+                new PredicatePushDown(metadata, sqlParser),
+                new ProjectionPushDown());
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
             builder.add(new SingleDistinctOptimizer());
             builder.add(new PruneUnreferencedOutputs());
         }
+
+        builder.add(new OptimizeMixedDistinctAggregations(metadata));
 
         if (!forceSingleNode) {
             builder.add(new PushTableWriteThroughUnion()); // Must run before AddExchanges
@@ -122,7 +140,8 @@ public class PlanOptimizers
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
-        builder.add(new PartialAggregationPushDown(metadata));
+        builder.add(new PartialAggregationPushDown(metadata.getFunctionRegistry()));
+        builder.add(new PruneIdentityProjections());
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 

@@ -44,12 +44,6 @@ public class TestRedisIntegrationSmokeTest
         this.embeddedRedis = embeddedRedis;
     }
 
-    @Override
-    public void testViewAccessControl()
-    {
-        // redis does not support views
-    }
-
     @AfterClass(alwaysRun = true)
     public void destroy()
             throws IOException

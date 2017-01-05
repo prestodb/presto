@@ -27,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -370,7 +371,9 @@ public class PipelineStats
                 processedInputPositions,
                 outputDataSize,
                 outputPositions,
-                operatorSummaries,
-                ImmutableList.<DriverStats>of());
+                operatorSummaries.stream()
+                        .map(OperatorStats::summarize)
+                        .collect(Collectors.toList()),
+                ImmutableList.of());
     }
 }

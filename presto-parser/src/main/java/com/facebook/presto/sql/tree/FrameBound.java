@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -33,6 +36,7 @@ public class FrameBound
 
     private final Type type;
     private final Optional<Expression> value;
+    private final Optional<Expression> originalValue;
 
     public FrameBound(Type type)
     {
@@ -44,26 +48,27 @@ public class FrameBound
         this(Optional.of(location), type);
     }
 
-    public FrameBound(Type type, Expression value)
+    public FrameBound(Type type, Expression value, Expression originalValue)
     {
-        this(Optional.empty(), type, value);
+        this(Optional.empty(), type, value, originalValue);
     }
 
     private FrameBound(Optional<NodeLocation> location, Type type)
     {
-        this(location, type, null);
+        this(location, type, null, null);
     }
 
     public FrameBound(NodeLocation location, Type type, Expression value)
     {
-        this(Optional.of(location), type, value);
+        this(Optional.of(location), type, value, value);
     }
 
-    private FrameBound(Optional<NodeLocation> location, Type type, Expression value)
+    private FrameBound(Optional<NodeLocation> location, Type type, Expression value, Expression originalValue)
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
         this.value = Optional.ofNullable(value);
+        this.originalValue = Optional.ofNullable(originalValue);
     }
 
     public Type getType()
@@ -76,10 +81,23 @@ public class FrameBound
         return value;
     }
 
+    public Optional<Expression> getOriginalValue()
+    {
+        return originalValue;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitFrameBound(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        value.ifPresent(nodes::add);
+        return nodes.build();
     }
 
     @Override

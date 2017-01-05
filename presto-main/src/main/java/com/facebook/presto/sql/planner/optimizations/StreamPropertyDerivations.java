@@ -147,7 +147,6 @@ final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
-            StreamProperties rightProperties = inputProperties.get(1);
 
             switch (node.getType()) {
                 case INNER:
@@ -289,7 +288,7 @@ final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // We can describe properties in terms of inputs that are projected unmodified (i.e., identity projections)
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
             return properties.translate(column -> Optional.ofNullable(identities.get(column)));
         }
 
@@ -307,23 +306,22 @@ final class StreamPropertyDerivations
         @Override
         public StreamProperties visitGroupId(GroupIdNode node, List<StreamProperties> inputProperties)
         {
-            return Iterables.getOnlyElement(inputProperties).translate(translateGroupIdSymbols(node));
-        }
-
-        private Function<Symbol, Optional<Symbol>> translateGroupIdSymbols(GroupIdNode node)
-        {
-            List<Symbol> commonGroupingColumns = node.getCommonGroupingColumns();
-            return symbol -> {
-                if (node.getIdentityMappings().containsKey(symbol)) {
-                    return Optional.of(node.getIdentityMappings().get(symbol));
+            Map<Symbol, Symbol> inputToOutputMappings = new HashMap<>();
+            for (Map.Entry<Symbol, Symbol> setMapping : node.getGroupingSetMappings().entrySet()) {
+                if (node.getCommonGroupingColumns().contains(setMapping.getKey())) {
+                    // TODO: Add support for translating a property on a single column to multiple columns
+                    // when GroupIdNode is copying a single input grouping column into multiple output grouping columns (i.e. aliases), this is basically picking one arbitrarily
+                    inputToOutputMappings.putIfAbsent(setMapping.getValue(), setMapping.getKey());
                 }
+            }
 
-                if (commonGroupingColumns.contains(symbol)) {
-                    return Optional.of(symbol);
-                }
+            // TODO: Add support for translating a property on a single column to multiple columns
+            // this is deliberately placed after the grouping columns, because preserving properties has a bigger perf impact
+            for (Map.Entry<Symbol, Symbol> argumentMapping : node.getArgumentMappings().entrySet()) {
+                inputToOutputMappings.putIfAbsent(argumentMapping.getValue(), argumentMapping.getKey());
+            }
 
-                return Optional.empty();
-            };
+            return Iterables.getOnlyElement(inputProperties).translate(column -> Optional.ofNullable(inputToOutputMappings.get(column)));
         }
 
         @Override
@@ -573,11 +571,7 @@ final class StreamPropertyDerivations
 
         public boolean isExactlyPartitionedOn(Iterable<Symbol> columns)
         {
-            if (!partitioningColumns.isPresent()) {
-                return false;
-            }
-
-            return columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
+            return partitioningColumns.isPresent() && columns.equals(ImmutableList.copyOf(partitioningColumns.get()));
         }
 
         public boolean isPartitionedOn(Iterable<Symbol> columns)
@@ -589,11 +583,6 @@ final class StreamPropertyDerivations
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
             // can safely ignore all constant columns when comparing partition properties
             return ImmutableSet.copyOf(columns).containsAll(partitioningColumns.get());
-        }
-
-        public Optional<List<Symbol>> getPartitioningColumns()
-        {
-            return partitioningColumns;
         }
 
         public boolean isOrdered()

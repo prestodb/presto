@@ -43,6 +43,7 @@ class PolymorphicScalarFunction
     private final boolean deterministic;
     private final boolean nullableResult;
     private final List<Boolean> nullableArguments;
+    private final List<Boolean> nullFlags;
     private final List<MethodsGroup> methodsGroups;
 
     PolymorphicScalarFunction(
@@ -52,6 +53,7 @@ class PolymorphicScalarFunction
             boolean deterministic,
             boolean nullableResult,
             List<Boolean> nullableArguments,
+            List<Boolean> nullFlags,
             List<MethodsGroup> methodsGroups)
     {
         super(signature);
@@ -61,6 +63,7 @@ class PolymorphicScalarFunction
         this.deterministic = deterministic;
         this.nullableResult = nullableResult;
         this.nullableArguments = requireNonNull(nullableArguments, "nullableArguments is null");
+        this.nullFlags = requireNonNull(nullFlags, "nullFlags is null");
         this.methodsGroups = requireNonNull(methodsGroups, "methodsWithExtraParametersFunctions is null");
     }
 
@@ -115,7 +118,12 @@ class PolymorphicScalarFunction
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
         MethodHandle matchingMethodHandle = applyExtraParameters(matchingMethod.get(), extraParameters);
 
-        return new ScalarFunctionImplementation(nullableResult, nullableArguments, matchingMethodHandle, deterministic);
+        return new ScalarFunctionImplementation(
+                nullableResult,
+                nullableArguments,
+                nullFlags,
+                matchingMethodHandle,
+                deterministic);
     }
 
     private boolean matchesParameterAndReturnTypes(Method method, List<Type> resolvedTypes, Type returnType)
@@ -124,40 +132,55 @@ class PolymorphicScalarFunction
                 "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), resolvedTypes.size());
 
         Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
-        for (int i = 0; i < resolvedTypes.size(); ++i) {
-            if (!methodParameterJavaTypes[i].equals(getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), nullableArguments.get(i)))) {
+        for (int i = 0, methodParameterIndex = 0; i < resolvedTypes.size(); i++) {
+            Class<?> type = getNullAwareContainerType(resolvedTypes.get(i).getJavaType(), nullableArguments.get(i) && !nullFlags.get(i));
+            if (!methodParameterJavaTypes[methodParameterIndex].equals(type)) {
                 return false;
             }
+            methodParameterIndex += nullFlags.get(i) ? 2 : 1;
         }
-
         return method.getReturnType().equals(getNullAwareContainerType(returnType.getJavaType(), nullableResult));
     }
 
-    private boolean onlyFirstMatchedMethodHasPredicate(MethodsGroup matchingMethodsGroup, MethodsGroup methodsGroup)
+    private static boolean onlyFirstMatchedMethodHasPredicate(MethodsGroup matchingMethodsGroup, MethodsGroup methodsGroup)
     {
         return matchingMethodsGroup.getPredicate().isPresent() && !methodsGroup.getPredicate().isPresent();
     }
 
-    private boolean predicateIsTrue(MethodsGroup methodsGroup, SpecializeContext context)
+    private static boolean predicateIsTrue(MethodsGroup methodsGroup, SpecializeContext context)
     {
         return methodsGroup.getPredicate().map(predicate -> predicate.test(context)).orElse(true);
     }
 
-    private List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)
+    private static List<Object> computeExtraParameters(MethodsGroup methodsGroup, SpecializeContext context)
     {
         return methodsGroup.getExtraParametersFunction().map(function -> function.apply(context)).orElse(emptyList());
+    }
+
+    private int getNullFlagsCount()
+    {
+        int count = 0;
+        for (boolean flag : nullFlags) {
+            if (flag) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private MethodHandle applyExtraParameters(Method matchingMethod, List<Object> extraParameters)
     {
         Signature signature = getSignature();
-        int expectedNumberOfArguments = signature.getArgumentTypes().size() + extraParameters.size();
-        int matchingMethodParameterCount = matchingMethod.getParameterCount();
-        checkState(matchingMethodParameterCount == expectedNumberOfArguments,
-                "method %s has invalid number of arguments: %s (should have %s)", matchingMethod.getName(), matchingMethodParameterCount, expectedNumberOfArguments);
+        int expectedArgumentsCount = signature.getArgumentTypes().size() + getNullFlagsCount() + extraParameters.size();
+        int matchingMethodArgumentCount = matchingMethod.getParameterCount();
+        checkState(matchingMethodArgumentCount == expectedArgumentsCount,
+                "method %s has invalid number of arguments: %s (should have %s)", matchingMethod.getName(), matchingMethodArgumentCount, expectedArgumentsCount);
 
         MethodHandle matchingMethodHandle = Reflection.methodHandle(matchingMethod);
-        matchingMethodHandle = MethodHandles.insertArguments(matchingMethodHandle, signature.getArgumentTypes().size(), extraParameters.toArray());
+        matchingMethodHandle = MethodHandles.insertArguments(
+                matchingMethodHandle,
+                matchingMethodArgumentCount - extraParameters.size(),
+                extraParameters.toArray());
         return matchingMethodHandle;
     }
 

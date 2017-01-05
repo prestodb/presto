@@ -28,11 +28,9 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.type.ParametricType;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.transaction.LegacyTransactionConnectorFactory;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -92,7 +90,6 @@ public class PluginManager
             HttpServerInfo httpServerInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
-            ConfigurationFactory configurationFactory,
             Metadata metadata,
             ResourceGroupManager resourceGroupManager,
             AccessControlManager accessControlManager,
@@ -103,7 +100,6 @@ public class PluginManager
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(httpServerInfo, "httpServerInfo is null");
         requireNonNull(config, "config is null");
-        requireNonNull(configurationFactory, "configurationFactory is null");
 
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
@@ -121,11 +117,6 @@ public class PluginManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
-    }
-
-    public boolean arePluginsLoaded()
-    {
-        return pluginsLoaded.get();
     }
 
     public void loadPlugins()
@@ -192,11 +183,6 @@ public class PluginManager
         for (ParametricType parametricType : plugin.getParametricTypes()) {
             log.info("Registering parametric type %s", parametricType.getName());
             typeRegistry.addParametricType(parametricType);
-        }
-
-        for (com.facebook.presto.spi.ConnectorFactory connectorFactory : plugin.getLegacyConnectorFactories()) {
-            log.info("Registering legacy connector %s", connectorFactory.getName());
-            connectorManager.addConnectorFactory(new LegacyTransactionConnectorFactory(connectorFactory));
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {

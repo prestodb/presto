@@ -2,6 +2,11 @@
 Hive Security Configuration
 ===========================
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
 Authorization
 =============
 
@@ -52,6 +57,16 @@ query. This can be used with HDFS permissions and :abbr:`ACLs (Access Control
 Lists)` to provide additional security for data.
 
 .. _hive-security-kerberos-support:
+
+.. warning::
+
+  Access to the Presto coordinator should be secured using Kerberos when using
+  Kerberos authentication to Hadoop services. Failure to secure access to the
+  Presto coordinator could result in unauthorized access to sensitive data on
+  the Hadoop cluster.
+
+  See :doc:`/security/server` and :doc:`/security/cli`
+  for information on setting up Kerberos authentication.
 
 Kerberos Support
 ================
@@ -176,7 +191,7 @@ Example configuration with ``KERBEROS`` authentication
 .. code-block:: none
 
     hive.metastore.authentication.type=KERBEROS
-    hive.metastore.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
+    hive.metastore.service.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
     hive.metastore.client.principal=presto@EXAMPLE.COM
     hive.metastore.client.keytab=/etc/presto/hive.keytab
 
@@ -331,7 +346,7 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 .. code-block:: none
 
     hive.hdfs.authentication.type=KERBEROS
-    hive.hdfs.impersonation=true
+    hive.hdfs.impersonation.enabled=true
     hive.hdfs.presto.principal=presto@EXAMPLE.COM
     hive.hdfs.presto.keytab=/etc/presto/hdfs.keytab
 

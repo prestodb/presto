@@ -16,7 +16,6 @@ package com.facebook.presto.plugin.blackhole;
 
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.slice.Slice;
@@ -32,8 +31,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 class BlackHolePageSink
         implements ConnectorPageSink
 {
+    private static final CompletableFuture<Collection<Slice>> NON_BLOCKED = CompletableFuture.completedFuture(ImmutableList.of());
+
     private final ListeningScheduledExecutorService executorService;
     private final long pageProcessingDelayMillis;
+    private CompletableFuture<Collection<Slice>> appendFuture = NON_BLOCKED;
 
     public BlackHolePageSink(ListeningScheduledExecutorService executorService, Duration pageProcessingDelay)
     {
@@ -42,18 +44,24 @@ class BlackHolePageSink
     }
 
     @Override
-    public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+    public CompletableFuture<?> appendPage(Page page)
+    {
+        appendFuture = scheduleAppend();
+        return appendFuture;
+    }
+
+    private CompletableFuture<Collection<Slice>> scheduleAppend()
     {
         if (pageProcessingDelayMillis > 0) {
-            return toCompletableFuture(executorService.schedule(() -> null, pageProcessingDelayMillis, MILLISECONDS));
+            return toCompletableFuture(executorService.schedule(() -> ImmutableList.of(), pageProcessingDelayMillis, MILLISECONDS));
         }
-        return NOT_BLOCKED;
+        return NON_BLOCKED;
     }
 
     @Override
-    public Collection<Slice> finish()
+    public CompletableFuture<Collection<Slice>> finish()
     {
-        return ImmutableList.of();
+        return appendFuture;
     }
 
     @Override

@@ -112,12 +112,11 @@ public class DecimalSumAggregation
                 stateInterface,
                 stateSerializer,
                 new BigIntegerStateFactory(),
-                outputType,
-                false);
+                outputType);
 
         Type intermediateType = stateSerializer.getSerializedType();
-        GenericAccumulatorFactoryBinder factory = new AccumulatorCompiler().generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, false, factory);
+        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
+        return new InternalAggregationFunction(NAME, inputTypes, intermediateType, outputType, true, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

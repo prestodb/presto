@@ -14,12 +14,12 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.client.IntervalYearMonth;
+import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.AbstractIntType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.function.OperatorType.ADD;
@@ -30,6 +30,7 @@ import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
@@ -37,6 +38,7 @@ import static com.facebook.presto.spi.function.OperatorType.NEGATION;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Math.toIntExact;
 
 public final class IntervalYearMonthOperators
 {
@@ -157,7 +159,7 @@ public final class IntervalYearMonthOperators
     @SqlType("varchar(x)")
     public static Slice castToSlice(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
-        return utf8Slice(IntervalYearMonth.formatMonths(Ints.checkedCast(value)));
+        return utf8Slice(IntervalYearMonth.formatMonths(toIntExact(value)));
     }
 
     @ScalarOperator(HASH_CODE)
@@ -165,5 +167,22 @@ public final class IntervalYearMonthOperators
     public static long hashCode(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
     {
         return AbstractIntType.hash((int) value);
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isDistinctFrom(
+            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left,
+            @IsNull boolean leftNull,
+            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right,
+            @IsNull boolean rightNull)
+    {
+        if (leftNull != rightNull) {
+            return true;
+        }
+        if (leftNull) {
+            return false;
+        }
+        return notEqual(left, right);
     }
 }

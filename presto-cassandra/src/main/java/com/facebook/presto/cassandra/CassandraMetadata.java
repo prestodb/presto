@@ -31,6 +31,7 @@ import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,8 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.cassandra.CassandraColumnHandle.SAMPLE_WEIGHT_COLUMN_NAME;
-import static com.facebook.presto.cassandra.CassandraType.BIGINT;
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
 import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -153,25 +152,12 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnHandle getSampleWeightColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return getColumnHandles(tableHandle, true).get(SAMPLE_WEIGHT_COLUMN_NAME);
-    }
-
-    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return getColumnHandles(tableHandle, false);
-    }
-
-    private Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle, boolean includeSampleWeight)
     {
         CassandraTable table = schemaProvider.getTable((CassandraTableHandle) tableHandle);
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            if (includeSampleWeight || !columnHandle.getName().equals(SAMPLE_WEIGHT_COLUMN_NAME)) {
-                columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
-            }
+            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
         }
         return columnHandles.build();
     }
@@ -231,12 +217,6 @@ public class CassandraMetadata
     }
 
     @Override
-    public boolean canCreateSampledTables(ConnectorSession session)
-    {
-        return true;
-    }
-
-    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE not yet supported for Cassandra");
@@ -286,10 +266,6 @@ public class CassandraMetadata
         List<String> columns = columnNames.build();
         List<Type> types = columnTypes.build();
         StringBuilder queryBuilder = new StringBuilder(String.format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
-        if (tableMetadata.isSampled()) {
-            queryBuilder.append(", ").append(SAMPLE_WEIGHT_COLUMN_NAME).append(" ").append(BIGINT.name().toLowerCase(ENGLISH));
-            columnExtra.add(new ExtraColumnMetadata(SAMPLE_WEIGHT_COLUMN_NAME, true));
-        }
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i);
             Type type = types.get(i);
@@ -311,14 +287,14 @@ public class CassandraMetadata
                 schemaName,
                 tableName,
                 columnNames.build(),
-                columnTypes.build(),
-                tableMetadata.isSampled());
+                columnTypes.build());
     }
 
     @Override
-    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         CassandraOutputTableHandle outputTableHandle = checkType(tableHandle, CassandraOutputTableHandle.class, "tableHandle");
         schemaProvider.flushTable(new SchemaTableName(outputTableHandle.getSchemaName(), outputTableHandle.getTableName()));
+        return Optional.empty();
     }
 }

@@ -103,7 +103,7 @@ public class TestArrayBlock
         assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), Ints.asList(2, 3, 4, 9, 13, 14));
     }
 
-    private BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
+    private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100), new BlockBuilderStatus(), 100);
         for (long[][] expectedValue : expectedValues) {
@@ -130,7 +130,7 @@ public class TestArrayBlock
         return blockBuilder;
     }
 
-    private BlockBuilder createBlockBuilderWithValues(long[][] expectedValues)
+    private static BlockBuilder createBlockBuilderWithValues(long[][] expectedValues)
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, new BlockBuilderStatus(), 100, 100);
         for (long[] expectedValue : expectedValues) {
@@ -148,7 +148,7 @@ public class TestArrayBlock
         return blockBuilder;
     }
 
-    private BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
+    private static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(VARCHAR, new BlockBuilderStatus(), 100, 100);
         for (Slice[] expectedValue : expectedValues) {

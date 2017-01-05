@@ -228,7 +228,7 @@ public class OrcPageSourceFactory
                 physicalOrdinal = nextMissingColumnIndex;
                 nextMissingColumnIndex++;
             }
-            physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType()));
+            physicalColumns.add(new HiveColumnHandle(column.getClientId(), column.getName(), column.getHiveType(), column.getTypeSignature(), physicalOrdinal, column.getColumnType(), column.getComment()));
         }
         return physicalColumns.build();
     }

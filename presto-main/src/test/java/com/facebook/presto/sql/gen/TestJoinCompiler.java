@@ -55,7 +55,7 @@ public class TestJoinCompiler
     public void testSingleChannel(boolean hashEnabled)
             throws Exception
     {
-        List<Type> joinTypes = ImmutableList.<Type>of(VARCHAR);
+        List<Type> joinTypes = ImmutableList.of(VARCHAR);
         List<Integer> joinChannels = Ints.asList(0);
 
         // compile a single channel hash strategy
@@ -137,8 +137,8 @@ public class TestJoinCompiler
     {
         // compile a single channel hash strategy
         JoinCompiler joinCompiler = new JoinCompiler();
-        List<Type> types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
-        List<Type> joinTypes = ImmutableList.<Type>of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN);
+        List<Type> joinTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
         List<Integer> joinChannels = Ints.asList(1, 2, 3, 4);
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
@@ -174,7 +174,7 @@ public class TestJoinCompiler
             hashChannel = Optional.of(5);
             precomputedHash = hashChannelBuilder.build();
             channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, precomputedHash);
-            types = ImmutableList.<Type>of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT);
+            types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, BIGINT);
         }
 
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels);

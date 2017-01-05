@@ -19,13 +19,14 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.concurrent.TimeUnit;
-
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import static io.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.units.Duration.nanosSince;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestResourceGroupIntegration
 {
-    @Test(timeOut = 60_000)
+    @Test
     public void testMemoryFraction()
             throws Exception
     {
@@ -34,12 +35,14 @@ public class TestResourceGroupIntegration
             queryRunner.getCoordinator().getResourceGroupManager().get().setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
 
             queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+            long startTime = System.nanoTime();
             while (true) {
-                TimeUnit.SECONDS.sleep(1);
+                SECONDS.sleep(1);
                 ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(new ResourceGroupId("global"));
                 if (global.getSoftMemoryLimit().toBytes() > 0) {
                     break;
                 }
+                assertLessThan(nanosSince(startTime).roundTo(SECONDS), 60L);
             }
         }
     }

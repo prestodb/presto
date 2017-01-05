@@ -48,7 +48,6 @@ public class TestMapUnionAggregation
                 new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), mapType.getTypeSignature()));
         assertAggregation(
                 aggFunc,
-                1.0,
                 ImmutableMap.of(23.0, "aaa", 33.0, "bbb", 43.0, "ccc", 53.0, "ddd", 13.0, "eee"),
                 arrayBlockOf(
                         mapType,
@@ -60,7 +59,6 @@ public class TestMapUnionAggregation
                 new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), mapType.getTypeSignature()));
         assertAggregation(
                 aggFunc,
-                1.0,
                 ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L, 4.0, 44L),
                 arrayBlockOf(
                         mapType,
@@ -72,7 +70,6 @@ public class TestMapUnionAggregation
                 new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), mapType.getTypeSignature()));
         assertAggregation(
                 aggFunc,
-                1.0,
                 ImmutableMap.of(false, 12L, true, 13L),
                 arrayBlockOf(
                         mapType,
@@ -92,7 +89,6 @@ public class TestMapUnionAggregation
 
         assertAggregation(
                 aggFunc,
-                1.0,
                 expected,
                 arrayBlockOf(
                         mapType,
@@ -110,7 +106,6 @@ public class TestMapUnionAggregation
                 new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), mapType.getTypeSignature()));
         assertAggregation(
                 aggFunc,
-                1.0,
                 ImmutableMap.of(
                         1.0, ImmutableList.of("a", "b"),
                         2.0, ImmutableList.of("c", "d"),
@@ -144,7 +139,6 @@ public class TestMapUnionAggregation
                 new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), mapType.getTypeSignature()));
         assertAggregation(
                 aggFunc,
-                1.0,
                 ImmutableMap.of(
                         1.0, ImmutableMap.of("a", "b"),
                         2.0, ImmutableMap.of("c", "d"),
@@ -171,7 +165,6 @@ public class TestMapUnionAggregation
                 new Signature(NAME, AGGREGATE, mapType.getTypeSignature(), mapType.getTypeSignature()));
         assertAggregation(
                 aggFunc,
-                1.0,
                 ImmutableMap.of(
                         ImmutableList.of("a", "b"), 1.0,
                         ImmutableList.of("c", "d"), 2.0,

@@ -171,7 +171,7 @@ public class TestHttpPageBufferClient
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
-        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]));
+        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);
@@ -279,7 +279,7 @@ public class TestHttpPageBufferClient
         CyclicBarrier beforeRequest = new CyclicBarrier(2);
         CyclicBarrier afterRequest = new CyclicBarrier(2);
         StaticRequestProcessor processor = new StaticRequestProcessor(beforeRequest, afterRequest);
-        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.<String, String>of(), new byte[0]));
+        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
 
         CyclicBarrier requestComplete = new CyclicBarrier(2);
         TestingClientCallback callback = new TestingClientCallback(requestComplete);

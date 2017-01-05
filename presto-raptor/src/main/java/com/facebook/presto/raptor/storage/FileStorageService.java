@@ -63,8 +63,8 @@ public class FileStorageService
             throws IOException
     {
         deleteDirectory(baseStagingDir);
-        createParents(baseStagingDir);
-        createParents(baseStorageDir);
+        createParents(new File(baseStagingDir, "."));
+        createParents(new File(baseStorageDir, "."));
     }
 
     @Override

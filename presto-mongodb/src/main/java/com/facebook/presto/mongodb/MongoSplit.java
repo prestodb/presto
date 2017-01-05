@@ -29,28 +29,19 @@ import static java.util.Objects.requireNonNull;
 public class MongoSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
     private final SchemaTableName schemaTableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public MongoSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty

@@ -20,6 +20,7 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.collect.ImmutableList;
@@ -187,6 +188,12 @@ public class BigintGroupByHash
     {
         Block block = page.getBlock(hashChannel);
         return putIfAbsent(position, block);
+    }
+
+    @Override
+    public long getRawHash(int groupId)
+    {
+        return BigintType.hash(valuesByGroupId.get(groupId));
     }
 
     private int putIfAbsent(int position, Block block)

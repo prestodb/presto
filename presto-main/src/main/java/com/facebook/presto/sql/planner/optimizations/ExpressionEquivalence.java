@@ -23,10 +23,11 @@ import com.facebook.presto.sql.planner.SymbolToInputRewriter;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -48,6 +49,7 @@ import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
@@ -95,7 +97,7 @@ public class ExpressionEquivalence
     private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, Map<Integer, Type> inputTypes)
     {
         // replace qualified names with input references since row expressions do not support these
-        Expression expressionWithInputReferences = ExpressionTreeRewriter.rewriteWith(new SymbolToInputRewriter(symbolInput), expression);
+        Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
 
         // determine the type of every expression
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
@@ -150,7 +152,7 @@ public class ExpressionEquivalence
                         sortedArguments);
             }
 
-            if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals("IS_DISTINCT_FROM")) {
+            if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
                 return new CallExpression(
                         call.getSignature(),
@@ -202,6 +204,18 @@ public class ExpressionEquivalence
         public RowExpression visitInputReference(InputReferenceExpression node, Void context)
         {
             return node;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), lambda.getBody().accept(this, context));
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            return reference;
         }
     }
 

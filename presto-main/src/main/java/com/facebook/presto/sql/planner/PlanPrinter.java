@@ -37,6 +37,7 @@ import com.facebook.presto.sql.FunctionInvoker;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -74,9 +75,13 @@ import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.util.GraphvizPrinter;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -92,6 +97,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -297,14 +303,16 @@ public class PlanPrinter
                 .collect(toImmutableList());
         builder.append(indentString(1));
         if (replicateNulls) {
-            builder.append(format("Output partitioning: %s (replicate nulls) [%s]\n",
+            builder.append(format("Output partitioning: %s (replicate nulls) [%s]%s\n",
                     partitioningScheme.getPartitioning().getHandle(),
-                    Joiner.on(", ").join(arguments)));
+                    Joiner.on(", ").join(arguments),
+                    formatHash(partitioningScheme.getHashColumn())));
         }
         else {
-            builder.append(format("Output partitioning: %s [%s]\n",
+            builder.append(format("Output partitioning: %s [%s]%s\n",
                     partitioningScheme.getPartitioning().getHandle(),
-                    Joiner.on(", ").join(arguments)));
+                    Joiner.on(", ").join(arguments),
+                    formatHash(partitioningScheme.getHashColumn())));
         }
 
         if (stageStats.isPresent()) {
@@ -414,13 +422,24 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                joinExpressions.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
                         clause.getLeft().toSymbolReference(),
                         clause.getRight().toSymbolReference()));
             }
             node.getFilter().ifPresent(expression -> joinExpressions.add(expression));
 
-            print(indent, "- %s[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            // Check if the node is actually a cross join node
+            if (node.getType() == JoinNode.Type.INNER && joinExpressions.isEmpty()) {
+                print(indent, "- CrossJoin => [%s]", formatOutputs(node.getOutputSymbols()));
+            }
+            else {
+                print(indent, "- %s[%s]%s => [%s]",
+                        node.getType().getJoinLabel(),
+                        Joiner.on(" AND ").join(joinExpressions),
+                        formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol()),
+                        formatOutputs(node.getOutputSymbols()));
+            }
+
             printStats(indent + 2, node.getId());
             node.getLeft().accept(this, indent + 1);
             node.getRight().accept(this, indent + 1);
@@ -431,7 +450,11 @@ public class PlanPrinter
         @Override
         public Void visitSemiJoin(SemiJoinNode node, Integer indent)
         {
-            print(indent, "- SemiJoin[%s = %s] => [%s]", node.getSourceJoinSymbol(), node.getFilteringSourceJoinSymbol(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- SemiJoin[%s = %s]%s => [%s]",
+                    node.getSourceJoinSymbol(),
+                    node.getFilteringSourceJoinSymbol(),
+                    formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol()),
+                    formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
             node.getSource().accept(this, indent + 1);
             node.getFilteringSource().accept(this, indent + 1);
@@ -457,12 +480,16 @@ public class PlanPrinter
         {
             List<Expression> joinExpressions = new ArrayList<>();
             for (IndexJoinNode.EquiJoinClause clause : node.getCriteria()) {
-                joinExpressions.add(new ComparisonExpression(ComparisonExpression.Type.EQUAL,
+                joinExpressions.add(new ComparisonExpression(ComparisonExpressionType.EQUAL,
                         clause.getProbe().toSymbolReference(),
                         clause.getIndex().toSymbolReference()));
             }
 
-            print(indent, "- %sIndexJoin[%s] => [%s]", node.getType().getJoinLabel(), Joiner.on(" AND ").join(joinExpressions), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- %sIndexJoin[%s]%s => [%s]",
+                    node.getType().getJoinLabel(),
+                    Joiner.on(" AND ").join(joinExpressions),
+                    formatHash(node.getProbeHashSymbol(), node.getIndexHashSymbol()),
+                    formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
             node.getProbeSource().accept(this, indent + 1);
             node.getIndexSource().accept(this, indent + 1);
@@ -481,7 +508,11 @@ public class PlanPrinter
         @Override
         public Void visitDistinctLimit(DistinctLimitNode node, Integer indent)
         {
-            print(indent, "- DistinctLimit%s[%s] => [%s]", node.isPartial() ? "Partial" : "", node.getLimit(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- DistinctLimit%s[%s]%s => [%s]",
+                    node.isPartial() ? "Partial" : "",
+                    node.getLimit(),
+                    formatHash(node.getHashSymbol()),
+                    formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
             return processChildren(node, indent + 1);
         }
@@ -497,12 +528,8 @@ public class PlanPrinter
             if (!node.getGroupingKeys().isEmpty()) {
                 key = node.getGroupingKeys().toString();
             }
-            String sampleWeight = "";
-            if (node.getSampleWeight().isPresent()) {
-                sampleWeight = format("[sampleWeight = %s]", node.getSampleWeight().get());
-            }
 
-            print(indent, "- Aggregate%s%s%s => [%s]", type, key, sampleWeight, formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Aggregate%s%s%s => [%s]", type, key, formatHash(node.getHashSymbol()), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
@@ -520,14 +547,35 @@ public class PlanPrinter
         @Override
         public Void visitGroupId(GroupIdNode node, Integer indent)
         {
-            print(indent, "- GroupId%s => [%s]", node.getGroupingSets(), formatOutputs(node.getOutputSymbols()));
+            // grouping sets are easier to understand in terms of inputs
+            List<List<Symbol>> inputGroupingSetSymbols = node.getGroupingSets().stream()
+                    .map(set -> set.stream()
+                            .map(symbol -> node.getGroupingSetMappings().get(symbol))
+                            .collect(Collectors.toList()))
+                    .collect(Collectors.toList());
+
+            print(indent, "- GroupId%s => [%s]", inputGroupingSetSymbols, formatOutputs(node.getOutputSymbols()));
+            printStats(indent + 2, node.getId());
+
+            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingSetMappings().entrySet()) {
+                print(indent + 2, "%s := %s", mapping.getKey(), mapping.getValue());
+            }
+            for (Map.Entry<Symbol, Symbol> argument : node.getArgumentMappings().entrySet()) {
+                print(indent + 2, "%s := %s", argument.getKey(), argument.getValue());
+            }
+
             return processChildren(node, indent + 1);
         }
 
         @Override
         public Void visitMarkDistinct(MarkDistinctNode node, Integer indent)
         {
-            print(indent, "- MarkDistinct[distinct=%s marker=%s] => [%s]", formatOutputs(node.getDistinctSymbols()), node.getMarkerSymbol(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- MarkDistinct[distinct=%s marker=%s]%s => [%s]",
+                    formatOutputs(node.getDistinctSymbols()),
+                    node.getMarkerSymbol(),
+                    formatHash(node.getHashSymbol()),
+                    formatOutputs(node.getOutputSymbols()));
+
             printStats(indent + 2, node.getId());
             return processChildren(node, indent + 1);
         }
@@ -567,19 +615,24 @@ public class PlanPrinter
                 args.add(format("order by (%s)", Stream.concat(
                         node.getOrderBy().stream()
                                 .limit(node.getPreSortedOrderPrefix())
-                                .map(symbol -> "<" + symbol + ">"),
+                                .map(symbol -> "<" + symbol + " " + node.getOrderings().get(symbol) + ">"),
                         node.getOrderBy().stream()
                                 .skip(node.getPreSortedOrderPrefix())
-                                .map(Symbol::toString))
+                                .map(symbol -> symbol + " " + node.getOrderings().get(symbol)))
                         .collect(Collectors.joining(", "))));
             }
 
-            print(indent, "- Window[%s] => [%s]", Joiner.on(", ").join(args), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- Window[%s]%s => [%s]", Joiner.on(", ").join(args), formatHash(node.getHashSymbol()), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 FunctionCall call = entry.getValue().getFunctionCall();
-                print(indent + 2, "%s := %s(%s)", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()));
+                String frameInfo = call.getWindow()
+                        .flatMap(Window::getFrame)
+                        .map(PlanPrinter::formatFrame)
+                        .orElse("");
+
+                print(indent + 2, "%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
             }
             return processChildren(node, indent + 1);
         }
@@ -595,7 +648,11 @@ public class PlanPrinter
             args.add(format("partition by (%s)", Joiner.on(", ").join(partitionBy)));
             args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
 
-            print(indent, "- TopNRowNumber[%s limit %s] => [%s]", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- TopNRowNumber[%s limit %s]%s => [%s]",
+                    Joiner.on(", ").join(args),
+                    node.getMaxRowCountPerPartition(),
+                    formatHash(node.getHashSymbol()),
+                    formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             print(indent + 2, "%s := %s", node.getRowNumberSymbol(), "row_number()");
@@ -615,7 +672,7 @@ public class PlanPrinter
                 args.add(format("limit = %s", node.getMaxRowCountPerPartition().get()));
             }
 
-            print(indent, "- RowNumber[%s] => [%s]", Joiner.on(", ").join(args), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- RowNumber[%s]%s => [%s]", Joiner.on(", ").join(args), formatHash(node.getHashSymbol()), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
 
             print(indent + 2, "%s := %s", node.getRowNumberSymbol(), "row_number()");
@@ -632,7 +689,7 @@ public class PlanPrinter
             TupleDomain<ColumnHandle> predicate = node.getLayout()
                     .map(layoutHandle -> metadata.getLayout(session, layoutHandle))
                     .map(TableLayout::getPredicate)
-                    .orElse(TupleDomain.<ColumnHandle>all());
+                    .orElse(TupleDomain.all());
 
             if (node.getLayout().isPresent()) {
                 // TODO: find a better way to do this
@@ -695,13 +752,7 @@ public class PlanPrinter
         {
             print(indent, "- Project => [%s]", formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
-            for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
-                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
-                    // skip identity assignments
-                    continue;
-                }
-                print(indent + 2, "%s := %s", entry.getKey(), entry.getValue());
-            }
+            printAssignments(node.getAssignments(), indent + 2);
 
             return processChildren(node, indent + 1);
         }
@@ -823,17 +874,19 @@ public class PlanPrinter
         public Void visitExchange(ExchangeNode node, Integer indent)
         {
             if (node.getScope() == Scope.LOCAL) {
-                print(indent, "- LocalExchange[%s%s] (%s) => %s",
+                print(indent, "- LocalExchange[%s%s]%s (%s) => %s",
                         node.getPartitioningScheme().getPartitioning().getHandle(),
                         node.getPartitioningScheme().isReplicateNulls() ? " - REPLICATE NULLS" : "",
+                        formatHash(node.getPartitioningScheme().getHashColumn()),
                         Joiner.on(", ").join(node.getPartitioningScheme().getPartitioning().getArguments()),
                         formatOutputs(node.getOutputSymbols()));
             }
             else {
-                print(indent, "- %sExchange[%s%s] => %s",
+                print(indent, "- %sExchange[%s%s]%s => %s",
                         UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString()),
                         node.getType(),
                         node.getPartitioningScheme().isReplicateNulls() ? " - REPLICATE NULLS" : "",
+                        formatHash(node.getPartitioningScheme().getHashColumn()),
                         formatOutputs(node.getOutputSymbols()));
             }
             printStats(indent + 2, node.getId());
@@ -882,6 +935,7 @@ public class PlanPrinter
         {
             print(indent, "- Apply[%s] => [%s]", node.getCorrelation(), formatOutputs(node.getOutputSymbols()));
             printStats(indent + 2, node.getId());
+            printAssignments(node.getSubqueryAssignments(), indent + 4);
 
             return processChildren(node, indent + 1);
         }
@@ -899,6 +953,17 @@ public class PlanPrinter
             }
 
             return null;
+        }
+
+        private void printAssignments(Assignments assignments, int indent)
+        {
+            for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
+                if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
+                    // skip identity assignments
+                    continue;
+                }
+                print(indent, "%s := %s", entry.getKey(), entry.getValue());
+            }
         }
 
         private String formatOutputs(Iterable<Symbol> symbols)
@@ -969,6 +1034,39 @@ public class PlanPrinter
 
             return "[" + Joiner.on(", ").join(parts.build()) + "]";
         }
+    }
+
+    private static String formatHash(Optional<Symbol>... hashes)
+    {
+        List<Symbol> symbols = Arrays.stream(hashes)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toList());
+
+        if (symbols.isEmpty()) {
+            return "";
+        }
+
+        return "[" + Joiner.on(", ").join(symbols) + "]";
+    }
+
+    private static String formatFrame(WindowFrame frame)
+    {
+        StringBuilder builder = new StringBuilder(frame.getType().toString());
+        FrameBound start = frame.getStart();
+        if (start.getValue().isPresent()) {
+            builder.append(" ").append(start.getOriginalValue().get());
+        }
+        builder.append(" ").append(start.getType());
+
+        Optional<FrameBound> end = frame.getEnd();
+        if (end.isPresent()) {
+            if (end.get().getOriginalValue().isPresent()) {
+                builder.append(" ").append(end.get().getOriginalValue().get());
+            }
+            builder.append(" ").append(end.get().getType());
+        }
+        return builder.toString();
     }
 
     private static String castToVarchar(Type type, Object value, Metadata metadata, Session session)

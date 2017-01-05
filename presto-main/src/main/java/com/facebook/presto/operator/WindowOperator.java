@@ -224,7 +224,7 @@ public class WindowOperator
 
         this.pagesIndex = new PagesIndex(sourceTypes, expectedPositions);
         this.preGroupedChannels = Ints.toArray(preGroupedChannels);
-        this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedChannels, Optional.<Integer>empty());
+        this.preGroupedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preGroupedChannels, Optional.empty());
         List<Integer> unGroupedPartitionChannels = partitionChannels.stream()
                 .filter(channel -> !preGroupedChannels.contains(channel))
                 .collect(toImmutableList());
@@ -232,7 +232,7 @@ public class WindowOperator
         List<Integer> preSortedChannels = sortChannels.stream()
                 .limit(preSortedChannelPrefix)
                 .collect(toImmutableList());
-        this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, Optional.<Integer>empty());
+        this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, Optional.empty());
         this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, Optional.empty());
 
         this.pageBuilder = new PageBuilder(this.types);

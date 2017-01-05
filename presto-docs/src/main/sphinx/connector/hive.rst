@@ -2,6 +2,14 @@
 Hive Connector
 ==============
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
+Overview
+--------
+
 The Hive connector allows querying data stored in a Hive
 data warehouse. Hive is a combination of three components:
 
@@ -191,9 +199,9 @@ Property Name                                Description
 ``hive.s3.use-instance-credentials``         Use the EC2 metadata service to retrieve API credentials
                                              (defaults to ``true``). This works with IAM roles in EC2.
 
-``hive.s3.access-key``                       Default AWS access key to use.
+``hive.s3.aws-access-key``                   Default AWS access key to use.
 
-``hive.s3.secret-key``                       Default AWS secret key to use.
+``hive.s3.aws-secret-key``                   Default AWS secret key to use.
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
@@ -236,7 +244,7 @@ to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
 the case, your EC2 instances will need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
 to use.  This is much cleaner than setting AWS access and secret keys in
-the ``hive.s3.access-key`` and ``hive.s3.secret-key`` settings, and also
+the ``hive.s3.aws-access-key`` and ``hive.s3.aws-secret-key`` settings, and also
 allows EC2 to automatically rotate credentials on a regular basis without
 any additional work on your part.
 
@@ -260,9 +268,10 @@ files referenced by the ``hive.config.resources`` Hive connector property.
 Tuning Properties
 ^^^^^^^^^^^^^^^^^
 
-The following tuning properties affect how many retries are attempted
-when communicating with S3. Most of these parameters affect settings
-on the ``ClientConfiguration`` object associated with the ``AmazonS3Client``.
+The following tuning properties affect the behavior of the client
+used by the Presto S3 filesystem when communicating with S3.
+Most of these parameters affect settings on the ``ClientConfiguration``
+object associated with the ``AmazonS3Client``.
 
 ===================================== =========================================================== ===============
 Property Name                         Description                                                 Default
@@ -315,50 +324,87 @@ the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, 
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
 
-Querying Hive Tables
---------------------
+Schema Evolution
+----------------
 
-The following table is an example Hive table from the `Hive Tutorial`_.
-It can be created in Hive (not in Presto) using the following
-Hive ``CREATE TABLE`` command:
+Hive allows the partitions in a table to have a different schema than the
+table. This occurs when the column types of a table are changed after
+partitions already exist (that use the original column types). The Hive
+connector supports this by allowing the same conversions as Hive:
 
-.. _Hive Tutorial: https://cwiki.apache.org/confluence/display/Hive/Tutorial#Tutorial-UsageandExamples
+* ``varchar`` to and from ``tinyint``, ``smallint``, ``integer`` and ``bigint``
+* ``real`` to ``double``
+* Widening conversions for integers, such as ``tinyint`` to ``smallint``
 
-.. code-block:: none
+Any conversion failure will result in null, which is the same behavior
+as Hive. For example, converting the string ``'foo'`` to a number,
+or converting the string ``'1234'`` to a ``tinyint`` (which has a
+maximum value of ``127``).
 
-    hive> CREATE TABLE page_view (
-        >   viewTime INT,
-        >   userid BIGINT,
-        >   page_url STRING,
-        >   referrer_url STRING,
-        >   ip STRING COMMENT 'IP Address of the User')
-        > COMMENT 'This is the page view table'
-        > PARTITIONED BY (dt STRING, country STRING)
-        > STORED AS SEQUENCEFILE;
-    OK
-    Time taken: 3.644 seconds
+Examples
+--------
 
-Assuming that this table was created in the ``web`` schema in
-Hive, this table can be described in Presto::
+The Hive connector supports querying and manipulating Hive tables and schemas
+(databases). While some uncommon operations will need to be performed using
+Hive directly, most operations can be performed using Presto.
 
-    DESCRIBE hive.web.page_view;
+Create a new Hive schema named ``web`` that will store tables in an
+S3 bucket named ``my-bucket``::
 
-.. code-block:: none
+    CREATE SCHEMA hive.web
+    WITH (location = 's3://my-bucket/')
 
-        Column    |  Type   | Null | Partition Key |        Comment
-    --------------+---------+------+---------------+------------------------
-     viewtime     | bigint  | true | false         |
-     userid       | bigint  | true | false         |
-     page_url     | varchar | true | false         |
-     referrer_url | varchar | true | false         |
-     ip           | varchar | true | false         | IP Address of the User
-     dt           | varchar | true | true          |
-     country      | varchar | true | true          |
-    (7 rows)
+Create a new Hive table named ``page_views`` in the ``web`` schema
+that is stored using the ORC file format, partitioned by date and
+country, and bucketed by user into ``50`` buckets (note that Hive
+requires the partition columns to be the last columns in the table)::
 
-This table can then be queried in Presto::
+    CREATE TABLE hive.web.page_views (
+      view_time timestamp,
+      user_id bigint,
+      page_url varchar,
+      ds date,
+      country varchar
+    )
+    WITH (
+      format = 'ORC',
+      partitioned_by = ARRAY['ds', 'country'],
+      bucketed_by = ARRAY['user_id'],
+      bucket_count = 50
+    )
 
-    SELECT * FROM hive.web.page_view;
+Drop a partition from the ``page_views`` table::
+
+    DELETE FROM hive.web.page_views
+    WHERE ds = DATE '2016-08-09'
+      AND country = 'US'
+
+Query the ``page_views`` table::
+
+    SELECT * FROM hive.web.page_views
+
+Create an external Hive table named ``request_logs`` that points at
+existing data in S3::
+
+    CREATE TABLE hive.web.request_logs (
+      request_time timestamp,
+      url varchar,
+      ip varchar,
+      user_agent varchar
+    )
+    WITH (
+      format = 'TEXTFILE',
+      external_location = 's3://my-bucket/data/logs/'
+    )
+
+Drop the external table ``request_logs``. This only drops the metadata
+for the table. The referenced data directory is not deleted::
+
+    DROP TABLE hive.web.request_logs
+
+Drop a schema::
+
+    DROP SCHEMA hive.web
 
 Hive Connector Limitations
 --------------------------

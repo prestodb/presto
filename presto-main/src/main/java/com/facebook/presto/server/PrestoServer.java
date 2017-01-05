@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.discovery.EmbeddedDiscoveryModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.ServerSecurityModule;
@@ -117,12 +117,12 @@ public class PrestoServer
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            injector.getInstance(CatalogManager.class).loadCatalogs();
+            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
 
             // TODO: remove this huge hack
             updateConnectorIds(
                     injector.getInstance(Announcer.class),
-                    injector.getInstance(Metadata.class),
+                    injector.getInstance(CatalogManager.class),
                     injector.getInstance(ServerConfig.class),
                     injector.getInstance(NodeSchedulerConfig.class));
 
@@ -145,7 +145,7 @@ public class PrestoServer
         return ImmutableList.of();
     }
 
-    private static void updateConnectorIds(Announcer announcer, Metadata metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
+    private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
     {
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
@@ -157,15 +157,18 @@ public class PrestoServer
 
         // automatically build connectorIds if not configured
         if (connectorIds.isEmpty()) {
-            Map<String, ConnectorId> catalogNames = metadata.getCatalogNames();
+            List<Catalog> catalogs = metadata.getCatalogs();
             // if this is a dedicated coordinator, only add jmx
             if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
-                if (catalogNames.containsKey("jmx")) {
-                    connectorIds.add(catalogNames.get("jmx").toString());
-                }
+                catalogs.stream()
+                        .map(Catalog::getConnectorId)
+                        .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
+                        .map(Object::toString)
+                        .forEach(connectorIds::add);
             }
             else {
-                catalogNames.values().stream()
+                catalogs.stream()
+                        .map(Catalog::getConnectorId)
                         .map(Object::toString)
                         .forEach(connectorIds::add);
             }

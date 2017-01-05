@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
@@ -50,6 +49,8 @@ import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_W
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -109,7 +110,7 @@ public class TestDateTimeFunctions
             throws Exception
     {
         // current date is the time at midnight in the session time zone
-        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(Ints.checkedCast(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
+        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(toIntExact(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
     }
 
     @Test
@@ -187,6 +188,34 @@ public class TestDateTimeFunctions
 
         DateTime expected = new DateTime(dateTime, getDateTimeZone(getTimeZoneKeyForOffset((timeZoneHoursOffset * 60L) + timezoneMinutesOffset)));
         assertFunction("from_unixtime(" + seconds + ", " + timeZoneHoursOffset + ", " + timezoneMinutesOffset + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+    }
+
+    @Test
+    public void testFromUnixTimeWithTimeZone()
+    {
+        String zoneId = "Asia/Shanghai";
+        DateTime expected = new DateTime(1970, 1, 1, 10, 0, 0, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        zoneId = "Asia/Tokyo";
+        expected = new DateTime(1970, 1, 1, 11, 0, 0, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        zoneId = "Europe/Moscow";
+        expected = new DateTime(1970, 1, 1, 5, 0, 0, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        zoneId = "America/New_York";
+        expected = new DateTime(1969, 12, 31, 21, 0, 0, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        zoneId = "America/Chicago";
+        expected = new DateTime(1969, 12, 31, 20, 0, 0, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+
+        zoneId = "America/Los_Angeles";
+        expected = new DateTime(1969, 12, 31, 18, 0, 0, DateTimeZone.forID(zoneId));
+        assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
     }
 
     @Test
@@ -887,7 +916,7 @@ public class TestDateTimeFunctions
     private static SqlDate toDate(DateTime dateDate)
     {
         long millis = dateDate.getMillis();
-        return new SqlDate(Ints.checkedCast(MILLISECONDS.toDays(millis)));
+        return new SqlDate(toIntExact(MILLISECONDS.toDays(millis)));
     }
 
     private static long millisBetween(ReadableInstant start, ReadableInstant end)

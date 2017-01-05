@@ -387,7 +387,7 @@ public class PartitionedOutputOperator
     }
 
     public static class PartitionedOutputInfo
-            implements Mergeable<PartitionedOutputInfo>
+            implements Mergeable<PartitionedOutputInfo>, OperatorInfo
     {
         private final long rowsAdded;
         private final long pagesAdded;

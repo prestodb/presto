@@ -18,6 +18,8 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -61,6 +63,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.concurrent.MoreFutures.unwrapCompletionException;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
@@ -140,9 +143,17 @@ public class QueryStateMachine
     /**
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
-    public static QueryStateMachine begin(QueryId queryId, String query, Session session, URI self, boolean transactionControl, TransactionManager transactionManager, Executor executor)
+    public static QueryStateMachine begin(
+            QueryId queryId,
+            String query,
+            Session session,
+            URI self,
+            boolean transactionControl,
+            TransactionManager transactionManager,
+            AccessControl accessControl,
+            Executor executor)
     {
-        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, executor, Ticker.systemTicker());
+        return beginWithTicker(queryId, query, session, self, transactionControl, transactionManager, accessControl, executor, Ticker.systemTicker());
     }
 
     static QueryStateMachine beginWithTicker(
@@ -152,6 +163,7 @@ public class QueryStateMachine
             URI self,
             boolean transactionControl,
             TransactionManager transactionManager,
+            AccessControl accessControl,
             Executor executor,
             Ticker ticker)
     {
@@ -162,7 +174,7 @@ public class QueryStateMachine
         if (autoCommit) {
             // TODO: make autocommit isolation level a session parameter
             TransactionId transactionId = transactionManager.beginTransaction(true);
-            querySession = session.withTransactionId(transactionId);
+            querySession = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
         else {
             querySession = session;
@@ -292,6 +304,7 @@ public class QueryStateMachine
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
@@ -326,6 +339,7 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
+            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
         if (rootStage.isPresent()) {
@@ -371,7 +385,8 @@ public class QueryStateMachine
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(outputDataSize),
-                outputPositions);
+                outputPositions,
+                operatorStatsSummary.build());
 
         return new QueryInfo(queryId,
                 session.toSessionRepresentation(),
@@ -548,7 +563,7 @@ public class QueryStateMachine
                             transitionToFinished();
                         }
                         else {
-                            transitionToFailed(throwable);
+                            transitionToFailed(unwrapCompletionException(throwable));
                         }
                     });
         }

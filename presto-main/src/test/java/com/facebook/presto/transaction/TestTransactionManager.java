@@ -14,6 +14,13 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
+import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
@@ -32,6 +39,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.connector.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.connector.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -45,6 +54,8 @@ public class TestTransactionManager
 {
     private static final String CATALOG_NAME = "test_catalog";
     private static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_NAME);
+    private static final ConnectorId SYSTEM_TABLES_ID = createSystemTablesConnectorId(CONNECTOR_ID);
+    private static final ConnectorId INFORMATION_SCHEMA_ID = createInformationSchemaConnectorId(CONNECTOR_ID);
     private final ExecutorService finishingExecutor = newCachedThreadPool(daemonThreadsNamed("transaction-%s"));
 
     @AfterClass
@@ -59,10 +70,11 @@ public class TestTransactionManager
             throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
+            CatalogManager catalogManager = new CatalogManager();
+            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
-            transactionManager.addConnector(CONNECTOR_ID, c1);
+            registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -72,10 +84,10 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, CONNECTOR_ID);
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID));
+            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
             transactionManager.asyncCommit(transactionId).join();
@@ -89,10 +101,11 @@ public class TestTransactionManager
             throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
+            CatalogManager catalogManager = new CatalogManager();
+            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
-            transactionManager.addConnector(CONNECTOR_ID, c1);
+            registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -102,10 +115,10 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, CONNECTOR_ID);
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID));
+            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
             transactionManager.asyncAbort(transactionId).join();
@@ -119,10 +132,11 @@ public class TestTransactionManager
             throws Exception
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
-            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), finishingExecutor);
+            CatalogManager catalogManager = new CatalogManager();
+            TransactionManager transactionManager = TransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
-            transactionManager.addConnector(CONNECTOR_ID, c1);
+            registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
@@ -132,17 +146,17 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getMetadata(transactionId, CONNECTOR_ID);
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID));
+            assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
             transactionManager.fail(transactionId);
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
             try {
-                transactionManager.getMetadata(transactionId, CONNECTOR_ID);
+                transactionManager.getCatalogMetadata(transactionId, CONNECTOR_ID);
                 fail();
             }
             catch (PrestoException e) {
@@ -166,6 +180,7 @@ public class TestTransactionManager
                             .setIdleTimeout(new Duration(1, TimeUnit.MILLISECONDS))
                             .setIdleCheckInterval(new Duration(5, TimeUnit.MILLISECONDS)),
                     executor.getExecutor(),
+                    new CatalogManager(),
                     finishingExecutor);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
@@ -181,6 +196,31 @@ public class TestTransactionManager
 
             assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
         }
+    }
+
+    private static void registerConnector(
+            CatalogManager catalogManager,
+            TransactionManager transactionManager,
+            String catalogName,
+            ConnectorId connectorId,
+            Connector connector)
+    {
+        ConnectorId systemId = createSystemTablesConnectorId(connectorId);
+        InternalNodeManager nodeManager = new InMemoryNodeManager();
+        MetadataManager metadata = MetadataManager.createTestMetadataManager(catalogManager);
+
+        catalogManager.registerCatalog(new Catalog(
+                catalogName,
+                connectorId,
+                connector,
+                createInformationSchemaConnectorId(connectorId),
+                new InformationSchemaConnector(catalogName, nodeManager, metadata),
+                systemId,
+                new SystemConnector(
+                        systemId,
+                        nodeManager,
+                        connector.getSystemTables(),
+                        transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId))));
     }
 
     private static class IdleCheckExecutor

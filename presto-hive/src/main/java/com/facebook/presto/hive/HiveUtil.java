@@ -69,6 +69,7 @@ import java.math.BigInteger;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -76,6 +77,8 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -709,8 +712,11 @@ public final class HiveUtil
         // add the partition keys last (like Hive does)
         columns.addAll(getPartitionKeyColumnHandles(connectorId, table));
 
-        // add hidden column
+        // add hidden columns
         columns.add(pathColumnHandle(connectorId));
+        if (table.getStorage().getBucketProperty().isPresent()) {
+            columns.add(bucketColumnHandle(connectorId));
+        }
 
         return columns.build();
     }
@@ -724,7 +730,7 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType()) {
-                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR));
+                columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), hiveColumnIndex, REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
@@ -742,7 +748,7 @@ public final class HiveUtil
             if (!hiveType.isSupportedType()) {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY));
+            columns.add(new HiveColumnHandle(connectorId, field.getName(), hiveType, hiveType.getTypeSignature(), -1, PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();
@@ -761,18 +767,9 @@ public final class HiveUtil
     }
 
     @Nullable
-    public static String annotateColumnComment(Optional<String> comment, boolean partitionKey)
+    public static String columnExtraInfo(boolean partitionKey)
     {
-        String normalizedComment = comment.orElse("").trim();
-        if (partitionKey) {
-            if (normalizedComment.isEmpty()) {
-                normalizedComment = "Partition Key";
-            }
-            else {
-                normalizedComment = "Partition Key: " + normalizedComment;
-            }
-        }
-        return normalizedComment.isEmpty() ? null : normalizedComment;
+        return partitionKey ? "partition key" : null;
     }
 
     public static List<String> toPartitionValues(String partitionName)
@@ -798,13 +795,16 @@ public final class HiveUtil
         return resultBuilder.build();
     }
 
-    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path)
+    public static String getPrefilledColumnValue(HiveColumnHandle columnHandle, HivePartitionKey partitionKey, Path path, OptionalInt bucketNumber)
     {
         if (partitionKey != null) {
             return partitionKey.getValue();
         }
         if (isPathColumnHandle(columnHandle)) {
             return path.toString();
+        }
+        if (isBucketColumnHandle(columnHandle)) {
+            return String.valueOf(bucketNumber.getAsInt());
         }
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
     }

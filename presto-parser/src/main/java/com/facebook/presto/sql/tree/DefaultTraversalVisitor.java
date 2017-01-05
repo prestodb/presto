@@ -410,11 +410,6 @@ public abstract class DefaultTraversalVisitor<R, C>
     {
         process(node.getRelation(), context);
         process(node.getSamplePercentage(), context);
-        if (node.getColumnsToStratifyOn().isPresent()) {
-            for (Expression expression : node.getColumnsToStratifyOn().get()) {
-                process(expression, context);
-            }
-        }
         return null;
     }
 
@@ -557,6 +552,23 @@ public abstract class DefaultTraversalVisitor<R, C>
         for (ExplainOption option : node.getOptions()) {
             process(option, context);
         }
+
+        return null;
+    }
+
+    @Override
+    protected R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
+    {
+        process(node.getValue(), context);
+        process(node.getSubquery(), context);
+
+        return null;
+    }
+
+    @Override
+    protected R visitExists(ExistsPredicate node, C context)
+    {
+        process(node.getSubquery(), context);
 
         return null;
     }

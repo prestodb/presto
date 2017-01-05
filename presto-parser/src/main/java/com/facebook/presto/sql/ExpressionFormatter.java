@@ -46,6 +46,7 @@ import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
@@ -57,6 +58,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -281,13 +283,19 @@ public final class ExpressionFormatter
         @Override
         protected String visitExists(ExistsPredicate node, Boolean unmangleNames)
         {
-            return "(EXISTS (" + formatSql(node.getSubquery(), unmangleNames, parameters) + "))";
+            return "(EXISTS " + formatSql(node.getSubquery(), unmangleNames, parameters) + ")";
         }
 
         @Override
         protected String visitQualifiedNameReference(QualifiedNameReference node, Boolean unmangleNames)
         {
             return formatQualifiedName(node.getName());
+        }
+
+        @Override
+        protected String visitLambdaArgumentDeclaration(LambdaArgumentDeclaration node, Boolean context)
+        {
+            return formatIdentifier(node.getName());
         }
 
         @Override
@@ -334,6 +342,10 @@ public final class ExpressionFormatter
 
             builder.append(formatQualifiedName(node.getName()))
                     .append('(').append(arguments).append(')');
+
+            if (node.getFilter().isPresent()) {
+                builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), unmangleNames));
+            }
 
             if (node.getWindow().isPresent()) {
                 builder.append(" OVER ").append(visitWindow(node.getWindow().get(), unmangleNames));
@@ -540,6 +552,11 @@ public final class ExpressionFormatter
             return "(" + joinExpressions(node.getValues(), unmangleNames) + ")";
         }
 
+        private String visitFilter(Expression node, Boolean unmangleNames)
+        {
+            return "(WHERE " + process(node, unmangleNames) + ')';
+        }
+
         @Override
         public String visitWindow(Window node, Boolean unmangleNames)
         {
@@ -594,6 +611,20 @@ public final class ExpressionFormatter
                     return "UNBOUNDED FOLLOWING";
             }
             throw new IllegalArgumentException("unhandled type: " + node.getType());
+        }
+
+        @Override
+        protected String visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Boolean unmangleNames)
+        {
+            return new StringBuilder()
+                    .append(process(node.getValue(), unmangleNames))
+                    .append(' ')
+                    .append(node.getComparisonType().getValue())
+                    .append(' ')
+                    .append(node.getQuantifier().toString())
+                    .append(' ')
+                    .append(process(node.getSubquery(), unmangleNames))
+                    .toString();
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right, boolean unmangleNames)

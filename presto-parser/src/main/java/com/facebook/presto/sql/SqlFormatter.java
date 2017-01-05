@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.CallArgument;
+import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -26,6 +27,8 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
+import com.facebook.presto.sql.tree.DescribeInput;
+import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
@@ -44,6 +47,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
+import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Prepare;
@@ -189,6 +193,22 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitDescribeOutput(DescribeOutput node, Integer indent)
+        {
+            append(indent, "DESCRIBE OUTPUT ");
+            builder.append(node.getName());
+            return null;
+        }
+
+        @Override
+        protected Void visitDescribeInput(DescribeInput node, Integer indent)
+        {
+            append(indent, "DESCRIBE INPUT ");
+            builder.append(node.getName());
+            return null;
+        }
+
+        @Override
         protected Void visitQuery(Query node, Integer indent)
         {
             if (node.getWith().isPresent()) {
@@ -221,12 +241,6 @@ public final class SqlFormatter
 
             if (node.getLimit().isPresent()) {
                 append(indent, "LIMIT " + node.getLimit().get())
-                        .append('\n');
-            }
-
-            if (node.getApproximate().isPresent()) {
-                String confidence = node.getApproximate().get().getConfidence();
-                append(indent, "APPROXIMATE AT " + confidence + " CONFIDENCE")
                         .append('\n');
             }
 
@@ -327,7 +341,8 @@ public final class SqlFormatter
         @Override
         protected Void visitTable(Table node, Integer indent)
         {
-            builder.append(node.getName().toString());
+            builder.append(formatName(node.getName()));
+
             return null;
         }
 
@@ -401,13 +416,6 @@ public final class SqlFormatter
                     .append(" (")
                     .append(node.getSamplePercentage())
                     .append(')');
-
-            if (node.getColumnsToStratifyOn().isPresent()) {
-                builder.append(" STRATIFY ON ")
-                        .append(" (")
-                        .append(Joiner.on(",").join(node.getColumnsToStratifyOn().get()));
-                builder.append(')');
-            }
 
             return null;
         }
@@ -753,8 +761,30 @@ public final class SqlFormatter
             String tableName = formatName(node.getName());
             builder.append(tableName).append(" (\n");
 
+            String elementIndent = indentString(indent + 1);
             String columnList = node.getElements().stream()
-                    .map(column -> INDENT + formatName(column.getName()) + " " + column.getType())
+                    .map(element -> {
+                        if (element instanceof ColumnDefinition) {
+                            ColumnDefinition column = (ColumnDefinition) element;
+                            return elementIndent + formatName(column.getName()) + " " + column.getType() +
+                                    column.getComment()
+                                            .map(comment -> " COMMENT " + formatStringLiteral(comment))
+                                            .orElse("");
+                        }
+                        if (element instanceof LikeClause) {
+                            LikeClause likeClause = (LikeClause) element;
+                            StringBuilder builder = new StringBuilder(elementIndent);
+                            builder.append("LIKE ")
+                                    .append(formatName(likeClause.getTableName()));
+                            if (likeClause.getPropertiesOption().isPresent()) {
+                                builder.append(" ")
+                                        .append(likeClause.getPropertiesOption().get().name())
+                                        .append(" PROPERTIES");
+                            }
+                            return builder.toString();
+                        }
+                        throw new UnsupportedOperationException("unknown table element: " + element);
+                    })
                     .collect(joining(",\n"));
             builder.append(columnList);
             builder.append("\n").append(")");

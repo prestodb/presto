@@ -87,7 +87,7 @@ public class AggregationCompiler
         ImmutableList.Builder<BindableAggregationFunction> builder = ImmutableList.builder();
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
-            AccumulatorStateSerializer<?> stateSerializer = new StateCompiler().generateStateSerializer(stateClass, classLoader);
+            AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateClass, classLoader);
 
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
@@ -99,14 +99,13 @@ public class AggregationCompiler
                                 new BindableAggregationFunction(
                                         new Signature(
                                                 name,
-                                                aggregationAnnotation.approximate() ? FunctionKind.APPROXIMATE_AGGREGATE : FunctionKind.AGGREGATE,
+                                                FunctionKind.AGGREGATE,
                                                 ImmutableList.of(), // TODO parse constrains from annotations
                                                 ImmutableList.of(), // TODO parse constrains from annotations
                                                 outputType,
                                                 inputTypes,
                                                 false),
                                         getDescription(aggregationDefinition, outputFunction),
-                                        aggregationAnnotation.approximate(),
                                         aggregationAnnotation.decomposable(),
                                         aggregationDefinition,
                                         stateClass,

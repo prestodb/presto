@@ -263,7 +263,7 @@ public class TestTypeRegistry
     @Test
     public void testCastOperatorsExistForCoercions()
     {
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig().setExperimentalSyntaxEnabled(true));
+        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type sourceType : types) {
@@ -294,7 +294,7 @@ public class TestTypeRegistry
         return builder.build();
     }
 
-    private void assertCommonSuperType(Type firstType, Type secondType, Type expected)
+    private static void assertCommonSuperType(Type firstType, Type secondType, Type expected)
     {
         TypeRegistry typeManager = new TypeRegistry();
         assertEquals(typeManager.getCommonSuperType(firstType, secondType), Optional.ofNullable(expected));

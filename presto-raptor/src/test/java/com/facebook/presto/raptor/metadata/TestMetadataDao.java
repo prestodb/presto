@@ -20,6 +20,10 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
+
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -65,5 +69,28 @@ public class TestMetadataDao
         long tableId2 = dao.insertTable("schema1", "table2", true, false, null, 0);
         Long columnId2 = dao.getTemporalColumnId(tableId2);
         assertNull(columnId2);
+    }
+
+    @Test
+    public void testGetTableInformation()
+    {
+        Long columnId = 1L;
+        long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
+        dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
+
+        Table info = dao.getTableInformation(tableId);
+        assertTable(info, tableId);
+
+        info = dao.getTableInformation("schema1", "table1");
+        assertTable(info, tableId);
+    }
+
+    private static void assertTable(Table info, long tableId)
+    {
+        assertEquals(info.getTableId(), tableId);
+        assertEquals(info.getDistributionId(), OptionalLong.empty());
+        assertEquals(info.getDistributionName(), Optional.empty());
+        assertEquals(info.getBucketCount(), OptionalInt.empty());
+        assertEquals(info.getTemporalColumnId(), OptionalLong.empty());
     }
 }

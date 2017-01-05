@@ -30,13 +30,17 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
+import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class QueryContext
 {
+    private static final long GUARANTEED_MEMORY = new DataSize(1, MEGABYTE).toBytes();
+
     private final QueryId queryId;
     private final Executor executor;
     private final List<TaskContext> taskContexts = new CopyOnWriteArrayList<>();
@@ -81,6 +85,10 @@ public class QueryContext
         }
         ListenableFuture<?> future = memoryPool.reserve(queryId, bytes);
         reserved += bytes;
+        // Never block queries using a trivial amount of memory
+        if (reserved < GUARANTEED_MEMORY) {
+            return NOT_BLOCKED;
+        }
         return future;
     }
 
@@ -139,7 +147,7 @@ public class QueryContext
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.forEach(TaskContext::moreMemoryAvailable);
             }
 
             @Override
@@ -147,14 +155,14 @@ public class QueryContext
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.forEach(TaskContext::moreMemoryAvailable);
             }
         });
     }
 
-    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, DataSize operatorPreAllocatedMemory, boolean verboseStats, boolean cpuTimerEnabled)
+    public TaskContext addTaskContext(TaskStateMachine taskStateMachine, Session session, boolean verboseStats, boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, operatorPreAllocatedMemory, verboseStats, cpuTimerEnabled);
+        TaskContext taskContext = new TaskContext(this, taskStateMachine, executor, session, verboseStats, cpuTimerEnabled);
         taskContexts.add(taskContext);
         return taskContext;
     }

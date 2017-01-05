@@ -21,7 +21,6 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.split.PageSinkManager;
@@ -34,7 +33,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Collection;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -147,7 +145,6 @@ public class TestTableWriterOperator
                         new ConnectorOutputTableHandle() {}),
                         new SchemaTableName("testSchema", "testTable")),
                 ImmutableList.of(0),
-                Optional.empty(),
                 TEST_SESSION);
 
         return factory.createOperator(createTaskContext(executor, TEST_SESSION)
@@ -182,18 +179,20 @@ public class TestTableWriterOperator
             implements ConnectorPageSink
     {
         private CompletableFuture<?> future = new CompletableFuture<>();
+        private CompletableFuture<Collection<Slice>> finishFuture = new CompletableFuture<>();
 
         @Override
-        public CompletableFuture<?> appendPage(Page page, Block sampleWeightBlock)
+        public CompletableFuture<?> appendPage(Page page)
         {
             future = new CompletableFuture<>();
             return future;
         }
 
         @Override
-        public Collection<Slice> finish()
+        public CompletableFuture<Collection<Slice>> finish()
         {
-            return ImmutableList.of();
+            finishFuture = new CompletableFuture<>();
+            return finishFuture;
         }
 
         @Override
@@ -204,6 +203,7 @@ public class TestTableWriterOperator
         public void complete()
         {
             future.complete(null);
+            finishFuture.complete(ImmutableList.of());
         }
     }
 }

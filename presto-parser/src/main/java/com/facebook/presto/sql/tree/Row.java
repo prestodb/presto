@@ -55,6 +55,14 @@ public final class Row
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(items)
+                .build();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(items);
