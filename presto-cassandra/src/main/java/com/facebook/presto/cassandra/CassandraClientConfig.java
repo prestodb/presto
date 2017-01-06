@@ -19,6 +19,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -28,14 +29,12 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -51,10 +50,6 @@ public class CassandraClientConfig
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
-    private String partitioner = "Murmur3Partitioner";
-    private int thriftPort = 9160;
-    private String thriftConnectionFactoryClassName = "org.apache.cassandra.thrift.TFramedTransportFactory";
-    private Map<String, String> transportFactoryOptions = new HashMap<>();
     private boolean allowDropTable;
     private String username;
     private String password;
@@ -211,18 +206,6 @@ public class CassandraClientConfig
         return this;
     }
 
-    public int getThriftPort()
-    {
-        return thriftPort;
-    }
-
-    @Config(("cassandra.thrift-port"))
-    public CassandraClientConfig setThriftPort(int thriftPort)
-    {
-        this.thriftPort = thriftPort;
-        return this;
-    }
-
     @Min(1)
     public int getSplitSize()
     {
@@ -233,43 +216,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setSplitSize(int splitSize)
     {
         this.splitSize = splitSize;
-        return this;
-    }
-
-    public String getPartitioner()
-    {
-        return partitioner;
-    }
-
-    @Config("cassandra.partitioner")
-    public CassandraClientConfig setPartitioner(String partitioner)
-    {
-        this.partitioner = partitioner;
-        return this;
-    }
-
-    public String getThriftConnectionFactoryClassName()
-    {
-        return thriftConnectionFactoryClassName;
-    }
-
-    @Config("cassandra.thrift-connection-factory-class")
-    public CassandraClientConfig setThriftConnectionFactoryClassName(String thriftConnectionFactoryClassName)
-    {
-        this.thriftConnectionFactoryClassName = thriftConnectionFactoryClassName;
-        return this;
-    }
-
-    public Map<String, String> getTransportFactoryOptions()
-    {
-        return transportFactoryOptions;
-    }
-
-    @Config("cassandra.transport-factory-options")
-    public CassandraClientConfig setTransportFactoryOptions(String transportFactoryOptions)
-    {
-        requireNonNull(transportFactoryOptions, "transportFactoryOptions is null");
-        this.transportFactoryOptions = Splitter.on(',').omitEmptyStrings().trimResults().withKeyValueSeparator("=").split(transportFactoryOptions);
         return this;
     }
 
