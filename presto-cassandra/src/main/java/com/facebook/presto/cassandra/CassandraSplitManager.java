@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -94,13 +93,7 @@ public class CassandraSplitManager
         String tokenExpression = table.getTokenExpression();
 
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
-        List<CassandraTokenSplitManager.TokenSplit> tokenSplits;
-        try {
-            tokenSplits = tokenSplitMgr.getSplits(schema, tableName);
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        List<CassandraTokenSplitManager.TokenSplit> tokenSplits = tokenSplitMgr.getSplits(schema, tableName);
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
             String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
             List<HostAddress> addresses = new HostAddressFactory().AddressNamesToHostAddressList(tokenSplit.getHosts());

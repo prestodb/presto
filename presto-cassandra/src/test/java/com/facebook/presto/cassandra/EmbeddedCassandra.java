@@ -15,6 +15,10 @@ package com.facebook.presto.cassandra;
 
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
+import javax.management.ObjectName;
+
+import java.lang.management.ManagementFactory;
+
 public final class EmbeddedCassandra
 {
     private EmbeddedCassandra() {}
@@ -23,5 +27,29 @@ public final class EmbeddedCassandra
             throws Exception
     {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra();
+    }
+
+    public static void flush(String keyspace, String table)
+            throws Exception
+    {
+        ManagementFactory
+                .getPlatformMBeanServer()
+                .invoke(
+                        new ObjectName("org.apache.cassandra.db:type=StorageService"),
+                        "forceKeyspaceFlush",
+                        new Object[] {keyspace, new String[] {table}},
+                        new String[] {"java.lang.String", "[Ljava.lang.String;"});
+    }
+
+    public static void refreshSizeEstimates()
+            throws Exception
+    {
+        ManagementFactory
+                .getPlatformMBeanServer()
+                .invoke(
+                        new ObjectName("org.apache.cassandra.db:type=StorageService"),
+                        "refreshSizeEstimates",
+                        new Object[] {},
+                        new String[] {});
     }
 }

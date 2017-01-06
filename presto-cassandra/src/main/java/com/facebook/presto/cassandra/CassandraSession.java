@@ -63,6 +63,7 @@ import static com.google.common.collect.Iterables.transform;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 
+// TODO: Refactor this class to make it be "single responsibility"
 public class CassandraSession
 {
     static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
@@ -383,6 +384,11 @@ public class CassandraSession
         }
     }
 
+    public <T> T executeWithSession(SessionCallable<T> sessionCallable)
+    {
+        return executeWithSession("", sessionCallable);
+    }
+
     public <T> T executeWithSession(String schemaName, SessionCallable<T> sessionCallable)
     {
         NoHostAvailableException lastException = null;
@@ -402,7 +408,7 @@ public class CassandraSession
         throw lastException;
     }
 
-    private interface SessionCallable<T>
+    public interface SessionCallable<T>
     {
         T executeWithSession(Session session);
     }
