@@ -19,6 +19,7 @@ General Changes
   via the ``reorder-joins`` config option or ``reorder_joins`` session property.
 * Add :func:`xxhash64` and :func:`to_big_endian_64` functions.
 * Add aggregated operator statistics to final query statistics.
+* Allow specifying column comments for :doc:`/sql/create-table`.
 
 Hive Changes
 ------------
