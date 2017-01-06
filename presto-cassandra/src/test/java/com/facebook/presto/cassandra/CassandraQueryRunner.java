@@ -20,6 +20,8 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 
+import java.util.List;
+
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -54,7 +56,12 @@ public final class CassandraQueryRunner
                     com.datastax.driver.core.Session session = cluster.connect()) {
                 createOrReplaceKeyspace(session, "tpch");
             }
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), TpchTable.getTables());
+            List<TpchTable<?>> tables = TpchTable.getTables();
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
+            for (TpchTable table : tables) {
+                EmbeddedCassandra.flush("tpch", table.getTableName());
+            }
+            EmbeddedCassandra.refreshSizeEstimates();
             tpchLoaded = true;
         }
 

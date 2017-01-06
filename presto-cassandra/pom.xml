@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <cassandra.version>2.1.6</cassandra.version>
-        <datastax.version>3.0.0</datastax.version>
+        <datastax.version>3.0.5</datastax.version>
     </properties>
 
     <dependencies>
@@ -237,7 +237,7 @@
         <dependency>
             <groupId>org.cassandraunit</groupId>
             <artifactId>cassandra-unit</artifactId>
-            <version>2.0.2.0</version>
+            <version>2.1.9.2</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -245,25 +245,37 @@
                     <groupId>junit</groupId>
                 </exclusion>
                 <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
+                    <groupId>org.apache.cassandra</groupId>
+                    <artifactId>cassandra-all</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.cassandra</groupId>
+            <artifactId>cassandra-all</artifactId>
+            <version>2.1.12</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-all</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.thrift</groupId>
                     <artifactId>libthrift</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>org.jboss.netty</groupId>
-                    <artifactId>netty</artifactId>
+                    <artifactId>junit</artifactId>
+                    <groupId>junit</groupId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.datastax.cassandra</groupId>
-                    <artifactId>cassandra-driver-core</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-classic</artifactId>
                 </exclusion>
                 <exclusion>
-                    <!-- conflicts with version brought in by presto-main, etc -->
-                    <groupId>com.sun.xml.bind</groupId>
-                    <artifactId>jaxb-impl</artifactId>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-core</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
