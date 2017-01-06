@@ -59,18 +59,21 @@ public class AccumuloRecordSet
     private final AccumuloRowSerializer serializer;
     private final BatchScanner scanner;
     private final String rowIdName;
+    private final int bufferSize;
 
     public AccumuloRecordSet(
             Connector connector,
             ConnectorSession session,
             AccumuloSplit split,
             String username,
-            List<AccumuloColumnHandle> columnHandles)
+            List<AccumuloColumnHandle> columnHandles,
+            int bufferSize)
     {
         requireNonNull(session, "session is null");
         requireNonNull(split, "split is null");
         requireNonNull(username, "username is null");
         constraints = requireNonNull(split.getConstraints(), "constraints is null");
+        this.bufferSize = bufferSize;
 
         rowIdName = split.getRowId();
 
@@ -145,6 +148,6 @@ public class AccumuloRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new AccumuloRecordCursor(serializer, scanner, rowIdName, columnHandles, constraints);
+        return new AccumuloRecordCursor(serializer, scanner, rowIdName, columnHandles, constraints, bufferSize);
     }
 }

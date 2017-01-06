@@ -51,9 +51,9 @@ replacing the ``accumulo.xxx`` properties as required:
 Configuration Variables
 -----------------------
 
-================================================ ====================== ========== =====================================================================================
+================================================ ====================== ========== ===================================================================================================
 Property Name                                    Default Value          Required   Description
-================================================ ====================== ========== =====================================================================================
+================================================ ====================== ========== ===================================================================================================
 ``accumulo.instance``                            (none)                 Yes        Name of the Accumulo instance
 ``accumulo.zookeepers``                          (none)                 Yes        ZooKeeper connect string
 ``accumulo.username``                            (none)                 Yes        Accumulo user for Presto
@@ -61,7 +61,9 @@ Property Name                                    Default Value          Required
 ``accumulo.zookeeper.metadata.root``             ``/presto-accumulo``   No         Root znode for storing metadata. Only relevant if using default Metadata Manager
 ``accumulo.cardinality.cache.size``              ``100000``             No         Sets the size of the index cardinality cache
 ``accumulo.cardinality.cache.expire.duration``   ``5m``                 No         Sets the expiration duration of the cardinality cache.
-================================================ ====================== ========== =====================================================================================
+``accumulo.record.cursor.buffer.size``           ``1000000``            No         Sets the size of the buffer between the BatchScanner and the record cursor to re-order entries
+``accumulo.max.index.lookup.cardinality``        ``20000000``           No         Sets the maximum number of index row IDs that the connector will fetch from Accumulo
+================================================ ====================== ========== ===================================================================================================
 
 Unsupported Features
 --------------------
@@ -454,23 +456,25 @@ Table property usage example:
       index_columns = 'name,age'
     );
 
-==================== ================ ======================================================================================================
-Property Name        Default Value    Description
-==================== ================ ======================================================================================================
-``column_mapping``   (generated)      Comma-delimited list of column metadata: ``col_name:col_family:col_qualifier,[...]``.
-                                      Required for external tables.  Not setting this property results in auto-generated column names.
-``index_columns``    (none)           A comma-delimited list of Presto columns that are indexed in this table's corresponding index table
-``external``         ``false``        If true, Presto will only do metadata operations for the table.
-                                      Otherwise, Presto will create and drop Accumulo tables where appropriate.
-``locality_groups``  (none)           List of locality groups to set on the Accumulo table. Only valid on internal tables.
-                                      String format is locality group name, colon, comma delimited list of column families in the group.
-                                      Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|etc...``
-``row_id``           (first column)   Presto column name that maps to the Accumulo row ID.
-``serializer``       ``default``      Serializer for Accumulo data encodings. Can either be ``default``, ``string``, ``lexicoder``
-                                      or a Java class name. Default is ``default``,
-                                      i.e. the value from ``AccumuloRowSerializer.getDefault()``, i.e. ``lexicoder``.
-``scan_auths``       (user auths)     Scan-time authorizations set on the batch scanner.
-==================== ================ ======================================================================================================
+======================== ================ ======================================================================================================
+Property Name            Default Value    Description
+======================== ================ ======================================================================================================
+``column_mapping``       (generated)      Comma-delimited list of column metadata: ``col_name:col_family:col_qualifier,[...]``.
+                                          Required for external tables.  Not setting this property results in auto-generated column names.
+``index_columns``        (none)           A comma-delimited list of Presto columns that are indexed in this table's corresponding index table
+``external``             ``false``        If true, Presto will only do metadata operations for the table.
+                                          Otherwise, Presto will create and drop Accumulo tables where appropriate.
+``locality_groups``      (none)           List of locality groups to set on the Accumulo table. Only valid on internal tables.
+                                          String format is locality group name, colon, comma delimited list of column families in the group.
+                                          Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|etc...``
+``row_id``               (first column)   Presto column name that maps to the Accumulo row ID.
+``serializer``           ``default``      Serializer for Accumulo data encodings. Can either be ``default``, ``string``, ``lexicoder``
+                                          or a Java class name. Default is ``default``,
+                                          i.e. the value from ``AccumuloRowSerializer.getDefault()``, i.e. ``lexicoder``.
+``scan_auths``           (user auths)     Scan-time authorizations set on the batch scanner.
+``metrics_storage``      ``default``      Metrics storage to use for this table.  Can either be 'default', 'accumulo', or a Java class name
+``truncate_timestamps``  ``false``        True to enable truncating of timestamp-type column metrics                                                                                                                                                                       |
+======================== ================ ======================================================================================================
 
 Session Properties
 ------------------
@@ -480,20 +484,26 @@ Note that session properties are prefixed with the catalog name::
 
     SET SESSION accumulo.column_filter_optimizations_enabled = false;
 
-======================================== ============= =======================================================================================================
-Property Name                            Default Value Description
-======================================== ============= =======================================================================================================
-``optimize_locality_enabled``            ``true``      Set to true to enable data locality for non-indexed scans
-``optimize_split_ranges_enabled``        ``true``      Set to true to split non-indexed queries by tablet splits. Should generally be true.
-``optimize_index_enabled``               ``true``      Set to true to enable usage of the secondary index on query
-``index_rows_per_split``                 ``10000``     The number of Accumulo row IDs that are packed into a single Presto split
-``index_threshold``                      ``0.2``       The ratio between number of rows to be scanned based on the index over the total number of rows.
-                                                       If the ratio is below this threshold, the index will be used.
-``index_lowest_cardinality_threshold``   ``0.01``      The threshold where the column with the lowest cardinality will be used instead of computing an
-                                                       intersection of ranges in the index. Secondary index must be enabled.
-``index_metrics_enabled``                ``true``      Set to true to enable usage of the metrics table to optimize usage of the index
-``scan_username``                        (config)      User to impersonate when scanning the tables. This property trumps the ``scan_auths`` table property.
-======================================== ============= =======================================================================================================
+============================================= ============= =======================================================================================================
+Property Name                                 Default Value Description
+============================================= ============= =======================================================================================================
+``optimize_locality_enabled``                 ``true``      Set to true to enable data locality for non-indexed scans
+``optimize_split_ranges_enabled``             ``true``      Set to true to split non-indexed queries by tablet splits. Should generally be true.
+``optimize_index_enabled``                    ``true``      Set to true to enable usage of the secondary index on query
+``index_rows_per_split``                      ``10000``     The number of Accumulo row IDs that are packed into a single Presto split
+``index_threshold``                           ``0.2``       The ratio between number of rows to be scanned based on the index over the total number of rows
+                                                            If the ratio is below this threshold, the index will be used.
+``index_lowest_cardinality_threshold``        ``0.01``      The threshold (as a percentage) where the column with the lowest cardinality will be used instead
+                                                            of computing an intersection of ranges in the secondary index. The minimum value of this value times
+                                                            the number of rows in the table and the row threshold will be used. Secondary index must be enabled
+``index_lowest_cardinality_row_threshold``    ``50000``     The threshold (as number of rows) where the column with the lowest cardinality will be used instead
+                                                            of computing an intersection of ranges in the secondary index. The minimum value of this value and
+                                                            the percentage threshold will be used. Secondary index must be enabled
+``index_metrics_enabled``                     ``true``      Set to true to enable usage of the metrics table to optimize usage of the index
+``scan_username``                             (config)      User to impersonate when scanning the tables. This property trumps the ``scan_auths`` table property
+``index_short_circuit_cardinality_fetch``     ``true``      Short circuit the retrieval of index metrics once any column is less than the lowest cardinality threshold
+``index_cardinality_cache_polling_duration``  ``10ms``      Sets the cardinality cache polling duration for short circuit retrieval of index metrics
+============================================= ============= =======================================================================================================
 
 Adding Columns
 --------------
@@ -503,9 +513,11 @@ Adding a new column to an existing table cannot be done today via
 metadata required for the columns to work; the column family, qualifier,
 and if the column is indexed.
 
-Instead, you can use one of the utilities in the
-`presto-accumulo-tools <https://github.com/bloomberg/presto-accumulo/tree/master/presto-accumulo-tools>`__
-sub-project of the ``presto-accumulo`` repository.  Documentation and usage can be found in the README.
+Instead, use an external table, ``DROP`` the table, then recreate it with
+the new column.  This will preserve the underlying Accumulo tables allowing
+you to add a new column.
+Just be sure it is external!  Deleting an internal table will have the connector
+delete the Accumulo tables along with the metadata.
 
 Serializers
 -----------
@@ -696,3 +708,59 @@ the output of the ``DESCRIBE`` statement.
       index_columns = 'b,c',
       external = true
     );
+
+Metrics Storage
+---------------
+
+The destination system for index metrics is pluggable, with the default
+implementation being stored in Accumulo.  This system was essentially a refactor
+to enable investigating using Redis as a storage system.  A prototype exists,
+however it is not yet stable enough to consider for production use.  Users can
+specify a new storage system using the ``metrics_storage`` table property detailed above.
+
+Truncate Timestamp Metrics
+--------------------------
+
+For ``TIMESTAMP`` columns, metrics can be aggregated further to reduce the amount of
+time spent scanning Accumulo when querying over large timespans (due to the millisecond
+precisiion).  To improve query performance, additional entries can be stored in the metrics
+storage system by pre-aggregating the metrics into incremental thresholds -- second,
+minute, hour, and day. Then, when querying for the cardinality of a time-based column
+range, the time can be split into a mix of small range scans and exact value lookups.
+
+Say that we have a query against the column like so:
+
+.. code-block:: sql
+
+    SELECT * FROM events WHERE recordtime BETWEEN TIMESTAMP '2016-01-02 00:30:00.000' AND '2016-01-07 00:30:00.000'
+
+Without the additional time-based aggregations, this would be a range scan from the
+first time to the last, aggregating potentially millions of time-based keys that
+have millisecond precision.  However, we can split this individual range scan into a
+collection of smaller range scans and single-value queries.  The results of all of
+these queries are then aggregated, and the time it takes to do so is drastically reduced.
+
+
+.. code-block:: text
+
+    2016-01-02 00:30:00.000 -> 2016-01-02 00:59:59.999     (Small range scan)
+    2016-01-02 01:00:00                                    (Exact lookup on hour)
+    2016-01-02 02:00:00                                    (Exact lookup on hour)
+    ...                                                    (Exact lookup on hour)
+    2016-01-02 23:00:00                                    (Exact lookup on hour)
+    2016-01-03                                             (Exact lookup on day)
+    2016-01-04                                             (Exact lookup on day)
+    2016-01-05                                             (Exact lookup on day)
+    2016-01-06                                             (Exact lookup on day)
+    2016-01-07 00:00:00.000 -> 2016-01-07 00:30:00.000     (Small range scan)
+
+To enable this feature, simply add ``truncate_timestamps=true`` as a new table property
+when creating your tables.  The connector will handle the rest!
+
+For existing *external* tables, you can drop the table definition
+and re-create the table with the new property.  Then, run the metrics re-write tool at
+`presto-accumulo-tools <https://github.com/bloomberg/presto-accumulo/tree/master/presto-accumulo-tools>`__.
+This will generate the timestamp metrics for existing entries.
+
+If your table is *internal*,  follow the below instructions to convert it into an
+external table.  You can then add the new table property and run the tool.

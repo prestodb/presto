@@ -14,19 +14,38 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
+import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.spi.type.Type;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import org.apache.accumulo.core.data.Range;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 public class TestAccumuloSplit
 {
-    private final JsonCodec<AccumuloSplit> codec = JsonCodec.jsonCodec(AccumuloSplit.class);
+    private final JsonCodec<AccumuloSplit> codec;
+
+    public TestAccumuloSplit()
+    {
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
+        JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
+        codec = codecFactory.jsonCodec(AccumuloSplit.class);
+    }
 
     @Test
     public void testJsonRoundTrip()
@@ -43,12 +62,14 @@ public class TestAccumuloSplit
                                 "id",
                                 "fam1",
                                 "qual1",
+                                VARCHAR,
                                 Optional.empty(),
                                 true),
                         new AccumuloColumnConstraint(
                                 "bar",
                                 "fam2",
                                 "qual2",
+                                VARCHAR,
                                 Optional.empty(),
                                 true)),
                 Optional.of("foo,bar"),
@@ -92,5 +113,24 @@ public class TestAccumuloSplit
         assertEquals(actual.getSerializerClass(), expected.getSerializerClass());
         assertEquals(actual.getSerializerClassName(), expected.getSerializerClassName());
         assertEquals(actual.getTable(), expected.getTable());
+    }
+
+    public static final class TestingTypeDeserializer
+            extends FromStringDeserializer<Type>
+    {
+        private final Map<String, Type> types = ImmutableMap.of(StandardTypes.VARCHAR, VARCHAR);
+
+        public TestingTypeDeserializer()
+        {
+            super(Type.class);
+        }
+
+        @Override
+        protected Type _deserialize(String value, DeserializationContext context)
+        {
+            Type type = types.get(value.toLowerCase(ENGLISH));
+            checkArgument(type != null, "Unknown type %s", value);
+            return type;
+        }
     }
 }

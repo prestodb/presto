@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.accumulo.model;
 
+import com.facebook.presto.accumulo.index.metrics.AccumuloMetricsStorage;
+import com.facebook.presto.accumulo.index.metrics.MetricsStorage;
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -22,7 +24,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.accumulo.core.client.Connector;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,6 +44,8 @@ public final class AccumuloTableHandle
     private final String schema;
     private final String serializerClassName;
     private final String table;
+    private final String metricsStorageClass;
+    private final boolean truncateTimestamps;
 
     @JsonCreator
     public AccumuloTableHandle(
@@ -49,15 +55,19 @@ public final class AccumuloTableHandle
             @JsonProperty("rowId") String rowId,
             @JsonProperty("external") boolean external,
             @JsonProperty("serializerClassName") String serializerClassName,
-            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
+            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations,
+            @JsonProperty("metricsStorageClass") Optional<String> metricsStorageClass,
+            @JsonProperty("truncateTimestamps") boolean truncateTimestamps)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.external = requireNonNull(external, "external is null");
+        this.external = external;
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.scanAuthorizations = scanAuthorizations;
         this.schema = requireNonNull(schema, "schema is null");
         this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.table = requireNonNull(table, "table is null");
+        this.metricsStorageClass = requireNonNull(metricsStorageClass, "metricsStorageClass is null").orElse(AccumuloMetricsStorage.class.getCanonicalName());
+        this.truncateTimestamps = truncateTimestamps;
     }
 
     @JsonProperty
@@ -113,6 +123,29 @@ public final class AccumuloTableHandle
         return external;
     }
 
+    @JsonProperty
+    public String getMetricsStorageClass()
+    {
+        return metricsStorageClass;
+    }
+
+    @JsonProperty
+    public boolean isTruncateTimestamps()
+    {
+        return truncateTimestamps;
+    }
+
+    @JsonIgnore
+    public MetricsStorage getMetricsStorageInstance(Connector connector)
+    {
+        try {
+            return (MetricsStorage) Class.forName(metricsStorageClass).getConstructor(Connector.class).newInstance(connector);
+        }
+        catch (ClassNotFoundException | IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
+            throw new PrestoException(NOT_FOUND, "Configured metrics storage class not found", e);
+        }
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schema, table);
@@ -142,7 +175,9 @@ public final class AccumuloTableHandle
                 && Objects.equals(this.rowId, other.rowId)
                 && Objects.equals(this.external, other.external)
                 && Objects.equals(this.serializerClassName, other.serializerClassName)
-                && Objects.equals(this.scanAuthorizations, other.scanAuthorizations);
+                && Objects.equals(this.scanAuthorizations, other.scanAuthorizations)
+                && Objects.equals(this.metricsStorageClass, other.metricsStorageClass)
+                && Objects.equals(this.truncateTimestamps, other.truncateTimestamps);
     }
 
     @Override
@@ -156,6 +191,8 @@ public final class AccumuloTableHandle
                 .add("internal", external)
                 .add("serializerClassName", serializerClassName)
                 .add("scanAuthorizations", scanAuthorizations)
+                .add("metricsStorageClass", metricsStorageClass)
+                .add("truncateTimestamps", truncateTimestamps)
                 .toString();
     }
 }
