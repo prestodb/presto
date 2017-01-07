@@ -76,6 +76,12 @@ public class QueryExplainer
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
+    public void analyze(Session session, Statement statement, List<Expression> parameters)
+    {
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters);
+        analyzer.analyze(statement);
+    }
+
     public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
