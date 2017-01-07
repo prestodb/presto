@@ -34,6 +34,7 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class SetFlatteningOptimizer
         implements PlanOptimizer
 {

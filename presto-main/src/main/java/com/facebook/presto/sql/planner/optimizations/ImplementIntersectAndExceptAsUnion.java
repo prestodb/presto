@@ -98,6 +98,7 @@ import static java.util.stream.Collectors.toList;
  * GROUP BY a) T2
  * WHERE foo_cnt >= 1 AND bar_cnt = 0;
  */
+@Deprecated
 public class ImplementIntersectAndExceptAsUnion
         implements PlanOptimizer
 {

@@ -513,7 +513,7 @@ public class PruneUnreferencedOutputs
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
                     .addAll(context.get());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
-            return new LimitNode(node.getId(), source, node.getCount(), node.isPartial());
+            return new LimitNode(node.getId(), source, node.getCount(), node.getStep());
         }
 
         @Override

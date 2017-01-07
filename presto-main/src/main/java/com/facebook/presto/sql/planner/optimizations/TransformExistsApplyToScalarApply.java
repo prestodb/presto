@@ -101,7 +101,7 @@ public class TransformExistsApplyToScalarApply
             PlanNode input = context.rewrite(node.getInput());
             PlanNode subquery = context.rewrite(node.getSubquery());
 
-            subquery = new LimitNode(idAllocator.getNextId(), subquery, 1, false);
+            subquery = new LimitNode(idAllocator.getNextId(), subquery, 1, LimitNode.Step.FINAL);
 
             FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
             QualifiedName countFunction = QualifiedName.of("count");

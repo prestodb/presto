@@ -259,7 +259,7 @@ public class TestEffectivePredicateExtractor
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
                 1,
-                false);
+                LimitNode.Step.SINGLE);
 
         Expression effectivePredicate = EffectivePredicateExtractor.extract(node, TYPES);
 

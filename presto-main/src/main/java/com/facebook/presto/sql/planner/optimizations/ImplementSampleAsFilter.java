@@ -33,6 +33,7 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class ImplementSampleAsFilter
         implements PlanOptimizer
 {

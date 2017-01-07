@@ -68,6 +68,7 @@ public class FeaturesConfig
     private DataSize operatorMemoryLimitBeforeSpill = new DataSize(4, DataSize.Unit.MEGABYTE);
     private Path spillerSpillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills");
     private int spillerThreads = 4;
+    private boolean newOptimizerEnabled;
 
     public boolean isResourceGroupsEnabled()
     {
@@ -301,6 +302,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
+        return this;
+    }
+
+    public boolean isNewOptimizerEnabled()
+    {
+        return newOptimizerEnabled;
+    }
+
+    @Config("experimental.new-optimizer-enabled")
+    public FeaturesConfig setNewOptimizerEnabled(boolean value)
+    {
+        this.newOptimizerEnabled = value;
         return this;
     }
 

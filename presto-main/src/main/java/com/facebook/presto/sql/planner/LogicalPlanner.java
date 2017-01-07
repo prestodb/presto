@@ -272,7 +272,7 @@ public class LogicalPlanner
         PlanNode source = plan.getRoot();
 
         if (!analysis.isCreateTableAsSelectWithData()) {
-            source = new LimitNode(idAllocator.getNextId(), source, 0L, false);
+            source = new LimitNode(idAllocator.getNextId(), source, 0L, LimitNode.Step.SINGLE);
         }
 
         // todo this should be checked in analysis

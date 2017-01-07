@@ -38,6 +38,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Merges chains of consecutive projections
  */
+@Deprecated
 public class MergeProjections
         implements PlanOptimizer
 {

@@ -187,7 +187,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitLimit(LimitNode node, StreamPreferredProperties parentPreferences)
         {
-            if (node.isPartial()) {
+            if (node.getStep() == LimitNode.Step.PARTIAL) {
                 return planAndEnforceChildren(
                         node,
                         parentPreferences.withoutPreference().withDefaultParallelism(session),

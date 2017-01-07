@@ -16,6 +16,38 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
+import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
+import com.facebook.presto.sql.planner.iterative.rule.ImplementIntersectAndExcept;
+import com.facebook.presto.sql.planner.iterative.rule.InlineProjections;
+import com.facebook.presto.sql.planner.iterative.rule.MergeIntersections;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
+import com.facebook.presto.sql.planner.iterative.rule.MergeUnions;
+import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughUnion;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantProjections;
+import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
+import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasAggregation;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasFilter;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasGroupId;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasJoin;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasMarkDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasOutput;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasProject;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasSetOperation;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasSort;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasTopN;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasUnnest;
+import com.facebook.presto.sql.planner.iterative.rule.UnaliasWindow;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.BeginTableWrite;
@@ -56,6 +88,7 @@ import com.facebook.presto.sql.planner.optimizations.TransformUncorrelatedScalar
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
 import java.util.List;
@@ -77,6 +110,45 @@ public class PlanOptimizers
         builder.add(
                 new DesugaringOptimizer(metadata, sqlParser), // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new CanonicalizeExpressions(),
+                new IterativeOptimizer(ImmutableSet.of(
+                        new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
+                        new ImplementBernoulliSampleAsFilter(),
+                        new ImplementIntersectAndExcept(),
+                        new SimplifyCountOverConstant(),
+
+                        new UnaliasProject(),
+                        new UnaliasFilter(),
+                        new UnaliasAggregation(),
+                        new UnaliasOutput(),
+                        new UnaliasSort(),
+                        new UnaliasGroupId(),
+                        new UnaliasMarkDistinct(),
+                        new UnaliasTopN(),
+                        new UnaliasSetOperation(),
+                        new UnaliasUnnest(),
+                        new UnaliasJoin(),
+                        new UnaliasWindow(),
+
+                        new RemoveRedundantProjections(),
+                        new InlineProjections(),
+                        new SingleMarkDistinctToGroupBy(),
+
+                        new MergeUnions(),
+                        new MergeIntersections(),
+
+                        new PruneTableScanColumns(),
+                        new PruneValuesColumns(),
+
+                        new PushLimitThroughProject(),
+                        new PushLimitThroughMarkDistinct(),
+                        new PushLimitThroughSemiJoin(),
+                        new PushLimitThroughUnion(),
+                        new MergeLimits(),
+                        new MergeLimitWithDistinct(),
+                        new MergeLimitWithTopN(),
+                        new MergeLimitWithSort(),
+                        new EvaluateZeroLimit()
+                )),
                 new ImplementFilteredAggregations(),
                 new ImplementSampleAsFilter(),
                 new SimplifyExpressions(metadata, sqlParser),

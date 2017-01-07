@@ -31,23 +31,30 @@ public class LimitNode
 {
     private final PlanNode source;
     private final long count;
-    private final boolean partial;
+    private final Step step;
+
+    public enum Step
+    {
+        PARTIAL,
+        FINAL,
+        SINGLE
+    }
 
     @JsonCreator
     public LimitNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("count") long count,
-            @JsonProperty("partial") boolean partial)
+            @JsonProperty("step") Step step)
     {
         super(id);
-        this.partial = partial;
-
         requireNonNull(source, "source is null");
+        requireNonNull(step, "step is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
 
         this.source = source;
         this.count = count;
+        this.step = step;
     }
 
     @Override
@@ -69,9 +76,9 @@ public class LimitNode
     }
 
     @JsonProperty
-    public boolean isPartial()
+    public Step getStep()
     {
-        return partial;
+        return step;
     }
 
     @Override
