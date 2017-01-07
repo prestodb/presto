@@ -22,5 +22,6 @@ from different data sources.
     connector/mysql
     connector/postgresql
     connector/redis
+    connector/sqlserver
     connector/system
     connector/tpch
