@@ -1554,6 +1554,13 @@ public class TestSqlParser
                                 new QualifiedNameReference(QualifiedName.of("EXCLUDING")),
                                 new QualifiedNameReference(QualifiedName.of("PROPERTIES"))),
                         table(QualifiedName.of("t"))));
+        assertStatement("SELECT ALL, SOME, ANY FROM t",
+                simpleQuery(
+                        selectList(
+                                new QualifiedNameReference(QualifiedName.of("ALL")),
+                                new QualifiedNameReference(QualifiedName.of("SOME")),
+                                new QualifiedNameReference(QualifiedName.of("ANY"))),
+                        table(QualifiedName.of("t"))));
     }
 
     @Test

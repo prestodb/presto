@@ -454,6 +454,7 @@ nonReserved
     | SCHEMA | CASCADE | RESTRICT
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
+    | ALL | SOME | ANY
     ;
 
 normalForm
