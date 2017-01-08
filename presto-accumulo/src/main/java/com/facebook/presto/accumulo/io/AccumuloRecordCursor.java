@@ -29,6 +29,7 @@ import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.iterators.FirstEntryInRowIterator;
+import org.apache.accumulo.core.iterators.user.WholeRowIterator;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.io.Text;
 
@@ -64,18 +65,17 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloRecordCursor
         implements RecordCursor
 {
+    private static final int WHOLE_ROW_ITERATOR_PRIORITY = Integer.MAX_VALUE;
+
     private final List<AccumuloColumnHandle> columnHandles;
     private final String[] fieldToColumnName;
     private final BatchScanner scanner;
     private final Iterator<Entry<Key, Value>> iterator;
     private final AccumuloRowSerializer serializer;
-    private final Text prevRowID = new Text();
-    private final Text rowID = new Text();
 
     private long bytesRead;
     private long nanoStart;
     private long nanoEnd;
-    private Entry<Key, Value> prevKV;
 
     public AccumuloRecordCursor(
             AccumuloRowSerializer serializer,
@@ -131,6 +131,9 @@ public class AccumuloRecordCursor
             }
         }
 
+        IteratorSetting setting = new IteratorSetting(WHOLE_ROW_ITERATOR_PRIORITY, WholeRowIterator.class);
+        scanner.addScanIterator(setting);
+
         iterator = this.scanner.iterator();
     }
 
@@ -166,70 +169,19 @@ public class AccumuloRecordCursor
             nanoStart = System.nanoTime();
         }
 
-        // In this method, we are effectively doing what the WholeRowIterator is doing w/o the extra overhead.
-        // We continually read key/value pairs from Accumulo,
-        // deserializing each entry using the instance of AccumuloRowSerializer we were given until we see the row ID change.
-
         try {
-            // We start with the end! When we have no more key/value pairs to read
-
-            // If the iterator doesn't have any more values
-            if (!iterator.hasNext()) {
-                // Deserialize final KV pair.
-                // This accounts for the edge case when the last read KV pair was a new row and we broke out of the below loop.
-                if (prevKV != null) {
-                    serializer.reset();
-                    serializer.deserialize(prevKV);
-                    prevKV = null;
-                    return true;
-                }
-                else {
-                    // else we are super done
-                    return false;
-                }
-            }
-
-            // If we do have key/value pairs to process from Accumulo,
-            // we reset and deserialize the previously scanned key/value pair as we have started a new row.
-            // This code block does not execute the first time this method is called.
-            if (prevRowID.getLength() != 0) {
+            if (iterator.hasNext()) {
                 serializer.reset();
-                serializer.deserialize(prevKV);
-            }
-
-            // While there are key/value pairs to read and we have not advanced to a new row
-            boolean advancedToNewRow = false;
-            while (iterator.hasNext() && !advancedToNewRow) {
-                // Scan the key value pair and get the row ID
-                Entry<Key, Value> entry = iterator.next();
-                bytesRead += entry.getKey().getSize() + entry.getValue().getSize();
-                entry.getKey().getRow(rowID);
-
-                // If the row IDs are equivalent or there is no previous row
-                // ID (length == 0), deserialize the KV pair
-                if (rowID.equals(prevRowID) || prevRowID.getLength() == 0) {
+                Entry<Key, Value> row = iterator.next();
+                for (Entry<Key, Value> entry : WholeRowIterator.decodeRow(row.getKey(), row.getValue()).entrySet()) {
+                    bytesRead += entry.getKey().getSize() + entry.getValue().getSize();
                     serializer.deserialize(entry);
                 }
-                else {
-                    // If they are different, then we have advanced to a new row and we need to
-                    // break out of the loop
-                    advancedToNewRow = true;
-                }
-
-                // Set our 'previous' member variables to track the previously scanned entry
-                prevKV = entry;
-                prevRowID.set(rowID);
+                return true;
             }
-
-            // If we didn't break out of the loop, we have reached the last entry in our
-            // BatchScanner, so we set this to null as the entire row has been processed
-            // This tracks the edge case where it is one entry per row ID
-            if (!advancedToNewRow) {
-                prevKV = null;
+            else {
+                return false;
             }
-
-            // Return true so Presto will process the row we've just ran
-            return true;
         }
         catch (IOException e) {
             throw new PrestoException(IO_ERROR, "Caught IO error from serializer on read", e);
