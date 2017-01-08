@@ -46,6 +46,7 @@ public class AccumuloRecordSetProvider
     private final Connector connector;
     private final String connectorId;
     private final String username;
+    private final int bufferSize;
 
     @Inject
     public AccumuloRecordSetProvider(
@@ -56,6 +57,7 @@ public class AccumuloRecordSetProvider
         this.connector = requireNonNull(connector, "connector is null");
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.username = requireNonNull(config, "config is null").getUsername();
+        this.bufferSize = config.getRecordCursorBufferSize();
     }
 
     @Override
@@ -75,6 +77,6 @@ public class AccumuloRecordSetProvider
         }
 
         // Return new record set
-        return new AccumuloRecordSet(connector, session, accSplit, username, handles.build());
+        return new AccumuloRecordSet(connector, session, accSplit, username, handles.build(), bufferSize);
     }
 }
