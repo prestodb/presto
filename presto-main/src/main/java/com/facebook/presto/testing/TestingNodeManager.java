@@ -30,12 +30,20 @@ import static java.util.Objects.requireNonNull;
 public class TestingNodeManager
         implements NodeManager
 {
+    private static final String TEST_ENVIRONMENT = "testenv";
+
+    private final String environment;
     private final Node localNode;
     private final Set<Node> nodes = new CopyOnWriteArraySet<>();
 
     public TestingNodeManager()
     {
-        this(new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        this(TEST_ENVIRONMENT);
+    }
+
+    public TestingNodeManager(String environment)
+    {
+        this(environment, new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true), ImmutableSet.of());
     }
 
     public TestingNodeManager(Node localNode)
@@ -50,6 +58,12 @@ public class TestingNodeManager
 
     public TestingNodeManager(Node localNode, Collection<Node> otherNodes)
     {
+        this(TEST_ENVIRONMENT, localNode, otherNodes);
+    }
+
+    public TestingNodeManager(String environment, Node localNode, Collection<Node> otherNodes)
+    {
+        this.environment = environment;
         this.localNode = requireNonNull(localNode, "localNode is null");
         nodes.add(localNode);
         nodes.addAll(otherNodes);
@@ -81,6 +95,6 @@ public class TestingNodeManager
     @Override
     public String getEnvironment()
     {
-        return "testenv";
+        return environment;
     }
 }
