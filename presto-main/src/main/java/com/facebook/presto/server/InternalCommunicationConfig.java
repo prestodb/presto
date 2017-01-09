@@ -15,11 +15,21 @@ package com.facebook.presto.server;
 
 import io.airlift.configuration.Config;
 
+import java.io.File;
+
 public class InternalCommunicationConfig
 {
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
+
+    private String kerberosPrincipal;
+    private String kerberosServiceName;
+    private boolean kerberosEnabled;
+    private File kerberosKeytab;
+    private File kerberosConfig;
+    private boolean kerberosUseCanonicalHostname = true;
+    private File kerberosCredentialCache;
 
     public boolean isHttpsRequired()
     {
@@ -54,6 +64,90 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setKeyStorePassword(String keyStorePassword)
     {
         this.keyStorePassword = keyStorePassword;
+        return this;
+    }
+
+    public boolean isKerberosEnabled()
+    {
+        return kerberosEnabled;
+    }
+
+    @Config("internal-communication.authentication.kerberos.enabled")
+    public InternalCommunicationConfig setKerberosEnabled(boolean kerberosEnabled)
+    {
+        this.kerberosEnabled = kerberosEnabled;
+        return this;
+    }
+
+    public String getKerberosPrincipal()
+    {
+        return kerberosPrincipal;
+    }
+
+    @Config("internal-communication.authentication.krb5.principal")
+    public InternalCommunicationConfig setKerberosPrincipal(String kerberosPrincipal)
+    {
+        this.kerberosPrincipal = kerberosPrincipal;
+        return this;
+    }
+
+    public String getKerberosServiceName()
+    {
+        return kerberosServiceName;
+    }
+
+    @Config("internal-communication.authentication.krb5.service-name")
+    public InternalCommunicationConfig setKerberosServiceName(String kerberosServiceName)
+    {
+        this.kerberosServiceName = kerberosServiceName;
+        return this;
+    }
+
+    public File getKerberosKeytab()
+    {
+        return kerberosKeytab;
+    }
+
+    @Config("internal-communication.authentication.krb5.keytab")
+    public InternalCommunicationConfig setKerberosKeytab(File kerberosKeytab)
+    {
+        this.kerberosKeytab = kerberosKeytab;
+        return this;
+    }
+
+    public File getKerberosConfig()
+    {
+        return kerberosConfig;
+    }
+
+    @Config("internal-communication.authentication.krb5.config")
+    public InternalCommunicationConfig setKerberosConfig(File kerberosConfig)
+    {
+        this.kerberosConfig = kerberosConfig;
+        return this;
+    }
+
+    public boolean isKerberosUseCanonicalHostname()
+    {
+        return kerberosUseCanonicalHostname;
+    }
+
+    @Config("internal-communication.authentication.krb5.use-canonical-hostname")
+    public InternalCommunicationConfig setKerberosUseCanonicalHostname(boolean kerberosUseCanonicalHostname)
+    {
+        this.kerberosUseCanonicalHostname = kerberosUseCanonicalHostname;
+        return this;
+    }
+
+    public File getKerberosCredentialCache()
+    {
+        return kerberosCredentialCache;
+    }
+
+    @Config("internal-communication.authentication.krb5.credential-cache")
+    public InternalCommunicationConfig setKerberosCredentialCache(File kerberosCredentialCache)
+    {
+        this.kerberosCredentialCache = kerberosCredentialCache;
         return this;
     }
 }
