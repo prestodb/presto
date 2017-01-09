@@ -38,7 +38,9 @@ import com.facebook.presto.operator.aggregation.DoubleRegressionAggregation;
 import com.facebook.presto.operator.aggregation.DoubleSumAggregation;
 import com.facebook.presto.operator.aggregation.GeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalDayToSecondSumAggregation;
+import com.facebook.presto.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import com.facebook.presto.operator.aggregation.IntervalYearToMonthSumAggregation;
 import com.facebook.presto.operator.aggregation.LongSumAggregation;
 import com.facebook.presto.operator.aggregation.MergeHyperLogLogAggregation;
@@ -421,6 +423,8 @@ public class FunctionRegistry
                 .aggregate(IntervalYearToMonthSumAggregation.class)
                 .aggregate(AverageAggregations.class)
                 .aggregate(RealAverageAggregation.class)
+                .aggregate(IntervalDayToSecondAverageAggregation.class)
+                .aggregate(IntervalYearToMonthAverageAggregation.class)
                 .aggregate(GeometricMeanAggregations.class)
                 .aggregate(RealGeometricMeanAggregations.class)
                 .aggregate(ApproximateCountDistinctAggregations.class)

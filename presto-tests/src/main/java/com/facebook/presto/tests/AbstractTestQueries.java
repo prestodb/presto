@@ -5532,7 +5532,7 @@ public abstract class AbstractTestQueries
         });
 
         assertTrue(functions.containsKey("avg"), "Expected function names " + functions + " to contain 'avg'");
-        assertEquals(functions.get("avg").asList().size(), 4);
+        assertEquals(functions.get("avg").asList().size(), 6);
         assertEquals(functions.get("avg").asList().get(0).getField(1), "decimal(p,s)");
         assertEquals(functions.get("avg").asList().get(0).getField(2), "decimal(p,s)");
         assertEquals(functions.get("avg").asList().get(0).getField(3), "aggregate");
@@ -5542,9 +5542,15 @@ public abstract class AbstractTestQueries
         assertEquals(functions.get("avg").asList().get(2).getField(1), "double");
         assertEquals(functions.get("avg").asList().get(2).getField(2), "double");
         assertEquals(functions.get("avg").asList().get(2).getField(3), "aggregate");
-        assertEquals(functions.get("avg").asList().get(3).getField(1), "real");
-        assertEquals(functions.get("avg").asList().get(3).getField(2), "real");
+        assertEquals(functions.get("avg").asList().get(3).getField(1), "interval day to second");
+        assertEquals(functions.get("avg").asList().get(3).getField(2), "interval day to second");
         assertEquals(functions.get("avg").asList().get(3).getField(3), "aggregate");
+        assertEquals(functions.get("avg").asList().get(4).getField(1), "interval year to month");
+        assertEquals(functions.get("avg").asList().get(4).getField(2), "interval year to month");
+        assertEquals(functions.get("avg").asList().get(4).getField(3), "aggregate");
+        assertEquals(functions.get("avg").asList().get(5).getField(1), "real");
+        assertEquals(functions.get("avg").asList().get(5).getField(2), "real");
+        assertEquals(functions.get("avg").asList().get(5).getField(3), "aggregate");
 
         assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
         assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
