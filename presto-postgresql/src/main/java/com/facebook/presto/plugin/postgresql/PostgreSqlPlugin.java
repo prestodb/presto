@@ -14,6 +14,10 @@
 package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.presto.plugin.jdbc.JdbcPlugin;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.collect.Sets;
+
+import java.util.Set;
 
 public class PostgreSqlPlugin
         extends JdbcPlugin
@@ -21,5 +25,17 @@ public class PostgreSqlPlugin
     public PostgreSqlPlugin()
     {
         super("postgresql", new PostgreSqlClientModule());
+    }
+
+    @Override
+    public Iterable<Type> getTypes()
+    {
+        return Sets.newHashSet(PostgreSqlJsonType.POSTGRESQL_JSON, PostgreSqlJsonType.POSTGRESQL_JSONB);
+    }
+
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return Sets.newHashSet(PostgreSqlJsonFunctions.class);
     }
 }

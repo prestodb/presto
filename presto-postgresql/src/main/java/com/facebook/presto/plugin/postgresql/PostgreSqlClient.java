@@ -17,6 +17,7 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Throwables;
 import org.postgresql.Driver;
 
@@ -27,6 +28,10 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
+
+import static com.facebook.presto.plugin.postgresql.PostgreSqlJsonType.POSTGRESQL_JSON;
+import static com.facebook.presto.plugin.postgresql.PostgreSqlJsonType.POSTGRESQL_JSONB;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -77,5 +82,20 @@ public class PostgreSqlClient
                 escapeNamePattern(schemaName, escape),
                 escapeNamePattern(tableName, escape),
                 new String[] {"TABLE", "VIEW", "MATERIALIZED VIEW"});
+    }
+
+    @Override
+    protected Type toPrestoType(int jdbcType, int columnSize, String typeName)
+    {
+        if (jdbcType == Types.OTHER) {
+            switch (typeName) {
+                case "json":
+                    return POSTGRESQL_JSON;
+                case "jsonb":
+                    return POSTGRESQL_JSONB;
+            }
+        }
+
+        return super.toPrestoType(jdbcType, columnSize, typeName);
     }
 }

@@ -218,7 +218,13 @@ public class JdbcRecordCursor
     @Override
     public Object getObject(int field)
     {
-        throw new UnsupportedOperationException();
+        checkState(!closed, "cursor is closed");
+        try {
+            return resultSet.getObject(field + 1);
+        }
+        catch (SQLException | RuntimeException e) {
+            throw handleSqlException(e);
+        }
     }
 
     @Override

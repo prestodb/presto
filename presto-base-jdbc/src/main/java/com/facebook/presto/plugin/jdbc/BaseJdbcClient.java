@@ -205,7 +205,7 @@ public class BaseJdbcClient
                 boolean found = false;
                 while (resultSet.next()) {
                     found = true;
-                    Type columnType = toPrestoType(resultSet.getInt("DATA_TYPE"), resultSet.getInt("COLUMN_SIZE"));
+                    Type columnType = toPrestoType(resultSet.getInt("DATA_TYPE"), resultSet.getInt("COLUMN_SIZE"), resultSet.getString("TYPE_NAME"));
                     // skip unsupported column types
                     if (columnType != null) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -462,7 +462,7 @@ public class BaseJdbcClient
         }
     }
 
-    protected Type toPrestoType(int jdbcType, int columnSize)
+    protected Type toPrestoType(int jdbcType, int columnSize, String typeName)
     {
         switch (jdbcType) {
             case Types.BIT:

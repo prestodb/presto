@@ -88,6 +88,10 @@ public final class ProjectionFunctions
                     Slice slice = cursor.getSlice(channelIndex);
                     columnType.writeSlice(output, slice, 0, slice.length());
                 }
+                else if (javaType == Object.class) {
+                    Object object = cursor.getObject(channelIndex);
+                    columnType.writeObject(output, object);
+                }
                 else {
                     throw new UnsupportedOperationException("not yet implemented: " + javaType);
                 }
