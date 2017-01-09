@@ -24,9 +24,9 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 
+import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
 import javax.management.MBeanServer;

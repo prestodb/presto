@@ -20,9 +20,9 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 
 import javax.annotation.Nonnull;
+import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;

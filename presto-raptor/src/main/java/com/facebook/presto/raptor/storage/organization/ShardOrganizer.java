@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.storage.organization;
 
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
-import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
@@ -22,6 +21,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
+import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.UUID;

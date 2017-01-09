@@ -19,7 +19,8 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.inject.Inject;
+
+import javax.inject.Inject;
 
 import static com.facebook.presto.mongodb.TypeUtils.checkType;
 

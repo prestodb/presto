@@ -42,8 +42,9 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Primitives;
-import com.google.inject.Inject;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+
+import javax.inject.Inject;
 
 import java.lang.reflect.Constructor;
 import java.util.List;

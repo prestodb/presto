@@ -17,13 +17,13 @@ import com.facebook.presto.hive.ForHiveMetastore;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Inject;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
+import javax.inject.Inject;
 import javax.security.sasl.Sasl;
 
 import java.io.IOException;
