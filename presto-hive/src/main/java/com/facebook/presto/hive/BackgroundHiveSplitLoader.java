@@ -72,6 +72,7 @@ import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 
@@ -459,7 +460,7 @@ public class BackgroundHiveSplitLoader
                 }
 
                 // divide the block into uniform chunks that are smaller than the max split size
-                int chunks = Math.max(1, (int) (blockLocation.getLength() / maxBytes));
+                int chunks = toIntExact((long) Math.ceil(blockLocation.getLength() * 1.0 / maxBytes));
                 // when block does not divide evenly into chunks, make the chunk size slightly bigger than necessary
                 long targetChunkSize = (long) Math.ceil(blockLocation.getLength() * 1.0 / chunks);
 
