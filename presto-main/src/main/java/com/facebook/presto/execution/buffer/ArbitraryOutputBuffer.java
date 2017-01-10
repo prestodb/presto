@@ -65,7 +65,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
- * A buffer that assigns pages to queus base on a first come, first served basis.
+ * A buffer that assigns pages to queues based on a first come, first served basis.
  */
 public class ArbitraryOutputBuffer
         implements OutputBuffer
@@ -308,6 +308,9 @@ public class ArbitraryOutputBuffer
             if (state.isTerminal()) {
                 return;
             }
+            if (!state.canAddPages()) {
+                memoryManager.setNoBlockOnFull();
+            }
         }
         finally {
             checkFlushComplete();
@@ -427,7 +430,7 @@ public class ArbitraryOutputBuffer
         private NamedBuffer(OutputBufferId bufferId, MasterBuffer masterBuffer)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
-            this.masterBuffer = requireNonNull(masterBuffer, "partitionBuffer is null");
+            this.masterBuffer = requireNonNull(masterBuffer, "masterBuffer is null");
         }
 
         public BufferInfo getInfo()
@@ -437,14 +440,12 @@ public class ArbitraryOutputBuffer
             //
             checkDoesNotHoldLock();
 
-            long sequenceId = this.currentToken.get();
-
             if (finished.get()) {
-                return new BufferInfo(bufferId, true, 0, sequenceId, masterBuffer.getInfo());
+                return new BufferInfo(bufferId, true, 0, masterBuffer.getPagesSent(), masterBuffer.getInfo(bufferId));
             }
 
-            int bufferedPages = Math.max(toIntExact(masterBuffer.getPageCount() - sequenceId), 0);
-            return new BufferInfo(bufferId, finished.get(), bufferedPages, sequenceId, masterBuffer.getInfo());
+            int bufferedPageCount = Math.max(toIntExact(masterBuffer.getBufferedPageCount()), 0);
+            return new BufferInfo(bufferId, finished.get(), bufferedPageCount, masterBuffer.getPagesSent(), masterBuffer.getInfo(bufferId));
         }
 
         public long getCurrentToken()
@@ -466,12 +467,15 @@ public class ArbitraryOutputBuffer
 
             checkArgument(token == currentToken.get(), "Invalid token");
 
+            // acknowledge received pages
+            masterBuffer.removeBorrowedPages(lastPages);
+            lastPages = ImmutableList.of();
+
             if (isFinished()) {
-                lastPages = ImmutableList.of();
                 return Optional.of(emptyResults(taskInstanceId, token, true));
             }
 
-            List<Page> pages = masterBuffer.removePages(maxSize);
+            List<Page> pages = masterBuffer.borrowPages(maxSize);
 
             if (pages.isEmpty()) {
                 if (state.get().canAddPages()) {
@@ -480,7 +484,6 @@ public class ArbitraryOutputBuffer
                 }
 
                 // if we can't have any more pages, indicate that the buffer is complete
-                lastPages = ImmutableList.of();
                 return Optional.of(emptyResults(taskInstanceId, token, true));
             }
 
@@ -523,6 +526,8 @@ public class ArbitraryOutputBuffer
         private final AtomicLong pagesAdded = new AtomicLong();
         private final AtomicLong rowsAdded = new AtomicLong();
 
+        private final AtomicLong pagesSent = new AtomicLong();
+
         // Bytes in this buffer
         private final AtomicLong bufferedBytes = new AtomicLong();
 
@@ -549,13 +554,13 @@ public class ArbitraryOutputBuffer
             rowsAdded.addAndGet(rowCount);
             pagesAdded.addAndGet(pages.size());
 
-            updateMemoryUsage(pages.stream().mapToLong(Page::getSizeInBytes).sum());
+            updateMemoryUsage(pages.stream().mapToLong(Page::getRetainedSizeInBytes).sum());
         }
 
         /**
          * @return at least one page if we have pages in buffer, empty list otherwise
          */
-        public synchronized List<Page> removePages(DataSize maxSize)
+        public synchronized List<Page> borrowPages(DataSize maxSize)
         {
             long maxBytes = maxSize.toBytes();
             List<Page> pages = new ArrayList<>();
@@ -566,7 +571,7 @@ public class ArbitraryOutputBuffer
                 if (page == null) {
                     break;
                 }
-                bytesRemoved += page.getSizeInBytes();
+                bytesRemoved += page.getRetainedSizeInBytes();
                 // break (and don't add) if this page would exceed the limit
                 if (!pages.isEmpty() && bytesRemoved > maxBytes) {
                     break;
@@ -576,9 +581,17 @@ public class ArbitraryOutputBuffer
                 pages.add(page);
             }
 
-            updateMemoryUsage(-bytesRemoved);
+            // don't decrease memory or buffered counts, because pages are still kept in a named buffer
+            // memory usage will be updated once pages are acknowledged
 
             return ImmutableList.copyOf(pages);
+        }
+
+        public synchronized void removeBorrowedPages(List<Page> pages)
+        {
+            long bytesBorrowed = pages.stream().mapToLong(Page::getRetainedSizeInBytes).sum();
+            updateMemoryUsage(-bytesBorrowed);
+            pagesSent.addAndGet(pages.size());
         }
 
         public synchronized void destroy()
@@ -612,12 +625,17 @@ public class ArbitraryOutputBuffer
 
         public long getBufferedPageCount()
         {
-            return masterBuffer.size();
+            return pagesAdded.get() - pagesSent.get();
         }
 
-        public PageBufferInfo getInfo()
+        public long getPagesSent()
         {
-            return new PageBufferInfo(0, getBufferedPageCount(), getBufferedBytes(), rowsAdded.get(), pagesAdded.get());
+            return pagesSent.get();
+        }
+
+        public PageBufferInfo getInfo(OutputBufferId bufferId)
+        {
+            return new PageBufferInfo(bufferId.getId(), getBufferedPageCount(), getBufferedBytes(), rowsAdded.get(), pagesAdded.get());
         }
     }
 }
