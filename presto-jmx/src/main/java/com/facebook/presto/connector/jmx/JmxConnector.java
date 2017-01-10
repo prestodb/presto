@@ -27,8 +27,6 @@ import static java.util.Objects.requireNonNull;
 public class JmxConnector
         implements Connector
 {
-    public static final String CONNECTOR_ID_PARAMETER = "jmx.connectorId";
-
     private static final Logger log = Logger.get(JmxConnector.class);
 
     private final JmxMetadata jmxMetadata;
