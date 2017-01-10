@@ -258,12 +258,12 @@ public class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
         return new QueryBuilder(identifierQuote).buildSql(
                 this,
-                getConnection(split),
+                connection,
                 split.getCatalogName(),
                 split.getSchemaName(),
                 split.getTableName(),

@@ -41,7 +41,7 @@ public interface JdbcClient
     Connection getConnection(JdbcSplit split)
             throws SQLException;
 
-    PreparedStatement buildSql(JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
 
     JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
