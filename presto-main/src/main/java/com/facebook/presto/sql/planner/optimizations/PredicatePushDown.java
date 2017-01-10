@@ -70,6 +70,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.expressionOrNullSymbols;
@@ -82,6 +83,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
@@ -403,10 +405,10 @@ public class PredicatePushDown
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
-                List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
-                        .addAll(leftSource.getOutputSymbols())
-                        .addAll(rightSource.getOutputSymbols())
-                        .build();
+                List<Symbol> expectedOutputSymbols = node.getOutputSymbols();
+                List<Symbol> outputSymbols = Stream.concat(leftSource.getOutputSymbols().stream(), rightSource.getOutputSymbols().stream())
+                        .filter(expectedOutputSymbols::contains)
+                        .collect(toImmutableList());
 
                 output = new JoinNode(node.getId(), node.getType(), leftSource, rightSource, joinConditionBuilder.build(), outputSymbols, newJoinFilter, node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
