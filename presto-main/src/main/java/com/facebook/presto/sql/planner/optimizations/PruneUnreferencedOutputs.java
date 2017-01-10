@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -758,6 +759,15 @@ public class PruneUnreferencedOutputs
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
             return new ApplyNode(node.getId(), input, subquery, subqueryAssignments.build(), newCorrelation);
+        }
+
+        @Override
+        public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Set<Symbol>> context)
+        {
+            if (!context.get().contains(node.getIdColumn())) {
+                return context.rewrite(node.getSource(), context.get());
+            }
+            return context.defaultRewrite(node, context.get());
         }
     }
 }
