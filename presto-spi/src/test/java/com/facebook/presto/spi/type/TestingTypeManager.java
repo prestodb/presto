@@ -55,12 +55,6 @@ public class TestingTypeManager
     }
 
     @Override
-    public Optional<Type> getCommonSuperType(List<? extends Type> types)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
         throw new UnsupportedOperationException();
