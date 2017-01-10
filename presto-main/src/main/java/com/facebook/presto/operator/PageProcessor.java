@@ -33,4 +33,12 @@ public interface PageProcessor
     Page processColumnar(ConnectorSession session, Page page, List<? extends Type> types);
 
     Page processColumnarDictionary(ConnectorSession session, Page page, List<? extends Type> types);
+
+    /**
+     * @return true if {@link PageProcessor} might apply filter on input pages and reduce number of rows
+     */
+    default boolean isFiltering()
+    {
+        return true;
+    }
 }

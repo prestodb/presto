@@ -68,6 +68,7 @@ import static com.facebook.presto.bytecode.Access.a;
 import static com.facebook.presto.bytecode.Parameter.arg;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.add;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantInt;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
@@ -139,6 +140,7 @@ public class PageProcessorCompiler
 
         generateFilterPageMethod(classDefinition, filter);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
+        generateIsFilteringMethod(classDefinition, hasFilter);
         generateConstructor(classDefinition, cachedInstanceBinder, projections.size());
     }
 
@@ -915,6 +917,13 @@ public class PageProcessorCompiler
                 .append(projection.accept(visitor, scope))
                 .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
                 .ret();
+        return method;
+    }
+
+    private MethodDefinition generateIsFilteringMethod(ClassDefinition classDefinition, boolean hasFilter)
+    {
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "isFiltering", type(boolean.class));
+        method.getBody().append(constantBoolean(hasFilter).ret());
         return method;
     }
 

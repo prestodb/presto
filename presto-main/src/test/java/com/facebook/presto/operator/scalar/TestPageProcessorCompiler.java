@@ -70,6 +70,7 @@ public class TestPageProcessorCompiler
         Page page = getOnlyElement(pagesBuilder.build());
 
         Page outputPage = processor.processColumnar(null, page, ImmutableList.of(BIGINT));
+        assertFalse(processor.isFiltering());
         assertEquals(outputPage.getPositionCount(), 100);
         assertEquals(page.getBlock(0), outputPage.getBlock(0));
     }
@@ -87,6 +88,7 @@ public class TestPageProcessorCompiler
         Page page = getOnlyElement(pagesBuilder.build());
 
         Page outputPage = processor.processColumnar(null, page, ImmutableList.of(BIGINT));
+        assertTrue(processor.isFiltering());
         assertEquals(outputPage.getPositionCount(), 1);
         assertNotEquals(page.getBlock(0), outputPage.getBlock(0));
     }
