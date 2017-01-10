@@ -41,6 +41,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
@@ -49,6 +50,7 @@ import javax.inject.Inject;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -206,13 +208,12 @@ public class JoinFilterFunctionCompiler
             int leftBlocksSize,
             RowExpression filter)
     {
-        List<RowExpression> lambdaAndTryExpressions = extractLambdaAndTryExpressions(filter);
+        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(filter));
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
         ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
 
-        for (int i = 0; i < lambdaAndTryExpressions.size(); i++) {
-            RowExpression expression = lambdaAndTryExpressions.get(i);
-
+        int counter = 0;
+        for (RowExpression expression : lambdaAndTryExpressions) {
             if (expression instanceof CallExpression) {
                 CallExpression tryExpression = (CallExpression) expression;
                 verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
@@ -241,7 +242,7 @@ public class JoinFilterFunctionCompiler
                 MethodDefinition tryMethod = defineTryMethod(
                         innerExpressionVisitor,
                         containerClassDefinition,
-                        "try_" + i,
+                        "try_" + counter,
                         inputParameters,
                         Primitives.wrap(tryExpression.getType().getJavaType()),
                         tryExpression,
@@ -254,7 +255,7 @@ public class JoinFilterFunctionCompiler
                 PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
                 FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                         lambdaExpression,
-                        "lambda_" + i,
+                        "lambda_" + counter,
                         containerClassDefinition,
                         preGeneratedExpressions,
                         callSiteBinder,
@@ -265,6 +266,7 @@ public class JoinFilterFunctionCompiler
             else {
                 throw new VerifyException(format("unexpected expression: %s", expression.toString()));
             }
+            counter++;
         }
 
         return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
