@@ -30,6 +30,7 @@ import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
@@ -133,6 +134,8 @@ public class TestRegexpFunctions
         assertInvalidFunction("REGEXP_REPLACE('xxx', '(?<name>x)', '${}')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("REGEXP_REPLACE('xxx', '(?<name>x)', '${0}')", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("REGEXP_REPLACE('xxx', '(?<name>x)', '${nam}')", INVALID_FUNCTION_ARGUMENT);
+
+        assertFunction("REGEXP_REPLACE(VARCHAR 'x', '.*', 'xxxxx')", createUnboundedVarcharType(), "xxxxxxxxxx");
     }
 
     @Test
