@@ -51,7 +51,7 @@
         <dep.antlr.version>4.6</dep.antlr.version>
         <dep.airlift.version>0.139</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.27</dep.slice.version>
+        <dep.slice.version>0.28</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
         <dep.tempto.version>1.23</dep.tempto.version>
 
