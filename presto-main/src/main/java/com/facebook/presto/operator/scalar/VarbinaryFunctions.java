@@ -144,6 +144,17 @@ public final class VarbinaryFunctions
         return slice;
     }
 
+    @Description("decode bigint value from a 64-bit 2's complement big endian varbinary")
+    @ScalarFunction("from_big_endian_64")
+    @SqlType(StandardTypes.BIGINT)
+    public static long fromBigEndian64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        if (slice.length() != Long.BYTES) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expected 8-byte input, but got instead: " + slice.length());
+        }
+        return Long.reverseBytes(slice.getLong(0));
+    }
+
     @Description("compute md5 hash")
     @ScalarFunction
     @SqlType(StandardTypes.VARBINARY)

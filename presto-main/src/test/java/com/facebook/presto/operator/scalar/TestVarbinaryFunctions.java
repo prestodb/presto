@@ -148,6 +148,19 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testFromBigEndian64()
+            throws Exception
+    {
+        assertFunction("from_big_endian_64(from_hex('0000000000000000'))", BIGINT, 0L);
+        assertFunction("from_big_endian_64(from_hex('0000000000000001'))", BIGINT, 1L);
+        assertFunction("from_big_endian_64(from_hex('7FFFFFFFFFFFFFFF'))", BIGINT, 9223372036854775807L);
+        assertFunction("from_big_endian_64(from_hex('8000000000000001'))", BIGINT, -9223372036854775807L);
+        assertInvalidFunction("from_big_endian_64(from_hex(''))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_big_endian_64(from_hex('1111'))", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_big_endian_64(from_hex('000000000000000011'))", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
     public void testMd5()
             throws Exception
     {
