@@ -111,9 +111,6 @@ public class PageBuilder
         return blockBuilders[channel];
     }
 
-    /**
-     * Hack to declare positions when producing a page with no channels
-     */
     public void declarePosition()
     {
         declaredPositions++;
