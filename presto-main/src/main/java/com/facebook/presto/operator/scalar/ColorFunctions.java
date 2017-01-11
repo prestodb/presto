@@ -154,7 +154,7 @@ public final class ColorFunctions
 
     @ScalarFunction
     @LiteralParameters({"x", "y"})
-    @Constraint(variable = "y", expression = "x + 15")
+    @Constraint(variable = "y", expression = "min(2147483647, x + 15)")
     // Color formatting uses 15 characters. Note that if the ansiColorEscape function implementation
     // changes, this value may be invalidated.
     @SqlType("varchar(y)")
