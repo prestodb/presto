@@ -183,8 +183,8 @@ public class TestVarbinaryFunctions
     public void testXxhash64()
             throws Exception
     {
-        assertFunction("xxhash64(CAST('' AS VARBINARY))", BIGINT, -1205034819632174695L);
-        assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", BIGINT, -443202081618794350L);
+        assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("EF46DB3751D8E999"));
+        assertFunction("xxhash64(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryHex("F9D96E0E1165E892"));
     }
 
     @Test

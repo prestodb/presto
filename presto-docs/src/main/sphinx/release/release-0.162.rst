@@ -2,6 +2,11 @@
 Release 0.162
 =============
 
+.. warning::
+
+    The :func:`xxhash64` function introduced in this release will return a
+    varbinary instead of a bigint in the next release.
+
 General Changes
 ---------------
 

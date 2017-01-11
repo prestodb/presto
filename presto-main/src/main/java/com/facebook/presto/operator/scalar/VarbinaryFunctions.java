@@ -192,10 +192,12 @@ public final class VarbinaryFunctions
 
     @Description("compute xxhash64 hash")
     @ScalarFunction
-    @SqlType(StandardTypes.BIGINT)
-    public static long xxhash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice xxhash64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        return XxHash64.hash(slice);
+        Slice hash = Slices.allocate(Long.BYTES);
+        hash.setLong(0, Long.reverseBytes(XxHash64.hash(slice)));
+        return hash;
     }
 
     @Description("decode hex encoded binary data")

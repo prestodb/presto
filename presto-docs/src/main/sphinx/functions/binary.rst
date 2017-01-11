@@ -54,6 +54,6 @@ Binary Functions
 
     Computes the sha512 hash of ``binary``.
 
-.. function:: xxhash64(binary) -> bigint
+.. function:: xxhash64(binary) -> varbinary
 
     Computes the xxhash64 hash of ``binary``.
