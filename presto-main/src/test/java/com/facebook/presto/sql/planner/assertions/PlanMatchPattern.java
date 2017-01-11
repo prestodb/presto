@@ -141,7 +141,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            List<List<Symbol>> groupingSets,
+            List<List<String>> groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
             Map<Symbol, Symbol> masks,
             Optional<Symbol> groupId,
@@ -275,9 +275,9 @@ public final class PlanMatchPattern
         return result;
     }
 
-    public static PlanMatchPattern groupingSet(List<List<Symbol>> groups, PlanMatchPattern source)
+    public static PlanMatchPattern groupingSet(List<List<String>> groups, String groupIdAlias, PlanMatchPattern source)
     {
-        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of()));
+        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of(), groupIdAlias));
     }
 
     public static PlanMatchPattern values(Map<String, Integer> values)
