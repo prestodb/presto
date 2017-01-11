@@ -37,7 +37,7 @@ public final class FormatFunctions
     public static Slice formatCount(@SqlType(StandardTypes.BIGINT) long num)
     {
         checkCondition(num != Long.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -9223372036854775808 is out of range for abs(bigint)");
-        return Slices.utf8Slice(fmtCount(num));
+        return Slices.utf8Slice(fmtCount((double) num));
     }
 
     @Description("format to human readable count value")
@@ -46,11 +46,6 @@ public final class FormatFunctions
     public static Slice formatCountDouble(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Slices.utf8Slice(fmtCount(num));
-    }
-
-    public static String fmtCount(long num)
-    {
-        return fmtCount((double) num);
     }
 
     public static String fmtCount(double num)
