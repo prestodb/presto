@@ -25,39 +25,11 @@ import java.text.DecimalFormat;
 
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 
 public final class FormatFunctions
 {
     private FormatFunctions() {}
-
-    @Description("format to human readable count value")
-    @ScalarFunction("format_count")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice formatCountTinyint(@SqlType(StandardTypes.TINYINT) long num)
-    {
-        checkCondition(num != Byte.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -128 is out of range for abs(tinyint)");
-        return Slices.utf8Slice(fmtCount(num));
-    }
-
-    @Description("format to human readable count value")
-    @ScalarFunction("format_count")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice formatCountSmallint(@SqlType(StandardTypes.SMALLINT) long num)
-    {
-        checkCondition(num != Short.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -32768 is out of range for abs(smallint)");
-        return Slices.utf8Slice(fmtCount(num));
-    }
-
-    @Description("format to human readable count value")
-    @ScalarFunction("format_count")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice formatCountInteger(@SqlType(StandardTypes.INTEGER) long num)
-    {
-        checkCondition(num != Integer.MIN_VALUE, NUMERIC_VALUE_OUT_OF_RANGE, "Value -2147483648 is out of range for abs(integer)");
-        return Slices.utf8Slice(fmtCount(num));
-    }
 
     @Description("format to human readable count value")
     @ScalarFunction("format_count")
@@ -74,14 +46,6 @@ public final class FormatFunctions
     public static Slice formatCountDouble(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Slices.utf8Slice(fmtCount(num));
-    }
-
-    @Description("format to human readable count value")
-    @ScalarFunction("format_count")
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice formatCountReal(@SqlType(StandardTypes.REAL) long num)
-    {
-        return Slices.utf8Slice(fmtCount((double) intBitsToFloat((int) num)));
     }
 
     public static String fmtCount(long num)
