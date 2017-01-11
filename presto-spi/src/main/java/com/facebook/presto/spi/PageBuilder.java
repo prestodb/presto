@@ -121,7 +121,7 @@ public class PageBuilder
 
     public void declarePositions(int positions)
     {
-        declaredPositions = positions;
+        declaredPositions += positions;
     }
 
     public boolean isFull()
