@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -34,10 +35,10 @@ public class AggregationMatcher
         implements Matcher
 {
     private final Map<Symbol, Symbol> masks;
-    private final List<List<Symbol>> groupingSets;
+    private final List<List<String>> groupingSets;
     private final Optional<Symbol> groupId;
 
-    public AggregationMatcher(List<List<Symbol>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
+    public AggregationMatcher(List<List<String>> groupingSets, Map<Symbol, Symbol> masks, Optional<Symbol> groupId)
     {
         this.masks = masks;
         this.groupingSets = groupingSets;
@@ -82,7 +83,7 @@ public class AggregationMatcher
         }
 
         for (int i = 0; i < groupingSets.size(); i++) {
-            if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i))) {
+            if (!matches(groupingSets.get(i), aggregationNode.getGroupingSets().get(i), symbolAliases)) {
                 return NO_MATCH;
             }
         }
@@ -90,18 +91,21 @@ public class AggregationMatcher
         return match();
     }
 
-    static <T> boolean matches(Collection<T> expected, Collection<T> actual)
+    static boolean matches(Collection<String> expectedAliases, Collection<Symbol> actualSymbols, SymbolAliases symbolAliases)
     {
-        if (expected.size() != actual.size()) {
+        if (expectedAliases.size() != actualSymbols.size()) {
             return false;
         }
 
-        for (T symbol : expected) {
-            if (!actual.contains(symbol)) {
+        List<Symbol> expectedSymbols = expectedAliases
+                .stream()
+                .map(alias -> new Symbol(symbolAliases.get(alias).getName()))
+                .collect(toImmutableList());
+        for (Symbol symbol : expectedSymbols) {
+            if (!actualSymbols.contains(symbol)) {
                 return false;
             }
         }
-
         return true;
     }
 

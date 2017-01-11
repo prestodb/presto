@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -65,34 +64,35 @@ public class TestMixedDistinctAggregationOptimizer
     {
         @Language("SQL") String sql = "SELECT custkey, max(totalprice) AS s, count(DISTINCT orderdate) AS d FROM orders GROUP BY custkey";
 
-        Symbol group = new Symbol("group");
+        String group = "GROUP";
+
         // Original keys
-        Symbol groupBy = new Symbol("custkey");
-        Symbol aggregate = new Symbol("totalprice");
-        Symbol distinctAggregation = new Symbol("orderdate");
+        String groupBy = "CUSTKEY";
+        String aggregate = "TOTALPRICE";
+        String distinctAggregation = "ORDERDATE";
 
         // Second Aggregation data
-        List<Symbol> groupByKeysSecond = ImmutableList.of(groupBy);
+        List<String> groupByKeysSecond = ImmutableList.of(groupBy);
         Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
                 Optional.of("arbitrary"), PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
                 Optional.of("count"), PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
 
         // First Aggregation data
-        List<Symbol> groupByKeysFirst = ImmutableList.of(groupBy, distinctAggregation, group);
+        List<String> groupByKeysFirst = ImmutableList.of(groupBy, distinctAggregation, group);
         Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsFirst = ImmutableMap.of(
                 Optional.of("MAX"), functionCall("max", ImmutableList.of("TOTALPRICE")));
 
-        PlanMatchPattern tableScan = tableScan("orders", ImmutableMap.of("TOTALPRICE", "totalprice"));
+        PlanMatchPattern tableScan = tableScan("orders", ImmutableMap.of("TOTALPRICE", "totalprice", "CUSTKEY", "custkey", "ORDERDATE", "orderdate"));
 
         // GroupingSet symbols
-        ImmutableList.Builder<List<Symbol>> groups = ImmutableList.builder();
+        ImmutableList.Builder<List<String>> groups = ImmutableList.builder();
         groups.add(ImmutableList.of(groupBy, aggregate));
         groups.add(ImmutableList.of(groupBy, distinctAggregation));
         PlanMatchPattern expectedPlanPattern = anyTree(
                 aggregation(ImmutableList.of(groupByKeysSecond), aggregationsSecond, ImmutableMap.of(), Optional.empty(),
                         project(
                                 aggregation(ImmutableList.of(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(),
-                                        groupingSet(groups.build(),
+                                        groupingSet(groups.build(), group,
                                                 anyTree(tableScan))))));
 
         List<PlanOptimizer> optimizerProvider = ImmutableList.of(
