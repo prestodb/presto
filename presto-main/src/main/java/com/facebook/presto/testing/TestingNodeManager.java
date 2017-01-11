@@ -35,7 +35,7 @@ public class TestingNodeManager
 
     public TestingNodeManager()
     {
-        this(new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, false));
+        this(new PrestoNode("local", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
     }
 
     public TestingNodeManager(Node localNode)
