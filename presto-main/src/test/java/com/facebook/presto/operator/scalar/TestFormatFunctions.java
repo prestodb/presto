@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
-public class TestFormatUtilsFunctions
+public class TestFormatFunctions
         extends AbstractTestFunctions
 {
     @Test

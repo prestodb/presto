@@ -28,9 +28,9 @@ import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 
-public final class FormatUtilsFunctions
+public final class FormatFunctions
 {
-    private FormatUtilsFunctions() {}
+    private FormatFunctions() {}
 
     @Description("format to human readable count value")
     @ScalarFunction("format_count")
