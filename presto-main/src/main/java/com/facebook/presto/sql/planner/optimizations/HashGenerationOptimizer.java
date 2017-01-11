@@ -280,15 +280,14 @@ public class HashGenerationOptimizer
         {
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
             if (clauses.isEmpty()) {
+                // join does not pass through preferred hash symbols since they take more memory and since
+                // the join node filters, may take more compute
                 PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(), true, new HashComputationSet());
-                // join does not need any hash symbols, so drop all hash symbols from build to save memory
                 PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(), true, new HashComputationSet());
-
-                Map<HashComputation, Symbol> allHashSymbols = new HashMap<>();
-                allHashSymbols.putAll(right.getHashSymbols());
-                allHashSymbols.putAll(left.getHashSymbols());
-
-                return buildJoinNodeWithPreferredHashes(node, left, right, allHashSymbols, parentPreference, Optional.empty(), Optional.empty());
+                checkState(left.getHashSymbols().isEmpty() && right.getHashSymbols().isEmpty());
+                return new PlanWithProperties(
+                        replaceChildren(node, ImmutableList.of(left.getNode(), right.getNode())),
+                        ImmutableMap.of());
             }
 
             // join does not pass through preferred hash symbols since they take more memory and since
