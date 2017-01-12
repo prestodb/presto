@@ -42,6 +42,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -83,6 +84,7 @@ public class HiveSplitManager
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
     private final boolean recursiveDfsWalkerEnabled;
+    private final Set<String> respectSplitsInputFormats;
 
     @Inject
     public HiveSplitManager(
@@ -106,7 +108,8 @@ public class HiveSplitManager
                 hiveClientConfig.getMinPartitionBatchSize(),
                 hiveClientConfig.getMaxPartitionBatchSize(),
                 hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled()
+                hiveClientConfig.getRecursiveDirWalkerEnabled(),
+                hiveClientConfig.getRespectSplitsInputFormats()
         );
     }
 
@@ -122,7 +125,8 @@ public class HiveSplitManager
             int minPartitionBatchSize,
             int maxPartitionBatchSize,
             int maxInitialSplits,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            Set<String> respectSplitsInputFormats)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
@@ -137,6 +141,7 @@ public class HiveSplitManager
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.respectSplitsInputFormats = respectSplitsInputFormats;
     }
 
     @Override
@@ -177,7 +182,8 @@ public class HiveSplitManager
                 executor,
                 maxPartitionBatchSize,
                 maxInitialSplits,
-                recursiveDfsWalkerEnabled);
+                recursiveDfsWalkerEnabled,
+                respectSplitsInputFormats);
 
         HiveSplitSource splitSource = new HiveSplitSource(maxOutstandingSplits, hiveSplitLoader, executor);
         hiveSplitLoader.start(splitSource);

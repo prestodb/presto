@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
@@ -93,6 +94,7 @@ public class BackgroundHiveSplitLoader
     private final int maxPartitionBatchSize;
     private final DataSize maxInitialSplitSize;
     private final boolean recursiveDirWalkerEnabled;
+    private final Set<String> respectSplitsInputFormats;
     private final Executor executor;
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
@@ -128,7 +130,8 @@ public class BackgroundHiveSplitLoader
             Executor executor,
             int maxPartitionBatchSize,
             int maxInitialSplits,
-            boolean recursiveDirWalkerEnabled)
+            boolean recursiveDirWalkerEnabled,
+            Set<String> respectSplitsInputFormats)
     {
         this.connectorId = connectorId;
         this.table = table;
@@ -143,6 +146,7 @@ public class BackgroundHiveSplitLoader
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        this.respectSplitsInputFormats = respectSplitsInputFormats;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
     }
@@ -269,6 +273,37 @@ public class BackgroundHiveSplitLoader
         return COMPLETED_FUTURE;
     }
 
+    private boolean addSplitsToSource(InputSplit[] targetSplits,
+                                   String partitionName,
+                                   Properties schema,
+                                   List<HivePartitionKey> partitionKeys,
+                                   TupleDomain<HiveColumnHandle> effectivePredicate,
+                                   Map<Integer, HiveType> columnCoercions) throws IOException
+    {
+        for (InputSplit inputSplit : targetSplits) {
+            FileSplit split = (FileSplit) inputSplit;
+            FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(session.getUser(), split.getPath());
+            FileStatus file = targetFilesystem.getFileStatus(split.getPath());
+            hiveSplitSource.addToQueue(createHiveSplits(
+                    partitionName,
+                    file.getPath().toString(),
+                    targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
+                    split.getStart(),
+                    split.getLength(),
+                    schema,
+                    partitionKeys,
+                    false,
+                    session,
+                    OptionalInt.empty(),
+                    effectivePredicate,
+                    columnCoercions));
+            if (stopped) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void loadPartition(HivePartitionMetadata partition)
             throws IOException
     {
@@ -299,28 +334,20 @@ public class BackgroundHiveSplitLoader
                 FileInputFormat.setInputPaths(targetJob, targetPath);
                 InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
 
-                for (InputSplit inputSplit : targetSplits) {
-                    FileSplit split = (FileSplit) inputSplit;
-                    FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(session.getUser(), split.getPath());
-                    FileStatus file = targetFilesystem.getFileStatus(split.getPath());
-                    hiveSplitSource.addToQueue(createHiveSplits(
-                            partitionName,
-                            file.getPath().toString(),
-                            targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
-                            split.getStart(),
-                            split.getLength(),
-                            schema,
-                            partitionKeys,
-                            false,
-                            session,
-                            OptionalInt.empty(),
-                            effectivePredicate,
-                            partition.getColumnCoercions()));
-                    if (stopped) {
-                        return;
-                    }
+                if (addSplitsToSource(targetSplits, partitionName, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions())) {
+                    return;
                 }
             }
+            return;
+        }
+
+        // Handle case where we want the input format splits to be respected.
+        if (respectSplitsInputFormats != null && respectSplitsInputFormats.contains(inputFormat.getClass().getCanonicalName())) {
+            JobConf jobConf = new JobConf(configuration);
+            FileInputFormat.setInputPaths(jobConf, path);
+            InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
+
+            addSplitsToSource(splits, partitionName, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
             return;
         }
 
