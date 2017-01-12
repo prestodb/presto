@@ -86,8 +86,8 @@ public class StatementClient
             firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
     private final OkHttpClient httpClient;
-    private final boolean debug;
     private final String query;
+    private final ClientSession session;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
@@ -99,8 +99,8 @@ public class StatementClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
-    private final TimeZoneKey timeZone;
     private final long requestTimeoutNanos;
+
     private final String user;
 
     public StatementClient(OkHttpClient httpClient, ClientSession session, String query)
@@ -109,9 +109,8 @@ public class StatementClient
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
+        this.session = session;
         this.httpClient = httpClient;
-        this.debug = session.isDebug();
-        this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
         this.user = session.getUser();
@@ -181,12 +180,17 @@ public class StatementClient
 
     public TimeZoneKey getTimeZone()
     {
-        return timeZone;
+        return session.getTimeZone();
     }
 
     public boolean isDebug()
     {
-        return debug;
+        return session.isDebug();
+    }
+
+    public ClientSession getSession()
+    {
+        return session;
     }
 
     public boolean isClosed()
