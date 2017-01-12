@@ -19,10 +19,12 @@ import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.type.Decimals;
 import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.testing.Arguments;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.type.MapType;
 import com.facebook.presto.type.SqlIntervalDayTime;
 import com.facebook.presto.type.SqlIntervalYearMonth;
 import com.facebook.presto.util.DateTimeZoneIndex;
@@ -4298,6 +4300,22 @@ public abstract class AbstractTestQueries
                 .row(32L, "O", 21L)
                 .row(33L, "F", 10L)
                 .row(34L, "O", 21L)
+                .build();
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testWindowMapAgg()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT map_agg(orderkey, orderpriority) OVER(PARTITION BY orderstatus) FROM\n" +
+                "(SELECT * FROM orders ORDER BY orderkey LIMIT 5) t");
+        MaterializedResult expected = resultBuilder(getSession(), new MapType(BIGINT, VarcharType.createVarcharType(1)))
+                .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
+                .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
+                .row(ImmutableMap.of(1L, "5-LOW", 2L, "1-URGENT", 4L, "5-LOW"))
+                .row(ImmutableMap.of(3L, "5-LOW", 5L, "5-LOW"))
+                .row(ImmutableMap.of(3L, "5-LOW", 5L, "5-LOW"))
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
