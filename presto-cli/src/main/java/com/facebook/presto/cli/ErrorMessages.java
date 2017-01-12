@@ -103,6 +103,7 @@ public class ErrorMessages
         ClientSession session = client.getSession();
         QueryError error = extractQueryError(client);
 
+        // Try to recognize error and provide custom error message
         if (error.getErrorCode() == SERVER_STARTING_UP.toErrorCode().getCode()) {
             serverStartingUpErrorMessage(builder, session);
         }
@@ -110,9 +111,11 @@ public class ErrorMessages
             serverShuttingDownErrorMessage(builder, session);
         }
         else {
+            // Fallback to standard QueryError message
             standardQueryErrorMessage(builder, client);
         }
 
+        // Display common part of all QueryError (position, debug details)
         if (error.getErrorLocation() != null) {
             errorLocationMessage(builder, client.getQuery(), error.getErrorLocation(), useAnsiEscapeCodes);
         }
@@ -128,6 +131,7 @@ public class ErrorMessages
     {
         StringBuilder builder = new StringBuilder();
 
+        // Try to recognize exception type and provide custom error message
         if (throwable instanceof PrestoClientException) {
             createPrestoClientExceptionErrorMessage(builder, (PrestoClientException) throwable, session);
         }
@@ -135,6 +139,7 @@ public class ErrorMessages
             runtimeExceptionErrorMessage(builder, throwable, session);
         }
 
+        // Display common part of all Throwable error messages
         if (session.isDebug()) {
             technicalDetailsRuntimeExceptionErrorMessage(builder, throwable, session);
         }
