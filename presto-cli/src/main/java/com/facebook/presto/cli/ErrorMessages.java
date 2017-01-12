@@ -24,15 +24,67 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import org.fusesource.jansi.Ansi;
 
+import java.io.EOFException;
+import java.net.ConnectException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static java.lang.String.format;
 
 public class ErrorMessages
 {
-    private ErrorMessages() {}
+    private static final String PRESTO_COORDINATOR_NOT_FOUND = "There was a problem with a response from Presto Coordinator.\n";
 
+    private enum Tip {
+        VERIFY_PRESTO_RUNNING("Verify that Presto is running on %s."),
+        DEFINE_SERVER_AS_CLI_PARAM("Use '--server' argument when starting Presto CLI to define server host and port."),
+        CHECK_NETWORK("Check the network conditions between client and server."),
+        USE_DEBUG_MODE("Use '--debug' argument to get more technical details.");
+
+        private static final String TIPS_INTRO = "To solve this problem you may try to:\n";
+
+        private final String message;
+
+        private Tip(String message)
+        {
+            this.message = message;
+        }
+
+        @Override
+        public String toString()
+        {
+            return message;
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
+        }
+
+        private static class Builder
+        {
+            private StringBuilder builder = new StringBuilder();
+
+            public Builder()
+            {
+                builder.append(TIPS_INTRO);
+            }
+
+            public Builder addTip(Tip tip, Object ...toFormat)
+            {
+                builder.append(format(" * " + tip.toString() + "\n", toFormat));
+                return this;
+            }
+
+            public String build()
+            {
+                return builder.toString();
+            }
+        }
+    }
+
+    private ErrorMessages() {}
 
     public static String createQueryErrorMessage(StatementClient client, boolean useAnsiEscapeCodes)
     {
@@ -54,8 +106,13 @@ public class ErrorMessages
     {
         StringBuilder builder = new StringBuilder();
 
-        // We have no clue about what went wrong, just display what we obtained.
-        builder.append("Error running command:\n" + throwable.getMessage() + "\n");
+        if (getCausalChain(throwable).stream().anyMatch(x -> x instanceof EOFException || x instanceof ConnectException)) {
+            serverNotFoundErrorMessage(builder, session);
+        }
+        else {
+            // We have no clue about what went wrong, just display what we obtained.
+            builder.append("Error running command:\n" + throwable.getMessage() + "\n");
+        }
 
         if (session.isDebug()) {
             technicalDetailsRuntimeExceptionErrorMessage(builder, throwable, session);
@@ -63,6 +120,21 @@ public class ErrorMessages
 
         return builder.toString();
     }
+
+    //region Messages for given problems
+    private static void serverNotFoundErrorMessage(StringBuilder builder, ClientSession session)
+    {
+        builder.append(PRESTO_COORDINATOR_NOT_FOUND);
+        Tip.Builder tipsBuilder = Tip.builder();
+        tipsBuilder.addTip(Tip.VERIFY_PRESTO_RUNNING, session.getServer())
+                .addTip(Tip.DEFINE_SERVER_AS_CLI_PARAM)
+                .addTip(Tip.CHECK_NETWORK).build();
+        if (!session.isDebug()) {
+            tipsBuilder.addTip(Tip.USE_DEBUG_MODE);
+        }
+        builder.append(tipsBuilder.build());
+    }
+    //endregion
 
     private static void technicalDetailsRuntimeExceptionErrorMessage(StringBuilder builder, Throwable throwable, ClientSession session)
     {
