@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.event.query;
 
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -22,9 +21,9 @@ import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskFailureInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
-import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
@@ -129,17 +128,16 @@ public class QueryMonitor
         try {
             Optional<QueryFailureInfo> queryFailureInfo = Optional.empty();
 
-            if (queryInfo.getFailureInfo() != null) {
-                FailureInfo failureInfo = queryInfo.getFailureInfo();
-                Optional<TaskInfo> failedTask = queryInfo.getOutputStage().flatMap(QueryMonitor::findFailedTask);
+            if (queryInfo.getTaskFailureInfo().isPresent()) {
+                TaskFailureInfo failureInfo = queryInfo.getTaskFailureInfo().get();
 
                 queryFailureInfo = Optional.of(new QueryFailureInfo(
                         queryInfo.getErrorCode(),
                         Optional.ofNullable(failureInfo.getType()),
                         Optional.ofNullable(failureInfo.getMessage()),
-                        failedTask.map(task -> task.getTaskStatus().getTaskId().toString()),
-                        failedTask.map(task -> task.getTaskStatus().getSelf().getHost()),
-                        objectMapper.writeValueAsString(queryInfo.getFailureInfo())));
+                        failureInfo.getTask(),
+                        failureInfo.getHost(),
+                        objectMapper.writeValueAsString(queryInfo.getTaskFailureInfo())));
             }
 
             ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
@@ -217,19 +215,6 @@ public class QueryMonitor
         catch (JsonProcessingException e) {
             throw Throwables.propagate(e);
         }
-    }
-
-    private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
-    {
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            Optional<TaskInfo> task = findFailedTask(subStage);
-            if (task.isPresent()) {
-                return task;
-            }
-        }
-        return stageInfo.getTasks().stream()
-                .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
-                .findFirst();
     }
 
     private static Map<String, String> mergeSessionAndCatalogProperties(QueryInfo queryInfo)

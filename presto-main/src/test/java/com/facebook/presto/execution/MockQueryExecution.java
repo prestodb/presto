@@ -98,7 +98,7 @@ public class MockQueryExecution
                 false,
                 "",
                 Optional.empty(),
-                null,
+                Optional.empty(),
                 null,
                 ImmutableSet.of(),
                 Optional.empty(),

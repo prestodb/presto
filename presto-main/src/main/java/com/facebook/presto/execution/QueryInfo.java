@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.QueryId;
@@ -28,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
@@ -59,7 +59,7 @@ public class QueryInfo
     private final boolean clearTransactionId;
     private final String updateType;
     private final Optional<StageInfo> outputStage;
-    private final FailureInfo failureInfo;
+    private final Optional<TaskFailureInfo> taskFailureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final Set<Input> inputs;
@@ -86,7 +86,7 @@ public class QueryInfo
             @JsonProperty("clearTransactionId") boolean clearTransactionId,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
-            @JsonProperty("failureInfo") FailureInfo failureInfo,
+            @JsonProperty("taskFailureInfo") Optional<TaskFailureInfo> taskFailureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
@@ -106,6 +106,7 @@ public class QueryInfo
         requireNonNull(startedTransactionId, "startedTransactionId is null");
         requireNonNull(query, "query is null");
         requireNonNull(outputStage, "outputStage is null");
+        requireNonNull(taskFailureInfo, "taskFailureInfo is null");
         requireNonNull(inputs, "inputs is null");
         requireNonNull(output, "output is null");
         requireNonNull(resourceGroupName, "resourceGroupName is null");
@@ -127,7 +128,7 @@ public class QueryInfo
         this.clearTransactionId = clearTransactionId;
         this.updateType = updateType;
         this.outputStage = outputStage;
-        this.failureInfo = failureInfo;
+        this.taskFailureInfo = taskFailureInfo;
         this.errorType = errorCode == null ? null : errorCode.getType();
         this.errorCode = errorCode;
         this.inputs = ImmutableSet.copyOf(inputs);
@@ -239,14 +240,13 @@ public class QueryInfo
         return outputStage;
     }
 
-    @Nullable
+    @NotNull
     @JsonProperty
-    public FailureInfo getFailureInfo()
+    public Optional<TaskFailureInfo> getTaskFailureInfo()
     {
-        return failureInfo;
+        return taskFailureInfo;
     }
 
-    @Nullable
     @JsonProperty
     public ErrorType getErrorType()
     {

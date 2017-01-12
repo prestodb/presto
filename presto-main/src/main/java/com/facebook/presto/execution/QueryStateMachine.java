@@ -277,12 +277,18 @@ public class QueryStateMachine
         }
 
         // don't report failure info is query is marked as success
-        FailureInfo failureInfo = null;
+        Optional<TaskFailureInfo> taskFailureInfo = Optional.empty();
         ErrorCode errorCode = null;
         if (state == FAILED) {
             ExecutionFailureInfo failureCause = this.failureCause.get();
             if (failureCause != null) {
-                failureInfo = failureCause.toFailureInfo();
+                Optional<TaskInfo> failedTask = rootStage.flatMap(QueryStateMachine::findFailedTask);
+                FailureInfo failureInfo = failureCause.toFailureInfo();
+                Optional<String> failureTask = failedTask.map(task -> task.getTaskStatus().getTaskId().toString());
+                Optional<URI> failureUri = failedTask.map(task -> task.getTaskStatus().getSelf());
+                Optional<String> failureHost = failedTask.map(task -> task.getTaskStatus().getSelf().getHost());
+                Optional<Integer> failurePort = failedTask.map(task -> task.getTaskStatus().getSelf().getPort());
+                taskFailureInfo = Optional.of(new TaskFailureInfo(failureInfo, failureTask, failureUri, failureHost, failurePort));
                 errorCode = failureCause.getErrorCode();
             }
         }
@@ -418,12 +424,25 @@ public class QueryStateMachine
                 clearTransactionId.get(),
                 updateType.get(),
                 rootStage,
-                failureInfo,
+                taskFailureInfo,
                 errorCode,
                 inputs.get(),
                 output.get(),
                 completeInfo,
                 getResourceGroup());
+    }
+
+    private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
+    {
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            Optional<TaskInfo> task = findFailedTask(subStage);
+            if (task.isPresent()) {
+                return task;
+            }
+        }
+        return stageInfo.getTasks().stream()
+                .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
+                .findFirst();
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -749,7 +768,7 @@ public class QueryStateMachine
                 queryInfo.isClearTransactionId(),
                 queryInfo.getUpdateType(),
                 Optional.of(prunedOutputStage),
-                queryInfo.getFailureInfo(),
+                queryInfo.getTaskFailureInfo(),
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),

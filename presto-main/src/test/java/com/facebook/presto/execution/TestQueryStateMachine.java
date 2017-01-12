@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.security.AccessControl;
@@ -380,9 +379,9 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.isDone(), expectedState.isDone());
 
         if (expectedState == FAILED) {
-            FailureInfo failure = queryInfo.getFailureInfo();
-            assertNotNull(failure);
-            assertEquals(failure.getType(), expectedException.getClass().getName());
+            Optional<TaskFailureInfo> failure = queryInfo.getTaskFailureInfo();
+            assertTrue(failure.isPresent());
+            assertEquals(failure.get().getType(), expectedException.getClass().getName());
             if (expectedException instanceof PrestoException) {
                 assertEquals(queryInfo.getErrorCode(), ((PrestoException) expectedException).getErrorCode());
             }
@@ -391,7 +390,7 @@ public class TestQueryStateMachine
             }
         }
         else {
-            assertNull(queryInfo.getFailureInfo());
+            assertFalse(queryInfo.getTaskFailureInfo().isPresent());
         }
     }
 

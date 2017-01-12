@@ -252,8 +252,8 @@ d3.json('/v1/query/' + queryId, function (query) {
         button.attr('disabled', 'disabled');
     }
 
-    if (query.failureInfo) {
-        var s = formatStackTrace(query.failureInfo);
+    if (query.taskFailureInfo) {
+        var s = formatStackTrace(query.taskFailureInfo);
         d3.select('#failureMessage').html("<pre>" + htmlEscape(s) + "</pre>");
     }
     else {
