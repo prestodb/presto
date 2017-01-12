@@ -29,6 +29,8 @@ import java.io.EOFException;
 import java.net.ConnectException;
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getCausalChain;
 import static java.lang.String.format;
@@ -37,12 +39,17 @@ public class ErrorMessages
 {
     private static final String PRESTO_COORDINATOR_NOT_FOUND = "There was a problem with a response from Presto Coordinator.\n";
     private static final String PRESTO_COORDINATOR_404 = "Presto HTTP interface returned 404 (file not found).\n";
+    private static final String PRESTO_STARTING_UP  = "Presto is still starting up.\n";
+    private static final String PRESTO_SHUTTING_DOWN  = "Presto is shutting down\n";
 
     private enum Tip {
         VERIFY_PRESTO_RUNNING("Verify that Presto is running on %s."),
         DEFINE_SERVER_AS_CLI_PARAM("Use '--server' argument when starting Presto CLI to define server host and port."),
         CHECK_NETWORK("Check the network conditions between client and server."),
         USE_DEBUG_MODE("Use '--debug' argument to get more technical details."),
+        WAIT_FOR_INITIALIZATION("Wait for server to complete initialization."),
+        WAIT_FOR_SERVER_RESTART("Wait for server to restart as it may have restart scheduled."),
+        START_SERVER_AGAIN("Start server again manually."),
         CHECK_OTHER_HTTP_SERVICE("Make sure that none other HTTP service is running on %s."),
         CLIENT_IS_UP_TO_DATE_WITH_SERVER("Update CLI to match Presto server version.");
 
@@ -93,14 +100,25 @@ public class ErrorMessages
     public static String createQueryErrorMessage(StatementClient client, boolean useAnsiEscapeCodes)
     {
         StringBuilder builder = new StringBuilder();
+        ClientSession session = client.getSession();
         QueryError error = extractQueryError(client);
 
-        builder.append(String.format("Query %s failed: %s%n", client.finalResults().getId(), error.getMessage()));
-        if (client.isDebug() && (error.getFailureInfo() != null)) {
-            technicalDetailsRuntimeExceptionErrorMessage(builder, error.getFailureInfo().toException(), client.getSession());
+        if (error.getErrorCode() == SERVER_STARTING_UP.toErrorCode().getCode()) {
+            serverStartingUpErrorMessage(builder, session);
         }
+        else if (error.getErrorCode() == SERVER_SHUTTING_DOWN.toErrorCode().getCode()) {
+            serverShuttingDownErrorMessage(builder, session);
+        }
+        else {
+            standardQueryErrorMessage(builder, client);
+        }
+
         if (error.getErrorLocation() != null) {
             errorLocationMessage(builder, client.getQuery(), error.getErrorLocation(), useAnsiEscapeCodes);
+        }
+
+        if (client.isDebug() && (error.getFailureInfo() != null)) {
+            technicalDetailsRuntimeExceptionErrorMessage(builder, error.getFailureInfo().toException(), session);
         }
 
         return builder.toString();
@@ -159,6 +177,29 @@ public class ErrorMessages
         builder.append(tipsBuilder.build());
     }
 
+    private static void serverStartingUpErrorMessage(StringBuilder builder, ClientSession session)
+    {
+        builder.append(PRESTO_STARTING_UP);
+        Tip.Builder tipsBuilder = Tip.builder();
+        tipsBuilder.addTip(Tip.WAIT_FOR_INITIALIZATION);
+        if (!session.isDebug()) {
+            tipsBuilder.addTip(Tip.USE_DEBUG_MODE);
+        }
+        builder.append(tipsBuilder.build());
+    }
+
+    private static void serverShuttingDownErrorMessage(StringBuilder builder, ClientSession session)
+    {
+        builder.append(PRESTO_SHUTTING_DOWN);
+        Tip.Builder tipsBuilder = Tip.builder();
+        tipsBuilder.addTip(Tip.WAIT_FOR_SERVER_RESTART)
+                .addTip(Tip.START_SERVER_AGAIN);
+        if (!session.isDebug()) {
+            tipsBuilder.addTip(Tip.USE_DEBUG_MODE);
+        }
+        builder.append(tipsBuilder.build());
+    }
+
     private static void serverFileNotFoundErrorMessage(StringBuilder builder, ClientSession session)
     {
         builder.append(PRESTO_COORDINATOR_404);
@@ -185,6 +226,12 @@ public class ErrorMessages
         builder.append("[ Stack trace ]\n");
         builder.append(Throwables.getStackTraceAsString(throwable));
         builder.append("========= TECHNICAL DETAILS END =========\n\n");
+    }
+
+    private static void standardQueryErrorMessage(StringBuilder builder, StatementClient client)
+    {
+        QueryError error = extractQueryError(client);
+        builder.append(String.format("Query %s failed: %s%n", client.finalResults().getId(), error.getMessage()));
     }
 
     private static void errorLocationMessage(StringBuilder builder, String query, ErrorLocation location, boolean useAnsiEscapeCodes)
