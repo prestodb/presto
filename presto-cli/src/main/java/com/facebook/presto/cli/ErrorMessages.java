@@ -41,7 +41,7 @@ public class ErrorMessages
 
         builder.append(String.format("Query %s failed: %s%n", client.finalResults().getId(), error.getMessage()));
         if (client.isDebug() && (error.getFailureInfo() != null)) {
-            builder.append(Throwables.getStackTraceAsString(error.getFailureInfo().toException()));
+            technicalDetailsRuntimeExceptionErrorMessage(builder, error.getFailureInfo().toException(), client.getSession());
         }
         if (error.getErrorLocation() != null) {
             errorLocationMessage(builder, client.getQuery(), error.getErrorLocation(), useAnsiEscapeCodes);

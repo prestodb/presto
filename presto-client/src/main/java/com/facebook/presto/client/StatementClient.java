@@ -86,7 +86,6 @@ public class StatementClient
             firstNonNull(StatementClient.class.getPackage().getImplementationVersion(), "unknown");
 
     private final OkHttpClient httpClient;
-    private final boolean debug;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
@@ -100,9 +99,9 @@ public class StatementClient
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean gone = new AtomicBoolean();
     private final AtomicBoolean valid = new AtomicBoolean(true);
-    private final TimeZoneKey timeZone;
     private final long requestTimeoutNanos;
-    private final String user;
+
+    private final ClientSession session;
 
     public StatementClient(OkHttpClient httpClient, ClientSession session, String query)
     {
@@ -111,11 +110,9 @@ public class StatementClient
         requireNonNull(query, "query is null");
 
         this.httpClient = httpClient;
-        this.debug = session.isDebug();
-        this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout().roundTo(NANOSECONDS);
-        this.user = session.getUser();
+        this.session = session;
 
         Request request = buildQueryRequest(session, query);
 
@@ -177,12 +174,17 @@ public class StatementClient
 
     public TimeZoneKey getTimeZone()
     {
-        return timeZone;
+        return session.getTimeZone();
     }
 
     public boolean isDebug()
     {
-        return debug;
+        return session.isDebug();
+    }
+
+    public ClientSession getSession()
+    {
+        return session;
     }
 
     public boolean isClosed()
@@ -265,7 +267,7 @@ public class StatementClient
     private Request.Builder prepareRequest(HttpUrl url)
     {
         return new Request.Builder()
-                .addHeader(PRESTO_USER, user)
+                .addHeader(PRESTO_USER, session.getUser())
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
     }
