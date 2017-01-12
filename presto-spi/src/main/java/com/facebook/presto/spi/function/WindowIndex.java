@@ -81,6 +81,14 @@ public interface WindowIndex
     Block getSingleValueBlock(int channel, int position);
 
     /**
+     * Gets an object value.
+     * @param channel argument number
+     * @param position row within the partition, starting at zero
+     * @return
+     */
+    Block getObject(int channel, int position);
+
+    /**
      * Outputs a value from the index. This is useful for "value"
      * window functions such as {@code lag} that operate on arbitrary
      * types without caring about the specific contents.

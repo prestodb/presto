@@ -87,6 +87,12 @@ public class PagesWindowIndex
     }
 
     @Override
+    public Block getObject(int channel, int position)
+    {
+        return pagesIndex.getObject(channel, position(position));
+    }
+
+    @Override
     public void appendTo(int channel, int position, BlockBuilder output)
     {
         pagesIndex.appendTo(channel, position(position), output);
