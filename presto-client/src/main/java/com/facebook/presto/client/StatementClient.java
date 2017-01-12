@@ -347,9 +347,7 @@ public class StatementClient
     {
         gone.set(true);
         if (!response.hasValue()) {
-            return new RuntimeException(
-                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.getUri(), response, response.getResponseBody()),
-                    response.getException());
+            return new PrestoClientException(task, request, response);
         }
         return new RuntimeException(format("Error %s at %s returned %s: %s", task, request.getUri(), response.getStatusCode(), response.getStatusMessage()));
     }
