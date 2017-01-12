@@ -27,7 +27,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
@@ -372,61 +371,6 @@ class ClientBuffer
         public void completeResultFutureWithEmpty()
         {
             resultFuture.complete(emptyResults(taskInstanceId, sequenceId, false));
-        }
-    }
-
-    @ThreadSafe
-    static class SerializedPageReference
-    {
-        private final SerializedPage serializedPage;
-        private final AtomicInteger referenceCount;
-        private final Runnable onDereference;
-
-        public SerializedPageReference(SerializedPage serializedPage, int referenceCount, Runnable onDereference)
-        {
-            this.serializedPage = requireNonNull(serializedPage, "page is null");
-            checkArgument(referenceCount > 0, "referenceCount must be at least 1");
-            this.referenceCount = new AtomicInteger(referenceCount);
-            this.onDereference = requireNonNull(onDereference, "onDereference is null");
-        }
-
-        public void addReference()
-        {
-            int oldReferences = referenceCount.getAndIncrement();
-            checkState(oldReferences > 0, "Page has already been dereferenced");
-        }
-
-        public SerializedPage getSerializedPage()
-        {
-            return serializedPage;
-        }
-
-        public int getPositionCount()
-        {
-            return serializedPage.getPositionCount();
-        }
-
-        public long getRetainedSizeInBytes()
-        {
-            return serializedPage.getRetainedSizeInBytes();
-        }
-
-        public void dereferencePage()
-        {
-            int remainingReferences = referenceCount.decrementAndGet();
-            checkState(remainingReferences >= 0, "Page reference count is negative");
-
-            if (remainingReferences == 0) {
-                onDereference.run();
-            }
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("referenceCount", referenceCount)
-                    .toString();
         }
     }
 }

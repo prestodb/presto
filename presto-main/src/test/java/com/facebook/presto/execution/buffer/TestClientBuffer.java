@@ -15,7 +15,6 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.execution.buffer.ClientBuffer.SerializedPageReference;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;

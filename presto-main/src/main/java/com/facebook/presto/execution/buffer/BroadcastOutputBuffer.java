@@ -18,7 +18,6 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.SystemMemoryUsageListener;
-import com.facebook.presto.execution.buffer.ClientBuffer.SerializedPageReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -206,7 +205,7 @@ public class BroadcastOutputBuffer
         Collection<ClientBuffer> buffers;
         synchronized (this) {
             if (state.get().canAddBuffers()) {
-                serializedPageReferences.stream().forEach(SerializedPageReference::addReference);
+                serializedPageReferences.forEach(SerializedPageReference::addReference);
                 initialPagesForNewBuffers.addAll(serializedPageReferences);
             }
 
@@ -333,7 +332,7 @@ public class BroadcastOutputBuffer
         }
 
         // dereference outside of synchronized to avoid making a callback while holding a lock
-        pages.stream().forEach(SerializedPageReference::dereferencePage);
+        pages.forEach(SerializedPageReference::dereferencePage);
     }
 
     private void checkFlushComplete()
