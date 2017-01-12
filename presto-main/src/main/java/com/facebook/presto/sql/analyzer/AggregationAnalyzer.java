@@ -68,6 +68,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -277,38 +278,46 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitFunctionCall(FunctionCall node, Void context)
         {
-            if (!node.getWindow().isPresent() && metadata.isAggregationFunction(node.getName())) {
-                AggregateExtractor aggregateExtractor = new AggregateExtractor(metadata.getFunctionRegistry());
-                WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();
+            if (metadata.isAggregationFunction(node.getName())) {
+                if (!node.getWindow().isPresent()) {
+                    AggregateExtractor aggregateExtractor = new AggregateExtractor(metadata.getFunctionRegistry());
+                    WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();
 
-                for (Expression argument : node.getArguments()) {
-                    aggregateExtractor.process(argument, null);
-                    windowExtractor.process(argument, null);
+                    for (Expression argument : node.getArguments()) {
+                        aggregateExtractor.process(argument, null);
+                        windowExtractor.process(argument, null);
+                    }
+
+                    if (!aggregateExtractor.getAggregates().isEmpty()) {
+                        throw new SemanticException(NESTED_AGGREGATION,
+                                node,
+                                "Cannot nest aggregations inside aggregation '%s': %s",
+                                node.getName(),
+                                aggregateExtractor.getAggregates());
+                    }
+
+                    if (!windowExtractor.getWindowFunctions().isEmpty()) {
+                        throw new SemanticException(NESTED_WINDOW,
+                                node,
+                                "Cannot nest window functions inside aggregation '%s': %s",
+                                node.getName(),
+                                windowExtractor.getWindowFunctions());
+                    }
+
+                    if (node.getFilter().isPresent() && node.isDistinct()) {
+                        throw new SemanticException(NOT_SUPPORTED,
+                                node,
+                                "Filtered aggregations not supported with DISTINCT: '%s'",
+                                node);
+                    }
+                    return true;
                 }
-
-                if (!aggregateExtractor.getAggregates().isEmpty()) {
-                    throw new SemanticException(NESTED_AGGREGATION,
+            }
+            else if (node.getFilter().isPresent()) {
+                    throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION,
                             node,
-                            "Cannot nest aggregations inside aggregation '%s': %s",
-                            node.getName(),
-                            aggregateExtractor.getAggregates());
-                }
-
-                if (!windowExtractor.getWindowFunctions().isEmpty()) {
-                    throw new SemanticException(NESTED_WINDOW,
-                            node,
-                            "Cannot nest window functions inside aggregation '%s': %s",
-                            node.getName(),
-                            windowExtractor.getWindowFunctions());
-                }
-
-                if (node.getFilter().isPresent() && node.isDistinct()) {
-                    throw new SemanticException(NOT_SUPPORTED,
-                            node,
-                            "Filtered aggregations not supported with DISTINCT: '%s'",
+                            "Filter is only valid for aggregation functions",
                             node);
-                }
-                return true;
             }
 
             if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {

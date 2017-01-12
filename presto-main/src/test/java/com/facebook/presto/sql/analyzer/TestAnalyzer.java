@@ -84,6 +84,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATION_FUNCTION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE;
@@ -1044,6 +1045,8 @@ public class TestAnalyzer
     {
         assertFails(NOT_SUPPORTED, "SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)");
         assertFails(NOT_SUPPORTED, "SELECT count(DISTINCT x) FILTER (where y = 1) FROM (VALUES (1, 1)) t(x, y)");
+        assertFails(MUST_BE_AGGREGATION_FUNCTION, "SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1)) t(x, y)");
+        assertFails(MUST_BE_AGGREGATION_FUNCTION, "SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1, 1)) t(x, y, z) GROUP BY z");
     }
 
     @Test
