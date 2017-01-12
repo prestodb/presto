@@ -1,4 +1,4 @@
--- database: presto; groups: sqlserver; tables: sqlserver.dbo.workers_sqlserver
+-- database: presto; groups: sqlserver, profile_specific_tests; tables: sqlserver.dbo.workers_sqlserver
 --!
 select t1.first_name, t2.name from sqlserver.dbo.workers_sqlserver t1, tpch.sf1.nation t2 where t1.id_department = t2.nationkey
 --!

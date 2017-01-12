@@ -1,4 +1,4 @@
--- database: presto; groups: sqlserver; tables: sqlserver.dbo.workers_sqlserver
+-- database: presto; groups: sqlserver, profile_specific_tests; tables: sqlserver.dbo.workers_sqlserver
 --!
 select * from sqlserver.dbo.workers_sqlserver
 --!
