@@ -37,7 +37,7 @@ class AggregateExtractor
     @Override
     protected Void visitFunctionCall(FunctionCall node, Void context)
     {
-        if (functionRegistry.isAggregationFunction(node.getName()) && !node.getWindow().isPresent()) {
+        if ((functionRegistry.isAggregationFunction(node.getName()) || node.getFilter().isPresent()) && !node.getWindow().isPresent()) {
             aggregates.add(node);
             return null;
         }
