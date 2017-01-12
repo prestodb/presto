@@ -47,6 +47,7 @@ import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
@@ -303,6 +304,12 @@ public class ConnectorManager
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
         }
+    }
+
+    @VisibleForTesting
+    public AccessControlManager getAccessControlManager()
+    {
+        return accessControlManager;
     }
 
     private static class MaterializedConnector

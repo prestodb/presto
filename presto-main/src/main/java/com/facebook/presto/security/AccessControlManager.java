@@ -154,6 +154,13 @@ public class AccessControlManager
         log.info("-- Loaded system access control %s --", name);
     }
 
+    @VisibleForTesting
+    public void resetSystemAccessControl()
+    {
+        checkState(systemAccessControlLoading.get(), "System access control can be reset only after it was set");
+        this.systemAccessControl.set(new InitializingSystemAccessControl());
+    }
+
     @Override
     public void checkCanSetUser(Principal principal, String userName)
     {
