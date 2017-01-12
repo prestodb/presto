@@ -374,9 +374,7 @@ public class StatementClient
                                 .map(message -> ": " + message)
                                 .orElse(""));
             }
-            return new RuntimeException(
-                    format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody()),
-                    response.getException());
+            return new PrestoClientException(task, request, response);
         }
         return new RuntimeException(format("Error %s at %s returned HTTP %s", task, request.url(), response.getStatusCode()));
     }
