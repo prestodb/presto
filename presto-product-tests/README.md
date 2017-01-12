@@ -40,7 +40,7 @@ broken.
 * Install Docker for Mac: https://docs.docker.com/docker-for-mac/
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
-`hadoop-master`, `mysql`, `postgres`, `presto-master`.
+`hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
 They should point to your external IP address (shown by `ifconfig` on your Mac (not inside docker)).
 
 ### OS X using Docker Toolbox (macOS 10.8 "Mountain Lion" or newer) [NOT RECOMMENDED]
@@ -280,6 +280,7 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
     presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
     presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
+    presto-product-tests/conf/docker/singlenode/compose.sh up -d cassandra
     ```
     
     Tip: To display container logs run:
@@ -288,7 +289,7 @@ setup outlined below:
     presto-product-tests/conf/docker/singlenode/compose.sh logs
     ```
     
-3. Add an IP-to-host mapping for the `hadoop-master`, `mysql` and `postgres` hosts in `/etc/hosts`.
+3. Add an IP-to-host mapping for the `hadoop-master`, `mysql`, `postgres` and `cassandra` hosts in `/etc/hosts`.
 The format of `/etc/hosts` entries is `<ip> <host>`:
 
     - On GNU/Linux add the following mapping: `<container ip> hadoop-master`.
@@ -298,11 +299,12 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
 
-    Similarly add mappings for MySQL and Postgres containers (`mysql` and `postgres` hostnames respectively). To check IPs for those containers run:
+    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively). To check IPs for those containers run:
 
         ```
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
+        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
 
     Alternatively you can use below script to obtain hosts ip mapping
 
@@ -314,12 +316,12 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
 
     - On OS X:
         - Docker for Mac:
-        Add the following mapping to `/etc/hosts`: `<IP-of-your-Mac> hadoop-master mysql postgres`.
+        Add the following mapping to `/etc/hosts`: `<IP-of-your-Mac> hadoop-master mysql postgres cassandra`.
 
         - Docker Toolbox:
-        Add the following mapping to `/etc/hosts`: `<docker machine ip> hadoop-master mysql postgres`.
+        Add the following mapping to `/etc/hosts`: `<docker machine ip> hadoop-master mysql postgres cassandra`.
         Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
-        the `hadoop-master`, `mysql` and `postgres` hostnames. To obtain the IP of the Linux VM run:
+        the `hadoop-master`, `mysql`, `postgres` and `cassandra` hostnames. To obtain the IP of the Linux VM run:
 
             ```
             docker-machine ip <machine>
