@@ -29,7 +29,7 @@ public interface Accumulator
 
     void addInput(Page page);
 
-    void addInput(WindowIndex index, int channel, int position);
+    void addInput(WindowIndex index, int channel, int startPosition, int endPosition);
 
     void addInput(int positionCount);
 

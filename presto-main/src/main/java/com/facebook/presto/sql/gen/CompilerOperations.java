@@ -56,6 +56,11 @@ public final class CompilerOperations
         return left < right;
     }
 
+    public static boolean lessThanOrEqual(int left, int right)
+    {
+        return left <= right;
+    }
+
     public static boolean greaterThan(int left, int right)
     {
         return left > right;

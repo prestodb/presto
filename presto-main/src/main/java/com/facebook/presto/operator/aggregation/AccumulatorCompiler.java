@@ -253,21 +253,16 @@ public class AccumulatorCompiler
 
         Parameter index = arg("index", WindowIndex.class);
         Parameter channel = arg("channel", int.class);
-        Parameter position = arg("position", int.class);
+        Parameter startPosition = arg("startPosition", int.class);
+        Parameter endPosition = arg("endPosition", int.class);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channel, position));
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channel, startPosition, endPosition));
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
         scope.declareVariable(boolean.class, "isNull");
+        Variable positionVariable = scope.declareVariable(int.class, "position");
         scope.declareVariable(Block.class, "block");
-
-        BytecodeBlock block = new BytecodeBlock();
-        block.append(constantFalse())
-                .putVariable(scope.getVariable("isNull"));
-
-        block.append(
-                generateInvokeFunctionOnIndex(scope, inputFunction.type().parameterArray(), parameterMetadatas, stateField));
 
         BytecodeBlock popBlock = new BytecodeBlock();
         Class<?>[] parameters = inputFunction.type().parameterArray();
@@ -275,7 +270,11 @@ public class AccumulatorCompiler
             popBlock.pop(parameters[i]);
         }
 
-        block.append(new IfStatement("if (!isNull)")
+        BytecodeBlock readBlock = new BytecodeBlock();
+        readBlock.append(constantFalse())
+                .putVariable(scope.getVariable("isNull"));
+        readBlock.append(generateInvokeFunctionOnIndex(scope, inputFunction.type().parameterArray(), parameterMetadatas, stateField));
+        readBlock.append(new IfStatement("if (!isNull)")
                 .condition(new BytecodeBlock()
                         .getVariable(scope.getVariable("isNull")))
                 .ifTrue(popBlock) // clear the stack before return
@@ -283,7 +282,18 @@ public class AccumulatorCompiler
                         .comment("input()")
                         .append(invoke(callSiteBinder.bind(inputFunction), "input"))));
 
-        body.append(block);
+        BytecodeNode loop = new ForLoop("for (int position = startPosition; position <= endPosition; ++position)")
+                .initialize(new BytecodeBlock()
+                        .getVariable(scope.getVariable("startPosition"))
+                        .putVariable(positionVariable))
+                .condition(new BytecodeBlock()
+                        .getVariable(positionVariable)
+                        .getVariable(scope.getVariable("endPosition"))
+                        .invokeStatic(CompilerOperations.class, "lessThanOrEqual", boolean.class, int.class, int.class))
+                .update(new BytecodeBlock().incrementVariable(positionVariable, (byte) 1))
+                .body(readBlock);
+
+        body.append(loop);
         body.ret();
     }
 
