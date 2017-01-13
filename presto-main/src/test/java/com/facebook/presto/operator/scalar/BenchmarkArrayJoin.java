@@ -44,6 +44,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -96,7 +97,7 @@ public class BenchmarkArrayJoin
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(signature, VARCHAR, ImmutableList.of(
                             new InputReferenceExpression(0, new ArrayType(BIGINT)),
-                            new ConstantExpression(Slices.wrappedBuffer("".getBytes(UTF_8)), VARCHAR))));
+                            new ConstantExpression(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
 
             pageProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager())
                     .compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections)
@@ -136,6 +137,15 @@ public class BenchmarkArrayJoin
         {
             return pageBuilder;
         }
+    }
+
+    @Test
+    public void verify()
+            throws Throwable
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        new BenchmarkArrayJoin().benchmark(data);
     }
 
     public static void main(String[] args)
