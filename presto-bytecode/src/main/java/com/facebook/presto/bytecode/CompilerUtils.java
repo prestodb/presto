@@ -98,7 +98,7 @@ public final class CompilerUtils
             try {
                 classDefinition.visit(ADD_FAKE_LINE_NUMBER ? new AddFakeLineNumberClassVisitor(cw) : cw);
             }
-            catch (IndexOutOfBoundsException e) {
+            catch (IndexOutOfBoundsException | NegativeArraySizeException e) {
                 Printer printer = new Textifier();
                 StringWriter stringWriter = new StringWriter();
                 TraceClassVisitor tcv = new TraceClassVisitor(null, printer, new PrintWriter(stringWriter));
