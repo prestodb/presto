@@ -472,7 +472,7 @@ public final class SqlQueryExecution
             stageInfo = Optional.ofNullable(scheduler.getStageInfo());
         }
 
-        QueryInfo queryInfo = stateMachine.updateQueryInfo(stageInfo);
+        QueryInfo queryInfo = stateMachine.getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
             // capture the final query state and drop reference to the scheduler
             queryScheduler.set(null);
