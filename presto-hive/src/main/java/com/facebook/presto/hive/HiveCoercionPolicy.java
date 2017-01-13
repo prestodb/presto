@@ -16,8 +16,13 @@ package com.facebook.presto.hive;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.VarcharType;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.inject.Inject;
+
+import java.util.ArrayList;
 
 import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
@@ -61,7 +66,21 @@ public class HiveCoercionPolicy
         if (fromHiveType.equals(HIVE_FLOAT)) {
             return toHiveType.equals(HIVE_DOUBLE);
         }
-
+        if (isStruct(fromHiveType) && isStruct(toHiveType)) {
+            ArrayList<TypeInfo> tableFieldTypes     = getStructFields(fromHiveType);
+            ArrayList<TypeInfo> partitionFieldTypes = getStructFields(toHiveType);
+            return tableFieldTypes.subList(0, partitionFieldTypes.size()).equals(partitionFieldTypes);
+        }
         return false;
+    }
+
+    private static boolean isStruct(HiveType type)
+    {
+        return type.getCategory() == ObjectInspector.Category.STRUCT;
+    }
+
+    private static ArrayList<TypeInfo> getStructFields(HiveType structHiveType)
+    {
+        return ((StructTypeInfo) structHiveType.getTypeInfo()).getAllStructFieldTypeInfos();
     }
 }
