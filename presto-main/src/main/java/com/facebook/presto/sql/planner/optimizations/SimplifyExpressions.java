@@ -290,10 +290,19 @@ public class SimplifyExpressions
             int originalBaseExpressions = subPredicates.stream()
                     .mapToInt(Set::size)
                     .sum();
-            int newBaseExpressions = subPredicates.stream()
-                    .mapToInt(Set::size)
-                    .reduce(Math::multiplyExact)
-                    .getAsInt() * subPredicates.size();
+
+            int newBaseExpressions;
+            try {
+                newBaseExpressions = Math.multiplyExact(subPredicates.stream()
+                        .mapToInt(Set::size)
+                        .reduce(Math::multiplyExact)
+                        .getAsInt(), subPredicates.size());
+            }
+            catch (ArithmeticException e) {
+                // Integer overflow from multiplication means there are too many expressions
+                return expression;
+            }
+
             if (newBaseExpressions > originalBaseExpressions * 2) {
                 // Do not distribute boolean expressions if it would create 2x more base expressions
                 // (e.g. A, B, C, D from the above example). This is just an arbitrary heuristic to
