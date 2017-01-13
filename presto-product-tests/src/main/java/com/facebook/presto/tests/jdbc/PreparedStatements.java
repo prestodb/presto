@@ -67,6 +67,8 @@ public class PreparedStatements
     private static final Logger LOGGER = Logger.get(PreparedStatements.class);
     private static final String TABLE_NAME = "textfile_all_types";
     private static final String TABLE_NAME_MUTABLE = "all_types_table_name";
+    private static final String insertSql = "INSERT INTO %s VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    private static final String selectStarSql = "SELECT * FROM %s";
 
     private Connection connection;
 
@@ -149,32 +151,70 @@ public class PreparedStatements
 
     @Test(groups = {JDBC, SIMBA_JDBC})
     @Requires(MutableAllTypesTable.class)
+    public void preparedInsertVarbinaryApi()
+            throws SQLException
+    {
+        if (usingTeradataJdbcDriver(connection)) {
+            String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+            String insertSqlWithTable = String.format(insertSql, tableNameInDatabase);
+            String selectSqlWithTable = String.format(selectStarSql, tableNameInDatabase);
+
+            defaultQueryExecutor().executeQuery(insertSqlWithTable, QueryType.UPDATE,
+                    param(TINYINT, null),
+                    param(SMALLINT, null),
+                    param(INTEGER, null),
+                    param(BIGINT, null),
+                    param(FLOAT, null),
+                    param(DOUBLE, null),
+                    param(DECIMAL, null),
+                    param(DECIMAL, null),
+                    param(TIMESTAMP, null),
+                    param(DATE, null),
+                    param(VARCHAR, null),
+                    param(VARCHAR, null),
+                    param(CHAR, null),
+                    param(BOOLEAN, null),
+                    param(VARBINARY, "a290IGJpbmFybnk=".getBytes()));
+
+            QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
+            assertColumnTypes(result);
+            assertThat(result).containsOnly(
+                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                            "a290IGJpbmFybnk=".getBytes()));
+        }
+        else {
+            LOGGER.warn("preparedInsertVarbinaryApi() only applies to TeradataJdbcDriver");
+        }
+    }
+
+    @Test(groups = {JDBC, SIMBA_JDBC})
+    @Requires(MutableAllTypesTable.class)
     public void preparedInsertApi()
             throws SQLException
     {
         if (usingTeradataJdbcDriver(connection)) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSql = "INSERT INTO " + tableNameInDatabase + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-            String selectSql = "SELECT * FROM " + tableNameInDatabase;
+            String insertSqlWithTable = String.format(insertSql, tableNameInDatabase);
+            String selectSqlWithTable = String.format(selectStarSql, tableNameInDatabase);
 
-            defaultQueryExecutor().executeQuery(insertSql, QueryType.UPDATE,
+            defaultQueryExecutor().executeQuery(insertSqlWithTable, QueryType.UPDATE,
                     param(TINYINT, 127),
                     param(SMALLINT, 32767),
                     param(INTEGER, 2147483647),
                     param(BIGINT, new BigInteger("9223372036854775807")),
                     param(FLOAT, Float.valueOf("123.345")),
                     param(DOUBLE, 234.567),
-                    param(DECIMAL, BigDecimal.valueOf(345.678)),
+                    param(DECIMAL, BigDecimal.valueOf(346)),
                     param(DECIMAL, BigDecimal.valueOf(345.678)),
                     param(TIMESTAMP, Timestamp.valueOf("2015-05-10 12:15:35")),
                     param(DATE, Date.valueOf("2015-05-10")),
                     param(VARCHAR, "ala ma kota"),
                     param(VARCHAR, "ala ma kot"),
-                    param(CHAR, "ala ma"),
+                    param(CHAR, "ala ma    "),
                     param(BOOLEAN, Boolean.TRUE),
-                    param(VARBINARY, "a290IGJpbmFybnk=".getBytes()));
+                    param(VARBINARY, null));
 
-            defaultQueryExecutor().executeQuery(insertSql, QueryType.UPDATE,
+            defaultQueryExecutor().executeQuery(insertSqlWithTable, QueryType.UPDATE,
                     param(TINYINT, 1),
                     param(SMALLINT, 2),
                     param(INTEGER, 3),
@@ -187,11 +227,11 @@ public class PreparedStatements
                     param(DATE, Date.valueOf("2014-03-10")),
                     param(VARCHAR, "abc"),
                     param(VARCHAR, "def"),
-                    param(CHAR, "ghi"),
+                    param(CHAR, "ghi       "),
                     param(BOOLEAN, Boolean.FALSE),
-                    param(VARBINARY, "jkl".getBytes()));
+                    param(VARBINARY, null));
 
-            defaultQueryExecutor().executeQuery(insertSql, QueryType.UPDATE,
+            defaultQueryExecutor().executeQuery(insertSqlWithTable, QueryType.UPDATE,
                     param(TINYINT, null),
                     param(SMALLINT, null),
                     param(INTEGER, null),
@@ -208,41 +248,41 @@ public class PreparedStatements
                     param(BOOLEAN, null),
                     param(VARBINARY, null));
 
-            QueryResult result = defaultQueryExecutor().executeQuery(selectSql);
+            QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
                     row(
                             127,
                             32767,
                             2147483647,
-                            new BigInteger("9223372036854775807"),
+                            Long.parseLong("9223372036854775807"),
                             Float.valueOf("123.345"),
-                            234.567,
-                            BigDecimal.valueOf(345.678),
+                            Double.valueOf("234.567"),
+                            BigDecimal.valueOf(346),
                             BigDecimal.valueOf(345.678),
                             Timestamp.valueOf("2015-05-10 12:15:35"),
                             Date.valueOf("2015-05-10"),
                             "ala ma kota",
-                            "ala ma kota",
-                            "ala ma",
+                            "ala ma kot",
+                            "ala ma    ",
                             Boolean.TRUE,
-                            "a290IGJpbmFybnk=".getBytes()),
+                            null),
                     row(
                             1,
                             2,
                             3,
-                            4,
+                            4L,
                             Float.valueOf("5.6"),
                             7.8,
-                            BigDecimal.valueOf(9.1),
+                            BigDecimal.valueOf(91),
                             BigDecimal.valueOf(2.3),
                             Timestamp.valueOf("2012-05-10 1:35:15"),
                             Date.valueOf("2014-03-10"),
                             "abc",
                             "def",
-                            "ghi",
+                            "ghi       ",
                             Boolean.FALSE,
-                            "jkl".getBytes()),
+                            null),
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {
@@ -257,18 +297,18 @@ public class PreparedStatements
     {
         if (usingTeradataJdbcDriver(connection)) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String prepareSql = "PREPARE ps1 from INSERT INTO " + tableNameInDatabase + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
-            String selectSql = "SELECT * FROM " + tableNameInDatabase;
+            String insertSqlWithTable = "PREPARE ps1 from " + String.format(insertSql, tableNameInDatabase);
+            String selectSqlWithTable = String.format(selectStarSql, tableNameInDatabase);
             String executeSql = "EXECUTE ps1 using ";
 
             Statement statement = connection.createStatement();
-            statement.execute(prepareSql);
+            statement.execute(insertSqlWithTable);
             statement.execute(executeSql +
                     "cast(127 as tinyint), " +
                     "cast(32767 as smallint), " +
                     "2147483647, " +
                     "9223372036854775807, " +
-                    "cast(123.345 as float), " +
+                    "cast(123.345 as real), " +
                     "cast(234.567 as double), " +
                     "cast(345.678 as decimal(10)), " +
                     "cast(345.678 as decimal(10,5)), " +
@@ -285,7 +325,7 @@ public class PreparedStatements
                     "cast(2 as smallint), " +
                     "3, " +
                     "4, " +
-                    "cast(5.6 as float), " +
+                    "cast(5.6 as real), " +
                     "cast(7.8 as double), " +
                     "cast(9.1 as decimal(10)), " +
                     "cast(2.3 as decimal(10,5)), " +
@@ -294,7 +334,7 @@ public class PreparedStatements
                     "'abc', " +
                     "'def', " +
                     "cast('ghi' as char(10)), " +
-                    "true, " +
+                    "false, " +
                     "varbinary 'jkl'");
 
             statement.execute(executeSql +
@@ -314,23 +354,23 @@ public class PreparedStatements
                     "null, " +
                     "null");
 
-            QueryResult result = defaultQueryExecutor().executeQuery(selectSql);
+            QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
             assertColumnTypes(result);
             assertThat(result).containsOnly(
                     row(
                             127,
                             32767,
                             2147483647,
-                            new BigInteger("9223372036854775807"),
+                            Long.parseLong("9223372036854775807"),
                             Float.valueOf("123.345"),
                             234.567,
-                            BigDecimal.valueOf(345.678),
+                            BigDecimal.valueOf(346),
                             BigDecimal.valueOf(345.678),
                             Timestamp.valueOf("2015-05-10 12:15:35"),
                             Date.valueOf("2015-05-10"),
                             "ala ma kota",
-                            "ala ma kota",
-                            "ala ma",
+                            "ala ma kot",
+                            "ala ma    ",
                             Boolean.TRUE,
                             "a290IGJpbmFybnk=".getBytes()),
                     row(
@@ -340,19 +380,60 @@ public class PreparedStatements
                             4,
                             Float.valueOf("5.6"),
                             7.8,
-                            BigDecimal.valueOf(9.1),
+                            BigDecimal.valueOf(9),
                             BigDecimal.valueOf(2.3),
                             Timestamp.valueOf("2012-05-10 1:35:15"),
                             Date.valueOf("2014-03-10"),
                             "abc",
                             "def",
-                            "ghi",
+                            "ghi       ",
                             Boolean.FALSE,
                             "jkl".getBytes()),
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {
             LOGGER.warn("preparedInsertSql() only applies to TeradataJdbcDriver");
+        }
+    }
+
+    @Test(groups = {JDBC, SIMBA_JDBC})
+    @Requires(MutableAllTypesTable.class)
+    public void preparedInsertVarbinarySql()
+            throws SQLException
+    {
+        if (usingTeradataJdbcDriver(connection)) {
+            String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
+            String insertSqlWithTable = "PREPARE ps1 from " + String.format(insertSql, tableNameInDatabase);
+            String selectSqlWithTable = String.format(selectStarSql, tableNameInDatabase);
+            String executeSql = "EXECUTE ps1 using ";
+
+            Statement statement = connection.createStatement();
+            statement.execute(insertSqlWithTable);
+            statement.execute(executeSql +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "null, " +
+                    "varbinary 'a290IGJpbmFybnk='");
+
+            QueryResult result = defaultQueryExecutor().executeQuery(selectSqlWithTable);
+            assertColumnTypes(result);
+            assertThat(result).containsOnly(
+                    row(null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                            "a290IGJpbmFybnk=".getBytes()));
+        }
+        else {
+            LOGGER.warn("preparedInsertVarbinarySql() only applies to TeradataJdbcDriver");
         }
     }
 

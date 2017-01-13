@@ -52,8 +52,6 @@ import static com.teradata.tempto.fulfillment.table.hive.tpch.TpchTableDefinitio
 import static com.teradata.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
 import static com.teradata.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static com.teradata.tempto.query.QueryExecutor.query;
-import static java.lang.Boolean.FALSE;
-import static java.lang.Boolean.TRUE;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -113,11 +111,16 @@ public class JdbcTests
     public void shouldExecuteQueryWithSelectedCatalogAndSchema()
             throws SQLException
     {
-        connection.setCatalog("hive");
-        connection.setSchema("default");
-        try (Statement statement = connection.createStatement()) {
-            QueryResult result = queryResult(statement, "select * from nation");
-            assertThat(result).matches(PRESTO_NATION_RESULT);
+        if (usingTeradataJdbc4Driver(connection)) {
+            LOGGER.warn("connection.setSchema() is not supported in JDBC 4");
+        }
+        else {
+            connection.setCatalog("hive");
+            connection.setSchema("default");
+            try (Statement statement = connection.createStatement()) {
+                QueryResult result = queryResult(statement, "select * from nation");
+                assertThat(result).matches(PRESTO_NATION_RESULT);
+            }
         }
     }
 
@@ -247,13 +250,14 @@ public class JdbcTests
     public void testSessionProperties()
             throws SQLException
     {
-        final String distributedJoin = "distributed_join";
-
-        assertThat(getSessionProperty(connection, distributedJoin)).isEqualTo(TRUE.toString());
-        setSessionProperty(connection, distributedJoin, FALSE.toString());
-        assertThat(getSessionProperty(connection, distributedJoin)).isEqualTo(FALSE.toString());
-        resetSessionProperty(connection, distributedJoin);
-        assertThat(getSessionProperty(connection, distributedJoin)).isEqualTo(TRUE.toString());
+        final String propertyName = "task_concurrency";
+        final String defaultValue = "16";
+        final String testValue = "32";
+        assertThat(getSessionProperty(connection, propertyName)).isEqualTo(defaultValue);
+        setSessionProperty(connection, propertyName, testValue);
+        assertThat(getSessionProperty(connection, propertyName)).isEqualTo(testValue);
+        resetSessionProperty(connection, propertyName);
+        assertThat(getSessionProperty(connection, propertyName)).isEqualTo(defaultValue);
     }
 
     private QueryResult queryResult(Statement statement, String query)
