@@ -6486,6 +6486,24 @@ public abstract class AbstractTestQueries
                         "WHERE 100 < (SELECT * " +
                         "FROM (SELECT (SELECT avg(i.orderkey) FROM orders i WHERE o.orderkey < i.orderkey AND i.orderkey % 10000 = 0)))",
                 "VALUES 14999"); // h2 is slow
+
+        // consecutive correlated subqueries with scalar aggregation
+        assertQuery("SELECT " +
+                "(SELECT avg(regionkey) " +
+                " FROM nation n2" +
+                " WHERE n2.nationkey = n1.nationkey)," +
+                "(SELECT avg(regionkey)" +
+                " FROM nation n3" +
+                " WHERE n3.nationkey = n1.nationkey)" +
+                "FROM nation n1");
+        assertQuery("SELECT" +
+                "(SELECT avg(regionkey)" +
+                " FROM nation n2 " +
+                " WHERE n2.nationkey = n1.nationkey)," +
+                "(SELECT avg(regionkey)+1 " +
+                " FROM nation n3 " +
+                " WHERE n3.nationkey = n1.nationkey)" +
+                "FROM nation n1");
     }
 
     @Test
