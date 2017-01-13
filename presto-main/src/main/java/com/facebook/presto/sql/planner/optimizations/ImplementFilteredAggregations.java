@@ -134,7 +134,7 @@ public class ImplementFilteredAggregations
                     idAllocator.getNextId(),
                     new ProjectNode(
                             idAllocator.getNextId(),
-                            node.getSource(),
+                            context.rewrite(node.getSource()),
                             newProjections.build()),
                     calls.build(),
                     node.getFunctions(),
