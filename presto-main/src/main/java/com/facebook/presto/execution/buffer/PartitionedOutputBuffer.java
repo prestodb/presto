@@ -247,11 +247,8 @@ public class PartitionedOutputBuffer
             return;
         }
 
-        for (ClientBuffer partition : partitions) {
-            if (!partition.isDestroyed()) {
-                return;
-            }
+        if (partitions.stream().allMatch(ClientBuffer::isDestroyed)) {
+            destroy();
         }
-        destroy();
     }
 }

@@ -341,11 +341,8 @@ public class BroadcastOutputBuffer
             return;
         }
 
-        for (ClientBuffer buffer : safeGetBuffersSnapshot()) {
-            if (!buffer.isDestroyed()) {
-                return;
-            }
+        if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
+            destroy();
         }
-        destroy();
     }
 }
