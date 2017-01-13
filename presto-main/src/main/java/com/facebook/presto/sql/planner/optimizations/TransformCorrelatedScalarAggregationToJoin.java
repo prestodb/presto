@@ -201,6 +201,7 @@ public class TransformCorrelatedScalarAggregationToJoin
 
             Optional<ProjectNode> subqueryProjection = searchFrom(applyNode.getSubquery())
                     .where(ProjectNode.class::isInstance)
+                    .skipOnlyWhen(EnforceSingleRowNode.class::isInstance)
                     .findFirst();
 
             if (subqueryProjection.isPresent()) {
