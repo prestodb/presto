@@ -21,7 +21,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +31,7 @@ public class AggregateWindowFunction
         implements WindowFunction
 {
     private final InternalAggregationFunction function;
-    private final int[] argumentChannels;
+    private final List<Integer> argumentChannels;
     private final AccumulatorFactory accumulatorFactory;
 
     private WindowIndex windowIndex;
@@ -43,7 +42,7 @@ public class AggregateWindowFunction
     private AggregateWindowFunction(InternalAggregationFunction function, List<Integer> argumentChannels)
     {
         this.function = requireNonNull(function, "function is null");
-        this.argumentChannels = Ints.toArray(argumentChannels);
+        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
         this.accumulatorFactory = function.bind(createArgs(function), Optional.empty());
     }
 
@@ -83,9 +82,7 @@ public class AggregateWindowFunction
             accumulator.addInput(end - start + 1);
         }
         else {
-            for (int i = 0; i < function.getParameterTypes().size(); ++i) {
-                accumulator.addInput(windowIndex, argumentChannels[i], start, end);
-            }
+            accumulator.addInput(windowIndex, argumentChannels, start, end);
         }
     }
 

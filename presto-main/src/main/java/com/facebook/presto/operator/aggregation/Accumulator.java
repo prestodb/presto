@@ -19,6 +19,8 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.spi.type.Type;
 
+import java.util.List;
+
 public interface Accumulator
 {
     long getEstimatedSize();
@@ -29,7 +31,7 @@ public interface Accumulator
 
     void addInput(Page page);
 
-    void addInput(WindowIndex index, int channel, int startPosition, int endPosition);
+    void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);
 
     void addInput(int positionCount);
 

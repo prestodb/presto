@@ -252,17 +252,18 @@ public class AccumulatorCompiler
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
 
         Parameter index = arg("index", WindowIndex.class);
-        Parameter channel = arg("channel", int.class);
+        Parameter channels = arg("channels", type(List.class, Integer.class));
         Parameter startPosition = arg("startPosition", int.class);
         Parameter endPosition = arg("endPosition", int.class);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channel, startPosition, endPosition));
+        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), ImmutableList.of(index, channels, startPosition, endPosition));
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
         scope.declareVariable(boolean.class, "isNull");
         Variable positionVariable = scope.declareVariable(int.class, "position");
         scope.declareVariable(Block.class, "block");
+        scope.declareVariable(int.class, "channel");
 
         BytecodeBlock popBlock = new BytecodeBlock();
         Class<?>[] parameters = inputFunction.type().parameterArray();
@@ -305,6 +306,7 @@ public class AccumulatorCompiler
     {
         BytecodeBlock block = new BytecodeBlock();
 
+        int inputChannel = 0;
         block.comment("Read value from WindowIndex");
         for (int i = 0; i < parameters.length; i++) {
             ParameterMetadata parameterMetadata = parameterMetadatas.get(i);
@@ -316,18 +318,36 @@ public class AccumulatorCompiler
                     block.append(constantInt(0)); // index.getSingleValueBlock(channel, position) generates always a page with only one position
                     break;
                 case BLOCK_INPUT_CHANNEL:
+                    block.append(updateChannel(scope, inputChannel));
                     block.append(generateReadBlockFromIndex(scope));
                     block.append(checkIsBlockNull(scope));
+                    inputChannel++;
                     break;
                 case NULLABLE_BLOCK_INPUT_CHANNEL:
+                    block.append(updateChannel(scope, inputChannel));
                     block.append(generateReadBlockFromIndex(scope));
+                    inputChannel++;
                     break;
                 case INPUT_CHANNEL:
+                    block.append(updateChannel(scope, inputChannel));
                     block.append(generateReadFromIndex(scope, parameters[i]));
+                    inputChannel++;
                     break;
             }
         }
 
+        return block;
+    }
+
+    private static BytecodeBlock updateChannel(Scope scope, int inputChannel)
+    {
+        BytecodeBlock block = new BytecodeBlock();
+        block.append(scope.getVariable("channels"));
+        block.push(inputChannel);
+        block.invokeInterface(List.class, "get", Object.class, int.class);
+        block.checkCast(Integer.class);
+        block.invokeVirtual(Integer.class, "intValue", int.class);
+        block.putVariable(scope.getVariable("channel"));
         return block;
     }
 
@@ -416,7 +436,11 @@ public class AccumulatorCompiler
                     .invokeInterface(WindowIndex.class, "getSlice", Slice.class, int.class, int.class);
         }
         else if (parameterType == Block.class) {
-            block.append(generateReadBlockFromIndex(scope));
+            block.comment("index.getObject(channel, position)")
+                    .append(index)
+                    .append(channel)
+                    .append(position)
+                    .invokeInterface(WindowIndex.class, "getObject", Block.class, int.class, int.class);
         }
         else {
             throw new IllegalArgumentException(format("Unsupported parameter type: %s", parameterType));
