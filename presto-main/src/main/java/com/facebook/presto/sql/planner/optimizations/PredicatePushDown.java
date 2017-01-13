@@ -355,7 +355,8 @@ public class PredicatePushDown
             PlanNode output = node;
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
-                    !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types)) {
+                    !expressionEquivalence.areExpressionsEquivalent(session, newJoinPredicate, joinPredicate, types) ||
+                    node.getCriteria().isEmpty()) {
                 // Create identity projections for all existing symbols
                 Assignments.Builder leftProjections = Assignments.builder();
                 leftProjections.putAll(node.getLeft()

@@ -315,7 +315,7 @@ public class TestLogicalPlanner
                                                 any(
                                                         aggregation(ImmutableMap.of("PARTIAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
                                                                 any(
-                                                                        join(LEFT, ImmutableList.of(), Optional.of("ORDERKEY = 3"),
+                                                                        join(LEFT, ImmutableList.of(), Optional.of("3 = ORDERKEY"),
                                                                                 any(
                                                                                         tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
                                                                                 project(ImmutableMap.of("NON_NULL", expression("true")),
