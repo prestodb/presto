@@ -112,7 +112,6 @@ public class PartitionedOutputBuffer
         // always get the state first before any other stats
         BufferState state = this.state.get();
 
-        int totalBufferedBytes = 0;
         int totalBufferedPages = 0;
         ImmutableList.Builder<BufferInfo> infos = ImmutableList.builder();
         for (ClientBuffer partition : partitions) {
@@ -121,7 +120,6 @@ public class PartitionedOutputBuffer
 
             PageBufferInfo pageBufferInfo = bufferInfo.getPageBufferInfo();
             totalBufferedPages += pageBufferInfo.getBufferedPages();
-            totalBufferedBytes += pageBufferInfo.getBufferedBytes();
         }
 
         return new OutputBufferInfo(
@@ -129,7 +127,7 @@ public class PartitionedOutputBuffer
                 state,
                 state.canAddBuffers(),
                 state.canAddPages(),
-                totalBufferedBytes,
+                memoryManager.getBufferedBytes(),
                 totalBufferedPages,
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
