@@ -915,6 +915,11 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT count(*) FILTER (WHERE x > 1), sum(x) FROM (VALUES (1, 3), (2, 4), (2, 4), (4, 5)) t (x, y)", "SELECT 3, 9");
         assertQuery("SELECT count(*) FILTER (WHERE x > 1), count(DISTINCT y) FROM (VALUES (1, 10), (2, 10), (3, 10), (4, 20)) t (x, y)", "SELECT 3, 2");
 
+        assertQuery("" +
+                "SELECT sum(b) FILTER (WHERE true) " +
+                "FROM (SELECT count(*) FILTER (WHERE true) AS b)",
+                "SELECT 1");
+
         // TODO: enable when DISTINCT is allowed with filtered aggregations
         // assertQuery("SELECT count(distinct x) FILTER (where y = 1) FROM (VALUES (2, 1), (1, 2), (1,1)) t(x, y)", "SELECT 2");
         // assertQuery("SELECT sum(DISTINCT x) FILTER (WHERE x > 1) AS x FROM (VALUES (1), (2), (2), (4)) t (x)", "SELECT 6");
