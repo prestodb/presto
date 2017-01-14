@@ -146,31 +146,26 @@ public class PartialAggregationPushDown
             for (int i = 0; i < exchange.getSources().size(); i++) {
                 PlanNode source = exchange.getSources().get(i);
 
-                if (!exchange.getOutputSymbols().equals(exchange.getInputs().get(i))) {
-                    // Add an identity projection to preserve the inputs to the aggregation, if necessary.
-                    // This allows us to avoid having to rewrite the symbols in the aggregation node below.
-                    Assignments.Builder assignments = Assignments.builder();
-                    for (int outputIndex = 0; outputIndex < exchange.getOutputSymbols().size(); outputIndex++) {
-                        Symbol output = exchange.getOutputSymbols().get(outputIndex);
-                        Symbol input = exchange.getInputs().get(i).get(outputIndex);
-                        assignments.put(output, input.toSymbolReference());
+                ImmutableMap.Builder<Symbol, Symbol> mappingsBuilder = ImmutableMap.builder();
+                for (int outputIndex = 0; outputIndex < exchange.getOutputSymbols().size(); outputIndex++) {
+                    Symbol output = exchange.getOutputSymbols().get(outputIndex);
+                    Symbol input = exchange.getInputs().get(i).get(outputIndex);
+                    if (!output.equals(input)) {
+                        mappingsBuilder.put(output, input);
                     }
-
-                    source = new ProjectNode(idAllocator.getNextId(), source, assignments.build());
                 }
 
-                // Since this exchange source is now guaranteed to have the same symbols as the inputs to the the partial
-                // aggregation, we can build a new AggregationNode without any further symbol rewrites
-                partials.add(new AggregationNode(
-                        idAllocator.getNextId(),
-                        source,
-                        partial.getAggregations(),
-                        partial.getFunctions(),
-                        partial.getMasks(),
-                        partial.getGroupingSets(),
-                        partial.getStep(),
-                        partial.getHashSymbol(),
-                        partial.getGroupIdSymbol()));
+                Map<Symbol, Symbol> mappings = mappingsBuilder.build();
+                SymbolMapper symbolMapper = new SymbolMapper(mappings);
+                AggregationNode mappedPartial = symbolMapper.map(partial, source, idAllocator.getNextId());
+
+                Assignments.Builder assignments = Assignments.builder();
+                for (int outputIndex = 0; outputIndex < partial.getOutputSymbols().size(); outputIndex++) {
+                    Symbol output = partial.getOutputSymbols().get(outputIndex);
+                    Symbol input = mappings.getOrDefault(output, output);
+                    assignments.put(output, input.toSymbolReference());
+                }
+                partials.add(new ProjectNode(idAllocator.getNextId(), mappedPartial, assignments.build()));
             }
 
             for (PlanNode node : partials) {
