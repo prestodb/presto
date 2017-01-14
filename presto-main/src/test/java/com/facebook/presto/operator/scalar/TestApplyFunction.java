@@ -122,7 +122,7 @@ public class TestApplyFunction
         assertFunction("apply(25, x -> x + 1)", INTEGER, 26);
         assertFunction("apply(25, x -> x + 1.0)", DOUBLE, 26.0);
         assertFunction("apply(25, x -> x = 25)", BOOLEAN, true);
-        assertFunction("apply(25, x -> to_base(x, 16))", createUnboundedVarcharType(), "19");
+        assertFunction("apply(25, x -> to_base(x, 16))", createVarcharType(64), "19");
         assertFunction("apply(25, x -> ARRAY[x + 1])", new ArrayType(INTEGER), ImmutableList.of(26));
 
         assertFunction("apply(25.6, x -> CAST(x AS BIGINT))", BIGINT, 26L);

@@ -3,24 +3,24 @@
  current_time | time with time zone | | scalar | true | current time with time zone |
  current_timestamp | timestamp with time zone | | scalar | true | current timestamp with time zone |
  current_timezone | varchar | | scalar | true | current time zone |
- date_add | date | varchar, bigint, date | scalar | true | add the specified amount of date to the given date |
- date_add | time | varchar, bigint, time | scalar | true | add the specified amount of time to the given time |
- date_add | time with time zone | varchar, bigint, time with time zone | scalar | true | add the specified amount of time to the given time |
- date_add | timestamp | varchar, bigint, timestamp | scalar | true | add the specified amount of time to the given timestamp |
- date_add | timestamp with time zone | varchar, bigint, timestamp with time zone | scalar | true | add the specified amount of time to the given timestamp |
- date_diff | bigint | varchar, date, date | scalar | true | difference of the given dates in the given unit |
- date_diff | bigint | varchar, time with time zone, time with time zone | scalar | true | difference of the given times in the given unit |
- date_diff | bigint | varchar, time, time | scalar | true | difference of the given times in the given unit |
- date_diff | bigint | varchar, timestamp with time zone, timestamp with time zone | scalar | true | difference of the given times in the given unit |
- date_diff | bigint | varchar, timestamp, timestamp | scalar | true | difference of the given times in the given unit |
- date_format | varchar | timestamp with time zone, varchar | scalar | true | |
- date_format | varchar | timestamp, varchar | scalar | true | |
- date_parse | timestamp | varchar, varchar | scalar | true | |
- date_trunc | date | varchar, date | scalar | true | truncate to the specified precision in the session timezone |
- date_trunc | time | varchar, time | scalar | true | truncate to the specified precision in the session timezone |
- date_trunc | time with time zone | varchar, time with time zone | scalar | true | truncate to the specified precision |
- date_trunc | timestamp | varchar, timestamp | scalar | true | truncate to the specified precision in the session timezone |
- date_trunc | timestamp with time zone | varchar, timestamp with time zone | scalar | true | truncate to the specified precision |
+ date_add | date | varchar(x), bigint, date | scalar | true | add the specified amount of date to the given date |
+ date_add | time | varchar(x), bigint, time | scalar | true | add the specified amount of time to the given time |
+ date_add | time with time zone | varchar(x), bigint, time with time zone | scalar | true | add the specified amount of time to the given time |
+ date_add | timestamp | varchar(x), bigint, timestamp | scalar | true | add the specified amount of time to the given timestamp |
+ date_add | timestamp with time zone | varchar(x), bigint, timestamp with time zone | scalar | true | add the specified amount of time to the given timestamp |
+ date_diff | bigint | varchar(x), date, date | scalar | true | difference of the given dates in the given unit |
+ date_diff | bigint | varchar(x), time with time zone, time with time zone | scalar | true | difference of the given times in the given unit |
+ date_diff | bigint | varchar(x), time, time | scalar | true | difference of the given times in the given unit |
+ date_diff | bigint | varchar(x), timestamp with time zone, timestamp with time zone | scalar | true | difference of the given times in the given unit |
+ date_diff | bigint | varchar(x), timestamp, timestamp | scalar | true | difference of the given times in the given unit |
+ date_format | varchar | timestamp with time zone, varchar(x) | scalar | true | |
+ date_format | varchar | timestamp, varchar(x) | scalar | true | |
+ date_parse | timestamp | varchar(x), varchar(y) | scalar | true | |
+ date_trunc | date | varchar(x), date | scalar | true | truncate to the specified precision in the session timezone |
+ date_trunc | time | varchar(x), time | scalar | true | truncate to the specified precision in the session timezone |
+ date_trunc | time with time zone | varchar(x), time with time zone | scalar | true | truncate to the specified precision |
+ date_trunc | timestamp | varchar(x), timestamp | scalar | true | truncate to the specified precision in the session timezone |
+ date_trunc | timestamp with time zone | varchar(x), timestamp with time zone | scalar | true | truncate to the specified precision |
  day | bigint | date | scalar | true | day of the month of the given date |
  day | bigint | interval day to second | scalar | true | day of the month of the given interval |
  day | bigint | timestamp | scalar | true | day of the month of the given timestamp |
@@ -42,10 +42,10 @@
  doy | bigint | timestamp | scalar | true | day of the year of the given timestamp |
  doy | bigint | timestamp with time zone | scalar | true | day of the year of the given timestamp |
  e | double | | scalar | true | Euler's number |
- format_datetime | varchar | timestamp with time zone, varchar | scalar | true | formats the given time by the given format |
- format_datetime | varchar | timestamp, varchar | scalar | true | formats the given time by the given format |
- from_iso8601_date | date | varchar | scalar | true | |
- from_iso8601_timestamp | timestamp with time zone | varchar | scalar | true | |
+ format_datetime | varchar | timestamp with time zone, varchar(x) | scalar | true | formats the given time by the given format |
+ format_datetime | varchar | timestamp, varchar(x) | scalar | true | formats the given time by the given format |
+ from_iso8601_date | date | varchar(x) | scalar | true | |
+ from_iso8601_timestamp | timestamp with time zone | varchar(x) | scalar | true | |
  from_unixtime | timestamp | double | scalar | true | |
  from_unixtime | timestamp with time zone | double, bigint, bigint | scalar | true | |
  hour | bigint | interval day to second | scalar | true | hour of the day of the given interval |
@@ -65,7 +65,7 @@
  month | bigint | timestamp | scalar | true | month of the year of the given timestamp |
  month | bigint | timestamp with time zone | scalar | true | month of the year of the given timestamp |
  now | timestamp with time zone | | scalar | true | current timestamp with time zone |
- parse_datetime | timestamp with time zone | varchar, varchar | scalar | true | parses the specified date/time by the given format |
+ parse_datetime | timestamp with time zone | varchar(x), varchar(y) | scalar | true | parses the specified date/time by the given format |
  quarter | bigint | date | scalar | true | quarter of the year of the given date |
  quarter | bigint | timestamp | scalar | true | quarter of the year of the given timestamp |
  quarter | bigint | timestamp with time zone | scalar | true | quarter of the year of the given timestamp |

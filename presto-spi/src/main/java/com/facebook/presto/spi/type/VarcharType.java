@@ -26,9 +26,9 @@ import static java.util.Collections.singletonList;
 public final class VarcharType
         extends AbstractVariableWidthType
 {
-    public static final int MAX_LENGTH = Integer.MAX_VALUE;
-    public static final VarcharType VARCHAR = new VarcharType(MAX_LENGTH);
-    public static final String VARCHAR_MAX_LENGTH = "varchar(2147483647)";
+    public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
+    public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
+    public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
 
     public static VarcharType createUnboundedVarcharType()
     {
@@ -37,6 +37,10 @@ public final class VarcharType
 
     public static VarcharType createVarcharType(int length)
     {
+        if (length > MAX_LENGTH || length < 0) {
+            // Use createUnboundedVarcharType for unbounded VARCHAR.
+            throw new IllegalArgumentException("Invalid VARCHAR length " + length);
+        }
         return new VarcharType(length);
     }
 
@@ -61,9 +65,23 @@ public final class VarcharType
         this.length = length;
     }
 
+    @Deprecated
     public int getLength()
     {
         return length;
+    }
+
+    public int getLengthSafe()
+    {
+        if (isUnbounded()) {
+            throw new IllegalStateException("Cannot get size of unbounded VARCHAR.");
+        }
+        return length;
+    }
+
+    public boolean isUnbounded()
+    {
+        return length == UNBOUNDED_LENGTH;
     }
 
     @Override
@@ -172,7 +190,7 @@ public final class VarcharType
     @Override
     public String getDisplayName()
     {
-        if (length == MAX_LENGTH) {
+        if (length == UNBOUNDED_LENGTH) {
             return getTypeSignature().getBase();
         }
 

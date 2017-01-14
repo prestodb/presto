@@ -23,7 +23,6 @@ import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +46,7 @@ public final class MLFunctions
     }
 
     @ScalarFunction("classify")
-    @SqlType(VarcharType.VARCHAR_MAX_LENGTH)
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice varcharClassify(@SqlType(MAP_BIGINT_DOUBLE) Block featuresMap, @SqlType("Classifier<varchar>") Slice modelSlice)
     {
         FeatureVector features = ModelUtils.toFeatures(featuresMap);

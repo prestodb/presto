@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.SqlDecimal;
+import com.facebook.presto.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -29,7 +30,6 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class TestMathFunctions
         extends AbstractTestFunctions
@@ -1056,13 +1056,13 @@ public class TestMathFunctions
     public void testToBase()
             throws Exception
     {
-        assertFunction("to_base(2147483648, 16)", VARCHAR, "80000000");
-        assertFunction("to_base(255, 2)", VARCHAR, "11111111");
-        assertFunction("to_base(-2147483647, 16)", VARCHAR, "-7fffffff");
-        assertFunction("to_base(NULL, 16)", VARCHAR, null);
-        assertFunction("to_base(-2147483647, NULL)", VARCHAR, null);
-        assertFunction("to_base(NULL, NULL)", VARCHAR, null);
-        assertInvalidFunction("to_base(255, 1)", "Radix must be between 2 and 36");
+        VarcharType toBaseReturnType = VarcharType.createVarcharType(64);
+        assertFunction("to_base(2147483648, 16)", toBaseReturnType, "80000000");
+        assertFunction("to_base(255, 2)", toBaseReturnType, "11111111");
+        assertFunction("to_base(-2147483647, 16)", toBaseReturnType, "-7fffffff");
+        assertFunction("to_base(NULL, 16)", toBaseReturnType, null);
+        assertFunction("to_base(-2147483647, NULL)", toBaseReturnType, null);
+        assertFunction("to_base(NULL, NULL)", toBaseReturnType, null);
         assertInvalidFunction("to_base(255, 1)", "Radix must be between 2 and 36");
     }
 
