@@ -98,6 +98,7 @@ public class PlanOptimizers
 
                         new MergeUnion(),
                         new MergeIntersect(),
+                        new MergeExcept(),
 
                         new PruneValuesColumns(),
                         new PruneTableScanColumns(),
