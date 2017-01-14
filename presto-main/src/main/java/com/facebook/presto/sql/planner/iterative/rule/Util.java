@@ -27,7 +27,9 @@ import java.util.Set;
 
 class Util
 {
-    private Util() { }
+    private Util()
+    {
+    }
 
     /**
      * Prune the list of available inputs to those required by the given expressions.
