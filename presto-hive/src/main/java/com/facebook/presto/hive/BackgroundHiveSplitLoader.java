@@ -44,6 +44,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -79,6 +80,7 @@ public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
     private static final String CORRUPT_BUCKETING = "Hive table is corrupt. It is declared as being bucketed, but the files do not match the bucketing declaration.";
+    private static final String USE_FILE_SPLITS_ANNOTATION_SIMPLE_NAME = "UseFileSplitsFromInputFormat";
 
     public static final CompletableFuture<?> COMPLETED_FUTURE = CompletableFuture.completedFuture(null);
 
@@ -269,6 +271,49 @@ public class BackgroundHiveSplitLoader
         return COMPLETED_FUTURE;
     }
 
+    private boolean addSplitsToSource(InputSplit[] targetSplits,
+                                   String partitionName,
+                                   Properties schema,
+                                   List<HivePartitionKey> partitionKeys,
+                                   TupleDomain<HiveColumnHandle> effectivePredicate,
+                                   Map<Integer, HiveType> columnCoercions) throws IOException
+    {
+        for (InputSplit inputSplit : targetSplits) {
+            FileSplit split = (FileSplit) inputSplit;
+            FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(session.getUser(), split.getPath());
+            FileStatus file = targetFilesystem.getFileStatus(split.getPath());
+            hiveSplitSource.addToQueue(createHiveSplits(
+                    partitionName,
+                    file.getPath().toString(),
+                    targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
+                    split.getStart(),
+                    split.getLength(),
+                    schema,
+                    partitionKeys,
+                    false,
+                    session,
+                    OptionalInt.empty(),
+                    effectivePredicate,
+                    columnCoercions));
+            if (stopped) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat)
+    {
+        Annotation[] annotations = inputFormat.getClass().getAnnotations();
+        for (Annotation annotation : annotations) {
+            String annotationSimpleName = annotation.annotationType().getSimpleName();
+            if (USE_FILE_SPLITS_ANNOTATION_SIMPLE_NAME.equals(annotationSimpleName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void loadPartition(HivePartitionMetadata partition)
             throws IOException
     {
@@ -299,28 +344,20 @@ public class BackgroundHiveSplitLoader
                 FileInputFormat.setInputPaths(targetJob, targetPath);
                 InputSplit[] targetSplits = targetInputFormat.getSplits(targetJob, 0);
 
-                for (InputSplit inputSplit : targetSplits) {
-                    FileSplit split = (FileSplit) inputSplit;
-                    FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(session.getUser(), split.getPath());
-                    FileStatus file = targetFilesystem.getFileStatus(split.getPath());
-                    hiveSplitSource.addToQueue(createHiveSplits(
-                            partitionName,
-                            file.getPath().toString(),
-                            targetFilesystem.getFileBlockLocations(file, split.getStart(), split.getLength()),
-                            split.getStart(),
-                            split.getLength(),
-                            schema,
-                            partitionKeys,
-                            false,
-                            session,
-                            OptionalInt.empty(),
-                            effectivePredicate,
-                            partition.getColumnCoercions()));
-                    if (stopped) {
-                        return;
-                    }
+                if (addSplitsToSource(targetSplits, partitionName, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions())) {
+                    return;
                 }
             }
+            return;
+        }
+
+        // To support custom input formats, we want to call the inputFormat.getSplits to obtain file splits.
+        if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
+            JobConf jobConf = new JobConf(configuration);
+            FileInputFormat.setInputPaths(jobConf, path);
+            InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
+
+            addSplitsToSource(splits, partitionName, schema, partitionKeys, effectivePredicate, partition.getColumnCoercions());
             return;
         }
 
