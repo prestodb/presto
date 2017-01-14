@@ -1,9 +1,0 @@
--- delimiter: |; ignoreOrder: true;
-customer|
-lineitem|
-nation|
-orders|
-part|
-partsupp|
-region|
-supplier|
