@@ -159,14 +159,15 @@ public class DriverContext
 
     public void finished()
     {
+        freeMemory(memoryReservation.get());
+        freeSystemMemory(systemMemoryReservation.get());
+
         if (!finished.compareAndSet(false, true)) {
             // already finished
             return;
         }
         executionEndTime.set(DateTime.now());
         endNanos.set(System.nanoTime());
-
-        freeMemory(memoryReservation.get());
 
         pipelineContext.driverFinished(this);
     }
@@ -175,8 +176,6 @@ public class DriverContext
     {
         pipelineContext.failed(cause);
         finished.set(true);
-
-        freeMemory(memoryReservation.get());
     }
 
     public boolean isDone()
