@@ -40,6 +40,12 @@ public class TestCassandraDistributed
     }
 
     @Override
+    public void testJoinWithLessThanOnDatesInJoinClause()
+    {
+        // Cassandra does not support DATE
+    }
+
+    @Override
     public void testGroupingSetMixedExpressionAndColumn()
     {
         // Cassandra does not support DATE
