@@ -118,7 +118,7 @@ public class TestJoinProbeCompiler
             outputTypes = ImmutableList.of(VARCHAR, BigintType.BIGINT);
         }
         LookupSource lookupSource = lookupSourceSupplierFactory.createLookupSourceSupplier(
-                taskContext.getSession().toConnectorSession(),
+                taskContext.getSession(),
                 addresses,
                 channels,
                 hashChannel,

@@ -26,6 +26,7 @@ import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
@@ -38,7 +39,6 @@ public final class PagesHash
     private final int channelCount;
     private final int mask;
     private final int[] key;
-    private final int[] positionLinks;
     private final long size;
 
     // Native array of hashes for faster collisions resolution compared
@@ -48,7 +48,10 @@ public final class PagesHash
     private final long hashCollisions;
     private final double expectedHashCollisions;
 
-    public PagesHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
+    public PagesHash(
+            LongArrayList addresses,
+            PagesHashStrategy pagesHashStrategy,
+            PositionLinks.Builder positionLinks)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
@@ -60,9 +63,6 @@ public final class PagesHash
         mask = hashSize - 1;
         key = new int[hashSize];
         Arrays.fill(key, -1);
-
-        this.positionLinks = new int[addresses.size()];
-        Arrays.fill(positionLinks, -1);
 
         positionToHashes = new byte[addresses.size()];
 
@@ -102,7 +102,7 @@ public final class PagesHash
                     if (((byte) hash) == positionToHashes[currentKey] && positionEqualsPositionIgnoreNulls(currentKey, realPosition)) {
                         // found a slot for this key
                         // link the new key position to the current key position
-                        positionLinks[realPosition] = currentKey;
+                        realPosition = positionLinks.link(realPosition, currentKey);
 
                         // key[pos] updated outside of this loop
                         break;
@@ -117,7 +117,7 @@ public final class PagesHash
         }
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
-                sizeOf(key) + sizeOf(positionLinks) + sizeOf(positionToHashes);
+                sizeOf(key) + sizeOf(positionToHashes);
         hashCollisions = hashCollisionsLocal;
         expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
@@ -129,7 +129,7 @@ public final class PagesHash
 
     public int getPositionCount()
     {
-        return positionLinks.length;
+        return addresses.size();
     }
 
     public long getInMemorySizeInBytes()
@@ -166,14 +166,9 @@ public final class PagesHash
         return -1;
     }
 
-    public int getNextAddressIndex(int currentAddressIndex)
+    public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        return positionLinks[currentAddressIndex];
-    }
-
-    public void appendTo(int position, PageBuilder pageBuilder, int outputChannelOffset)
-    {
-        long pageAddress = addresses.getLong(position);
+        long pageAddress = addresses.getLong(toIntExact(position));
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 

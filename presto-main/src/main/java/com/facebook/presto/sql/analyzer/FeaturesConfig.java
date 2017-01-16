@@ -50,6 +50,7 @@ public class FeaturesConfig
     private boolean distributedIndexJoinsEnabled;
     private boolean distributedJoinsEnabled = true;
     private boolean colocatedJoinsEnabled;
+    private boolean fastInequalityJoins = true;
     private boolean reorderJoins;
     private boolean redistributeWrites = true;
     private boolean optimizeMetadataQueries;
@@ -162,6 +163,19 @@ public class FeaturesConfig
     {
         this.colocatedJoinsEnabled = colocatedJoinsEnabled;
         return this;
+    }
+
+    @Config("fast-inequality-joins")
+    @ConfigDescription("Experimental: Use faster handling of inequality joins if it is possible")
+    public FeaturesConfig setFastInequalityJoins(boolean fastInequalityJoins)
+    {
+        this.fastInequalityJoins = fastInequalityJoins;
+        return this;
+    }
+
+    public boolean isFastInequalityJoins()
+    {
+        return fastInequalityJoins;
     }
 
     public boolean isJoinReorderingEnabled()

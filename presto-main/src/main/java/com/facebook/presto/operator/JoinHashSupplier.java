@@ -13,43 +13,58 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.isFastInequalityJoin;
+import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
+import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier
         implements LookupSourceSupplier
 {
-    private final ConnectorSession session;
+    private final Session session;
     private final PagesHash pagesHash;
     private final LongArrayList addresses;
     private final List<List<Block>> channels;
+    private final Function<Optional<JoinFilterFunction>, PositionLinks> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
 
     public JoinHashSupplier(
-            ConnectorSession session,
+            Session session,
             PagesHashStrategy pagesHashStrategy,
             LongArrayList addresses,
             List<List<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
-        requireNonNull(session, "session is null");
+        this.session = requireNonNull(session, "session is null");
+        this.addresses = requireNonNull(addresses, "addresses is null");
+        this.channels = requireNonNull(channels, "channels is null");
+        this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
         requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
-        requireNonNull(addresses, "addresses is null");
-        requireNonNull(channels, "channels is null");
-        requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
 
-        this.session = session;
-        this.pagesHash = new PagesHash(addresses, pagesHashStrategy);
-        this.addresses = addresses;
-        this.channels = channels;
-        this.filterFunctionFactory = filterFunctionFactory;
+        PositionLinks.Builder positionLinksBuilder;
+        if (filterFunctionFactory.isPresent() &&
+                filterFunctionFactory.get().getSortChannel().isPresent() &&
+                isFastInequalityJoin(session)) {
+            positionLinksBuilder = SortedPositionLinks.builder(
+                    addresses.size(),
+                    new PositionComparator(pagesHashStrategy, addresses));
+        }
+        else {
+            positionLinksBuilder = ArrayPositionLinks.builder(addresses.size());
+        }
+
+        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksBuilder);
+        this.positionLinks = positionLinksBuilder.build();
     }
 
     @Override
@@ -67,7 +82,46 @@ public class JoinHashSupplier
     @Override
     public JoinHash get()
     {
-        Optional<JoinFilterFunction> filterFunction = filterFunctionFactory.map(factory -> factory.create(session, addresses, channels));
-        return new JoinHash(pagesHash, filterFunction);
+        // We need to create new JoinFilterFunction per each thread using it, since those functions
+        // are not thread safe...
+        Optional<JoinFilterFunction> filterFunction =
+                filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channels));
+        return new JoinHash(
+                pagesHash,
+                filterFunction,
+                positionLinks.apply(filterFunction));
+    }
+
+    public static class PositionComparator
+            implements IntComparator
+    {
+        private final PagesHashStrategy pagesHashStrategy;
+        private final LongArrayList addresses;
+
+        public PositionComparator(PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+        {
+            this.pagesHashStrategy = pagesHashStrategy;
+            this.addresses = addresses;
+        }
+
+        @Override
+        public int compare(int leftPosition, int rightPosition)
+        {
+            long leftPageAddress = addresses.getLong(leftPosition);
+            int leftBlockIndex = decodeSliceIndex(leftPageAddress);
+            int leftBlockPosition = decodePosition(leftPageAddress);
+
+            long rightPageAddress = addresses.getLong(rightPosition);
+            int rightBlockIndex = decodeSliceIndex(rightPageAddress);
+            int rightBlockPosition = decodePosition(rightPageAddress);
+
+            return pagesHashStrategy.compare(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+        }
+
+        @Override
+        public int compare(Integer leftPosition, Integer rightPosition)
+        {
+            return compare(leftPosition.intValue(), rightPosition.intValue());
+        }
     }
 }

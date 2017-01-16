@@ -423,7 +423,7 @@ public class PagesIndex
                 }
                 LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
                 return lookupSourceFactory.createLookupSourceSupplier(
-                        session.toConnectorSession(),
+                        session,
                         valueAddresses,
                         channels,
                         hashChannel,
@@ -444,7 +444,7 @@ public class PagesIndex
                 filterFunctionFactory.map(JoinFilterFunctionFactory::getSortChannel).orElse(Optional.empty()));
 
         return new JoinHashSupplier(
-                session.toConnectorSession(),
+                session,
                 hashStrategy,
                 valueAddresses,
                 channels,

@@ -34,10 +34,13 @@ public final class JoinHash
     @Nullable
     private final JoinFilterFunction filterFunction;
 
-    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction)
+    private final PositionLinks positionLinks;
+
+    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, PositionLinks positionLinks)
     {
         this.pagesHash = requireNonNull(pagesHash, "pagesHash is null");
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null").orElse(null);
+        this.positionLinks = requireNonNull(positionLinks, "positionLinks is null");
     }
 
     @Override
@@ -55,25 +58,35 @@ public final class JoinHash
     @Override
     public long getInMemorySizeInBytes()
     {
-        return pagesHash.getInMemorySizeInBytes();
+        return pagesHash.getInMemorySizeInBytes() + positionLinks.getSizeInBytes();
     }
 
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage)
     {
-        return pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage);
+        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage);
+        return startJoinPosition(addressIndex, position, allChannelsPage);
     }
 
     @Override
     public long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash)
     {
-        return pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage, rawHash);
+        int addressIndex = pagesHash.getAddressIndex(position, hashChannelsPage, allChannelsPage, rawHash);
+        return startJoinPosition(addressIndex, position, allChannelsPage);
+    }
+
+    private long startJoinPosition(int currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    {
+        if (currentJoinPosition == -1) {
+            return -1;
+        }
+        return positionLinks.start(currentJoinPosition, probePosition, allProbeChannelsPage);
     }
 
     @Override
     public final long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
-        return pagesHash.getNextAddressIndex(toIntExact(currentJoinPosition));
+        return positionLinks.next(toIntExact(currentJoinPosition), probePosition, allProbeChannelsPage);
     }
 
     @Override
