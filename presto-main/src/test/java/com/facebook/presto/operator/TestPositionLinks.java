@@ -29,9 +29,9 @@ public class TestPositionLinks
     private static final Page TEST_PAGE = getOnlyElement(RowPagesBuilder.rowPagesBuilder(BIGINT).addSequencePage(20, 0).build());
 
     @Test
-    public void testPositionLinksList()
+    public void testArrayPositionLinks()
     {
-        PositionLinks.Builder builder = PositionLinksList.builder(1000);
+        PositionLinks.Builder builder = ArrayPositionLinks.builder(1000);
 
         assertEquals(builder.link(1, 0), 1);
         assertEquals(builder.link(2, 1), 2);
