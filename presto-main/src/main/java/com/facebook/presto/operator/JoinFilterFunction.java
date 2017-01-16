@@ -15,7 +15,11 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.Page;
 
+import java.util.Optional;
+
 public interface JoinFilterFunction
 {
     boolean filter(int leftAddress, int rightPosition, Page rightPage);
+
+    Optional<Integer> getSortChannel();
 }

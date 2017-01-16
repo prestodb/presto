@@ -24,6 +24,7 @@ import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -410,7 +411,11 @@ public class PagesIndex
             //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
 
             try {
-                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, outputChannels);
+                Optional<SortExpression> sortChannel = Optional.empty();
+                if (filterFunctionFactory.isPresent()) {
+                    sortChannel = filterFunctionFactory.get().getSortChannel();
+                }
+                LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
                 return lookupSourceFactory.createLookupSourceSupplier(
                         session.toConnectorSession(),
                         valueAddresses,

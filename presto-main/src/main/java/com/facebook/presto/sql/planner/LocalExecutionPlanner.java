@@ -103,6 +103,7 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
+import com.facebook.presto.sql.planner.SortExpressionExtractor.SortExpression;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -1600,6 +1601,8 @@ public class LocalExecutionPlanner
 
             Expression rewrittenFilter = new SymbolToInputRewriter(joinSourcesLayout).rewrite(filterExpression);
 
+            Optional<SortExpression> sortChannel = SortExpressionExtractor.extractSortExpression(buildLayout, rewrittenFilter);
+
             IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
                     session,
                     metadata,
@@ -1609,7 +1612,7 @@ public class LocalExecutionPlanner
                     emptyList() /* parameters have already been replaced */);
 
             RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size(), sortChannel);
         }
 
         private OperatorFactory createLookupJoin(
