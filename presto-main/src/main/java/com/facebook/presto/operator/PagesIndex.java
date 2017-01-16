@@ -385,7 +385,13 @@ public class PagesIndex
         }
 
         // if compilation fails, use interpreter
-        return new SimplePagesHashStrategy(types, outputChannels.orElse(rangeList(types.size())), ImmutableList.copyOf(channels), joinChannels, hashChannel);
+        return new SimplePagesHashStrategy(
+                types,
+                outputChannels.orElse(rangeList(types.size())),
+                ImmutableList.copyOf(channels),
+                joinChannels,
+                hashChannel,
+                Optional.empty());
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -434,7 +440,8 @@ public class PagesIndex
                 outputChannels.orElse(rangeList(types.size())),
                 channels,
                 joinChannels,
-                hashChannel);
+                hashChannel,
+                filterFunctionFactory.map(JoinFilterFunctionFactory::getSortChannel).orElse(Optional.empty()));
 
         return new JoinHashSupplier(
                 session.toConnectorSession(),
