@@ -256,7 +256,9 @@ public final class InternalResourceGroupManager
         String objectName = ObjectNames.builder(InternalResourceGroup.class, group.getId().toString()).build();
         try {
             if (export) {
-                exporter.export(objectName, group);
+                if (!exporter.getExportedObjects().values().contains(group)) {
+                    exporter.export(objectName, group);
+                }
             }
             else {
                 exporter.unexport(objectName);
