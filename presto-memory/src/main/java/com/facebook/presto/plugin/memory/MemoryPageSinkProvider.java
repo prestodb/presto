@@ -24,6 +24,8 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import javax.inject.Inject;
+
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
@@ -37,6 +39,7 @@ public class MemoryPageSinkProvider
 {
     private final MemoryPagesStore pagesStore;
 
+    @Inject
     public MemoryPageSinkProvider(MemoryPagesStore pagesStore)
     {
         this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");

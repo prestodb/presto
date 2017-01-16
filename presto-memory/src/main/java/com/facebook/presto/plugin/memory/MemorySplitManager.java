@@ -24,6 +24,8 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static com.facebook.presto.plugin.memory.Types.checkType;
@@ -33,9 +35,10 @@ public final class MemorySplitManager
 {
     private final int splitsPerNode;
 
-    public MemorySplitManager(int splitsPerNode)
+    @Inject
+    public MemorySplitManager(MemoryConfig config)
     {
-        this.splitsPerNode = splitsPerNode;
+        this.splitsPerNode = config.getSplitsPerNode();
     }
 
     @Override

@@ -23,6 +23,8 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
+import javax.inject.Inject;
+
 import java.util.List;
 
 import static com.facebook.presto.plugin.memory.Types.checkType;
@@ -34,6 +36,7 @@ public final class MemoryPageSourceProvider
 {
     private final MemoryPagesStore pagesStore;
 
+    @Inject
     public MemoryPageSourceProvider(MemoryPagesStore pagesStore)
     {
         this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");

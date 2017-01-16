@@ -17,10 +17,10 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,9 +42,10 @@ public class MemoryPagesStore
     @GuardedBy("this")
     private long currentBytes = 0;
 
-    public MemoryPagesStore(DataSize maxDataSizePerNode)
+    @Inject
+    public MemoryPagesStore(MemoryConfig config)
     {
-        this.maxBytes = maxDataSizePerNode.toBytes();
+        this.maxBytes = config.getMaxDataPerNode().toBytes();
     }
 
     private final Map<Long, List<Page>> pages = new HashMap<>();

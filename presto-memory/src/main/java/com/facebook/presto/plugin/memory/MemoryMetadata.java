@@ -37,6 +37,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
+import javax.inject.Inject;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -65,10 +67,11 @@ public class MemoryMetadata
     private final Map<String, Long> tableIds = new ConcurrentHashMap<>();
     private final Map<Long, MemoryTableHandle> tables = new ConcurrentHashMap<>();
 
-    public MemoryMetadata(NodeManager nodeManager, String connectorId)
+    @Inject
+    public MemoryMetadata(NodeManager nodeManager, MemoryConnectorId connectorId)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
     }
 
     @Override

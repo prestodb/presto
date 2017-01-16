@@ -22,6 +22,8 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
+import javax.inject.Inject;
+
 public class MemoryConnector
         implements Connector
 {
@@ -30,6 +32,7 @@ public class MemoryConnector
     private final MemoryPageSourceProvider pageSourceProvider;
     private final MemoryPageSinkProvider pageSinkProvider;
 
+    @Inject
     public MemoryConnector(
             MemoryMetadata metadata,
             MemorySplitManager splitManager,

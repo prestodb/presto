@@ -83,7 +83,7 @@ public class MemoryLocalQueryRunner
 
         // add tpch
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
-        localQueryRunner.createCatalog("memory", new MemoryConnectorFactory(1), ImmutableMap.<String, String>of());
+        localQueryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.<String, String>of());
 
         return localQueryRunner;
     }

@@ -18,28 +18,18 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import io.airlift.units.DataSize;
+import com.google.common.base.Throwables;
+import com.google.inject.Injector;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNull;
 
 public class MemoryConnectorFactory
         implements ConnectorFactory
 {
-    private static final DataSize DEFAULT_MAX_DATA_PER_NODE = new DataSize(128, DataSize.Unit.MEGABYTE);
-    private final int defaultSplitsPerNode;
-
-    public MemoryConnectorFactory()
-    {
-        this(Runtime.getRuntime().availableProcessors());
-    }
-
-    public MemoryConnectorFactory(int defaultSplitsPerNode)
-    {
-        this.defaultSplitsPerNode = defaultSplitsPerNode;
-    }
-
     @Override
     public String getName()
     {
@@ -55,34 +45,23 @@ public class MemoryConnectorFactory
     @Override
     public Connector create(String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
-        int splitsPerNode = getSplitsPerNode(requiredConfig);
-        DataSize maxDataPerNode = getMaxDataPerNode(requiredConfig);
-        MemoryPagesStore pagesStore = new MemoryPagesStore(maxDataPerNode);
-
-        return new MemoryConnector(
-                new MemoryMetadata(context.getNodeManager(), connectorId),
-                new MemorySplitManager(splitsPerNode),
-                new MemoryPageSourceProvider(pagesStore),
-                new MemoryPageSinkProvider(pagesStore));
-    }
-
-    private static DataSize getMaxDataPerNode(Map<String, String> properties)
-    {
+        requireNonNull(requiredConfig, "requiredConfig is null");
         try {
-            return DataSize.valueOf(firstNonNull(properties.get("memory.max-data-per-node"), DEFAULT_MAX_DATA_PER_NODE.toString()));
-        }
-        catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid property memory.max-data-per-node");
-        }
-    }
+            // A plugin is not required to use Guice; it is just very convenient
+            Bootstrap app = new Bootstrap(
+                    new JsonModule(),
+                    new MemoryModule(connectorId, context.getTypeManager(), context.getNodeManager()));
 
-    private int getSplitsPerNode(Map<String, String> properties)
-    {
-        try {
-            return Integer.parseInt(firstNonNull(properties.get("memory.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            Injector injector = app
+                    .strictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(requiredConfig)
+                    .initialize();
+
+            return injector.getInstance(MemoryConnector.class);
         }
-        catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid property memory.splits-per-node");
+        catch (Exception e) {
+            throw Throwables.propagate(e);
         }
     }
 }

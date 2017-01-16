@@ -39,7 +39,7 @@ public class TestMemoryMetadata
     @BeforeMethod
     public void setUp()
     {
-        metadata = new MemoryMetadata(new TestingNodeManager(), "test");
+        metadata = new MemoryMetadata(new TestingNodeManager(), new MemoryConnectorId("test"));
     }
 
     @Test
