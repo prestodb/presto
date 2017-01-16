@@ -17,17 +17,19 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,12 +41,11 @@ import java.util.function.Function;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
-import static com.facebook.presto.raptor.util.DatabaseUtil.enableStreamingResults;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toList;
 
 final class ShardIterator
         extends AbstractIterator<BucketShards>
@@ -55,11 +56,9 @@ final class ShardIterator
 
     private final boolean merged;
     private final Map<Integer, String> bucketToNode;
-    private final ShardDao dao;
-    private final Connection connection;
-    private final PreparedStatement statement;
-    private final ResultSet resultSet;
     private boolean first = true;
+    private final List<ShardInfo> shardInfos;
+    private int shardInfoIndex = -1;
 
     public ShardIterator(
             long tableId,
@@ -81,25 +80,41 @@ final class ShardIterator
         }
         sql = format(sql, shardIndexTable(tableId), predicate.getPredicate());
 
-        dao = onDemandDao(dbi, ShardDao.class);
-        fetchNodes();
+        ShardDao dao = onDemandDao(dbi, ShardDao.class);
+        fetchNodes(dao);
 
-        try {
-            connection = dbi.open().getConnection();
-            statement = connection.prepareStatement(sql);
-            enableStreamingResults(statement);
+        try (Handle handle = dbi.open();
+             PreparedStatement statement = handle.getConnection().prepareStatement(sql)) {
             predicate.bind(statement);
             log.debug("Running query: %s", statement);
-            resultSet = statement.executeQuery();
-        }
-        catch (SQLException e) {
-            close();
+            try (ResultSet rs = statement.executeQuery()) {
+                shardInfos = load(rs, dao);
+            }
+        } catch (Exception e) {
             throw metadataError(e);
         }
-        catch (Throwable t) {
-            close();
-            throw t;
+    }
+
+    private List<ShardInfo> load(ResultSet resultSet, ShardDao dao) throws SQLException
+    {
+        List<ShardInfo> result = new ArrayList<>();
+        while (resultSet.next()) {
+            UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
+            List<String> nodeIdentifiers;
+            OptionalInt bucketNumber = OptionalInt.empty();
+
+            if (bucketToNode != null) {
+                int bucket = resultSet.getInt("bucket_number");
+                bucketNumber = OptionalInt.of(bucket);
+                nodeIdentifiers = ImmutableList.of(getBucketNode(bucket));
+            }
+            else {
+                List<Integer> nodeIds = intArrayFromBytes(resultSet.getBytes("node_ids"));
+                nodeIdentifiers = getNodeIdentifiers(nodeIds, shardUuid, dao);
+            }
+            result.add(new ShardInfo(shardUuid, bucketNumber, nodeIdentifiers));
         }
+        return result;
     }
 
     @Override
@@ -113,18 +128,11 @@ final class ShardIterator
         }
     }
 
-    @SuppressWarnings({"UnusedDeclaration", "EmptyTryBlock"})
+    @SuppressWarnings({"UnusedDeclaration"})
     @Override
     public void close()
     {
-        // use try-with-resources to close everything properly
-        try (Connection connection = this.connection;
-                Statement statement = this.statement;
-                ResultSet resultSet = this.resultSet) {
-            // do nothing
-        }
-        catch (SQLException ignored) {
-        }
+        shardInfos.clear();
     }
 
     /**
@@ -133,25 +141,16 @@ final class ShardIterator
     private BucketShards compute()
             throws SQLException
     {
-        if (!resultSet.next()) {
+        if (!nextShard()) {
             return endOfData();
         }
 
-        UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
-        Set<String> nodeIdentifiers;
-        OptionalInt bucketNumber = OptionalInt.empty();
+        ShardInfo shardInfo = currentShard();
+        UUID shardUuid = shardInfo.shardUuid;
+        List<String> nodeIdentifiers = shardInfo.nodeIdentifiers;
+        OptionalInt bucketNumber = shardInfo.bucketNumber;
 
-        if (bucketToNode != null) {
-            int bucket = resultSet.getInt("bucket_number");
-            bucketNumber = OptionalInt.of(bucket);
-            nodeIdentifiers = ImmutableSet.of(getBucketNode(bucket));
-        }
-        else {
-            List<Integer> nodeIds = intArrayFromBytes(resultSet.getBytes("node_ids"));
-            nodeIdentifiers = getNodeIdentifiers(nodeIds, shardUuid);
-        }
-
-        ShardNodes shard = new ShardNodes(shardUuid, nodeIdentifiers);
+        ShardNodes shard = new ShardNodes(shardUuid, new HashSet<>(nodeIdentifiers));
         return new BucketShards(bucketNumber, ImmutableSet.of(shard));
     }
 
@@ -161,29 +160,46 @@ final class ShardIterator
     private BucketShards computeMerged()
             throws SQLException
     {
-        if (resultSet.isAfterLast()) {
+        if (isEndOfData()) {
             return endOfData();
         }
         if (first) {
             first = false;
-            if (!resultSet.next()) {
+            if (!nextShard()) {
                 return endOfData();
             }
         }
 
-        int bucketNumber = resultSet.getInt("bucket_number");
+        int bucketNumber = currentShard().getBucketNumber();
         ImmutableSet.Builder<ShardNodes> shards = ImmutableSet.builder();
 
         do {
-            UUID shardUuid = uuidFromBytes(resultSet.getBytes("shard_uuid"));
-            int bucket = resultSet.getInt("bucket_number");
+            ShardInfo shardInfo = currentShard();
+            UUID shardUuid = shardInfo.shardUuid;
+            int bucket = shardInfo.getBucketNumber();
             Set<String> nodeIdentifiers = ImmutableSet.of(getBucketNode(bucket));
 
             shards.add(new ShardNodes(shardUuid, nodeIdentifiers));
         }
-        while (resultSet.next() && resultSet.getInt("bucket_number") == bucketNumber);
+        while (nextShard() && currentShard().getBucketNumber() == bucketNumber);
 
         return new BucketShards(OptionalInt.of(bucketNumber), shards.build());
+    }
+
+    private ShardInfo currentShard()
+    {
+        return shardInfos.get(shardInfoIndex);
+    }
+
+    private boolean isEndOfData()
+    {
+        return shardInfoIndex >= shardInfos.size();
+    }
+
+    private boolean nextShard()
+    {
+        ++shardInfoIndex;
+        return !isEndOfData();
     }
 
     private String getBucketNode(int bucket)
@@ -195,15 +211,15 @@ final class ShardIterator
         return node;
     }
 
-    private Set<String> getNodeIdentifiers(List<Integer> nodeIds, UUID shardUuid)
+    private List<String> getNodeIdentifiers(List<Integer> nodeIds, UUID shardUuid, ShardDao dao)
     {
-        Function<Integer, String> fetchNode = id -> fetchNode(id, shardUuid);
+        Function<Integer, String> fetchNode = id -> fetchNode(id, shardUuid, dao);
         return nodeIds.stream()
                 .map(id -> nodeMap.computeIfAbsent(id, fetchNode))
-                .collect(toSet());
+                .collect(toList());
     }
 
-    private String fetchNode(int id, UUID shardUuid)
+    private static String fetchNode(int id, UUID shardUuid, ShardDao dao)
     {
         String node = dao.getNodeIdentifier(id);
         if (node == null) {
@@ -212,10 +228,29 @@ final class ShardIterator
         return node;
     }
 
-    private void fetchNodes()
+    private void fetchNodes(ShardDao dao)
     {
         for (RaptorNode node : dao.getNodes()) {
             nodeMap.put(node.getNodeId(), node.getNodeIdentifier());
+        }
+    }
+
+    private static class ShardInfo
+    {
+        final UUID shardUuid;
+        final List<String> nodeIdentifiers;
+        private final OptionalInt bucketNumber;
+
+        public ShardInfo(UUID shardUuid, OptionalInt bucketNumber, List<String> nodeIdentifiers)
+        {
+            this.shardUuid = shardUuid;
+            this.bucketNumber = bucketNumber;
+            this.nodeIdentifiers = nodeIdentifiers;
+        }
+
+        public int getBucketNumber()
+        {
+            return bucketNumber.getAsInt();
         }
     }
 }
