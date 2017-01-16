@@ -22,6 +22,12 @@
         </dependency>
 
         <dependency>
+            <!-- used by tests but also needed transitively -->
+            <groupId>org.apache.bval</groupId>
+            <artifactId>bval-jsr</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-math3</artifactId>
         </dependency>
