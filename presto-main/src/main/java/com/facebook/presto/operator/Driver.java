@@ -483,6 +483,14 @@ public class Driver
                             driverContext.getTaskId());
                 }
             }
+            if (driverContext.getMemoryUsage() > 0) {
+                log.error("Driver still has memory reserved after freeing all operator memory. Freeing it.");
+            }
+            if (driverContext.getSystemMemoryUsage() > 0) {
+                log.error("Driver still has system memory reserved after freeing all operator memory. Freeing it.");
+            }
+            driverContext.freeMemory(driverContext.getMemoryUsage());
+            driverContext.freeSystemMemory(driverContext.getSystemMemoryUsage());
             driverContext.finished();
         }
         catch (Throwable t) {
