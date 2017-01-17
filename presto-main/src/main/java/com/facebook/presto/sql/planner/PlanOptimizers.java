@@ -104,15 +104,15 @@ public class PlanOptimizers
                         new MergeLimitWithDistinct(),
 
                         new PruneValuesColumns(),
-                        new PruneTableScanColumns(),
-
-                        new SimplifyCountOverConstant(),
-                        new ImplementBernoulliSampleAsFilter(),
-                        new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
-                        new SingleMarkDistinctToGroupBy()
+                        new PruneTableScanColumns()
                 )),
-                new ImplementFilteredAggregations(),
-                new ImplementSampleAsFilter(),
+                new IterativeOptimizer(
+                        ImmutableList.of(
+                                new ImplementFilteredAggregations(),
+                                new ImplementSampleAsFilter()),
+                        ImmutableSet.of(
+                                new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
+                                new ImplementBernoulliSampleAsFilter())),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
@@ -134,7 +134,9 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
-                new CountConstantOptimizer(),
+                new IterativeOptimizer(
+                        ImmutableList.of(new CountConstantOptimizer()),
+                        ImmutableSet.of(new SimplifyCountOverConstant())),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new MergeWindows(),
                 new ReorderWindows(), // Should be after MergeWindows to avoid unnecessary reordering of mergeable windows
@@ -147,8 +149,11 @@ public class PlanOptimizers
                 new ProjectionPushDown());
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
-            builder.add(new SingleDistinctOptimizer());
-            builder.add(new PruneUnreferencedOutputs());
+            builder.add(
+                    new IterativeOptimizer(
+                            ImmutableList.of(new SingleDistinctOptimizer()),
+                            ImmutableSet.of(new SingleMarkDistinctToGroupBy())),
+                    new PruneUnreferencedOutputs());
         }
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));

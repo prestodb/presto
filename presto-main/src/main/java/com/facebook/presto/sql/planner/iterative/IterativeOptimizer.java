@@ -21,8 +21,10 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -32,10 +34,18 @@ import static com.google.common.base.Preconditions.checkState;
 public class IterativeOptimizer
         implements PlanOptimizer
 {
+    private final List<PlanOptimizer> legacyRules;
     private final Set<Rule> rules;
+
+    public IterativeOptimizer(List<PlanOptimizer> legacyRules, Set<Rule> newRules)
+    {
+        this.legacyRules = ImmutableList.copyOf(legacyRules);
+        this.rules = ImmutableSet.copyOf(newRules);
+    }
 
     public IterativeOptimizer(Set<Rule> rules)
     {
+        this.legacyRules = ImmutableList.of();
         this.rules = ImmutableSet.copyOf(rules);
     }
 
@@ -43,6 +53,10 @@ public class IterativeOptimizer
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         if (!SystemSessionProperties.isNewOptimizerEnabled(session)) {
+            for (PlanOptimizer optimizer : legacyRules) {
+                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+            }
+
             return plan;
         }
 
