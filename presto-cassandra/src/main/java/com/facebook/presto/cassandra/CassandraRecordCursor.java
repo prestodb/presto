@@ -107,6 +107,8 @@ public class CassandraRecordCursor
                 return currentRow.getLong(i);
             case TIMESTAMP:
                 return currentRow.getTimestamp(i).getTime();
+            case DATE:
+                return (long) currentRow.getDate(i).getDaysSinceEpoch();
             case FLOAT:
                 return floatToRawIntBits(currentRow.getFloat(i));
             default:

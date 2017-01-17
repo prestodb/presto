@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.DataType;
+import com.datastax.driver.core.LocalDate;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
@@ -78,7 +79,8 @@ public enum CassandraType
     MAP(createUnboundedVarcharType(), null),
     SET(createUnboundedVarcharType(), null),
     SMALLINT(SmallintType.SMALLINT, Short.class),
-    TINYINT(TinyintType.TINYINT, Byte.class);
+    TINYINT(TinyintType.TINYINT, Byte.class),
+    DATE(DateType.DATE, LocalDate.class);
 
     private static class Constants
     {
@@ -131,6 +133,8 @@ public enum CassandraType
                 return COUNTER;
             case CUSTOM:
                 return CUSTOM;
+            case DATE:
+                return DATE;
             case DECIMAL:
                 return DECIMAL;
             case DOUBLE:
@@ -208,6 +212,8 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
                 case TIMESTAMP:
                     return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
+                case DATE:
+                    return NullableValue.of(nativeType, (long) row.getDate(i).getDaysSinceEpoch());
                 case INET:
                     return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
                 case VARINT:
@@ -333,6 +339,9 @@ public enum CassandraType
                     return row.getUUID(i).toString();
                 case TIMESTAMP:
                     return Long.toString(row.getTimestamp(i).getTime());
+                case DATE:
+                    return CassandraCqlUtils.quoteStringLiteral(
+                            LocalDate.fromDaysSinceEpoch(row.getDate(i).getDaysSinceEpoch()).toString());
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
                 case VARINT:
@@ -356,6 +365,7 @@ public enum CassandraType
             case UUID:
             case TIMEUUID:
             case TIMESTAMP:
+            case DATE:
             case INET:
             case VARINT:
                 return CassandraCqlUtils.quoteStringLiteralForJson(object.toString());
@@ -431,6 +441,8 @@ public enum CassandraType
                 return new BigDecimal(nativeValue.toString());
             case TIMESTAMP:
                 return new Date((Long) nativeValue);
+            case DATE:
+                return LocalDate.fromDaysSinceEpoch(((Long) nativeValue).intValue());
             case UUID:
             case TIMEUUID:
                 return java.util.UUID.fromString(((Slice) nativeValue).toStringUtf8());
@@ -463,6 +475,7 @@ public enum CassandraType
             case FLOAT:
             case DECIMAL:
             case TIMESTAMP:
+            case DATE:
             case UUID:
             case TIMEUUID:
                 return value;
@@ -535,14 +548,14 @@ public enum CassandraType
         else if (isVarcharType(type)) {
             return TEXT;
         }
-        else if (type.equals(DateType.DATE)) {
-            return TEXT;
-        }
         else if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
         }
         else if (type.equals(TimestampType.TIMESTAMP)) {
             return TIMESTAMP;
+        }
+        else if (type.equals(DateType.DATE)) {
+            return DATE;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }
