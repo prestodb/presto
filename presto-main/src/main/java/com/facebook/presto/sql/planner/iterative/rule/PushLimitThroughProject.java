@@ -20,11 +20,10 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
+import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 
 public class PushLimitThroughProject
         implements Rule
@@ -43,8 +42,6 @@ public class PushLimitThroughProject
             return Optional.empty();
         }
 
-        return Optional.of(
-                replaceChildren(child, ImmutableList.of(
-                        replaceChildren(parent, child.getSources()))));
+        return Optional.of(transpose(parent, child));
     }
 }
