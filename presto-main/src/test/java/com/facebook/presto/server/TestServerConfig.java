@@ -34,7 +34,9 @@ public class TestServerConfig
                 .setPrestoVersion(null)
                 .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
-                .setGracePeriod(new Duration(2, MINUTES)));
+                .setGracePeriod(new Duration(2, MINUTES))
+                .setEnabledUIonSecondaryPort(false)
+                .setUIHttpPort(0));
     }
 
     @Test
@@ -46,6 +48,8 @@ public class TestServerConfig
                 .put("datasources", "jmx")
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
+                .put("http-server.ui.secondary.port.enabled", "true")
+                .put("http-server.ui.http.port", "8080")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -53,7 +57,9 @@ public class TestServerConfig
                 .setPrestoVersion("test")
                 .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)
-                .setGracePeriod(new Duration(5, MINUTES));
+                .setGracePeriod(new Duration(5, MINUTES))
+                .setEnabledUIonSecondaryPort(true)
+                .setUIHttpPort(8080);
 
         assertFullMapping(properties, expected);
     }
