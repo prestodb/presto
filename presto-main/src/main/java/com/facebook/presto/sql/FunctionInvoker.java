@@ -56,15 +56,17 @@ public class FunctionInvoker
         List<Object> actualArguments = new ArrayList<>(arguments.size() + 1);
 
         Iterator<Object> iterator = arguments.iterator();
+        int specialParametersCount = 0;
         for (int i = 0; i < method.type().parameterCount(); i++) {
             Class<?> parameterType = method.type().parameterType(i);
             if (parameterType == ConnectorSession.class) {
                 actualArguments.add(session);
+                specialParametersCount++;
             }
             else {
                 checkArgument(iterator.hasNext(), "Not enough arguments provided for method: %s", method.type());
                 Object argument = iterator.next();
-                if (implementation.getNullFlags().get(i)) {
+                if (implementation.getNullFlags().get(i - specialParametersCount)) {
                     boolean isNull = argument == null;
                     if (isNull) {
                         argument = Defaults.defaultValue(parameterType);
