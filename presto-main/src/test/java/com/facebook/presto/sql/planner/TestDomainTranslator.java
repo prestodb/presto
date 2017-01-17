@@ -775,6 +775,21 @@ public class TestDomainTranslator
     }
 
     @Test
+    void testTimestampToDateExplicitCastOnSymbol()
+    {
+        // we expect TupleDomain.all here().
+        // see comment in DomainTranslator.Visitor.visitComparisonExpression()
+
+        Expression originalExpression = equal(
+                new Cast(C_TIMESTAMP.toSymbolReference(), DATE.toString()),
+                LiteralInterpreter.toExpression(DATE_VALUE, DATE));
+
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+    }
+
+    @Test
     public void testFromComparisonsWithImplictCoercions()
             throws Exception
     {
