@@ -875,12 +875,14 @@
                 <plugin>
                     <groupId>org.gaul</groupId>
                     <artifactId>modernizer-maven-plugin</artifactId>
-                    <version>1.4.0</version>
+                    <version>1.5.0</version>
                     <configuration>
                         <skip>${air.check.skip-modernizer}</skip>
                         <javaVersion>1.8</javaVersion>
                         <failOnViolations>true</failOnViolations>
-                        <exclusionsFile>${air.main.basedir}/src/modernizer/exclusions.txt</exclusionsFile>
+                        <exclusionPatterns>
+                            <exclusionPattern>org/joda/time/.*</exclusionPattern>
+                        </exclusionPatterns>
                     </configuration>
                 </plugin>
 

@@ -116,18 +116,6 @@
             </resource>
         </resources>
 
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.gaul</groupId>
-                    <artifactId>modernizer-maven-plugin</artifactId>
-                    <configuration>
-                        <exclusionsFile>${project.basedir}/src/modernizer/exclusions.txt</exclusionsFile>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
-
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
