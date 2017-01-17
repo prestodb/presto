@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.facebook.presto.raptor.storage.BackupStats;
 import com.google.common.base.Throwables;
-import io.airlift.units.DataSize;
+import io.airlift.stats.DistributionStat;
 import io.airlift.units.Duration;
-import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PreDestroy;
@@ -32,7 +30,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -44,7 +41,7 @@ public class BackupManager
     private final ExecutorService executorService;
 
     private final AtomicInteger pendingBackups = new AtomicInteger();
-    private final BackupStats stats = new BackupStats();
+    private final DistributionStat queuedTimeMilliSeconds = new DistributionStat();
 
     @Inject
     public BackupManager(Optional<BackupStore> backupStore, BackupConfig config)
@@ -99,15 +96,10 @@ public class BackupManager
         public void run()
         {
             try {
-                stats.addQueuedTime(Duration.nanosSince(queuedTime));
-                long start = System.nanoTime();
-
+                queuedTimeMilliSeconds.add(Duration.nanosSince(queuedTime).toMillis());
                 backupStore.get().backupShard(uuid, source);
-                stats.addCopyShardDataRate(new DataSize(source.length(), BYTE), Duration.nanosSince(start));
-                stats.incrementBackupSuccess();
             }
             catch (Throwable t) {
-                stats.incrementBackupFailure();
                 throw Throwables.propagate(t);
             }
         }
@@ -120,9 +112,8 @@ public class BackupManager
     }
 
     @Managed
-    @Flatten
-    public BackupStats getStats()
+    public DistributionStat getQueuedTimeMilliSeconds()
     {
-        return stats;
+        return queuedTimeMilliSeconds;
     }
 }
