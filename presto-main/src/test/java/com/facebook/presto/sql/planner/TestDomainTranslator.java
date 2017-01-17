@@ -1208,16 +1208,21 @@ public class TestDomainTranslator
             for (int columnIndex = literalIndex + 1; columnIndex < translationChain.size(); columnIndex++) {
                 NumericValues literal = translationChain.get(literalIndex);
                 NumericValues column = translationChain.get(columnIndex);
-                testNumericTypeTranslation(column, literal);
+                testNumericTypeTranslation(column, literal, false);
+                testNumericTypeTranslation(column, literal, true);
             }
         }
     }
 
-    private void testNumericTypeTranslation(NumericValues columnValues, NumericValues literalValues)
+    private void testNumericTypeTranslation(NumericValues columnValues, NumericValues literalValues, boolean addCast)
     {
         Symbol columnSymbol = columnValues.getColumn();
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();
+        Expression columnSymbolExpression = columnSymbol.toSymbolReference();
+        if (addCast) {
+            columnSymbolExpression = new Cast(columnSymbolExpression, literalType.getTypeSignature().toString());
+        }
 
         Expression max = toExpression(literalValues.getMax(), literalType);
         Expression min = toExpression(literalValues.getMin(), literalType);
@@ -1227,73 +1232,73 @@ public class TestDomainTranslator
         Expression fractionalNegative = toExpression(literalValues.getFractionalNegative(), literalType);
 
         // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(columnSymbol, integerPositive), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerPositive()));
-        testSimpleComparison(greaterThanOrEqual(columnSymbol, integerNegative), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerNegative()));
-        testSimpleComparison(greaterThanOrEqual(columnSymbol, max), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
-        testSimpleComparison(greaterThanOrEqual(columnSymbol, min), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
+        testSimpleComparison(greaterThanOrEqual(columnSymbolExpression, integerPositive), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(greaterThanOrEqual(columnSymbolExpression, integerNegative), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(greaterThanOrEqual(columnSymbolExpression, max), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
+        testSimpleComparison(greaterThanOrEqual(columnSymbolExpression, min), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
         if (literalValues.isFractional()) {
-            testSimpleComparison(greaterThanOrEqual(columnSymbol, fractionalPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
-            testSimpleComparison(greaterThanOrEqual(columnSymbol, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
+            testSimpleComparison(greaterThanOrEqual(columnSymbolExpression, fractionalPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(greaterThanOrEqual(columnSymbolExpression, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
         }
 
         // greater than
-        testSimpleComparison(greaterThan(columnSymbol, integerPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerPositive()));
-        testSimpleComparison(greaterThan(columnSymbol, integerNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerNegative()));
-        testSimpleComparison(greaterThan(columnSymbol, max), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
-        testSimpleComparison(greaterThan(columnSymbol, min), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
+        testSimpleComparison(greaterThan(columnSymbolExpression, integerPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(greaterThan(columnSymbolExpression, integerNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(greaterThan(columnSymbolExpression, max), columnSymbol, Range.greaterThan(columnType, columnValues.getMax()));
+        testSimpleComparison(greaterThan(columnSymbolExpression, min), columnSymbol, Range.greaterThanOrEqual(columnType, columnValues.getMin()));
         if (literalValues.isFractional()) {
-            testSimpleComparison(greaterThan(columnSymbol, fractionalPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
-            testSimpleComparison(greaterThan(columnSymbol, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
+            testSimpleComparison(greaterThan(columnSymbolExpression, fractionalPositive), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(greaterThan(columnSymbolExpression, fractionalNegative), columnSymbol, Range.greaterThan(columnType, columnValues.getFractionalNegative()));
         }
 
         // less than or equal
-        testSimpleComparison(lessThanOrEqual(columnSymbol, integerPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerPositive()));
-        testSimpleComparison(lessThanOrEqual(columnSymbol, integerNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerNegative()));
-        testSimpleComparison(lessThanOrEqual(columnSymbol, max), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
-        testSimpleComparison(lessThanOrEqual(columnSymbol, min), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
+        testSimpleComparison(lessThanOrEqual(columnSymbolExpression, integerPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(lessThanOrEqual(columnSymbolExpression, integerNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(lessThanOrEqual(columnSymbolExpression, max), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
+        testSimpleComparison(lessThanOrEqual(columnSymbolExpression, min), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
         if (literalValues.isFractional()) {
-            testSimpleComparison(lessThanOrEqual(columnSymbol, fractionalPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
-            testSimpleComparison(lessThanOrEqual(columnSymbol, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
+            testSimpleComparison(lessThanOrEqual(columnSymbolExpression, fractionalPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(lessThanOrEqual(columnSymbolExpression, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
         }
 
         // less than
-        testSimpleComparison(lessThan(columnSymbol, integerPositive), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerPositive()));
-        testSimpleComparison(lessThan(columnSymbol, integerNegative), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerNegative()));
-        testSimpleComparison(lessThan(columnSymbol, max), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
-        testSimpleComparison(lessThan(columnSymbol, min), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
+        testSimpleComparison(lessThan(columnSymbolExpression, integerPositive), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(lessThan(columnSymbolExpression, integerNegative), columnSymbol, Range.lessThan(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(lessThan(columnSymbolExpression, max), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getMax()));
+        testSimpleComparison(lessThan(columnSymbolExpression, min), columnSymbol, Range.lessThan(columnType, columnValues.getMin()));
         if (literalValues.isFractional()) {
-            testSimpleComparison(lessThan(columnSymbol, fractionalPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
-            testSimpleComparison(lessThan(columnSymbol, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
+            testSimpleComparison(lessThan(columnSymbolExpression, fractionalPositive), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalPositive()));
+            testSimpleComparison(lessThan(columnSymbolExpression, fractionalNegative), columnSymbol, Range.lessThanOrEqual(columnType, columnValues.getFractionalNegative()));
         }
 
         // equal
-        testSimpleComparison(equal(columnSymbol, integerPositive), columnSymbol, Range.equal(columnType, columnValues.getIntegerPositive()));
-        testSimpleComparison(equal(columnSymbol, integerNegative), columnSymbol, Range.equal(columnType, columnValues.getIntegerNegative()));
-        testSimpleComparison(equal(columnSymbol, max), columnSymbol, Domain.none(columnType));
-        testSimpleComparison(equal(columnSymbol, min), columnSymbol, Domain.none(columnType));
+        testSimpleComparison(equal(columnSymbolExpression, integerPositive), columnSymbol, Range.equal(columnType, columnValues.getIntegerPositive()));
+        testSimpleComparison(equal(columnSymbolExpression, integerNegative), columnSymbol, Range.equal(columnType, columnValues.getIntegerNegative()));
+        testSimpleComparison(equal(columnSymbolExpression, max), columnSymbol, Domain.none(columnType));
+        testSimpleComparison(equal(columnSymbolExpression, min), columnSymbol, Domain.none(columnType));
         if (literalValues.isFractional()) {
-            testSimpleComparison(equal(columnSymbol, fractionalPositive), columnSymbol, Domain.none(columnType));
-            testSimpleComparison(equal(columnSymbol, fractionalNegative), columnSymbol, Domain.none(columnType));
+            testSimpleComparison(equal(columnSymbolExpression, fractionalPositive), columnSymbol, Domain.none(columnType));
+            testSimpleComparison(equal(columnSymbolExpression, fractionalNegative), columnSymbol, Domain.none(columnType));
         }
 
         // not equal
-        testSimpleComparison(notEqual(columnSymbol, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), false));
-        testSimpleComparison(notEqual(columnSymbol, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), false));
-        testSimpleComparison(notEqual(columnSymbol, max), columnSymbol, Domain.notNull(columnType));
-        testSimpleComparison(notEqual(columnSymbol, min), columnSymbol, Domain.notNull(columnType));
+        testSimpleComparison(notEqual(columnSymbolExpression, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), false));
+        testSimpleComparison(notEqual(columnSymbolExpression, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), false));
+        testSimpleComparison(notEqual(columnSymbolExpression, max), columnSymbol, Domain.notNull(columnType));
+        testSimpleComparison(notEqual(columnSymbolExpression, min), columnSymbol, Domain.notNull(columnType));
         if (literalValues.isFractional()) {
-            testSimpleComparison(notEqual(columnSymbol, fractionalPositive), columnSymbol, Domain.notNull(columnType));
-            testSimpleComparison(notEqual(columnSymbol, fractionalNegative), columnSymbol, Domain.notNull(columnType));
+            testSimpleComparison(notEqual(columnSymbolExpression, fractionalPositive), columnSymbol, Domain.notNull(columnType));
+            testSimpleComparison(notEqual(columnSymbolExpression, fractionalNegative), columnSymbol, Domain.notNull(columnType));
         }
 
         // is distinct from
-        testSimpleComparison(isDistinctFrom(columnSymbol, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), true));
-        testSimpleComparison(isDistinctFrom(columnSymbol, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), true));
-        testSimpleComparison(isDistinctFrom(columnSymbol, max), columnSymbol, Domain.all(columnType));
-        testSimpleComparison(isDistinctFrom(columnSymbol, min), columnSymbol, Domain.all(columnType));
+        testSimpleComparison(isDistinctFrom(columnSymbolExpression, integerPositive), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerPositive()), Range.greaterThan(columnType, columnValues.getIntegerPositive())), true));
+        testSimpleComparison(isDistinctFrom(columnSymbolExpression, integerNegative), columnSymbol, Domain.create(ValueSet.ofRanges(Range.lessThan(columnType, columnValues.getIntegerNegative()), Range.greaterThan(columnType, columnValues.getIntegerNegative())), true));
+        testSimpleComparison(isDistinctFrom(columnSymbolExpression, max), columnSymbol, Domain.all(columnType));
+        testSimpleComparison(isDistinctFrom(columnSymbolExpression, min), columnSymbol, Domain.all(columnType));
         if (literalValues.isFractional()) {
-            testSimpleComparison(isDistinctFrom(columnSymbol, fractionalPositive), columnSymbol, Domain.all(columnType));
-            testSimpleComparison(isDistinctFrom(columnSymbol, fractionalNegative), columnSymbol, Domain.all(columnType));
+            testSimpleComparison(isDistinctFrom(columnSymbolExpression, fractionalPositive), columnSymbol, Domain.all(columnType));
+            testSimpleComparison(isDistinctFrom(columnSymbolExpression, fractionalNegative), columnSymbol, Domain.all(columnType));
         }
     }
 
@@ -1301,42 +1306,54 @@ public class TestDomainTranslator
     public void testVarcharComparedToCharExpression()
             throws Exception
     {
+        testVarcharComparedToCharExpression(false);
+        testVarcharComparedToCharExpression(true);
+    }
+
+    private void testVarcharComparedToCharExpression(boolean addCasts)
+            throws Exception
+    {
+        Expression symbolExpression = C_CHAR.toSymbolReference();
+        if (addCasts) {
+            symbolExpression = new Cast(symbolExpression, TYPES.get(C_CHAR).getTypeSignature().toString());
+        }
+
         // greater than or equal
-        testSimpleComparison(greaterThanOrEqual(C_CHAR, stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
-        testSimpleComparison(greaterThanOrEqual(C_CHAR, stringLiteral("1234567890")), C_CHAR, Range.greaterThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
-        testSimpleComparison(greaterThanOrEqual(C_CHAR, stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThanOrEqual(symbolExpression, stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThanOrEqual(symbolExpression, stringLiteral("1234567890")), C_CHAR, Range.greaterThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThanOrEqual(symbolExpression, stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // greater than
-        testSimpleComparison(greaterThan(C_CHAR, stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
-        testSimpleComparison(greaterThan(C_CHAR, stringLiteral("1234567890")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
-        testSimpleComparison(greaterThan(C_CHAR, stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThan(symbolExpression, stringLiteral("123456789")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(greaterThan(symbolExpression, stringLiteral("1234567890")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(greaterThan(symbolExpression, stringLiteral("12345678901")), C_CHAR, Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than or equal
-        testSimpleComparison(lessThanOrEqual(C_CHAR, stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
-        testSimpleComparison(lessThanOrEqual(C_CHAR, stringLiteral("1234567890")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
-        testSimpleComparison(lessThanOrEqual(C_CHAR, stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThanOrEqual(symbolExpression, stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThanOrEqual(symbolExpression, stringLiteral("1234567890")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThanOrEqual(symbolExpression, stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // less than
-        testSimpleComparison(lessThan(C_CHAR, stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
-        testSimpleComparison(lessThan(C_CHAR, stringLiteral("1234567890")), C_CHAR, Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")));
-        testSimpleComparison(lessThan(C_CHAR, stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThan(symbolExpression, stringLiteral("123456789")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("12345678")));
+        testSimpleComparison(lessThan(symbolExpression, stringLiteral("1234567890")), C_CHAR, Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(lessThan(symbolExpression, stringLiteral("12345678901")), C_CHAR, Range.lessThanOrEqual(createCharType(10), Slices.utf8Slice("1234567890")));
 
         // equal
-        testSimpleComparison(equal(C_CHAR, stringLiteral("123456789")), C_CHAR, Domain.none(createCharType(10)));
-        testSimpleComparison(equal(C_CHAR, stringLiteral("1234567890")), C_CHAR, Range.equal(createCharType(10), Slices.utf8Slice("1234567890")));
-        testSimpleComparison(equal(C_CHAR, stringLiteral("12345678901")), C_CHAR, Domain.none(createCharType(10)));
+        testSimpleComparison(equal(symbolExpression, stringLiteral("123456789")), C_CHAR, Domain.none(createCharType(10)));
+        testSimpleComparison(equal(symbolExpression, stringLiteral("1234567890")), C_CHAR, Range.equal(createCharType(10), Slices.utf8Slice("1234567890")));
+        testSimpleComparison(equal(symbolExpression, stringLiteral("12345678901")), C_CHAR, Domain.none(createCharType(10)));
 
         // not equal
-        testSimpleComparison(notEqual(C_CHAR, stringLiteral("123456789")), C_CHAR, Domain.notNull(createCharType(10)));
-        testSimpleComparison(notEqual(C_CHAR, stringLiteral("1234567890")), C_CHAR, Domain.create(ValueSet.ofRanges(
+        testSimpleComparison(notEqual(symbolExpression, stringLiteral("123456789")), C_CHAR, Domain.notNull(createCharType(10)));
+        testSimpleComparison(notEqual(symbolExpression, stringLiteral("1234567890")), C_CHAR, Domain.create(ValueSet.ofRanges(
                 Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), false));
-        testSimpleComparison(notEqual(C_CHAR, stringLiteral("12345678901")), C_CHAR, Domain.notNull(createCharType(10)));
+        testSimpleComparison(notEqual(symbolExpression, stringLiteral("12345678901")), C_CHAR, Domain.notNull(createCharType(10)));
 
         // is distinct from
-        testSimpleComparison(isDistinctFrom(C_CHAR, stringLiteral("123456789")), C_CHAR, Domain.all(createCharType(10)));
-        testSimpleComparison(isDistinctFrom(C_CHAR, stringLiteral("1234567890")), C_CHAR, Domain.create(ValueSet.ofRanges(
+        testSimpleComparison(isDistinctFrom(symbolExpression, stringLiteral("123456789")), C_CHAR, Domain.all(createCharType(10)));
+        testSimpleComparison(isDistinctFrom(symbolExpression, stringLiteral("1234567890")), C_CHAR, Domain.create(ValueSet.ofRanges(
                 Range.lessThan(createCharType(10), Slices.utf8Slice("1234567890")), Range.greaterThan(createCharType(10), Slices.utf8Slice("1234567890"))), true));
-        testSimpleComparison(isDistinctFrom(C_CHAR, stringLiteral("12345678901")), C_CHAR, Domain.all(createCharType(10)));
+        testSimpleComparison(isDistinctFrom(symbolExpression, stringLiteral("12345678901")), C_CHAR, Domain.all(createCharType(10)));
     }
 
     private static ExtractionResult fromPredicate(Expression originalPredicate)
@@ -1364,6 +1381,118 @@ public class TestDomainTranslator
         return comparison(GREATER_THAN, symbol.toSymbolReference(), new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()));
     }
 
+    private static ComparisonExpression equal(Symbol symbol, Expression expression)
+    {
+        return equal(symbol.toSymbolReference(), expression);
+    }
+
+    private static ComparisonExpression notEqual(Symbol symbol, Expression expression)
+    {
+        return notEqual(symbol.toSymbolReference(), expression);
+    }
+
+    private static ComparisonExpression greaterThan(Symbol symbol, Expression expression)
+    {
+        return greaterThan(symbol.toSymbolReference(), expression);
+    }
+
+    private static ComparisonExpression greaterThanOrEqual(Symbol symbol, Expression expression)
+    {
+        return greaterThanOrEqual(symbol.toSymbolReference(), expression);
+    }
+
+    private static ComparisonExpression lessThan(Symbol symbol, Expression expression)
+    {
+        return lessThan(symbol.toSymbolReference(), expression);
+    }
+
+    private static ComparisonExpression lessThanOrEqual(Symbol symbol, Expression expression)
+    {
+        return lessThanOrEqual(symbol.toSymbolReference(), expression);
+    }
+
+    private static ComparisonExpression isDistinctFrom(Symbol symbol, Expression expression)
+    {
+        return isDistinctFrom(symbol.toSymbolReference(), expression);
+    }
+
+    private static Expression isNotNull(Symbol symbol)
+    {
+        return isNotNull(symbol.toSymbolReference());
+    }
+
+    private static IsNullPredicate isNull(Symbol symbol)
+    {
+        return isNull(symbol.toSymbolReference());
+    }
+
+    private static InPredicate in(Symbol symbol, List<?> values)
+    {
+        return in(symbol.toSymbolReference(), TYPES.get(symbol), values);
+    }
+
+    private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)
+    {
+        return new BetweenPredicate(symbol.toSymbolReference(), min, max);
+    }
+
+    private static Expression isNotNull(Expression expression)
+    {
+        return new NotExpression(new IsNullPredicate(expression));
+    }
+
+    private static IsNullPredicate isNull(Expression expression)
+    {
+        return new IsNullPredicate(expression);
+    }
+
+    private static InPredicate in(Expression expression, Type expressisonType, List<?> values)
+    {
+        List<Type> types = nCopies(values.size(), expressisonType);
+        List<Expression> expressions = LiteralInterpreter.toExpressions(values, types);
+        return new InPredicate(expression, new InListExpression(expressions));
+    }
+
+    private static BetweenPredicate between(Expression expression, Expression min, Expression max)
+    {
+        return new BetweenPredicate(expression, min, max);
+    }
+
+    private static ComparisonExpression equal(Expression left, Expression right)
+    {
+        return comparison(EQUAL, left, right);
+    }
+
+    private static ComparisonExpression notEqual(Expression left, Expression right)
+    {
+        return comparison(NOT_EQUAL, left, right);
+    }
+
+    private static ComparisonExpression greaterThan(Expression left, Expression right)
+    {
+        return comparison(GREATER_THAN, left, right);
+    }
+
+    private static ComparisonExpression greaterThanOrEqual(Expression left, Expression right)
+    {
+        return comparison(GREATER_THAN_OR_EQUAL, left, right);
+    }
+
+    private static ComparisonExpression lessThan(Expression left, Expression expression)
+    {
+        return comparison(LESS_THAN, left, expression);
+    }
+
+    private static ComparisonExpression lessThanOrEqual(Expression left, Expression right)
+    {
+        return comparison(LESS_THAN_OR_EQUAL, left, right);
+    }
+
+    private static ComparisonExpression isDistinctFrom(Expression left, Expression right)
+    {
+        return comparison(IS_DISTINCT_FROM, left, right);
+    }
+
     private static NotExpression not(Expression expression)
     {
         return new NotExpression(expression);
@@ -1372,63 +1501,6 @@ public class TestDomainTranslator
     private static ComparisonExpression comparison(ComparisonExpressionType type, Expression expression1, Expression expression2)
     {
         return new ComparisonExpression(type, expression1, expression2);
-    }
-
-    private static ComparisonExpression equal(Symbol symbol, Expression expression)
-    {
-        return comparison(EQUAL, symbol.toSymbolReference(), expression);
-    }
-
-    private static ComparisonExpression notEqual(Symbol symbol, Expression expression)
-    {
-        return comparison(NOT_EQUAL, symbol.toSymbolReference(), expression);
-    }
-
-    private static ComparisonExpression greaterThan(Symbol symbol, Expression expression)
-    {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), expression);
-    }
-
-    private static ComparisonExpression greaterThanOrEqual(Symbol symbol, Expression expression)
-    {
-        return comparison(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), expression);
-    }
-
-    private static ComparisonExpression lessThan(Symbol symbol, Expression expression)
-    {
-        return comparison(LESS_THAN, symbol.toSymbolReference(), expression);
-    }
-
-    private static ComparisonExpression lessThanOrEqual(Symbol symbol, Expression expression)
-    {
-        return comparison(LESS_THAN_OR_EQUAL, symbol.toSymbolReference(), expression);
-    }
-
-    private static ComparisonExpression isDistinctFrom(Symbol symbol, Expression expression)
-    {
-        return comparison(IS_DISTINCT_FROM, symbol.toSymbolReference(), expression);
-    }
-
-    private static Expression isNotNull(Symbol symbol)
-    {
-        return new NotExpression(new IsNullPredicate(symbol.toSymbolReference()));
-    }
-
-    private static IsNullPredicate isNull(Symbol symbol)
-    {
-        return new IsNullPredicate(symbol.toSymbolReference());
-    }
-
-    private static InPredicate in(Symbol symbol, List<?> values)
-    {
-        List<Type> types = nCopies(values.size(), TYPES.get(symbol));
-        List<Expression> expressions = LiteralInterpreter.toExpressions(values, types);
-        return new InPredicate(symbol.toSymbolReference(), new InListExpression(expressions));
-    }
-
-    private static BetweenPredicate between(Symbol symbol, Expression min, Expression max)
-    {
-        return new BetweenPredicate(symbol.toSymbolReference(), min, max);
     }
 
     private static Literal bigintLiteral(long value)
