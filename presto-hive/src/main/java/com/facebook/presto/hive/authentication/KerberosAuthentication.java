@@ -71,7 +71,7 @@ public class KerberosAuthentication
     private static KerberosPrincipal createKerberosPrincipal(String principal)
     {
         try {
-            return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getHostName()));
+            return new KerberosPrincipal(getServerPrincipal(principal, InetAddress.getLocalHost().getCanonicalHostName()));
         }
         catch (IOException e) {
             throw Throwables.propagate(e);
