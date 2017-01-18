@@ -1809,6 +1809,7 @@ public abstract class AbstractTestHiveClient
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
                 metadata.dropView(newSession(), temporaryCreateView);
+                transaction.commit();
             }
             catch (RuntimeException e) {
                 // this usually occurs because the view was not created
