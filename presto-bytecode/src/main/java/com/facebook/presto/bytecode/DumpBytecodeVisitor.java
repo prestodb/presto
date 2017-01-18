@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import static com.facebook.presto.bytecode.Access.INTERFACE;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 
 public class DumpBytecodeVisitor
@@ -72,7 +73,11 @@ public class DumpBytecodeVisitor
         }
 
         // print class declaration
-        Line classDeclaration = line().addAll(classDefinition.getAccess()).add("class").add(classDefinition.getType().getJavaClassName());
+        Line classDeclaration = line().addAll(classDefinition.getAccess());
+        if (!classDefinition.getAccess().contains(INTERFACE)) {
+            classDeclaration.add("class");
+        }
+        classDeclaration.add(classDefinition.getType().getJavaClassName());
         if (!classDefinition.getSuperClass().equals(type(Object.class))) {
             classDeclaration.add("extends").add(classDefinition.getSuperClass().getJavaClassName());
         }
