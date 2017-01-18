@@ -139,7 +139,7 @@ public class LimitPushDown
                     node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
-                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, Optional.empty());
+                return new DistinctLimitNode(idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputSymbols(), Optional.empty());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {

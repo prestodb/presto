@@ -540,13 +540,13 @@ public class PruneUnreferencedOutputs
         {
             Set<Symbol> expectedInputs;
             if (node.getHashSymbol().isPresent()) {
-                expectedInputs = ImmutableSet.copyOf(concat(node.getOutputSymbols(), ImmutableList.of(node.getHashSymbol().get())));
+                expectedInputs = ImmutableSet.copyOf(concat(node.getDistinctSymbols(), ImmutableList.of(node.getHashSymbol().get())));
             }
             else {
-                expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
+                expectedInputs = ImmutableSet.copyOf(node.getDistinctSymbols());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.isPartial(), node.getHashSymbol());
+            return new DistinctLimitNode(node.getId(), source, node.getLimit(), node.isPartial(), node.getDistinctSymbols(), node.getHashSymbol());
         }
 
         @Override
