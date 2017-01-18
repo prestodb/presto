@@ -66,8 +66,7 @@ The JVM config file, ``etc/jvm.config``, contains a list of command line
 options used for launching the Java Virtual Machine. The format of the file
 is a list of options, one per line. These options are not interpreted by
 the shell, so options containing spaces or other special characters should
-not be quoted (as demonstrated by the ``OnOutOfMemoryError`` option in the
-example below).
+not be quoted.
 
 The following provides a good starting point for creating ``etc/jvm.config``:
 
@@ -80,7 +79,7 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+HeapDumpOnOutOfMemoryError
-    -XX:OnOutOfMemoryError=kill -9 %p
+    -XX:+ExitOnOutOfMemoryError
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly
