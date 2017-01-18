@@ -31,7 +31,7 @@ check_if_correct_java_version() {
   JAVA_VERSION=$(java_version "$1")
   JAVA_VENDOR=$(java_vendor "$1")
   JAVA_UPDATE=$(echo $JAVA_VERSION | cut -d'_' -f2)
-  if [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 60) && ("$JAVA_VENDOR" = "Oracle Corporation") ]]; then
+  if [[ ("$JAVA_VERSION" > "1.8") && ($JAVA_UPDATE -ge 92) && ("$JAVA_VENDOR" = "Oracle Corporation") ]]; then
     echo "JAVA8_HOME=$1" > /tmp/presto_env.sh
     return 0
   else
@@ -39,7 +39,7 @@ check_if_correct_java_version() {
   fi
 }
 
-# if Java version of $JAVA_HOME is not 1.8 update 60 (8u60) and is not Oracle Java, then try to find it again below
+# if Java version of $JAVA_HOME is not 1.8 update 92 (8u92) and is not Oracle Java, then try to find it again below
 if ! check_if_correct_java_version "$JAVA8_HOME" && ! check_if_correct_java_version "$JAVA_HOME"; then
   java_found=false
   for candidate in \
@@ -71,7 +71,7 @@ if [ "$java_found" = false ]; then
 | Please download the latest Oracle JDK/JRE from the Java web site     |
 |       > http://www.oracle.com/technetwork/java/javase/downloads <    |
 |                                                                      |
-| Presto requires Java 1.8 update 60 (8u60)                            |
+| Presto requires Java 1.8 update 92 (8u92)                            |
 | NOTE: This script will attempt to find Java whether you install      |
 |       using the binary or the RPM based installer.                   |
 +======================================================================+
