@@ -684,6 +684,7 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + dateTimeLiteral + ", '%a')", VARCHAR, "Tue");
         assertFunction("date_format(" + dateTimeLiteral + ", '%b')", VARCHAR, "Jan");
         assertFunction("date_format(" + dateTimeLiteral + ", '%c')", VARCHAR, "1");
+        assertFunction("date_format(" + dateTimeLiteral + ", '%D')", VARCHAR, "9th");
         assertFunction("date_format(" + dateTimeLiteral + ", '%d')", VARCHAR, "09");
         assertFunction("date_format(" + dateTimeLiteral + ", '%e')", VARCHAR, "9");
         assertFunction("date_format(" + dateTimeLiteral + ", '%f')", VARCHAR, "321000");
@@ -716,6 +717,7 @@ public class TestDateTimeFunctions
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%a')", VARCHAR, "Tue");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%b')", VARCHAR, "Jan");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%c')", VARCHAR, "1");
+        assertFunction("date_format(" + wierdDateTimeLiteral + ", '%D')", VARCHAR, "9th");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%d')", VARCHAR, "09");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%e')", VARCHAR, "9");
         assertFunction("date_format(" + wierdDateTimeLiteral + ", '%f')", VARCHAR, "321000");
@@ -746,7 +748,38 @@ public class TestDateTimeFunctions
         assertFunction("date_format(TIMESTAMP '2001-01-09 13:04:05.32', '%f')", VARCHAR, "320000");
         assertFunction("date_format(TIMESTAMP '2001-01-09 00:04:05.32', '%k')", VARCHAR, "0");
 
-        assertInvalidFunction("date_format(DATE '2001-01-09', '%D')", "%D not supported in date format string");
+        assertFunction("date_format(TIMESTAMP '2001-01-01', '%D')", VARCHAR, "1st");
+        assertFunction("date_format(TIMESTAMP '2001-01-02', '%D')", VARCHAR, "2nd");
+        assertFunction("date_format(TIMESTAMP '2001-01-03', '%D')", VARCHAR, "3rd");
+        assertFunction("date_format(TIMESTAMP '2001-01-04', '%D')", VARCHAR, "4th");
+        assertFunction("date_format(TIMESTAMP '2001-01-05', '%D')", VARCHAR, "5th");
+        assertFunction("date_format(TIMESTAMP '2001-01-06', '%D')", VARCHAR, "6th");
+        assertFunction("date_format(TIMESTAMP '2001-01-07', '%D')", VARCHAR, "7th");
+        assertFunction("date_format(TIMESTAMP '2001-01-08', '%D')", VARCHAR, "8th");
+        assertFunction("date_format(TIMESTAMP '2001-01-09', '%D')", VARCHAR, "9th");
+        assertFunction("date_format(TIMESTAMP '2001-01-10', '%D')", VARCHAR, "10th");
+        assertFunction("date_format(TIMESTAMP '2001-01-11', '%D')", VARCHAR, "11th");
+        assertFunction("date_format(TIMESTAMP '2001-01-12', '%D')", VARCHAR, "12th");
+        assertFunction("date_format(TIMESTAMP '2001-01-13', '%D')", VARCHAR, "13th");
+        assertFunction("date_format(TIMESTAMP '2001-01-14', '%D')", VARCHAR, "14th");
+        assertFunction("date_format(TIMESTAMP '2001-01-15', '%D')", VARCHAR, "15th");
+        assertFunction("date_format(TIMESTAMP '2001-01-16', '%D')", VARCHAR, "16th");
+        assertFunction("date_format(TIMESTAMP '2001-01-17', '%D')", VARCHAR, "17th");
+        assertFunction("date_format(TIMESTAMP '2001-01-18', '%D')", VARCHAR, "18th");
+        assertFunction("date_format(TIMESTAMP '2001-01-19', '%D')", VARCHAR, "19th");
+        assertFunction("date_format(TIMESTAMP '2001-01-20', '%D')", VARCHAR, "20th");
+        assertFunction("date_format(TIMESTAMP '2001-01-21', '%D')", VARCHAR, "21st");
+        assertFunction("date_format(TIMESTAMP '2001-01-22', '%D')", VARCHAR, "22nd");
+        assertFunction("date_format(TIMESTAMP '2001-01-23', '%D')", VARCHAR, "23rd");
+        assertFunction("date_format(TIMESTAMP '2001-01-24', '%D')", VARCHAR, "24th");
+        assertFunction("date_format(TIMESTAMP '2001-01-25', '%D')", VARCHAR, "25th");
+        assertFunction("date_format(TIMESTAMP '2001-01-26', '%D')", VARCHAR, "26th");
+        assertFunction("date_format(TIMESTAMP '2001-01-27', '%D')", VARCHAR, "27th");
+        assertFunction("date_format(TIMESTAMP '2001-01-28', '%D')", VARCHAR, "28th");
+        assertFunction("date_format(TIMESTAMP '2001-01-29', '%D')", VARCHAR, "29th");
+        assertFunction("date_format(TIMESTAMP '2001-01-30', '%D')", VARCHAR, "30th");
+        assertFunction("date_format(TIMESTAMP '2001-01-31', '%D')", VARCHAR, "31st");
+
         assertInvalidFunction("date_format(DATE '2001-01-09', '%U')", "%U not supported in date format string");
         assertInvalidFunction("date_format(DATE '2001-01-09', '%u')", "%u not supported in date format string");
         assertInvalidFunction("date_format(DATE '2001-01-09', '%V')", "%V not supported in date format string");
@@ -763,6 +796,24 @@ public class TestDateTimeFunctions
         assertFunction("date_parse('2013-05', '%Y-%m')",
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(2013, 5, 1, 0, 0, 0, 0, DATE_TIME_ZONE)));
+        assertFunction("date_parse('2013-05-17th', '%Y-%m-%D')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(2013, 5, 17, 0, 0, 0, 0, DATE_TIME_ZONE)));
+        assertFunction("date_parse('November 5th, 1955', '%M %D, %Y')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(1955, 11, 5, 0, 0, 0, 0, DATE_TIME_ZONE)));
+        assertFunction("date_parse('2013-05-1st', '%Y-%m-%D')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(2013, 5, 1, 0, 0, 0, 0, DATE_TIME_ZONE)));
+        assertFunction("date_parse('2013-05-2nd', '%Y-%m-%D')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(2013, 5, 2, 0, 0, 0, 0, DATE_TIME_ZONE)));
+        assertFunction("date_parse('2013-05-3rd', '%Y-%m-%D')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(2013, 5, 3, 0, 0, 0, 0, DATE_TIME_ZONE)));
+        assertFunction("date_parse('2013-05-31ST', '%Y-%m-%D')",
+                TimestampType.TIMESTAMP,
+                toTimestamp(new DateTime(2013, 5, 31, 0, 0, 0, 0, DATE_TIME_ZONE)));
         assertFunction("date_parse('2013-05-17', '%Y-%m-%d')",
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(2013, 5, 17, 0, 0, 0, 0, DATE_TIME_ZONE)));
@@ -821,7 +872,6 @@ public class TestDateTimeFunctions
                 TimestampType.TIMESTAMP,
                 toTimestamp(new DateTime(2069, 5, 31, 4, 59, 59, 999, DATE_TIME_ZONE)));
 
-        assertInvalidFunction("date_parse('', '%D')", "%D not supported in date format string");
         assertInvalidFunction("date_parse('', '%U')", "%U not supported in date format string");
         assertInvalidFunction("date_parse('', '%u')", "%u not supported in date format string");
         assertInvalidFunction("date_parse('', '%V')", "%V not supported in date format string");
@@ -830,6 +880,10 @@ public class TestDateTimeFunctions
 
         assertInvalidFunction("date_parse('3.0123456789', '%s.%f')", "Invalid format: \"3.0123456789\" is malformed at \"9\"");
         assertInvalidFunction("date_parse('%Y-%M-%d', '')", "Both printing and parsing not supported");
+        assertInvalidFunction("date_parse('2013-05-17t', '%Y-%m-%D')", "Invalid format: \"2013-05-17t\" is malformed at \"17t\"");
+        assertInvalidFunction("date_parse('2013-05-32nd', '%Y-%m-%D')", "Invalid format: \"2013-05-32nd\" is malformed at \"32nd\"");
+        assertInvalidFunction("date_parse('2013-05-0th', '%Y-%m-%D')", "Invalid format: \"2013-05-0th\" is malformed at \"0th\"");
+        assertInvalidFunction("date_parse('2013-02-30th', '%Y-%m-%D')", "Cannot parse \"2013-02-30th\": Value 30 for dayOfMonth must be in the range [1,28]");
     }
 
     @Test
