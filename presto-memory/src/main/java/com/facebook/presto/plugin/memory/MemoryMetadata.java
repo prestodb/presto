@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
+import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Collection;
@@ -56,6 +57,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
+@ThreadSafe
 public class MemoryMetadata
         implements ConnectorMetadata
 {
@@ -75,13 +77,13 @@ public class MemoryMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public synchronized List<String> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.of(SCHEMA_NAME);
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         Long tableId = tableIds.get(tableName.getTableName());
         if (tableId == null) {
@@ -91,14 +93,14 @@ public class MemoryMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public synchronized ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle memoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
         return memoryTableHandle.toTableMetadata();
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public synchronized List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
     {
         if (schemaNameOrNull != null && !schemaNameOrNull.equals(SCHEMA_NAME)) {
             return ImmutableList.of();
@@ -109,7 +111,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle memoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
         return memoryTableHandle.getColumnHandles().stream()
@@ -117,14 +119,14 @@ public class MemoryMetadata
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public synchronized ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         MemoryColumnHandle memoryColumnHandle = checkType(columnHandle, MemoryColumnHandle.class, "columnHandle");
         return memoryColumnHandle.toColumnMetadata();
     }
 
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public synchronized Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
@@ -132,7 +134,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public synchronized void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
         Long tableId = tableIds.remove(handle.getTableName());
@@ -142,7 +144,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
+    public synchronized void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         MemoryTableHandle oldTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
         MemoryTableHandle newTableHandle = new MemoryTableHandle(
@@ -159,14 +161,14 @@ public class MemoryMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public synchronized void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         ConnectorOutputTableHandle outputTableHandle = beginCreateTable(session, tableMetadata, Optional.empty());
         finishCreateTable(session, outputTableHandle, ImmutableList.of());
     }
 
     @Override
-    public MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         long nextId = nextTableId.getAndIncrement();
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
@@ -184,26 +186,26 @@ public class MemoryMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public synchronized Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         return Optional.empty();
     }
 
     @Override
-    public MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle memoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
         return new MemoryInsertTableHandle(memoryTableHandle, ImmutableSet.copyOf(tableIds.values()));
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public synchronized Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         return Optional.empty();
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
+    public synchronized List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle handle,
             Constraint<ColumnHandle> constraint,
@@ -217,7 +219,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    public synchronized ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         return new ConnectorTableLayout(
                 handle,
