@@ -50,7 +50,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.plugin.memory.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -95,7 +94,7 @@ public class MemoryMetadata
     @Override
     public synchronized ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MemoryTableHandle memoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         return memoryTableHandle.toTableMetadata();
     }
 
@@ -113,7 +112,7 @@ public class MemoryMetadata
     @Override
     public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MemoryTableHandle memoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         return memoryTableHandle.getColumnHandles().stream()
                 .collect(toMap(MemoryColumnHandle::getName, Function.identity()));
     }
@@ -121,7 +120,7 @@ public class MemoryMetadata
     @Override
     public synchronized ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        MemoryColumnHandle memoryColumnHandle = checkType(columnHandle, MemoryColumnHandle.class, "columnHandle");
+        MemoryColumnHandle memoryColumnHandle = (MemoryColumnHandle) columnHandle;
         return memoryColumnHandle.toColumnMetadata();
     }
 
@@ -136,7 +135,7 @@ public class MemoryMetadata
     @Override
     public synchronized void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MemoryTableHandle handle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
         Long tableId = tableIds.remove(handle.getTableName());
         if (tableId != null) {
             tables.remove(tableId);
@@ -146,7 +145,7 @@ public class MemoryMetadata
     @Override
     public synchronized void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        MemoryTableHandle oldTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        MemoryTableHandle oldTableHandle = (MemoryTableHandle) tableHandle;
         MemoryTableHandle newTableHandle = new MemoryTableHandle(
                 oldTableHandle.getConnectorId(),
                 oldTableHandle.getSchemaName(),
@@ -194,7 +193,7 @@ public class MemoryMetadata
     @Override
     public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        MemoryTableHandle memoryTableHandle = checkType(tableHandle, MemoryTableHandle.class, "tableHandle");
+        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
         return new MemoryInsertTableHandle(memoryTableHandle, ImmutableSet.copyOf(tableIds.values()));
     }
 

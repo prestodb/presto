@@ -27,7 +27,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.plugin.memory.Types.checkType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -49,13 +48,13 @@ public final class MemoryPageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        MemorySplit memorySplit = checkType(split, MemorySplit.class, "split");
+        MemorySplit memorySplit = (MemorySplit) split;
         long tableId = memorySplit.getTableHandle().getTableId();
         int partNumber = memorySplit.getPartNumber();
         int totalParts = memorySplit.getTotalPartsPerWorker();
 
         List<Integer> columnIndexes = columns.stream()
-                .map(value -> checkType(value, MemoryColumnHandle.class, "columns"))
+                .map(MemoryColumnHandle.class::cast)
                 .map(MemoryColumnHandle::getColumnIndex).collect(toList());
         List<Page> pages = pagesStore.getPages(tableId, partNumber, totalParts, columnIndexes);
 
