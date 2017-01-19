@@ -62,8 +62,8 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.any;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -417,7 +417,7 @@ public class AddLocalExchanges
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
-                    new PartitioningScheme(Partitioning.create(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                    new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
                     sources,
                     inputLayouts);
             ExchangeNode exchangeNode = result;
@@ -533,7 +533,7 @@ public class AddLocalExchanges
                         idAllocator.getNextId(),
                         LOCAL,
                         planWithProperties.getNode(),
-                        new PartitioningScheme(Partitioning.create(FIXED_RANDOM_DISTRIBUTION, ImmutableList.of()), planWithProperties.getNode().getOutputSymbols()));
+                        new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), planWithProperties.getNode().getOutputSymbols()));
 
                 return deriveProperties(exchangeNode, planWithProperties.getProperties());
             }
