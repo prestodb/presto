@@ -127,7 +127,7 @@ public class ExchangeNode
                 scope,
                 partitioningScheme,
                 ImmutableList.of(child),
-                ImmutableList.of(child.getOutputSymbols()));
+                ImmutableList.of(partitioningScheme.getOutputLayout()));
     }
 
     public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child)
