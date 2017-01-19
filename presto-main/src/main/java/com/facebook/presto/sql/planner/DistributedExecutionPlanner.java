@@ -52,9 +52,11 @@ import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -63,6 +65,8 @@ import static java.util.Objects.requireNonNull;
 
 public class DistributedExecutionPlanner
 {
+    private static final Logger log = Logger.get(DistributedExecutionPlanner.class);
+
     private final SplitManager splitManager;
 
     @Inject
@@ -73,15 +77,37 @@ public class DistributedExecutionPlanner
 
     public StageExecutionPlan plan(SubPlan root, Session session)
     {
+        Visitor visitor = new Visitor(session);
+        try {
+            return plan(root, visitor);
+        }
+        catch (Throwable t) {
+            visitor.getSplitSources().forEach(DistributedExecutionPlanner::closeSplitSource);
+            throw t;
+        }
+    }
+
+    private static void closeSplitSource(SplitSource source)
+    {
+        try {
+            source.close();
+        }
+        catch (Throwable t) {
+            log.warn(t, "Error closing split source");
+        }
+    }
+
+    private StageExecutionPlan plan(SubPlan root, Visitor visitor)
+    {
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session), null);
+        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(visitor, null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
         for (SubPlan childPlan : root.getChildren()) {
-            dependencies.add(plan(childPlan, session));
+            dependencies.add(plan(childPlan, visitor));
         }
 
         return new StageExecutionPlan(
@@ -94,10 +120,16 @@ public class DistributedExecutionPlanner
             extends PlanVisitor<Void, Map<PlanNodeId, SplitSource>>
     {
         private final Session session;
+        private final List<SplitSource> splitSources = new ArrayList<>();
 
         private Visitor(Session session)
         {
             this.session = session;
+        }
+
+        public List<SplitSource> getSplitSources()
+        {
+            return splitSources;
         }
 
         @Override
@@ -111,6 +143,8 @@ public class DistributedExecutionPlanner
         {
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(session, node.getLayout().get());
+
+            splitSources.add(splitSource);
 
             return ImmutableMap.of(node.getId(), splitSource);
         }
