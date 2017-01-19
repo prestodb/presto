@@ -108,8 +108,7 @@ public class IterativeOptimizer
                 Optional<PlanNode> transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
 
                 if (transformed.isPresent()) {
-                    context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
-                    node = transformed.get();
+                    node = context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
 
                     done = false;
                     progress = true;
