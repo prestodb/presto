@@ -97,7 +97,7 @@ public class Memo
         return node.replaceChildren(children);
     }
 
-    public void replace(int group, PlanNode node, String reason)
+    public PlanNode replace(int group, PlanNode node, String reason)
     {
         PlanNode old = membership.get(group);
 
@@ -117,6 +117,8 @@ public class Memo
         incrementReferenceCounts(node);
         membership.put(group, node);
         decrementReferenceCounts(old);
+
+        return node;
     }
 
     private void incrementReferenceCounts(PlanNode node)
