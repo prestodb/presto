@@ -27,25 +27,16 @@ import static java.util.Objects.requireNonNull;
 public class JmxColumnHandle
         implements ColumnHandle
 {
-    private final String connectorId;
     private final String columnName;
     private final Type columnType;
 
     @JsonCreator
     public JmxColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
             @JsonProperty("columnType") Type columnType)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -63,7 +54,7 @@ public class JmxColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, columnName, columnType);
+        return Objects.hash(columnName, columnType);
     }
 
     @Override
@@ -76,8 +67,7 @@ public class JmxColumnHandle
             return false;
         }
         JmxColumnHandle other = (JmxColumnHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.columnName, other.columnName) &&
+        return Objects.equals(this.columnName, other.columnName) &&
                 Objects.equals(this.columnType, other.columnType);
     }
 
@@ -85,7 +75,6 @@ public class JmxColumnHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("columnName", columnName)
                 .add("columnType", columnType)
                 .toString();

@@ -19,10 +19,15 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
+import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
@@ -92,17 +97,22 @@ public class PlanOptimizers
                         new EvaluateZeroLimit(),
                         new PushLimitThroughProject(),
                         new MergeLimits(),
+                        new MergeLimitWithSort(),
+                        new MergeLimitWithTopN(),
+                        new PushLimitThroughMarkDistinct(),
+                        new PushLimitThroughSemiJoin(),
+                        new MergeLimitWithDistinct(),
 
                         new PruneValuesColumns(),
-                        new PruneTableScanColumns(),
-
-                        new SimplifyCountOverConstant(),
-                        new ImplementBernoulliSampleAsFilter(),
-                        new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
-                        new SingleMarkDistinctToGroupBy()
+                        new PruneTableScanColumns()
                 )),
-                new ImplementFilteredAggregations(),
-                new ImplementSampleAsFilter(),
+                new IterativeOptimizer(
+                        ImmutableList.of(
+                                new ImplementFilteredAggregations(),
+                                new ImplementSampleAsFilter()),
+                        ImmutableSet.of(
+                                new com.facebook.presto.sql.planner.iterative.rule.ImplementFilteredAggregations(),
+                                new ImplementBernoulliSampleAsFilter())),
                 new SimplifyExpressions(metadata, sqlParser),
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
@@ -124,7 +134,9 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
-                new CountConstantOptimizer(),
+                new IterativeOptimizer(
+                        ImmutableList.of(new CountConstantOptimizer()),
+                        ImmutableSet.of(new SimplifyCountOverConstant())),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new MergeWindows(),
                 new ReorderWindows(), // Should be after MergeWindows to avoid unnecessary reordering of mergeable windows
@@ -137,8 +149,11 @@ public class PlanOptimizers
                 new ProjectionPushDown());
 
         if (featuresConfig.isOptimizeSingleDistinct()) {
-            builder.add(new SingleDistinctOptimizer());
-            builder.add(new PruneUnreferencedOutputs());
+            builder.add(
+                    new IterativeOptimizer(
+                            ImmutableList.of(new SingleDistinctOptimizer()),
+                            ImmutableSet.of(new SingleMarkDistinctToGroupBy())),
+                    new PruneUnreferencedOutputs());
         }
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));

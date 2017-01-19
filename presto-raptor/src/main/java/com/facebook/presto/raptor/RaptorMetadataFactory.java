@@ -14,13 +14,12 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.raptor.metadata.ForMetadata;
-import com.facebook.presto.raptor.metadata.ShardDelta;
-import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
-import io.airlift.json.JsonCodec;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
+
+import java.util.function.LongConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,26 +28,20 @@ public class RaptorMetadataFactory
     private final String connectorId;
     private final IDBI dbi;
     private final ShardManager shardManager;
-    private final JsonCodec<ShardInfo> shardInfoCodec;
-    private final JsonCodec<ShardDelta> shardDeltaCodec;
 
     @Inject
     public RaptorMetadataFactory(
             RaptorConnectorId connectorId,
             @ForMetadata IDBI dbi,
-            ShardManager shardManager,
-            JsonCodec<ShardInfo> shardInfoCodec,
-            JsonCodec<ShardDelta> shardDeltaCodec)
+            ShardManager shardManager)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
-        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
-        this.shardDeltaCodec = requireNonNull(shardDeltaCodec, "shardDeltaCodec is null");
     }
 
-    public RaptorMetadata create()
+    public RaptorMetadata create(LongConsumer beginDeleteForTableId)
     {
-        return new RaptorMetadata(connectorId, dbi, shardManager, shardInfoCodec, shardDeltaCodec);
+        return new RaptorMetadata(connectorId, dbi, shardManager, beginDeleteForTableId);
     }
 }

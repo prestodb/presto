@@ -5018,6 +5018,19 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExplainValidate()
+    {
+        MaterializedResult result = computeActual("EXPLAIN (TYPE VALIDATE) SELECT 1");
+        assertEquals(result.getOnlyValue(), true);
+    }
+
+    @Test(expectedExceptions = Exception.class, expectedExceptionsMessageRegExp = "line 1:32: Column 'x' cannot be resolved")
+    public void testExplainValidateThrows()
+    {
+        computeActual("EXPLAIN (TYPE VALIDATE) SELECT x");
+    }
+
+    @Test
     public void testExplainOfExplain()
     {
         String query = "EXPLAIN SELECT * FROM orders";

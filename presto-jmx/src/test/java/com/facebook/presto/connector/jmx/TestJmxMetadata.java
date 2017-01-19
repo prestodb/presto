@@ -37,7 +37,7 @@ public class TestJmxMetadata
     private static final SchemaTableName RUNTIME_TABLE = new SchemaTableName(JMX_SCHEMA_NAME, RUNTIME_OBJECT.toLowerCase(ENGLISH));
     private static final SchemaTableName RUNTIME_HISTORY_TABLE = new SchemaTableName(HISTORY_SCHEMA_NAME, RUNTIME_OBJECT.toLowerCase(ENGLISH));
 
-    private final JmxMetadata metadata = new JmxMetadata("test", getPlatformMBeanServer(), new JmxHistoricalData(1000, ImmutableSet.of(RUNTIME_OBJECT.toLowerCase())));
+    private final JmxMetadata metadata = new JmxMetadata(getPlatformMBeanServer(), new JmxHistoricalData(1000, ImmutableSet.of(RUNTIME_OBJECT.toLowerCase())));
 
     @Test
     public void testListSchemas()
@@ -58,13 +58,12 @@ public class TestJmxMetadata
             throws Exception
     {
         JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_TABLE);
-        assertEquals(handle.getConnectorId(), "test");
         assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
 
         List<JmxColumnHandle> columns = handle.getColumnHandles();
-        assertTrue(columns.contains(new JmxColumnHandle("test", "node", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("test", "Name", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("test", "StartTime", BIGINT)));
+        assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("StartTime", BIGINT)));
     }
 
     @Test
@@ -72,13 +71,12 @@ public class TestJmxMetadata
             throws Exception
     {
         JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_HISTORY_TABLE);
-        assertEquals(handle.getConnectorId(), "test");
         assertEquals(handle.getObjectName(), RUNTIME_OBJECT);
 
         List<JmxColumnHandle> columns = handle.getColumnHandles();
-        assertTrue(columns.contains(new JmxColumnHandle("test", "timestamp", TIMESTAMP)));
-        assertTrue(columns.contains(new JmxColumnHandle("test", "node", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("test", "Name", createUnboundedVarcharType())));
-        assertTrue(columns.contains(new JmxColumnHandle("test", "StartTime", BIGINT)));
+        assertTrue(columns.contains(new JmxColumnHandle("timestamp", TIMESTAMP)));
+        assertTrue(columns.contains(new JmxColumnHandle("node", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("Name", createUnboundedVarcharType())));
+        assertTrue(columns.contains(new JmxColumnHandle("StartTime", BIGINT)));
     }
 }

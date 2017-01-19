@@ -12,12 +12,12 @@ Synopsis
     where option can be one of:
 
         FORMAT { TEXT | GRAPHVIZ }
-        TYPE { LOGICAL | DISTRIBUTED }
+        TYPE { LOGICAL | DISTRIBUTED | VALIDATE }
 
 Description
 -----------
 
-Show the logical or distributed execution plan of a statement.
+Show the logical or distributed execution plan of a statement, or validate the statement.
 
 Examples
 --------
@@ -68,6 +68,15 @@ Distributed plan:
              - TableScan[tpch:tpch:nation:sf0.01, original constraint=true] => [regionkey:bigint]
                      LAYOUT: tpch:nation:sf0.01
                      regionkey := tpch:regionkey
+
+Validate:
+
+.. code-block:: none
+
+    presto:tiny> EXPLAIN (TYPE VALIDATE) SELECT regionkey, count(*) FROM nation GROUP BY 1;
+     Valid
+    -------
+     true
 
 See Also
 --------

@@ -129,6 +129,7 @@ public class LimitPushDown
         }
 
         @Override
+        @Deprecated
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<LimitContext> context)
         {
             LimitContext limit = context.get();
@@ -182,6 +183,7 @@ public class LimitPushDown
         }
 
         @Override
+        @Deprecated
         public PlanNode visitSort(SortNode node, RewriteContext<LimitContext> context)
         {
             LimitContext limit = context.get();

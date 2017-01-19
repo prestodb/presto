@@ -16,7 +16,6 @@ package com.facebook.presto.raptor.systemtables;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
-import com.facebook.presto.raptor.metadata.ShardDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -31,7 +30,6 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTime;
 import org.skife.jdbi.v2.DBI;
@@ -59,7 +57,6 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -67,8 +64,6 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestShardMetadataRecordCursor
 {
-    private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
 
     private Handle dummyHandle;
@@ -80,8 +75,8 @@ public class TestShardMetadataRecordCursor
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         this.dummyHandle = dbi.open();
-        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), SHARD_INFO_CODEC, SHARD_DELTA_CODEC);
         createTablesWithRetry(dbi);
+        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
 
         // Create table
         metadata.createTable(SESSION, tableMetadataBuilder(DEFAULT_TEST_ORDERS)
