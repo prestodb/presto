@@ -18,6 +18,10 @@ other nodes in the cluster.
 
     Internal SSL/TLS communication is not compatible with :doc:`Kerberos</security/cli>`
 
+.. note::
+
+    Internal SSL/TLS communication with LDAP requires an additional LDAP service user for internal communication.
+
 To enable SSL/TLS for Presto internal communication, do the following:
 
 1. Disable HTTP endpoint.
