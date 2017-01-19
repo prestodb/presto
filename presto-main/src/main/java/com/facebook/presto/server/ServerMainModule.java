@@ -126,6 +126,7 @@ import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
 import io.airlift.stats.PauseMeter;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.inject.Singleton;
@@ -149,6 +150,7 @@ import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -296,6 +298,7 @@ public class ServerMainModule
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                     config.setMaxConnectionsPerServer(250);
+                    config.setMaxContentLength(new DataSize(32, MEGABYTE));
                 });
 
         configBinder(binder).bindConfig(ExchangeClientConfig.class);
