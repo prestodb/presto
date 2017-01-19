@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -514,19 +515,20 @@ public class HiveMetadata
 
         ImmutableMap.Builder<String, PartitionStatistics> resultMap = ImmutableMap.builder();
 
-        Set<String> partitionNames = hivePartitions.stream().map(HivePartition::getPartitionId).collect(Collectors.toSet());
+        List<String> partitionNames = hivePartitions.stream().map(HivePartition::getPartitionId).collect(Collectors.toList());
         Map<String, Map<String, ColumnStatistics>> partitionColumnStatisticsMap =
-                metastore.getPartitionColumnStatistics(databaseName, tableName, partitionNames, tableColumns)
+                metastore.getPartitionColumnStatistics(databaseName, tableName, new HashSet<>(partitionNames), tableColumns)
                         .orElse(ImmutableMap.of());
 
-        for (HivePartition hivePartition : hivePartitions) {
-            String partitionId = hivePartition.getPartitionId();
-            Partition partition = metastore
-                    .getPartition(databaseName, tableName, toPartitionValues(partitionId))
-                    .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for partition %s.%s.%s", databaseName, tableName, partitionId)));
-            Map<String, ColumnStatistics> partitionColumnStatistics = partitionColumnStatisticsMap.getOrDefault(partitionId, ImmutableMap.of());
-            resultMap.put(partitionId, readStatisticsFromParameters(partition.getParameters(), partitionColumnStatistics));
+        Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(databaseName, tableName, partitionNames);
+        for (String partitionName : partitionNames) {
+            Map<String, String> partitionParameters = partitionsByNames.get(partitionName)
+                    .map(Partition::getParameters)
+                    .orElseThrow(() -> new IllegalArgumentException(format("Could not get metadata for partition %s.%s.%s", databaseName, tableName, partitionName)));
+            Map<String, ColumnStatistics> partitionColumnStatistics = partitionColumnStatisticsMap.getOrDefault(partitionName, ImmutableMap.of());
+            resultMap.put(partitionName, readStatisticsFromParameters(partitionParameters, partitionColumnStatistics));
         }
+
         return resultMap.build();
     }
 
