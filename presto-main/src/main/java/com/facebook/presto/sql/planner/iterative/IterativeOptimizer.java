@@ -39,19 +39,15 @@ public class IterativeOptimizer
     private final Set<Rule> rules;
     private final StatsRecorder stats;
 
+    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
+    {
+        this(stats, ImmutableList.of(), rules);
+    }
+
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.rules = ImmutableSet.copyOf(newRules);
-        this.stats = stats;
-
-        stats.registerAll(rules);
-    }
-
-    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
-    {
-        this.legacyRules = ImmutableList.of();
-        this.rules = ImmutableSet.copyOf(rules);
         this.stats = stats;
 
         stats.registerAll(rules);
