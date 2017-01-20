@@ -18,9 +18,9 @@ import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Select;
@@ -191,7 +191,7 @@ public class QueryRewriter
     {
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
         for (Column column : columns) {
-            Expression expression = new QualifiedNameReference(QualifiedName.of(column.getName()));
+            Expression expression = new Identifier(column.getName());
             if (column.isApproximateType()) {
                 expression = new FunctionCall(QualifiedName.of("round"), ImmutableList.of(expression, new LongLiteral(Integer.toString(doublePrecision))));
             }

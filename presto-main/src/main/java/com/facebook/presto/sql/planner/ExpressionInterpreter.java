@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -70,7 +71,6 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
@@ -295,7 +295,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Void visitQualifiedNameReference(QualifiedNameReference node, Void context)
+        protected Void visitIdentifier(Identifier node, Void context)
         {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
         }
@@ -430,7 +430,7 @@ public class ExpressionInterpreter
         }
 
         @Override
-        protected Object visitQualifiedNameReference(QualifiedNameReference node, Object context)
+        protected Object visitIdentifier(Identifier node, Object context)
         {
             return node;
         }

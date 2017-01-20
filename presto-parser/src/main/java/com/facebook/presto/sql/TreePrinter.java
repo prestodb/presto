@@ -27,13 +27,13 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Rollup;
@@ -286,14 +286,14 @@ public class TreePrinter
             }
 
             @Override
-            protected Void visitQualifiedNameReference(QualifiedNameReference node, Integer indentLevel)
+            protected Void visitIdentifier(Identifier node, Integer indentLevel)
             {
                 QualifiedName resolved = resolvedNameReferences.get(node);
                 String resolvedName = "";
                 if (resolved != null) {
                     resolvedName = "=>" + resolved.toString();
                 }
-                print(indentLevel, "QualifiedName[" + node.getName() + resolvedName + "]");
+                print(indentLevel, "Identifier[" + node.getName() + resolvedName + "]");
                 return null;
             }
 

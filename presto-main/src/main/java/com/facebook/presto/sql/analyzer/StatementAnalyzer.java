@@ -67,6 +67,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -78,7 +79,6 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -927,8 +927,8 @@ class StatementAnalyzer
 
             List<Expression> expressions = new ArrayList<>();
             for (String column : columns) {
-                Expression leftExpression = new QualifiedNameReference(QualifiedName.of(column));
-                Expression rightExpression = new QualifiedNameReference(QualifiedName.of(column));
+                Expression leftExpression = new Identifier(column);
+                Expression rightExpression = new Identifier(column);
 
                 ExpressionAnalysis leftExpressionAnalysis = analyzeExpression(leftExpression, left);
                 ExpressionAnalysis rightExpressionAnalysis = analyzeExpression(rightExpression, right);
@@ -1337,10 +1337,10 @@ class StatementAnalyzer
                 Expression expression = item.getSortKey();
 
                 Expression orderByExpression = null;
-                if (expression instanceof QualifiedNameReference && !((QualifiedNameReference) expression).getName().getPrefix().isPresent()) {
+                if (expression instanceof Identifier) {
                     // if this is a simple name reference, try to resolve against output columns
 
-                    QualifiedName name = ((QualifiedNameReference) expression).getName();
+                    QualifiedName name = QualifiedName.of(((Identifier) expression).getName());
                     Collection<Expression> expressions = byAlias.get(name);
                     if (expressions.size() > 1) {
                         throw new SemanticException(AMBIGUOUS_ATTRIBUTE, expression, "'%s' in ORDER BY is ambiguous", name.getSuffix());
@@ -1405,8 +1405,8 @@ class StatementAnalyzer
                 if (alias.isPresent()) {
                     assignments.put(QualifiedName.of(alias.get()), column.getExpression()); // TODO: need to know if alias was quoted
                 }
-                else if (column.getExpression() instanceof QualifiedNameReference) {
-                    assignments.put(((QualifiedNameReference) column.getExpression()).getName(), column.getExpression());
+                else if (column.getExpression() instanceof Identifier) {
+                    assignments.put(QualifiedName.of(((Identifier) column.getExpression()).getName()), column.getExpression());
                 }
             }
         }
@@ -1425,20 +1425,16 @@ class StatementAnalyzer
         }
 
         @Override
-        public Expression rewriteQualifiedNameReference(QualifiedNameReference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public Expression rewriteIdentifier(Identifier reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (reference.getName().getPrefix().isPresent()) {
-                return reference;
-            }
-
             // if this is a simple name reference, try to resolve against output columns
-            QualifiedName name = reference.getName();
+            QualifiedName name = QualifiedName.of(reference.getName());
             Set<Expression> expressions = assignments.get(name)
                     .stream()
                     .collect(Collectors.toSet());
 
             if (expressions.size() > 1) {
-                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name.getSuffix());
+                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name);
             }
 
             if (expressions.size() == 1) {
@@ -1562,8 +1558,8 @@ class StatementAnalyzer
                 Optional<QualifiedObjectName> originTable = Optional.empty();
                 QualifiedName name = null;
 
-                if (expression instanceof QualifiedNameReference) {
-                    name = ((QualifiedNameReference) expression).getName();
+                if (expression instanceof Identifier) {
+                    name = QualifiedName.of(((Identifier) expression).getName());
                 }
                 else if (expression instanceof DereferenceExpression) {
                     name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);

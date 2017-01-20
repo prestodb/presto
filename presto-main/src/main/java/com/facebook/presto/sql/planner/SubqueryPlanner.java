@@ -32,11 +32,11 @@ import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import com.facebook.presto.sql.tree.SubqueryExpression;
@@ -529,7 +529,7 @@ class SubqueryPlanner
         }
 
         @Override
-        protected Void visitQualifiedNameReference(QualifiedNameReference node, ImmutableSet.Builder<Expression> builder)
+        protected Void visitIdentifier(Identifier node, ImmutableSet.Builder<Expression> builder)
         {
             builder.add(node);
             return null;

@@ -55,7 +55,7 @@ public final class Cube
     public List<Set<Expression>> enumerateGroupingSets()
     {
         return ImmutableList.copyOf(Sets.powerSet(columns.stream()
-                .map(QualifiedNameReference::new)
+                .map(DereferenceExpression::from)
                 .collect(toSet())));
     }
 

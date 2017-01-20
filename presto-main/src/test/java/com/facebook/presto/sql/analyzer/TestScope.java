@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.DereferenceExpression;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -39,10 +40,10 @@ public class TestScope
         Field innerColumn3 = Field.newQualified(QualifiedName.of("inner", "column3"), Optional.of("c3"), BIGINT, false, Optional.empty(), false);
         Scope inner = Scope.builder().withParent(outer).withRelationType(new RelationType(innerColumn2, innerColumn3)).build();
 
-        QualifiedNameReference c1 = name("c1");
-        QualifiedNameReference c2 = name("c2");
-        QualifiedNameReference c3 = name("c3");
-        QualifiedNameReference c4 = name("c4");
+        Expression c1 = name("c1");
+        Expression c2 = name("c2");
+        Expression c3 = name("c3");
+        Expression c4 = name("c4");
 
         assertFalse(root.tryResolveField(c1).isPresent());
 
@@ -67,8 +68,8 @@ public class TestScope
         assertFalse(inner.tryResolveField(c4).isPresent());
     }
 
-    private static QualifiedNameReference name(String first, String... parts)
+    private static Expression name(String first, String... parts)
     {
-        return new QualifiedNameReference(QualifiedName.of(first, parts));
+        return DereferenceExpression.from(QualifiedName.of(first, parts));
     }
 }

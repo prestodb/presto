@@ -61,7 +61,7 @@ public final class Rollup
                 .addAll(IntStream.range(0, numColumns)
                         .mapToObj(i -> columns.subList(0, numColumns - i)
                                 .stream()
-                                .map(QualifiedNameReference::new)
+                                .map(DereferenceExpression::from)
                                 .map(Expression.class::cast)
                                 .collect(toSet()))
                         .collect(toList()))
