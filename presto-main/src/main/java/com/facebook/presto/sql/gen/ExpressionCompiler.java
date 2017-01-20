@@ -23,7 +23,6 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import org.weakref.jmx.Managed;
@@ -48,7 +47,7 @@ public class ExpressionCompiler
 {
     private final Metadata metadata;
 
-    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends PageProcessor>>()
             {
                 @Override
@@ -59,7 +58,7 @@ public class ExpressionCompiler
                 }
             });
 
-    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
             {
                 @Override
@@ -146,16 +145,6 @@ public class ExpressionCompiler
                         .toString());
 
         return defineClass(classDefinition, superType, callSiteBinder.getBindings(), getClass().getClassLoader());
-    }
-
-    public CacheStats pageCacheStats()
-    {
-        return pageProcessors.stats();
-    }
-
-    public CacheStats cursorCacheStats()
-    {
-        return cursorProcessors.stats();
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)

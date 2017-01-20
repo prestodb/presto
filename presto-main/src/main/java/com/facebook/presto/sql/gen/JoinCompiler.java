@@ -42,7 +42,6 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunction
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionError;
@@ -78,7 +77,7 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<CacheKey, LookupSourceSupplierFactory>()
             {
                 @Override
@@ -89,7 +88,7 @@ public class JoinCompiler
                 }
             });
 
-    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends PagesHashStrategy>>()
             {
                 @Override
@@ -202,17 +201,6 @@ public class JoinCompiler
 
         return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
-
-    public CacheStats lookupSourceCacheStats()
-    {
-        return lookupSourceFactories.stats();
-    }
-
-    public CacheStats hashCacheStats()
-    {
-        return hashStrategies.stats();
-    }
-
 
     private static void generateConstructor(ClassDefinition classDefinition,
             List<Integer> joinChannels,
