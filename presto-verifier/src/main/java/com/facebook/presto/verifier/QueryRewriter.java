@@ -14,11 +14,14 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QueryBody;
@@ -29,6 +32,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
@@ -49,6 +53,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.verifier.PrestoVerifier.statementToQueryType;
 import static com.facebook.presto.verifier.QueryType.READ;
 import static java.lang.String.format;
@@ -100,28 +105,48 @@ public class QueryRewriter
             if (statement instanceof CreateTableAsSelect) {
                 return rewriteCreateTableAsSelect(connection, query, (CreateTableAsSelect) statement);
             }
+            else if (statement instanceof Insert) {
+                return rewriteInsertQuery(connection, query, (Insert) statement);
+            }
         }
 
         throw new QueryRewriteException("Unsupported query type: " + statement.getClass());
     }
 
     private Query rewriteCreateTableAsSelect(Connection connection, Query query, CreateTableAsSelect statement)
-            throws SQLException
+            throws SQLException, QueryRewriteException
     {
-        List<String> parts = new ArrayList<>();
-        int originalSize = statement.getName().getOriginalParts().size();
-        int prefixSize = rewritePrefix.getOriginalParts().size();
-        if (originalSize > prefixSize) {
-            parts.addAll(statement.getName().getOriginalParts().subList(0, originalSize - prefixSize));
-        }
-        parts.addAll(rewritePrefix.getOriginalParts());
-        parts.set(parts.size() - 1, createTemporaryTableName());
-        QualifiedName temporaryTableName = QualifiedName.of(parts);
+        QualifiedName temporaryTableName = generateTemporaryTableName(statement.getName());
         Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData());
         String createTableAsSql = formatSql(rewritten, Optional.empty());
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTableAsSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
+    }
+
+    private Query rewriteInsertQuery(Connection connection, Query query, Insert statement)
+            throws SQLException, QueryRewriteException
+    {
+        QualifiedName temporaryTableName = generateTemporaryTableName(statement.getTarget());
+        Statement createTemporaryTable = new CreateTable(temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), true, ImmutableMap.of());
+        String createTemporaryTableSql = formatSql(createTemporaryTable, Optional.empty());
+        String insertSql = formatSql(new Insert(temporaryTableName, statement.getColumns(), statement.getQuery()), Optional.empty());
+        String checksumSql = checksumSql(getColumnsForTable(connection, query.getCatalog(), query.getSchema(), statement.getTarget().toString()), temporaryTableName);
+        String dropTableSql = dropTableSql(temporaryTableName);
+        return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTemporaryTableSql, insertSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
+    }
+
+    private QualifiedName generateTemporaryTableName(QualifiedName originalName)
+    {
+        List<String> parts = new ArrayList<>();
+        int originalSize = originalName.getOriginalParts().size();
+        int prefixSize = rewritePrefix.getOriginalParts().size();
+        if (originalSize > prefixSize) {
+            parts.addAll(originalName.getOriginalParts().subList(0, originalSize - prefixSize));
+        }
+        parts.addAll(rewritePrefix.getOriginalParts());
+        parts.set(parts.size() - 1, createTemporaryTableName());
+        return QualifiedName.of(parts);
     }
 
     private void trySetConnectionProperties(Query query, Connection connection)
@@ -142,6 +167,18 @@ public class QueryRewriter
     private String createTemporaryTableName()
     {
         return rewritePrefix.getSuffix() + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private List<Column> getColumnsForTable(Connection connection, String catalog, String schema, String table) throws SQLException
+    {
+        ResultSet columns = connection.getMetaData().getColumns(catalog, escapeLikeExpression(connection, schema), escapeLikeExpression(connection, table), null);
+        ImmutableList.Builder<Column> columnBuilder = new ImmutableList.Builder<>();
+        while (columns.next()) {
+            String name = columns.getString("COLUMN_NAME");
+            int type = columns.getInt("DATA_TYPE");
+            columnBuilder.add(new Column(name, APPROXIMATE_TYPES.contains(type)));
+        }
+        return columnBuilder.build();
     }
 
     private List<Column> getColumns(Connection connection, CreateTableAsSelect createTableAsSelect)
@@ -187,8 +224,11 @@ public class QueryRewriter
     }
 
     private String checksumSql(List<Column> columns, QualifiedName table)
-            throws SQLException
+            throws SQLException, QueryRewriteException
     {
+        if (columns.isEmpty()) {
+            throw new QueryRewriteException("Table " + table + " has no columns");
+        }
         ImmutableList.Builder<SelectItem> selectItems = ImmutableList.builder();
         for (Column column : columns) {
             Expression expression = new Identifier(column.getName());
@@ -205,6 +245,13 @@ public class QueryRewriter
     private static String dropTableSql(QualifiedName table)
     {
         return formatSql(new DropTable(table, true), Optional.empty());
+    }
+
+    private static String escapeLikeExpression(Connection connection, String value)
+            throws SQLException
+    {
+        String escapeString = connection.getMetaData().getSearchStringEscape();
+        return value.replace(escapeString, escapeString + escapeString).replace("_", escapeString + "_").replace("%", escapeString + "%");
     }
 
     public static class QueryRewriteException

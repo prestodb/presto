@@ -14,10 +14,12 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -103,5 +105,38 @@ public class TestShadowing
         assertEquals(createTableAs.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
         assertTrue(createTableAs.getName().getSuffix().startsWith("tmp_"));
         assertFalse(createTableAs.getName().getSuffix().contains("my_test_table"));
+    }
+
+    @Test
+    public void testInsert()
+            throws Exception
+    {
+        handle.execute("CREATE TABLE \"test_insert_table\" (a BIGINT, b DOUBLE, c VARCHAR)");
+        SqlParser parser = new SqlParser();
+        Query query = new Query(CATALOG, SCHEMA, ImmutableList.of(), "INSERT INTO test_insert_table (b, a, c) values (1.1, 1, 'a'), (2.0, 2, 'b'), (3.1, 3, 'c')", ImmutableList.of(), null, null, ImmutableMap.of());
+        QueryRewriter rewriter = new QueryRewriter(parser, URL, QualifiedName.of("other_catalog", "other_schema", "tmp_"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1, new Duration(10, SECONDS));
+        Query rewrittenQuery = rewriter.shadowQuery(query);
+
+        assertEquals(rewrittenQuery.getPreQueries().size(), 2);
+        CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
+        assertEquals(createTable.getName().getParts().size(), 3);
+        assertEquals(createTable.getName().getPrefix().get(), QualifiedName.of("other_catalog", "other_schema"));
+        assertTrue(createTable.getName().getSuffix().startsWith("tmp_"));
+        assertFalse(createTable.getName().getSuffix().contains("test_insert_table"));
+
+        Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
+        assertEquals(insert.getTarget(), createTable.getName());
+        assertEquals(insert.getColumns(), Optional.of(ImmutableList.of("b", "a", "c")));
+
+        Table table = new Table(createTable.getName());
+        SingleColumn columnA = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("A"))));
+        SingleColumn columnB = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("B"), new LongLiteral("1"))))));
+        SingleColumn columnC = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("C"))));
+        Select select = new Select(false, ImmutableList.of(columnA, columnB, columnC));
+        QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new com.facebook.presto.sql.tree.Query(Optional.empty(), querySpecification, Optional.empty(), Optional.empty()));
+
+        assertEquals(rewrittenQuery.getPostQueries().size(), 1);
+        assertEquals(parser.createStatement(rewrittenQuery.getPostQueries().get(0)), new DropTable(createTable.getName(), true));
     }
 }
