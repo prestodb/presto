@@ -41,7 +41,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -67,6 +66,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
@@ -104,7 +104,6 @@ import static org.testng.FileAssert.assertFile;
 @Test(singleThreaded = true)
 public class TestOrcStorageManager
 {
-    private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstance(UTC);
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
     private static final String CURRENT_NODE = "node";
@@ -142,6 +141,8 @@ public class TestOrcStorageManager
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
+
         ShardManager shardManager = createShardManager(dbi);
         Duration discoveryInterval = new Duration(5, TimeUnit.MINUTES);
         recoveryManager = new ShardRecoveryManager(storageService, backupStore, nodeManager, shardManager, discoveryInterval, 10);
@@ -599,7 +600,6 @@ public class TestOrcStorageManager
                 CURRENT_NODE,
                 storageService,
                 backupStore,
-                SHARD_DELTA_CODEC,
                 READER_ATTRIBUTES,
                 new BackupManager(backupStore, 1),
                 recoveryManager,

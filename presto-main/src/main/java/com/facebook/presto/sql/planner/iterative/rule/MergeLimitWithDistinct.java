@@ -17,16 +17,15 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
-
-public class PushLimitThroughProject
-        implements Rule
+public class MergeLimitWithDistinct
+    implements Rule
 {
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
@@ -37,11 +36,33 @@ public class PushLimitThroughProject
 
         LimitNode parent = (LimitNode) node;
 
-        PlanNode child = lookup.resolve(parent.getSource());
-        if (!(child instanceof ProjectNode)) {
+        PlanNode input = lookup.resolve(parent.getSource());
+        if (!(input instanceof AggregationNode)) {
             return Optional.empty();
         }
 
-        return Optional.of(transpose(parent, child));
+        AggregationNode child = (AggregationNode) input;
+
+        if (isDistinct(child)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(
+                new DistinctLimitNode(
+                        parent.getId(),
+                        child.getSource(),
+                        parent.getCount(),
+                        false,
+                        child.getHashSymbol()));
+    }
+
+    /**
+     * Whether this node corresponds to a DISTINCT operation in SQL
+     */
+    private boolean isDistinct(AggregationNode node)
+    {
+        return !node.getAggregations().isEmpty() ||
+                node.getOutputSymbols().size() != node.getGroupingKeys().size() ||
+                !node.getOutputSymbols().containsAll(node.getGroupingKeys());
     }
 }

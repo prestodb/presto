@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -50,5 +51,15 @@ class Util
         }
 
         return Optional.of(ImmutableList.copyOf(used));
+    }
+
+    /**
+     * Transforms a plan like P->C->X to C->P->X
+     */
+    public static PlanNode transpose(PlanNode parent, PlanNode child)
+    {
+        return child.replaceChildren(ImmutableList.of(
+                parent.replaceChildren(
+                        child.getSources())));
     }
 }

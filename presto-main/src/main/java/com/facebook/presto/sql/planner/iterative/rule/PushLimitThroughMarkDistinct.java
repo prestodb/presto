@@ -18,14 +18,14 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
 
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
 
-public class PushLimitThroughProject
+public class PushLimitThroughMarkDistinct
         implements Rule
 {
     @Override
@@ -38,7 +38,7 @@ public class PushLimitThroughProject
         LimitNode parent = (LimitNode) node;
 
         PlanNode child = lookup.resolve(parent.getSource());
-        if (!(child instanceof ProjectNode)) {
+        if (!(child instanceof MarkDistinctNode)) {
             return Optional.empty();
         }
 

@@ -66,7 +66,6 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
@@ -164,8 +163,6 @@ public class DatabaseShardManager
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
         this.startTime = ticker.read();
-
-        createTablesWithRetry(dbi);
     }
 
     @Override
@@ -322,6 +319,10 @@ public class DatabaseShardManager
 
         runCommit(transactionId, (handle) -> {
             lockTable(handle, tableId);
+
+            if (!updateTime.isPresent() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {
+                throw new PrestoException(TRANSACTION_CONFLICT, "Maintenance is blocked for table");
+            }
 
             ShardStats newStats = shardStats(newShards);
             long rowCount = newStats.getRowCount();

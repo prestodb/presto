@@ -19,14 +19,12 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.TopNNode;
 
 import java.util.Optional;
 
-import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
-
-public class PushLimitThroughProject
-        implements Rule
+public class MergeLimitWithTopN
+    implements Rule
 {
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
@@ -37,11 +35,20 @@ public class PushLimitThroughProject
 
         LimitNode parent = (LimitNode) node;
 
-        PlanNode child = lookup.resolve(parent.getSource());
-        if (!(child instanceof ProjectNode)) {
+        PlanNode source = lookup.resolve(parent.getSource());
+        if (!(source instanceof TopNNode)) {
             return Optional.empty();
         }
 
-        return Optional.of(transpose(parent, child));
+        TopNNode child = (TopNNode) source;
+
+        return Optional.of(
+                new TopNNode(
+                        parent.getId(),
+                        child.getSource(),
+                        Math.min(parent.getCount(), child.getCount()),
+                        child.getOrderBy(),
+                        child.getOrderings(),
+                        parent.isPartial()));
     }
 }

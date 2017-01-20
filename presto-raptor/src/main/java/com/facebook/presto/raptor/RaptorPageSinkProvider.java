@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -23,7 +22,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
@@ -39,15 +37,13 @@ public class RaptorPageSinkProvider
 {
     private final StorageManager storageManager;
     private final PageSorter pageSorter;
-    private final JsonCodec<ShardInfo> shardInfoCodec;
     private final DataSize maxBufferSize;
 
     @Inject
-    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, JsonCodec<ShardInfo> shardInfoCodec, StorageManagerConfig config)
+    public RaptorPageSinkProvider(StorageManager storageManager, PageSorter pageSorter, StorageManagerConfig config)
     {
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.shardInfoCodec = requireNonNull(shardInfoCodec, "shardInfoCodec is null");
         this.maxBufferSize = config.getMaxBufferSize();
     }
 
@@ -58,7 +54,6 @@ public class RaptorPageSinkProvider
         return new RaptorPageSink(
                 pageSorter,
                 storageManager,
-                shardInfoCodec,
                 handle.getTransactionId(),
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
@@ -77,7 +72,6 @@ public class RaptorPageSinkProvider
         return new RaptorPageSink(
                 pageSorter,
                 storageManager,
-                shardInfoCodec,
                 handle.getTransactionId(),
                 toColumnIds(handle.getColumnHandles()),
                 handle.getColumnTypes(),
