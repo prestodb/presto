@@ -87,6 +87,12 @@ public class PartialAggregationPushDown
                 return context.defaultRewrite(node);
             }
 
+            boolean decomposable = node.isDecomposable(functionRegistry);
+
+            if (!decomposable) {
+                return context.defaultRewrite(node);
+            }
+
             // partial aggregation can only be pushed through exchange that doesn't change
             // the cardinality of the stream (i.e., gather or repartition)
             ExchangeNode exchange = (ExchangeNode) child;
@@ -113,14 +119,6 @@ public class PartialAggregationPushDown
 
             // currently, we only support plans that don't use pre-computed hash functions
             if (node.getHashSymbol().isPresent() || exchange.getPartitioningScheme().getHashColumn().isPresent()) {
-                return context.defaultRewrite(node);
-            }
-
-            boolean decomposable = node.getFunctions().values().stream()
-                    .map(functionRegistry::getAggregateFunctionImplementation)
-                    .allMatch(InternalAggregationFunction::isDecomposable);
-
-            if (!decomposable) {
                 return context.defaultRewrite(node);
             }
 
