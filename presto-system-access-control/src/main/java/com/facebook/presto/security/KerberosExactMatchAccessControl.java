@@ -25,6 +25,8 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 import java.security.Principal;
 
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.lang.String.format;
 
 public class KerberosExactMatchAccessControl
         implements SystemAccessControl
@@ -45,7 +47,7 @@ public class KerberosExactMatchAccessControl
             throw new PrestoException(
                     PERMISSION_DENIED,
                     "The 'kerberos-exact-match' SystemAccessControl plugin only works with " +
-                    "Kerberos authentication. Contact you Presto administrator.");
+                    "Kerberos authentication. Contact your Presto administrator.");
         }
 
         KerberosPrincipal kerberosPrincipal = (KerberosPrincipal) principal;
@@ -53,12 +55,12 @@ public class KerberosExactMatchAccessControl
         String realmName = kerberosPrincipal.getRealm();
         String kerberosUserName = kerberosPrincipal.getName();
 
-        if (realmName != null && realmName.length() != 0) {
+        if (!isNullOrEmpty(realmName)) {
             kerberosUserName = kerberosUserName.substring(0, kerberosUserName.length() - realmName.length() - 1);
         }
 
         if (!userName.equals(kerberosUserName)) {
-            throw new PrestoException(PERMISSION_DENIED, String.format("Principal %s may not set user %s", principal.getName(), userName));
+            throw new PrestoException(PERMISSION_DENIED, format("Principal %s may not set user %s", principal.getName(), userName));
         }
     }
 
