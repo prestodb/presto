@@ -25,10 +25,8 @@ import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
-import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -495,11 +493,17 @@ public class HashAggregationOperator
             }
 
             if (hashChannel.isPresent()) {
-                output.getBlockBuilder(channel++).writeLong(calculateDefaultOutputHash(groupByTypes, groupIdChannel.get(), groupId));
+                long hashValue = calculateDefaultOutputHash(groupByTypes, groupIdChannel.get(), groupId);
+                output.getBlockBuilder(channel++).writeLong(hashValue);
             }
 
             for (int j = 0; j < accumulators.size(); channel++, j++) {
-                accumulators.get(j).evaluateFinal(output.getBlockBuilder(channel));
+                if (step.isOutputPartial()) {
+                    accumulators.get(j).evaluateIntermediate(output.getBlockBuilder(channel));
+                }
+                else {
+                    accumulators.get(j).evaluateFinal(output.getBlockBuilder(channel));
+                }
             }
         }
 

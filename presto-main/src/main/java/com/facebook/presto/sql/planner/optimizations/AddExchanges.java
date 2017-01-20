@@ -89,11 +89,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -246,10 +246,7 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitAggregation(AggregationNode node, Context context)
         {
-            HashSet<Symbol> partitioningRequirement = new HashSet<>(node.getGroupingSets().get(0));
-            for (int i = 1; i < node.getGroupingSets().size(); i++) {
-                partitioningRequirement.retainAll(node.getGroupingSets().get(i));
-            }
+            Set<Symbol> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
 
             PreferredProperties preferredProperties = PreferredProperties.any();
             if (!node.getGroupingKeys().isEmpty()) {
@@ -264,9 +261,16 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            // aggregations would benefit from the finals being hash partitioned on groupId, however, we need to gather because the final HashAggregationOperator
-            // needs to know whether input was received at the query level.
-            if (node.getGroupingSets().stream().anyMatch(List::isEmpty)) {
+            if ((node.hasEmptyGroupingSet() && !node.hasNonEmptyGroupingSet()) ||
+                    (node.hasDefaultOutput() && !node.isDecomposable(metadata.getFunctionRegistry()))) {
+                // For queries with only empty grouping sets like
+                //
+                // SELECT count(*) FROM lineitem;
+                //
+                // there is no need for distributed aggregation. Single node FINAL aggregation will suffice,
+                // since all input have to be aggregated into one line output.
+                //
+                // If aggregation must produce default output and it is not decomposable, we can not distribute it
                 child = withDerivedProperties(
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
