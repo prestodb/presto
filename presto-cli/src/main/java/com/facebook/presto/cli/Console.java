@@ -47,7 +47,7 @@ import java.util.regex.Pattern;
 
 import static com.facebook.presto.cli.Completion.commandCompleter;
 import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
-import static com.facebook.presto.cli.ErrorMessages.createErrorMessage;
+import static com.facebook.presto.cli.ErrorMessages.createExceptionMessage;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
@@ -335,7 +335,7 @@ public class Console
             queryRunner.setSession(session);
         }
         catch (RuntimeException e) {
-            System.err.println(createErrorMessage(e, queryRunner.getSession()));
+            System.err.println(createExceptionMessage(e, queryRunner.getSession()));
         }
     }
 
