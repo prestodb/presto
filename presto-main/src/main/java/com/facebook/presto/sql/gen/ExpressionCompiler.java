@@ -84,11 +84,17 @@ public class ExpressionCompiler
 
     @Managed
     @Nested
-    public CacheStatsMBean getPageCacheStats() { return new CacheStatsMBean(pageProcessors.stats()); }
+    public CacheStatsMBean getPageCacheStats()
+    {
+        return new CacheStatsMBean(pageProcessors.stats());
+    }
 
     @Managed
     @Nested
-    public CacheStatsMBean getCursorCacheStats() { return new CacheStatsMBean(cursorProcessors.stats()); }
+    public CacheStatsMBean getCursorCacheStats()
+    {
+        return new CacheStatsMBean(cursorProcessors.stats());
+    }
 
     public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
     {

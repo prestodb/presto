@@ -36,5 +36,4 @@ public class CacheStatsMBean
     {
         return cacheStats.missRate();
     }
-
 }
