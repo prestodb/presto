@@ -18,11 +18,14 @@ import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.SpillableHashAggregationBuilder;
+import com.facebook.presto.operator.scalar.CombineHashFunction;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
+import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeUtils;
@@ -37,6 +40,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
+import static com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
+import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
@@ -490,7 +495,7 @@ public class HashAggregationOperator
             }
 
             if (hashChannel.isPresent()) {
-                output.getBlockBuilder(channel++).writeLong(TypeUtils.NULL_HASH_CODE);
+                output.getBlockBuilder(channel++).writeLong(calculateDefaultOutputHash(groupByTypes, groupIdChannel.get(), groupId));
             }
 
             for (int j = 0; j < accumulators.size(); channel++, j++) {
@@ -502,5 +507,20 @@ public class HashAggregationOperator
             return null;
         }
         return output.build();
+    }
+
+    private static long calculateDefaultOutputHash(List<Type> groupByChannels, int groupIdChannel, int groupId)
+    {
+        // Default output has NULLs on all columns except of groupIdChannel
+        long result = INITIAL_HASH_VALUE;
+        for (int channel = 0; channel < groupByChannels.size(); channel++) {
+            if (channel != groupIdChannel) {
+                result = CombineHashFunction.getHash(result, NULL_HASH_CODE);
+            }
+            else {
+                result = CombineHashFunction.getHash(result, BigintType.hash(groupId));
+            }
+        }
+        return result;
     }
 }
