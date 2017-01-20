@@ -102,6 +102,11 @@ public class TestMinMaxByAggregation
                 1.0,
                 createDoublesBlock(1.0, null),
                 createDoublesBlock(1.0, 2.0));
+        assertAggregation(
+                function,
+                10.0,
+                createDoublesBlock(10.0, 9.0, 8.0, 11.0),
+                createDoublesBlock(1.0, null, 2.0, null));
     }
 
     @Test
@@ -114,6 +119,11 @@ public class TestMinMaxByAggregation
                 null,
                 createDoublesBlock(1.0, null),
                 createDoublesBlock(1.0, 2.0));
+        assertAggregation(
+                function,
+                10.0,
+                createDoublesBlock(8.0, 9.0, 10.0, 11.0),
+                createDoublesBlock(-2.0, null, -1.0, null));
     }
 
     @Test

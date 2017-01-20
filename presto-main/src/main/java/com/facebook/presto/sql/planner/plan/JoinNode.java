@@ -89,29 +89,6 @@ public class JoinNode
         checkArgument(!isCrossJoin() || inputSymbols.equals(outputSymbols), "Cross join does not support output symbols pruning or reordering");
     }
 
-    public JoinNode(PlanNodeId id,
-            Type type,
-            PlanNode left,
-            PlanNode right,
-            List<EquiJoinClause> criteria,
-            Optional<Expression> filter,
-            Optional<Symbol> leftHashSymbol,
-            Optional<Symbol> rightHashSymbol)
-    {
-        this(id,
-                type,
-                left,
-                right,
-                criteria,
-                ImmutableList.<Symbol>builder()
-                        .addAll(left.getOutputSymbols())
-                        .addAll(right.getOutputSymbols())
-                        .build(),
-                filter,
-                leftHashSymbol,
-                rightHashSymbol);
-    }
-
     public enum Type
     {
         INNER("InnerJoin"),

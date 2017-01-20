@@ -31,7 +31,6 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HAS
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -128,7 +127,7 @@ public class ExchangeNode
                 scope,
                 partitioningScheme,
                 ImmutableList.of(child),
-                ImmutableList.of(child.getOutputSymbols()));
+                ImmutableList.of(partitioningScheme.getOutputLayout()));
     }
 
     public static ExchangeNode replicatedExchange(PlanNodeId id, Scope scope, PlanNode child)
@@ -151,19 +150,6 @@ public class ExchangeNode
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()),
                 ImmutableList.of(child),
                 ImmutableList.of(child.getOutputSymbols()));
-    }
-
-    public static ExchangeNode gatheringExchange(PlanNodeId id, Scope scope, List<Symbol> outputLayout, List<PlanNode> children)
-    {
-        return new ExchangeNode(
-                id,
-                ExchangeNode.Type.GATHER,
-                scope,
-                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputLayout),
-                children,
-                children.stream()
-                        .map(PlanNode::getOutputSymbols)
-                        .collect(toImmutableList()));
     }
 
     @JsonProperty

@@ -451,7 +451,7 @@ public abstract class AbstractTestHiveClientS3
         public Optional<Database> getDatabase(String databaseName)
         {
             return super.getDatabase(databaseName)
-                    .map(database -> Database.builder()
+                    .map(database -> Database.builder(database)
                             .setLocation(Optional.of("s3://" + writableBucket + "/"))
                             .build());
         }

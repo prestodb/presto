@@ -33,6 +33,7 @@ import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.metadata.Signature.typeVariable;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
+import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -95,7 +96,7 @@ public abstract class AbstractMinMaxBy
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(boolean min, Type keyType, MaxOrMinByState state, Block value, Block key, int position)

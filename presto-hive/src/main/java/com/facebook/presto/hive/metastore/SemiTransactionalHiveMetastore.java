@@ -1249,7 +1249,9 @@ public class SemiTransactionalHiveMetastore
     @VisibleForTesting
     public synchronized void testOnlyCheckIsReadOnly()
     {
-        checkState(state == State.EMPTY);
+        if (state != State.EMPTY) {
+            throw new AssertionError("Test did not commit or rollback");
+        }
     }
 
     @VisibleForTesting

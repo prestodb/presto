@@ -33,7 +33,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionError;
@@ -63,7 +62,7 @@ public class OrderingCompiler
 {
     private static final Logger log = Logger.get(OrderingCompiler.class);
 
-    private final LoadingCache<PagesIndexComparatorCacheKey, PagesIndexOrdering> pagesIndexOrderings = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
+    private final LoadingCache<PagesIndexComparatorCacheKey, PagesIndexOrdering> pagesIndexOrderings = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<PagesIndexComparatorCacheKey, PagesIndexOrdering>()
             {
                 @Override
@@ -126,11 +125,6 @@ public class OrderingCompiler
         generateCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
 
         return defineClass(classDefinition, PagesIndexComparator.class, callSiteBinder.getBindings(), getClass().getClassLoader());
-    }
-
-    public CacheStats orderingCacheStats()
-    {
-        return pagesIndexOrderings.stats();
     }
 
     private static void generateCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)

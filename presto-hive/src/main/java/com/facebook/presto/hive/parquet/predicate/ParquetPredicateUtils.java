@@ -49,6 +49,9 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.parquet.ParquetCompressionUtils.decompress;
 import static com.facebook.presto.hive.parquet.ParquetTypeUtils.getParquetEncoding;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;
 import static parquet.column.Encoding.BIT_PACKED;
@@ -59,6 +62,15 @@ public final class ParquetPredicateUtils
 {
     private ParquetPredicateUtils()
     {
+    }
+
+    public static boolean isStatisticsOverflow(Type type, ParquetIntegerStatistics parquetIntegerStatistics)
+    {
+        long min = parquetIntegerStatistics.getMin();
+        long max = parquetIntegerStatistics.getMax();
+        return (type.equals(TINYINT) && (min < Byte.MIN_VALUE || max > Byte.MAX_VALUE)) ||
+                (type.equals(SMALLINT) && (min < Short.MIN_VALUE || max > Short.MAX_VALUE)) ||
+                (type.equals(INTEGER) && (min < Integer.MIN_VALUE || max > Integer.MAX_VALUE));
     }
 
     public static ParquetPredicate buildParquetPredicate(

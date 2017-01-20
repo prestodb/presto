@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto.RowIndexEntry;
 
@@ -41,6 +42,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORC_HIVE_8732;
 import static com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion.ORIGINAL;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Character.MIN_SURROGATE;
 import static java.lang.Math.toIntExact;
 
@@ -49,6 +51,8 @@ public class OrcMetadataReader
 {
     private static final Slice MAX_BYTE = Slices.wrappedBuffer(new byte[] { (byte) 0xFF });
     private static final Logger log = Logger.get(OrcMetadataReader.class);
+
+    private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     @Override
     public PostScript readPostScript(byte[] data, int offset, int length)
@@ -79,6 +83,7 @@ public class OrcMetadataReader
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Metadata metadata = OrcProto.Metadata.parseFrom(input);
         return new Metadata(toStripeStatistics(hiveWriterVersion, metadata.getStripeStatsList()));
     }
@@ -98,6 +103,7 @@ public class OrcMetadataReader
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        input.setSizeLimit(PROTOBUF_MESSAGE_MAX_LIMIT);
         OrcProto.Footer footer = OrcProto.Footer.parseFrom(input);
         return new Footer(
                 footer.getNumberOfRows(),

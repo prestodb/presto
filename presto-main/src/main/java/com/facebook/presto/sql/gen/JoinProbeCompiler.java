@@ -44,7 +44,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionError;
@@ -73,7 +72,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public class JoinProbeCompiler
 {
-    private final LoadingCache<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory> joinProbeFactories = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
+    private final LoadingCache<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory> joinProbeFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
             new CacheLoader<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory>()
             {
                 @Override
@@ -207,11 +206,6 @@ public class JoinProbeCompiler
         generateGetPage(classDefinition, pageField);
 
         return defineClass(classDefinition, JoinProbe.class, callSiteBinder.getBindings(), getClass().getClassLoader());
-    }
-
-    public CacheStats joinHashStats()
-    {
-        return joinProbeFactories.stats();
     }
 
     private static void generateConstructor(ClassDefinition classDefinition,

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -36,17 +37,24 @@ public class IterativeOptimizer
 {
     private final List<PlanOptimizer> legacyRules;
     private final Set<Rule> rules;
+    private final StatsRecorder stats;
 
-    public IterativeOptimizer(List<PlanOptimizer> legacyRules, Set<Rule> newRules)
+    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.rules = ImmutableSet.copyOf(newRules);
+        this.stats = stats;
+
+        stats.registerAll(rules);
     }
 
-    public IterativeOptimizer(Set<Rule> rules)
+    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
     {
         this.legacyRules = ImmutableList.of();
         this.rules = ImmutableSet.copyOf(rules);
+        this.stats = stats;
+
+        stats.registerAll(rules);
     }
 
     @Override
@@ -105,11 +113,14 @@ public class IterativeOptimizer
         while (!done) {
             done = true;
             for (Rule rule : rules) {
+                long start = System.nanoTime();
                 Optional<PlanNode> transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+                long duration = System.nanoTime() - start;
+
+                stats.record(rule, duration, transformed.isPresent());
 
                 if (transformed.isPresent()) {
-                    context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
-                    node = transformed.get();
+                    node = context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
 
                     done = false;
                     progress = true;

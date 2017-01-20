@@ -181,6 +181,10 @@ public class EliminateCrossJoins
                         result,
                         rightNode,
                         criteria.build(),
+                        ImmutableList.<Symbol>builder()
+                                .addAll(result.getOutputSymbols())
+                                .addAll(rightNode.getOutputSymbols())
+                                .build(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());
@@ -195,13 +199,23 @@ public class EliminateCrossJoins
                         filter);
             }
 
-            if (!graph.getAssignments().isPresent()) {
-                return result;
+            if (graph.getAssignments().isPresent()) {
+                result = new ProjectNode(
+                        idAllocator.getNextId(),
+                        result,
+                        Assignments.copyOf(graph.getAssignments().get()));
             }
-            return new ProjectNode(
-                    idAllocator.getNextId(),
-                    result,
-                    Assignments.copyOf(graph.getAssignments().get()));
+
+            if (!result.getOutputSymbols().equals(node.getOutputSymbols())) {
+                // Introduce a projection to constrain the outputs to what was originally expected
+                // Some nodes are sensitive to what's produced (e.g., DistinctLimit node)
+                result = new ProjectNode(
+                        idAllocator.getNextId(),
+                        result,
+                        Assignments.identity(node.getOutputSymbols()));
+            }
+
+            return result;
         }
     }
 }
