@@ -1039,6 +1039,12 @@ public abstract class AbstractTestQueries
         assertQueryOrdered("SELECT a as b, a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a + b", "VALUES (2, -4), (0, 0), (-1, 2)");
         assertQueryOrdered("SELECT a* -2 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a + t.a", "VALUES -4, 0, 2");
 
+        // coerions
+        assertQueryOrdered("SELECT 1 x ORDER BY degrees(x)", "VALUES 1");
+        assertQueryOrdered("SELECT a + 1 as b FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * b", "VALUES 3, 2");
+        assertQueryOrdered("SELECT a as b FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * b", "VALUES 2, 1");
+        assertQueryOrdered("SELECT a as a FROM (VALUES 1, 2) t(a) ORDER BY -1.0 * a", "VALUES 2, 1");
+
         assertQueryFails("SELECT a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", ".*'a' is ambiguous");
     }
 
