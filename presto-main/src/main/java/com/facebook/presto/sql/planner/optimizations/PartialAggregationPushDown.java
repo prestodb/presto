@@ -43,8 +43,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -88,6 +90,15 @@ public class PartialAggregationPushDown
             }
 
             boolean decomposable = node.isDecomposable(functionRegistry);
+
+            if (node.getStep().equals(SINGLE) &&
+                    node.hasEmptyGroupingSet() &&
+                    node.hasNonEmptyGroupingSet()) {
+                checkState(
+                        decomposable,
+                        "Distributed aggregation with empty grouping set requires partial but functions are not decomposable");
+                return context.rewrite(split(node));
+            }
 
             if (!decomposable) {
                 return context.defaultRewrite(node);
