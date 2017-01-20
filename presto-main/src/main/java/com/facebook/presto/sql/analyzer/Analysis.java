@@ -22,11 +22,11 @@ import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -89,7 +89,7 @@ public class Analysis
     private final Set<Expression> typeOnlyCoercions = newIdentityHashSet();
     private final IdentityHashMap<Relation, Type[]> relationCoercions = new IdentityHashMap<>();
     private final IdentityHashMap<FunctionCall, Signature> functionSignature = new IdentityHashMap<>();
-    private final IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences = new IdentityHashMap<>();
+    private final IdentityHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences = new IdentityHashMap<>();
 
     private final IdentityHashMap<Field, ColumnHandle> columns = new IdentityHashMap<>();
 
@@ -203,17 +203,17 @@ public class Analysis
         return coercions.get(expression);
     }
 
-    public void addLambdaArgumentReferences(IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences)
+    public void addLambdaArgumentReferences(IdentityHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences)
     {
         this.lambdaArgumentReferences.putAll(lambdaArgumentReferences);
     }
 
-    public LambdaArgumentDeclaration getLambdaArgumentReference(QualifiedNameReference qualifiedNameReference)
+    public LambdaArgumentDeclaration getLambdaArgumentReference(Identifier identifier)
     {
-        return lambdaArgumentReferences.get(qualifiedNameReference);
+        return lambdaArgumentReferences.get(identifier);
     }
 
-    public Map<QualifiedNameReference, LambdaArgumentDeclaration> getLambdaArgumentReferences()
+    public Map<Identifier, LambdaArgumentDeclaration> getLambdaArgumentReferences()
     {
         return lambdaArgumentReferences;
     }

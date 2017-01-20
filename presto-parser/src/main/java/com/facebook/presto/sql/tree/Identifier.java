@@ -19,41 +19,36 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public class QualifiedNameReference
+public class Identifier
         extends Expression
 {
-    private final QualifiedName name;
+    private final String name;
 
-    public QualifiedNameReference(QualifiedName name)
+    public Identifier(String name)
     {
         this(Optional.empty(), name);
     }
 
-    public QualifiedNameReference(NodeLocation location, QualifiedName name)
+    public Identifier(NodeLocation location, String name)
     {
         this(Optional.of(location), name);
     }
 
-    private QualifiedNameReference(Optional<NodeLocation> location, QualifiedName name)
+    private Identifier(Optional<NodeLocation> location, String name)
     {
         super(location);
         this.name = name;
     }
 
-    public QualifiedName getName()
+    public String getName()
     {
         return name;
-    }
-
-    public QualifiedName getSuffix()
-    {
-        return QualifiedName.of(name.getSuffix());
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitQualifiedNameReference(this, context);
+        return visitor.visitIdentifier(this, context);
     }
 
     @Override
@@ -72,7 +67,7 @@ public class QualifiedNameReference
             return false;
         }
 
-        QualifiedNameReference that = (QualifiedNameReference) o;
+        Identifier that = (Identifier) o;
         return Objects.equals(name, that.name);
     }
 

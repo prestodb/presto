@@ -25,9 +25,9 @@ import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,7 +79,7 @@ public class TestCountConstantOptimizer
                         new ProjectNode(
                                 planNodeIdAllocator.getNextId(),
                                 valuesNode,
-                                Assignments.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("x")))))),
+                                Assignments.of(new Symbol("expr"), new FunctionCall(QualifiedName.of("function"), ImmutableList.of(new Identifier("x"))))),
                         aggregations,
                         functions,
                         ImmutableMap.of(),

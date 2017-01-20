@@ -39,7 +39,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.QueryUtil.aliased;
-import static com.facebook.presto.sql.QueryUtil.nameReference;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
@@ -107,13 +107,13 @@ final class DescribeOutputRewrite
             }
             return simpleQuery(
                     selectList(
-                            nameReference("Column Name"),
-                            nameReference("Catalog"),
-                            nameReference("Schema"),
-                            nameReference("Table"),
-                            nameReference("Type"),
-                            nameReference("Type Size"),
-                            nameReference("Aliased")),
+                            identifier("Column Name"),
+                            identifier("Catalog"),
+                            identifier("Schema"),
+                            identifier("Table"),
+                            identifier("Type"),
+                            identifier("Type Size"),
+                            identifier("Aliased")),
                     aliased(
                             values(rows),
                             "Statement Output",

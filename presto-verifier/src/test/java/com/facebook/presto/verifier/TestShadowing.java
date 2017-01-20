@@ -17,9 +17,9 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -80,8 +80,8 @@ public class TestShadowing
         assertEquals(PrestoVerifier.statementToQueryType(parser, rewrittenQuery.getQuery()), READ);
 
         Table table = new Table(createTableAs.getName());
-        SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("column1")))));
-        SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new QualifiedNameReference(QualifiedName.of("column2")), new LongLiteral("1"))))));
+        SingleColumn column1 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new Identifier("column1"))));
+        SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("column2"), new LongLiteral("1"))))));
         Select select = new Select(false, ImmutableList.of(column1, column2));
         QuerySpecification querySpecification = new QuerySpecification(select, Optional.of(table), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty());
         assertEquals(parser.createStatement(rewrittenQuery.getQuery()), new com.facebook.presto.sql.tree.Query(Optional.empty(), querySpecification, ImmutableList.of(), Optional.empty()));

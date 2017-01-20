@@ -40,7 +40,7 @@ import java.util.Optional;
 import static com.facebook.presto.execution.ParameterExtractor.getParameters;
 import static com.facebook.presto.sql.QueryUtil.aliased;
 import static com.facebook.presto.sql.QueryUtil.ascending;
-import static com.facebook.presto.sql.QueryUtil.nameReference;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.ordering;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -114,7 +114,7 @@ final class DescribeInputRewrite
             }
 
             return simpleQuery(
-                    selectList(nameReference("Position"), nameReference("Type")),
+                    selectList(identifier("Position"), identifier("Type")),
                     aliased(
                             values(rows),
                             "Parameter Input",

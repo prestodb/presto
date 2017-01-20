@@ -15,8 +15,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableMap;
 
@@ -82,8 +82,8 @@ public class Scope
     private static QualifiedName asQualifiedName(Expression expression)
     {
         QualifiedName name = null;
-        if (expression instanceof QualifiedNameReference) {
-            name = ((QualifiedNameReference) expression).getName();
+        if (expression instanceof Identifier) {
+            name = QualifiedName.of(((Identifier) expression).getName());
         }
         else if (expression instanceof DereferenceExpression) {
             name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);

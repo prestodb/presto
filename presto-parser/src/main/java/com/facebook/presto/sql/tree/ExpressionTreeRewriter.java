@@ -694,10 +694,10 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitQualifiedNameReference(QualifiedNameReference node, Context<C> context)
+        public Expression visitIdentifier(Identifier node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteQualifiedNameReference(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteIdentifier(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
