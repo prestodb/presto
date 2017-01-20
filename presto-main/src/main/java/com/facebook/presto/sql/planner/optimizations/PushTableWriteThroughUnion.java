@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -92,11 +93,14 @@ public class PushTableWriteThroughUnion
                     mappings.put(outputSymbol, newSymbol);
                 }
 
+                int index = i;
                 rewrittenSources.add(new TableWriterNode(
                         idAllocator.getNextId(),
                         unionOriginalSource,
                         node.getTarget(),
-                        unionNode.sourceOutputLayout(i),
+                        node.getColumns().stream()
+                            .map(column -> unionNode.getSymbolMapping().get(column).get(index))
+                            .collect(Collectors.toList()),
                         node.getColumnNames(),
                         newSymbols.build(),
                         node.getPartitioningScheme()));

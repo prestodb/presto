@@ -19,13 +19,13 @@ import parquet.column.statistics.BinaryStatistics;
 import parquet.column.statistics.BooleanStatistics;
 import parquet.column.statistics.DoubleStatistics;
 import parquet.column.statistics.FloatStatistics;
-import parquet.column.statistics.IntStatistics;
 import parquet.column.statistics.LongStatistics;
 import parquet.io.api.Binary;
 
 import static com.facebook.presto.hive.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static com.facebook.presto.spi.predicate.Domain.all;
 import static com.facebook.presto.spi.predicate.Domain.create;
+import static com.facebook.presto.spi.predicate.Domain.notNull;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -85,16 +85,11 @@ public class TestTupleDomainParquetPredicate
     {
         assertEquals(getDomain(INTEGER, 0, null), all(INTEGER));
 
-        assertEquals(getDomain(INTEGER, 10, intColumnStats(100, 100)), singleValue(INTEGER, 100L));
+        assertEquals(getDomain(INTEGER, 10, longColumnStats(100, 100)), singleValue(INTEGER, 100L));
 
-        assertEquals(getDomain(INTEGER, 10, intColumnStats(0, 100)), create(ValueSet.ofRanges(range(INTEGER, 0L, true, 100L, true)), false));
-    }
+        assertEquals(getDomain(INTEGER, 10, longColumnStats(0, 100)), create(ValueSet.ofRanges(range(INTEGER, 0L, true, 100L, true)), false));
 
-    private static IntStatistics intColumnStats(int minimum, int maximum)
-    {
-        IntStatistics statistics = new IntStatistics();
-        statistics.setMinMax(minimum, maximum);
-        return statistics;
+        assertEquals(getDomain(INTEGER, 20, longColumnStats(0, 2147483648L)), notNull(INTEGER));
     }
 
     @Test
@@ -103,9 +98,11 @@ public class TestTupleDomainParquetPredicate
     {
         assertEquals(getDomain(SMALLINT, 0, null), all(SMALLINT));
 
-        assertEquals(getDomain(SMALLINT, 10, intColumnStats(100, 100)), singleValue(SMALLINT, 100L));
+        assertEquals(getDomain(SMALLINT, 10, longColumnStats(100, 100)), singleValue(SMALLINT, 100L));
 
-        assertEquals(getDomain(SMALLINT, 10, intColumnStats(0, 100)), create(ValueSet.ofRanges(range(SMALLINT, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(SMALLINT, 10, longColumnStats(0, 100)), create(ValueSet.ofRanges(range(SMALLINT, 0L, true, 100L, true)), false));
+
+        assertEquals(getDomain(SMALLINT, 20, longColumnStats(0, 2147483648L)), notNull(SMALLINT));
     }
 
     @Test
@@ -114,9 +111,11 @@ public class TestTupleDomainParquetPredicate
     {
         assertEquals(getDomain(TINYINT, 0, null), all(TINYINT));
 
-        assertEquals(getDomain(TINYINT, 10, intColumnStats(100, 100)), singleValue(TINYINT, 100L));
+        assertEquals(getDomain(TINYINT, 10, longColumnStats(100, 100)), singleValue(TINYINT, 100L));
 
-        assertEquals(getDomain(TINYINT, 10, intColumnStats(0, 100)), create(ValueSet.ofRanges(range(TINYINT, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(TINYINT, 10, longColumnStats(0, 100)), create(ValueSet.ofRanges(range(TINYINT, 0L, true, 100L, true)), false));
+
+        assertEquals(getDomain(TINYINT, 20, longColumnStats(0, 2147483648L)), notNull(TINYINT));
     }
 
     @Test

@@ -17,12 +17,15 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
+import com.facebook.presto.sql.planner.StatsRecorder;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -32,17 +35,36 @@ import static com.google.common.base.Preconditions.checkState;
 public class IterativeOptimizer
         implements PlanOptimizer
 {
+    private final List<PlanOptimizer> legacyRules;
     private final Set<Rule> rules;
+    private final StatsRecorder stats;
 
-    public IterativeOptimizer(Set<Rule> rules)
+    public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
+        this.legacyRules = ImmutableList.copyOf(legacyRules);
+        this.rules = ImmutableSet.copyOf(newRules);
+        this.stats = stats;
+
+        stats.registerAll(rules);
+    }
+
+    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
+    {
+        this.legacyRules = ImmutableList.of();
         this.rules = ImmutableSet.copyOf(rules);
+        this.stats = stats;
+
+        stats.registerAll(rules);
     }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         if (!SystemSessionProperties.isNewOptimizerEnabled(session)) {
+            for (PlanOptimizer optimizer : legacyRules) {
+                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator);
+            }
+
             return plan;
         }
 
@@ -91,11 +113,14 @@ public class IterativeOptimizer
         while (!done) {
             done = true;
             for (Rule rule : rules) {
+                long start = System.nanoTime();
                 Optional<PlanNode> transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+                long duration = System.nanoTime() - start;
+
+                stats.record(rule, duration, transformed.isPresent());
 
                 if (transformed.isPresent()) {
-                    context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
-                    node = transformed.get();
+                    node = context.getMemo().replace(group, transformed.get(), rule.getClass().getName());
 
                     done = false;
                     progress = true;

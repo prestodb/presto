@@ -28,7 +28,8 @@ public class ExplainType
     public enum Type
     {
         LOGICAL,
-        DISTRIBUTED
+        DISTRIBUTED,
+        VALIDATE
     }
 
     private final Type type;

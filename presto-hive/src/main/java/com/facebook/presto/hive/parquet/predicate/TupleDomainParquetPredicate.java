@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.isStatisticsOverflow;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -159,6 +160,9 @@ public class TupleDomainParquetPredicate<C>
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
                 parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
+            }
+            if (isStatisticsOverflow(type, parquetIntegerStatistics)) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }

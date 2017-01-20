@@ -398,19 +398,19 @@ public abstract class AbstractTestHiveClient
         tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
 
-        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
-        temporaryCreateRollbackTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
-        temporaryCreateEmptyTable = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
-        temporaryInsertTable = new SchemaTableName(database, "tmp_presto_test_insert_" + randomName());
-        temporaryInsertIntoExistingPartitionTable = new SchemaTableName(database, "tmp_presto_test_insert_exsting_partitioned_" + randomName());
-        temporaryInsertIntoNewPartitionTable = new SchemaTableName(database, "tmp_presto_test_insert_new_partitioned_" + randomName());
-        temporaryInsertUnsupportedWriteType = new SchemaTableName(database, "tmp_presto_test_insert_unsupported_type_" + randomName());
-        temporaryMetadataDeleteTable = new SchemaTableName(database, "tmp_presto_test_metadata_delete_" + randomName());
-        temporaryRenameTableOld = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
-        temporaryRenameTableNew = new SchemaTableName(database, "tmp_presto_test_rename_" + randomName());
-        temporaryCreateView = new SchemaTableName(database, "tmp_presto_test_create_" + randomName());
-        temporaryDeleteInsert = new SchemaTableName(database, "tmp_presto_test_delete_insert_" + randomName());
-        temporaryMismatchSchemaTable = new SchemaTableName(database, "presto_test_mismatch_schema_table");
+        temporaryCreateTable = temporaryTable("create");
+        temporaryCreateRollbackTable = temporaryTable("create_rollback");
+        temporaryCreateEmptyTable = temporaryTable("create_empty");
+        temporaryInsertTable = temporaryTable("insert");
+        temporaryInsertIntoExistingPartitionTable = temporaryTable("insert_existing_partitioned");
+        temporaryInsertIntoNewPartitionTable = temporaryTable("insert_new_partitioned");
+        temporaryInsertUnsupportedWriteType = temporaryTable("insert_unsupported_type");
+        temporaryMetadataDeleteTable = temporaryTable("metadata_delete");
+        temporaryRenameTableOld = temporaryTable("rename_old");
+        temporaryRenameTableNew = temporaryTable("rename_new");
+        temporaryCreateView = temporaryTable("create_view");
+        temporaryDeleteInsert = temporaryTable("delete_insert");
+        temporaryMismatchSchemaTable = temporaryTable("mismatch_schema");
 
         invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(invalidClientId, database, INVALID_TABLE);
@@ -1809,6 +1809,7 @@ public abstract class AbstractTestHiveClient
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
                 metadata.dropView(newSession(), temporaryCreateView);
+                transaction.commit();
             }
             catch (RuntimeException e) {
                 // this usually occurs because the view was not created
@@ -3005,9 +3006,15 @@ public abstract class AbstractTestHiveClient
         return index.build();
     }
 
-    protected static String randomName()
+    protected SchemaTableName temporaryTable(String tableName)
     {
-        return UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+        return temporaryTable(database, tableName);
+    }
+
+    protected static SchemaTableName temporaryTable(String database, String tableName)
+    {
+        String randomName = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+        return new SchemaTableName(database, "tmp_presto_test_" + tableName + "_" + randomName);
     }
 
     protected static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat)

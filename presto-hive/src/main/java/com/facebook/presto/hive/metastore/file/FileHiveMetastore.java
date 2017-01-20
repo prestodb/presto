@@ -202,7 +202,7 @@ public class FileHiveMetastore
 
         // validate table location
         if (table.getTableType().equals(VIRTUAL_VIEW.name())) {
-            checkArgument(table.getStorage().getLocation() == null, "Storage location for view must be null");
+            checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
         else if (table.getTableType().equals(MANAGED_TABLE.name())) {
             if (!tableMetadataDirectory.equals(new Path(table.getStorage().getLocation()))) {
@@ -326,9 +326,12 @@ public class FileHiveMetastore
         if (!table.getTableType().equals(VIRTUAL_VIEW.name()) || !newTable.getTableType().equals(VIRTUAL_VIEW.name())) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
         }
+        if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
+        }
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), true);
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTable), true);
 
         // replace existing permissions
         deleteTablePrivileges(table);
