@@ -60,7 +60,7 @@ class TranslationMap
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.lambdaDeclarationToSymbolMap = requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
 
-        fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
+        fieldSymbols = new Symbol[rewriteBase.getFieldMappings().size()];
     }
 
     public RelationPlan getRelationPlan()

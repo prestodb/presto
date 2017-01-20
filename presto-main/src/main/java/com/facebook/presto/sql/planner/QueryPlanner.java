@@ -195,7 +195,7 @@ class QueryPlanner
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputSymbols.build());
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
-        translations.setFieldMappings(relationPlan.getOutputSymbols());
+        translations.setFieldMappings(relationPlan.getFieldMappings());
 
         PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
 
@@ -230,7 +230,7 @@ class QueryPlanner
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the QuerySpecification directly
-        translations.setFieldMappings(relationPlan.getOutputSymbols());
+        translations.setFieldMappings(relationPlan.getFieldMappings());
 
         return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
     }
@@ -251,7 +251,7 @@ class QueryPlanner
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
-        translations.setFieldMappings(relationPlan.getOutputSymbols());
+        translations.setFieldMappings(relationPlan.getFieldMappings());
 
         return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
     }

@@ -29,34 +29,34 @@ import static java.util.Objects.requireNonNull;
 class RelationPlan
 {
     private final PlanNode root;
-    private final List<Symbol> outputSymbols;
+    private final List<Symbol> fieldMappings; // for each field in the relation, the corresponding symbol from "root"
     private final Scope scope;
 
-    public RelationPlan(PlanNode root, Scope scope, List<Symbol> outputSymbols)
+    public RelationPlan(PlanNode root, Scope scope, List<Symbol> fieldMappings)
     {
         requireNonNull(root, "root is null");
-        requireNonNull(outputSymbols, "outputSymbols is null");
+        requireNonNull(fieldMappings, "outputSymbols is null");
         requireNonNull(scope, "scope is null");
 
-        checkArgument(scope.getRelationType().getAllFieldCount() == outputSymbols.size(),
-                "Number of outputs (%s) doesn't match scope size (%s)", outputSymbols.size(), scope.getRelationType().getAllFieldCount());
+        checkArgument(scope.getRelationType().getAllFieldCount() == fieldMappings.size(),
+                "Number of outputs (%s) doesn't match scope size (%s)", fieldMappings.size(), scope.getRelationType().getAllFieldCount());
 
         this.root = root;
         this.scope = scope;
-        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
+        this.fieldMappings = ImmutableList.copyOf(fieldMappings);
     }
 
     public Optional<Symbol> getSymbol(Expression expression)
     {
         return scope.tryResolveField(expression)
                 .filter(ResolvedField::isLocal)
-                .map(field -> outputSymbols.get(field.getFieldIndex()));
+                .map(field -> fieldMappings.get(field.getFieldIndex()));
     }
 
     public Symbol getSymbol(int fieldIndex)
     {
-        checkArgument(fieldIndex >= 0 && fieldIndex < outputSymbols.size() && outputSymbols.get(fieldIndex) != null, "No field->symbol mapping for field %s", fieldIndex);
-        return outputSymbols.get(fieldIndex);
+        checkArgument(fieldIndex >= 0 && fieldIndex < fieldMappings.size() && fieldMappings.get(fieldIndex) != null, "No field->symbol mapping for field %s", fieldIndex);
+        return fieldMappings.get(fieldIndex);
     }
 
     public PlanNode getRoot()
@@ -64,9 +64,9 @@ class RelationPlan
         return root;
     }
 
-    public List<Symbol> getOutputSymbols()
+    public List<Symbol> getFieldMappings()
     {
-        return outputSymbols;
+        return fieldMappings;
     }
 
     public RelationType getDescriptor()
