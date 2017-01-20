@@ -90,6 +90,26 @@ class PlanBuilder
         return translations;
     }
 
+    public PlanBuilder prependProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        TranslationMap translations = copyTranslations();
+
+        Assignments.Builder projections = Assignments.builder();
+
+        // prepend the new translations into the TranslationMap
+        Map<Symbol, Expression> newTranslations = buildProjectionMap(expressions, symbolAllocator, translations, projections);
+        for (Map.Entry<Symbol, Expression> entry : newTranslations.entrySet()) {
+            translations.put(entry.getValue(), entry.getKey());
+        }
+
+        // add an identity projection for underlying plan
+        for (Symbol symbol : getRoot().getOutputSymbols()) {
+            projections.put(symbol, symbol.toSymbolReference());
+        }
+
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), parameters);
+    }
+
     public PlanBuilder appendProjections(Iterable<Expression> expressions, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         TranslationMap translations = copyTranslations();
@@ -101,6 +121,21 @@ class PlanBuilder
             projections.put(symbol, symbol.toSymbolReference());
         }
 
+        // append the new translations into the TranslationMap
+        Map<Symbol, Expression> newTranslations = buildProjectionMap(expressions, symbolAllocator, translations, projections);
+        for (Map.Entry<Symbol, Expression> entry : newTranslations.entrySet()) {
+            translations.put(entry.getValue(), entry.getKey());
+        }
+
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), parameters);
+    }
+
+    private Map<Symbol, Expression> buildProjectionMap(
+            Iterable<Expression> expressions,
+            SymbolAllocator symbolAllocator,
+            TranslationMap translations,
+            Assignments.Builder projections)
+    {
         ImmutableMap.Builder<Symbol, Expression> newTranslations = ImmutableMap.builder();
         ParameterRewriter parameterRewriter = new ParameterRewriter(parameters, getAnalysis());
         for (Expression expression : expressions) {
@@ -110,11 +145,6 @@ class PlanBuilder
             projections.put(symbol, translations.rewrite(rewritten));
             newTranslations.put(symbol, rewritten);
         }
-        // Now append the new translations into the TranslationMap
-        for (Map.Entry<Symbol, Expression> entry : newTranslations.build().entrySet()) {
-            translations.put(entry.getValue(), entry.getKey());
-        }
-
-        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), parameters);
+        return newTranslations.build();
     }
 }
