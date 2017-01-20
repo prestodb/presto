@@ -250,7 +250,7 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                return rewriteBase.getSymbol(node)
+                return getSymbol(rewriteBase, node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                         .orElse(node);
             }
@@ -261,7 +261,7 @@ class TranslationMap
                 Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
                 if (resolvedField.isPresent()) {
                     if (resolvedField.get().isLocal()) {
-                        return rewriteBase.getSymbol(node)
+                        return getSymbol(rewriteBase, node)
                                 .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                                 .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
                     }
@@ -297,5 +297,13 @@ class TranslationMap
                 return rewritten;
             }
         }, expression, null);
+    }
+
+    Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
+    {
+        return plan.getScope()
+                .tryResolveField(expression)
+                .filter(ResolvedField::isLocal)
+                .map(field -> plan.getFieldMappings().get(field.getFieldIndex()));
     }
 }

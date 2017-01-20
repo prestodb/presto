@@ -14,18 +14,21 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.analyzer.RelationType;
-import com.facebook.presto.sql.analyzer.ResolvedField;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.PlanNode;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * The purpose of this class is to hold the current plan built so far
+ * for a relation (query, table, values, etc.), and the mapping to
+ * indicate how the fields (by position) in the relation map to
+ * the outputs of the plan.
+ */
 class RelationPlan
 {
     private final PlanNode root;
@@ -44,13 +47,6 @@ class RelationPlan
         this.root = root;
         this.scope = scope;
         this.fieldMappings = ImmutableList.copyOf(fieldMappings);
-    }
-
-    public Optional<Symbol> getSymbol(Expression expression)
-    {
-        return scope.tryResolveField(expression)
-                .filter(ResolvedField::isLocal)
-                .map(field -> fieldMappings.get(field.getFieldIndex()));
     }
 
     public Symbol getSymbol(int fieldIndex)
