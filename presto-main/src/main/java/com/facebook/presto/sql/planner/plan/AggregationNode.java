@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -256,6 +258,13 @@ public class AggregationNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), assignments, groupingSets, step, hashSymbol, groupIdSymbol);
+    }
+
+    public boolean isDecomposable(FunctionRegistry functionRegistry)
+    {
+        return getFunctions().values().stream()
+                .map(functionRegistry::getAggregateFunctionImplementation)
+                .allMatch(InternalAggregationFunction::isDecomposable);
     }
 
     private static Map<Symbol, Aggregation> makeAssignments(
