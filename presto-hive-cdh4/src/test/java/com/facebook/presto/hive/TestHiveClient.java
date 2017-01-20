@@ -17,7 +17,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-@Test
+@Test(groups = "hive")
 public class TestHiveClient
         extends AbstractTestHiveClient
 {
