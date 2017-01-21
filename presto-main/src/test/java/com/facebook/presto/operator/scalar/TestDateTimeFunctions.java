@@ -27,7 +27,6 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
@@ -48,8 +47,10 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
@@ -110,7 +111,7 @@ public class TestDateTimeFunctions
             throws Exception
     {
         // current date is the time at midnight in the session time zone
-        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(Ints.checkedCast(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
+        assertFunction("CURRENT_DATE", DateType.DATE, new SqlDate(toIntExact(epochDaysInZone(TIME_ZONE_KEY, session.getStartTime()))));
     }
 
     @Test
@@ -244,9 +245,9 @@ public class TestDateTimeFunctions
     @Test
     public void testToISO8601()
     {
-        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", VARCHAR, TIMESTAMP_ISO8601_STRING);
-        assertFunction("to_iso8601(" + WEIRD_TIMESTAMP_LITERAL + ")", VARCHAR, WEIRD_TIMESTAMP_ISO8601_STRING);
-        assertFunction("to_iso8601(" + DATE_LITERAL + ")", VARCHAR, DATE_ISO8601_STRING);
+        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
+        assertFunction("to_iso8601(" + WEIRD_TIMESTAMP_LITERAL + ")", createVarcharType(35), WEIRD_TIMESTAMP_ISO8601_STRING);
+        assertFunction("to_iso8601(" + DATE_LITERAL + ")", createVarcharType(16), DATE_ISO8601_STRING);
     }
 
     @Test
@@ -916,7 +917,7 @@ public class TestDateTimeFunctions
     private static SqlDate toDate(DateTime dateDate)
     {
         long millis = dateDate.getMillis();
-        return new SqlDate(Ints.checkedCast(MILLISECONDS.toDays(millis)));
+        return new SqlDate(toIntExact(MILLISECONDS.toDays(millis)));
     }
 
     private static long millisBetween(ReadableInstant start, ReadableInstant end)

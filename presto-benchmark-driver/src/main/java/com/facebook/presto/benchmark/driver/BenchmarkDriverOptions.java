@@ -90,6 +90,7 @@ public class BenchmarkDriverOptions
                 parseServer(server),
                 user,
                 "presto-benchmark",
+                null,
                 catalog,
                 schema,
                 TimeZone.getDefault().getID(),

@@ -9,7 +9,7 @@ Synopsis
 
     CREATE TABLE [ IF NOT EXISTS ]
     table_name (
-      { column_name data_type
+      { column_name data_type [ COMMENT comment ]
       | LIKE existing_table_name [ { INCLUDING | EXCLUDING } PROPERTIES ] }
       [, ...]
     )

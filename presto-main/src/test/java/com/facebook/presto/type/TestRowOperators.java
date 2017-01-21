@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,9 +84,9 @@ public class TestRowOperators
         assertFunction("CAST(row(1, CAST(NULL AS DOUBLE)) AS ROW(col0 integer, col1 double)).col1", DOUBLE, null);
         assertFunction("CAST(row(TRUE, CAST(NULL AS BOOLEAN)) AS ROW(col0 boolean, col1 boolean)).col1", BOOLEAN, null);
         assertFunction("CAST(row(TRUE, CAST(NULL AS ARRAY<INTEGER>)) AS ROW(col0 boolean, col1 array(integer))).col1", new ArrayType(INTEGER), null);
-        assertFunction("CAST(row(1.0, CAST(NULL AS VARCHAR)) AS ROW(col0 double, col1 varchar)).col1", VARCHAR, null);
+        assertFunction("CAST(row(1.0, CAST(NULL AS VARCHAR)) AS ROW(col0 double, col1 varchar)).col1", createUnboundedVarcharType(), null);
         assertFunction("CAST(row(1, 2) AS ROW(col0 integer, col1 integer)).col0", INTEGER, 1);
-        assertFunction("CAST(row(1, 'kittens') AS ROW(col0 integer, col1 varchar)).col1", VARCHAR, "kittens");
+        assertFunction("CAST(row(1, 'kittens') AS ROW(col0 integer, col1 varchar)).col1", createUnboundedVarcharType(), "kittens");
         assertFunction("CAST(row(1, 2) AS ROW(col0 integer, col1 integer)).\"col1\"", INTEGER, 2);
         assertFunction("CAST(array[row(1, 2)] AS array(row(col0 integer, col1 integer)))[1].col1", INTEGER, 2);
         assertFunction("CAST(row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0, 4.0])) AS ROW(col0 boolean , col1 array(integer), col2 map(integer, double))).col1", new ArrayType(INTEGER), ImmutableList.of(1, 2));
@@ -95,7 +96,7 @@ public class TestRowOperators
         // Using ROW constructor
         assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, b DOUBLE)).a", BIGINT, 1L);
         assertFunction("CAST(ROW(1, 2) AS ROW(a BIGINT, b DOUBLE)).b", DOUBLE, 2.0);
-        assertFunction("CAST(ROW(CAST(ROW('aa') AS ROW(a VARCHAR))) AS ROW(a ROW(a VARCHAR))).a.a", VARCHAR, "aa");
+        assertFunction("CAST(ROW(CAST(ROW('aa') AS ROW(a VARCHAR))) AS ROW(a ROW(a VARCHAR))).a.a", createUnboundedVarcharType(), "aa");
         assertFunction("CAST(ROW(ROW('ab')) AS ROW(a ROW(b VARCHAR))).a.b", VARCHAR, "ab");
         assertFunction("CAST(ROW(ARRAY[NULL]) AS ROW(a ARRAY(BIGINT))).a", new ArrayType(BIGINT), Arrays.asList((Integer) null));
 

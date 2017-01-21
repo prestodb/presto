@@ -25,6 +25,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
@@ -80,7 +81,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwNotSupportedException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -152,11 +153,9 @@ class RelationPlanner
             columns.put(symbol, analysis.getColumn(field));
         }
 
-        List<Symbol> planOutputSymbols = outputSymbolsBuilder.build();
-
-        List<Symbol> nodeOutputSymbols = outputSymbolsBuilder.build();
-        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, nodeOutputSymbols, columns.build(), Optional.empty(), TupleDomain.all(), null);
-        return new RelationPlan(root, scope, planOutputSymbols);
+        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
+        PlanNode root = new TableScanNode(idAllocator.getNextId(), handle, outputSymbols, columns.build(), Optional.empty(), TupleDomain.all(), null);
+        return new RelationPlan(root, scope, outputSymbols);
     }
 
     @Override
@@ -196,7 +195,7 @@ class RelationPlanner
                 unnest = (Unnest) node.getRight();
             }
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                throwNotSupportedException(unnest, "UNNEST on other than the right side of CROSS JOIN");
+                throw notSupportedException(unnest, "UNNEST on other than the right side of CROSS JOIN");
             }
             return planCrossJoinUnnest(leftPlan, node, unnest);
         }
@@ -298,6 +297,10 @@ class RelationPlanner
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
+                ImmutableList.<Symbol>builder()
+                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
+                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                        .build(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -307,7 +310,7 @@ class RelationPlanner
                 Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
                 if (!inPredicates.isEmpty()) {
                     InPredicate inPredicate = Iterables.getLast(inPredicates);
-                    throwNotSupportedException(inPredicate, "IN with subquery predicate in join condition");
+                    throw notSupportedException(inPredicate, "IN with subquery predicate in join condition");
                 }
             }
 
@@ -330,6 +333,10 @@ class RelationPlanner
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
+                    ImmutableList.<Symbol>builder()
+                            .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
+                            .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                            .build(),
                     Optional.of(rewritenFilterCondition),
                     Optional.empty(),
                     Optional.empty());
@@ -526,7 +533,7 @@ class RelationPlanner
         verify(targetColumnTypes.length == oldSymbols.size());
         ImmutableList.Builder<Symbol> newSymbols = new ImmutableList.Builder<>();
         Field[] newFields = new Field[targetColumnTypes.length];
-        ImmutableMap.Builder<Symbol, Expression> assignments = new ImmutableMap.Builder<>();
+        Assignments.Builder assignments = Assignments.builder();
         for (int i = 0; i < targetColumnTypes.length; i++) {
             Symbol inputSymbol = oldSymbols.get(i);
             Type inputType = symbolAllocator.getTypes().get(inputSymbol);

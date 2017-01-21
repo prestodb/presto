@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -76,7 +77,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -223,7 +223,6 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
-            ImmutableMap.Builder<WindowNode.Function, WindowNode.Frame> frames = ImmutableMap.builder();
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
 
@@ -487,12 +486,15 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
+            Set<Symbol> added = new HashSet<>();
             ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
             ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
             for (Symbol symbol : node.getOrderBy()) {
                 Symbol canonical = canonicalize(symbol);
-                symbols.add(canonical);
-                orderings.put(canonical, node.getOrderings().get(symbol));
+                if (added.add(canonical)) {
+                    symbols.add(canonical);
+                    orderings.put(canonical, node.getOrderings().get(symbol));
+                }
             }
 
             return new SortNode(node.getId(), source, symbols.build(), orderings.build());
@@ -512,10 +514,11 @@ public class UnaliasSymbolReferences
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
+                        .filter(clause -> node.getOutputSymbols().contains(clause.getLeft()))
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol);
+            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol);
         }
 
         @Override
@@ -601,11 +604,11 @@ public class UnaliasSymbolReferences
             mapping.put(symbol, canonical);
         }
 
-        private Map<Symbol, Expression> canonicalize(Map<Symbol, Expression> oldAssignments)
+        private Assignments canonicalize(Assignments oldAssignments)
         {
             Map<Expression, Symbol> computedExpressions = new HashMap<>();
-            Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-            for (Map.Entry<Symbol, Expression> entry : oldAssignments.entrySet()) {
+            Assignments.Builder assignments = Assignments.builder();
+            for (Map.Entry<Symbol, Expression> entry : oldAssignments.getMap().entrySet()) {
                 Expression expression = canonicalize(entry.getValue());
 
                 if (expression instanceof SymbolReference) {
@@ -631,12 +634,9 @@ public class UnaliasSymbolReferences
                 }
 
                 Symbol canonical = canonicalize(entry.getKey());
-
-                if (!assignments.containsKey(canonical)) {
-                    assignments.put(canonical, expression);
-                }
+                assignments.put(canonical, expression);
             }
-            return assignments;
+            return assignments.build();
         }
 
         private Optional<Symbol> canonicalize(Optional<Symbol> symbol)

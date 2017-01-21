@@ -71,6 +71,12 @@ public class IndexLookupSourceFactory
     }
 
     @Override
+    public List<Type> getOutputTypes()
+    {
+        return outputTypes;
+    }
+
+    @Override
     public Map<Symbol, Integer> getLayout()
     {
         return layout;

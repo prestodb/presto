@@ -44,6 +44,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+
 public final class QueryUtil
 {
     private QueryUtil() {}
@@ -194,6 +197,14 @@ public final class QueryUtil
     public static Query singleValueQuery(String columnName, String value)
     {
         Relation values = values(row(new StringLiteral((value))));
+        return simpleQuery(
+                selectList(new AllColumns()),
+                aliased(values, "t", ImmutableList.of(columnName)));
+    }
+
+    public static Query singleValueQuery(String columnName, boolean value)
+    {
+        Relation values = values(row(value ? TRUE_LITERAL : FALSE_LITERAL));
         return simpleQuery(
                 selectList(new AllColumns()),
                 aliased(values, "t", ImmutableList.of(columnName)));

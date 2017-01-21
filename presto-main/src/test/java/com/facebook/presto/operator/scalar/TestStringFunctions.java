@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 
 public class TestStringFunctions
@@ -104,24 +105,24 @@ public class TestStringFunctions
     @Test
     public void testReplace()
     {
-        assertFunction("REPLACE('aaa', 'a', 'aa')", VARCHAR, "aaaaaa");
-        assertFunction("REPLACE('abcdefabcdef', 'cd', 'XX')", VARCHAR, "abXXefabXXef");
-        assertFunction("REPLACE('abcdefabcdef', 'cd')", VARCHAR, "abefabef");
-        assertFunction("REPLACE('123123tech', '123')", VARCHAR, "tech");
-        assertFunction("REPLACE('123tech123', '123')", VARCHAR, "tech");
-        assertFunction("REPLACE('222tech', '2', '3')", VARCHAR, "333tech");
-        assertFunction("REPLACE('0000123', '0')", VARCHAR, "123");
-        assertFunction("REPLACE('0000123', '0', ' ')", VARCHAR, "    123");
-        assertFunction("REPLACE('foo', '')", VARCHAR, "foo");
-        assertFunction("REPLACE('foo', '', '')", VARCHAR, "foo");
-        assertFunction("REPLACE('foo', 'foo', '')", VARCHAR, "");
-        assertFunction("REPLACE('abc', '', 'xx')", VARCHAR, "xxaxxbxxcxx");
-        assertFunction("REPLACE('', '', 'xx')", VARCHAR, "xx");
-        assertFunction("REPLACE('', '')", VARCHAR, "");
-        assertFunction("REPLACE('', '', '')", VARCHAR, "");
-        assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", VARCHAR, "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
-        assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", VARCHAR, "\uD801\uDC2D");
-        assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", VARCHAR, "Oesterreich");
+        assertFunction("REPLACE('aaa', 'a', 'aa')", createVarcharType(11), "aaaaaa");
+        assertFunction("REPLACE('abcdefabcdef', 'cd', 'XX')", createVarcharType(38), "abXXefabXXef");
+        assertFunction("REPLACE('abcdefabcdef', 'cd')", createVarcharType(12), "abefabef");
+        assertFunction("REPLACE('123123tech', '123')", createVarcharType(10), "tech");
+        assertFunction("REPLACE('123tech123', '123')", createVarcharType(10), "tech");
+        assertFunction("REPLACE('222tech', '2', '3')", createVarcharType(15), "333tech");
+        assertFunction("REPLACE('0000123', '0')", createVarcharType(7), "123");
+        assertFunction("REPLACE('0000123', '0', ' ')", createVarcharType(15), "    123");
+        assertFunction("REPLACE('foo', '')", createVarcharType(3), "foo");
+        assertFunction("REPLACE('foo', '', '')", createVarcharType(3), "foo");
+        assertFunction("REPLACE('foo', 'foo', '')", createVarcharType(3), "");
+        assertFunction("REPLACE('abc', '', 'xx')", createVarcharType(11), "xxaxxbxxcxx");
+        assertFunction("REPLACE('', '', 'xx')", createVarcharType(2), "xx");
+        assertFunction("REPLACE('', '')", createVarcharType(0), "");
+        assertFunction("REPLACE('', '', '')", createVarcharType(0), "");
+        assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", createVarcharType(15), "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
+        assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", createVarcharType(5), "\uD801\uDC2D"); //\uD801\uDC2D is one character
+        assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", createVarcharType(32), "Oesterreich");
 
         assertFunction("CAST(REPLACE(utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, new SqlVarbinary(new byte[] {'X', (byte) 0xCE, 'X'}));
 
@@ -491,7 +492,7 @@ public class TestStringFunctions
     @Test
     public void testVarcharToVarcharX()
     {
-        assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createVarcharType(Integer.MAX_VALUE), "hello");
+        assertFunction("LOWER(CAST('HELLO' AS VARCHAR))", createUnboundedVarcharType(), "hello");
     }
 
     @Test

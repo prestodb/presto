@@ -27,7 +27,6 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -42,6 +41,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.PatternLayout;
 
 import javax.inject.Inject;
+import javax.inject.Provider;
 
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;

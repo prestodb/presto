@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.util.List;
 
@@ -31,6 +30,7 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 
 public final class WindowPartition
 {
@@ -234,7 +234,7 @@ public final class WindowPartition
         if (value > rowPosition) {
             return 0;
         }
-        return Ints.checkedCast(rowPosition - value);
+        return toIntExact(rowPosition - value);
     }
 
     private static int following(int rowPosition, int endPosition, long value)
@@ -242,7 +242,7 @@ public final class WindowPartition
         if (value > (endPosition - rowPosition)) {
             return endPosition;
         }
-        return Ints.checkedCast(rowPosition + value);
+        return toIntExact(rowPosition + value);
     }
 
     private long getStartValue(FrameInfo frameInfo)

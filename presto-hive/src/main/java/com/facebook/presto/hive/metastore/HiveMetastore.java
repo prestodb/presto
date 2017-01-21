@@ -22,13 +22,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
 public interface HiveMetastore
 {
-    String DEFAULT_DATABASE_NAME = "default";
-
     void createDatabase(Database database);
 
     void dropDatabase(String databaseName);

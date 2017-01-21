@@ -564,4 +564,12 @@ public abstract class DefaultTraversalVisitor<R, C>
 
         return null;
     }
+
+    @Override
+    protected R visitExists(ExistsPredicate node, C context)
+    {
+        process(node.getSubquery(), context);
+
+        return null;
+    }
 }

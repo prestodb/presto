@@ -17,7 +17,6 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.LocalMemoryContext;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -38,6 +37,7 @@ import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -154,10 +154,10 @@ public final class OrcInputStream
     {
         // if the decompressed buffer is empty, return a checkpoint starting at the next block
         if (current == null || (current.position() == 0 && current.remaining() == 0)) {
-            return createInputStreamCheckpoint(Ints.checkedCast(compressedSliceInput.position()), 0);
+            return createInputStreamCheckpoint(toIntExact(compressedSliceInput.position()), 0);
         }
         // otherwise return a checkpoint at the last compressed block read and the current position in the buffer
-        return createInputStreamCheckpoint(currentCompressedBlockOffset, Ints.checkedCast(current.position()));
+        return createInputStreamCheckpoint(currentCompressedBlockOffset, toIntExact(current.position()));
     }
 
     public boolean seekToCheckpoint(long checkpoint)
@@ -218,7 +218,7 @@ public final class OrcInputStream
 
         // 3 byte header
         // NOTE: this must match BLOCK_HEADER_SIZE
-        currentCompressedBlockOffset = Ints.checkedCast(compressedSliceInput.position());
+        currentCompressedBlockOffset = toIntExact(compressedSliceInput.position());
         int b0 = compressedSliceInput.readUnsignedByte();
         int b1 = compressedSliceInput.readUnsignedByte();
         int b2 = compressedSliceInput.readUnsignedByte();

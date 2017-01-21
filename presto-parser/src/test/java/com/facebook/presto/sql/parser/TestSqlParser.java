@@ -546,19 +546,19 @@ public class TestSqlParser
         SQL_PARSER.createExpression("1 + 1 x");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: no viable alternative at input '@'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:1: extraneous input '@'\\E.*")
     public void testTokenizeErrorStartOfLine()
     {
         SQL_PARSER.createStatement("@select");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:25: no viable alternative at input '@'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:25: extraneous input '@'\\E.*")
     public void testTokenizeErrorMiddleOfLine()
     {
         SQL_PARSER.createStatement("select * from foo where @what");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:15: no viable alternative at input\\E.*")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:15: extraneous input\\E.*")
     public void testTokenizeErrorIncompleteToken()
     {
         SQL_PARSER.createStatement("select * from 'oops");
@@ -570,7 +570,7 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select *\nfrom x\nfrom");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 3:7: no viable alternative at input 'from'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 3:7: mismatched input 'from'\\E.*")
     public void testParseErrorMiddleOfLine()
     {
         SQL_PARSER.createStatement("select *\nfrom x\nwhere from");
@@ -650,8 +650,8 @@ public class TestSqlParser
             fail("expected exception");
         }
         catch (ParsingException e) {
-            assertEquals(e.getMessage(), "line 3:7: no viable alternative at input 'from'");
-            assertEquals(e.getErrorMessage(), "no viable alternative at input 'from'");
+            assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
+            assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
             assertEquals(e.getLineNumber(), 3);
             assertEquals(e.getColumnNumber(), 7);
         }
@@ -670,13 +670,13 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select foo(,1)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: no viable alternative at input\\E.*")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: mismatched input\\E.*")
     public void testInvalidArguments2()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: no viable alternative at input\\E.*")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: extraneous input\\E.*")
     public void testInvalidArguments3()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT ,1)");
@@ -1116,14 +1116,16 @@ public class TestSqlParser
     public void testCreateTable()
             throws Exception
     {
-        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT)",
+        assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world')",
                 new CreateTable(QualifiedName.of("foo"),
-                        ImmutableList.of(new ColumnDefinition("a", "VARCHAR"), new ColumnDefinition("b", "BIGINT")),
+                        ImmutableList.of(
+                                new ColumnDefinition("a", "VARCHAR", Optional.empty()),
+                                new ColumnDefinition("b", "BIGINT", Optional.of("hello world"))),
                         false,
                         ImmutableMap.of()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP")),
+                        ImmutableList.of(new ColumnDefinition("c", "TIMESTAMP", Optional.empty())),
                         true,
                         ImmutableMap.of()));
 
@@ -1138,7 +1140,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
@@ -1146,10 +1148,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition("d", "DATE")),
+                                new ColumnDefinition("d", "DATE", Optional.empty())),
                         true,
                         ImmutableMap.of()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
@@ -1162,7 +1164,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition("c", "TIMESTAMP"),
+                                new ColumnDefinition("c", "TIMESTAMP", Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1277,7 +1279,7 @@ public class TestSqlParser
     public void testAddColumn()
             throws Exception
     {
-        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition("c", "bigint")));
+        assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"), new ColumnDefinition("c", "bigint", Optional.empty())));
     }
 
     @Test
@@ -1552,6 +1554,13 @@ public class TestSqlParser
                                 new QualifiedNameReference(QualifiedName.of("EXCLUDING")),
                                 new QualifiedNameReference(QualifiedName.of("PROPERTIES"))),
                         table(QualifiedName.of("t"))));
+        assertStatement("SELECT ALL, SOME, ANY FROM t",
+                simpleQuery(
+                        selectList(
+                                new QualifiedNameReference(QualifiedName.of("ALL")),
+                                new QualifiedNameReference(QualifiedName.of("SOME")),
+                                new QualifiedNameReference(QualifiedName.of("ANY"))),
+                        table(QualifiedName.of("t"))));
     }
 
     @Test
@@ -1614,15 +1623,15 @@ public class TestSqlParser
     @Test
     public void testExists()
     {
-        assertStatement("SELECT EXISTS(SELECT 1)", simpleQuery(selectList(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))))));
+        assertStatement("SELECT EXISTS(SELECT 1)", simpleQuery(selectList(exists(simpleQuery(selectList(new LongLiteral("1")))))));
 
         assertStatement(
                 "SELECT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
                 simpleQuery(
                         selectList(new ComparisonExpression(
                                 ComparisonExpressionType.EQUAL,
-                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
-                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+                                exists(simpleQuery(selectList(new LongLiteral("1")))),
+                                exists(simpleQuery(selectList(new LongLiteral("2"))))))));
 
         assertStatement(
                 "SELECT NOT EXISTS(SELECT 1) = EXISTS(SELECT 2)",
@@ -1631,8 +1640,8 @@ public class TestSqlParser
                                 new NotExpression(
                                         new ComparisonExpression(
                                                 ComparisonExpressionType.EQUAL,
-                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1")))),
-                                                new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2")))))))));
+                                                exists(simpleQuery(selectList(new LongLiteral("1")))),
+                                                exists(simpleQuery(selectList(new LongLiteral("2")))))))));
 
         assertStatement(
                 "SELECT (NOT EXISTS(SELECT 1)) = EXISTS(SELECT 2)",
@@ -1640,8 +1649,13 @@ public class TestSqlParser
                         selectList(
                                 new ComparisonExpression(
                                         ComparisonExpressionType.EQUAL,
-                                        new NotExpression(new ExistsPredicate(simpleQuery(selectList(new LongLiteral("1"))))),
-                                        new ExistsPredicate(simpleQuery(selectList(new LongLiteral("2"))))))));
+                                        new NotExpression(exists(simpleQuery(selectList(new LongLiteral("1"))))),
+                                        exists(simpleQuery(selectList(new LongLiteral("2"))))))));
+    }
+
+    private static ExistsPredicate exists(Query query)
+    {
+        return new ExistsPredicate(new SubqueryExpression(query));
     }
 
     @Test

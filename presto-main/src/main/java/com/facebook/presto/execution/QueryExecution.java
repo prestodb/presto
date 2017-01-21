@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.Statement;
 import io.airlift.units.Duration;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface QueryExecution
 {
@@ -44,7 +45,7 @@ public interface QueryExecution
 
     Session getSession();
 
-    void start();
+    void start(Optional<String> resourceGroupName);
 
     void fail(Throwable cause);
 

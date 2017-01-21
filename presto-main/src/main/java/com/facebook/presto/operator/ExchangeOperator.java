@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.execution.SystemMemoryUsageListener;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -21,6 +22,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.util.concurrent.ListenableFuture;
+
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -44,6 +47,7 @@ public class ExchangeOperator
         private final PlanNodeId sourceId;
         private final ExchangeClientSupplier exchangeClientSupplier;
         private final List<Type> types;
+        private ExchangeClient exchangeClient = null;
         private boolean closed;
 
         public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, ExchangeClientSupplier exchangeClientSupplier, List<Type> types)
@@ -70,19 +74,41 @@ public class ExchangeOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
-            return new ExchangeOperator(
-                    operatorContext,
-                    types,
-                    sourceId,
-                    exchangeClientSupplier.get(new SystemMemoryUsageTracker(operatorContext)));
+            if (exchangeClient == null) {
+                exchangeClient = exchangeClientSupplier.get(new UpdateSystemMemory(driverContext.getPipelineContext()));
+            }
+
+            return new ExchangeOperator(operatorContext, types, sourceId, exchangeClient);
         }
 
         @Override
         public void close()
         {
             closed = true;
+        }
+    }
+
+    @NotThreadSafe
+    private static final class UpdateSystemMemory
+            implements SystemMemoryUsageListener
+    {
+        private final PipelineContext pipelineContext;
+
+        public UpdateSystemMemory(PipelineContext pipelineContext)
+        {
+            this.pipelineContext = requireNonNull(pipelineContext, "pipelineContext is null");
+        }
+
+        @Override
+        public void updateSystemMemoryUsage(long deltaMemoryInBytes)
+        {
+            if (deltaMemoryInBytes > 0) {
+                pipelineContext.reserveSystemMemory(deltaMemoryInBytes);
+            }
+            else {
+                pipelineContext.freeSystemMemory(-deltaMemoryInBytes);
+            }
         }
     }
 

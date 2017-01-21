@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.SetThreadName;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
@@ -59,7 +60,7 @@ public class QueuedExecution
         if (nextQueues.isEmpty()) {
             executor.execute(() -> {
                 try (SetThreadName ignored = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
-                    queryExecution.start();
+                    queryExecution.start(Optional.empty());
                 }
             });
         }

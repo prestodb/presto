@@ -33,6 +33,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -43,7 +44,6 @@ import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpressionType.IS_DISTINCT_FROM;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -105,11 +105,54 @@ public final class ExpressionUtils
         requireNonNull(expressions, "expressions is null");
         Preconditions.checkArgument(!expressions.isEmpty(), "expressions is empty");
 
-        // build balanced tree for efficient recursive processing
+        // Build balanced tree for efficient recursive processing that
+        // preserves the evaluation order of the input expressions.
+        //
+        // The tree is built bottom up by combining pairs of elements into
+        // binary AND expressions.
+        //
+        // Example:
+        //
+        // Initial state:
+        //  a b c d e
+        //
+        // First iteration:
+        //
+        //  /\    /\   e
+        // a  b  c  d
+        //
+        // Second iteration:
+        //
+        //    / \    e
+        //  /\   /\
+        // a  b c  d
+        //
+        //
+        // Last iteration:
+        //
+        //      / \
+        //    / \  e
+        //  /\   /\
+        // a  b c  d
+
         Queue<Expression> queue = new ArrayDeque<>(expressions);
         while (queue.size() > 1) {
-            queue.add(new LogicalBinaryExpression(type, queue.remove(), queue.remove()));
+            Queue<Expression> buffer = new ArrayDeque<>();
+
+            // combine pairs of elements
+            while (queue.size() >= 2) {
+                buffer.add(new LogicalBinaryExpression(type, queue.remove(), queue.remove()));
+            }
+
+            // if there's and odd number of elements, just append the last one
+            if (!queue.isEmpty()) {
+                buffer.add(queue.remove());
+            }
+
+            // continue processing the pairs that were just built
+            queue = buffer;
         }
+
         return queue.remove();
     }
 
@@ -153,6 +196,11 @@ public final class ExpressionUtils
         }
 
         return conjuncts.isEmpty() ? emptyDefault : and(conjuncts);
+    }
+
+    public static Expression combineDisjuncts(Expression... expressions)
+    {
+        return combineDisjuncts(Arrays.asList(expressions));
     }
 
     public static Expression combineDisjuncts(Collection<Expression> expressions)
@@ -222,22 +270,26 @@ public final class ExpressionUtils
         };
     }
 
+    /**
+     * Removes duplicate deterministic expressions. Preserves the relative order
+     * of the expressions in the list.
+     */
     private static List<Expression> removeDuplicates(List<Expression> expressions)
     {
-        // Capture all non-deterministic predicates
-        List<Expression> nonDeterministicDisjuncts = expressions.stream()
-                .filter(e -> !DeterminismEvaluator.isDeterministic(e))
-                .collect(toImmutableList());
+        Set<Expression> seen = new HashSet<>();
 
-        // Capture and de-dupe all deterministic predicates
-        Set<Expression> deterministicDisjuncts = expressions.stream()
-                .filter(DeterminismEvaluator::isDeterministic)
-                .collect(toImmutableSet());
+        ImmutableList.Builder<Expression> result = ImmutableList.builder();
+        for (Expression expression : expressions) {
+            if (!DeterminismEvaluator.isDeterministic(expression)) {
+                result.add(expression);
+            }
+            else if (!seen.contains(expression)) {
+                result.add(expression);
+                seen.add(expression);
+            }
+        }
 
-        return ImmutableList.<Expression>builder()
-                .addAll(nonDeterministicDisjuncts)
-                .addAll(deterministicDisjuncts)
-                .build();
+        return result.build();
     }
 
     public static Expression normalize(Expression expression)

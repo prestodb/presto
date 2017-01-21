@@ -64,6 +64,9 @@ public class MappedPageSource
     public Page getNextPage()
     {
         Page nextPage = delegate.getNextPage();
+        if (nextPage == null) {
+            return null;
+        }
         Block[] blocks = Arrays.stream(delegateFieldIndex)
                 .mapToObj(nextPage::getBlock)
                 .toArray(Block[]::new);

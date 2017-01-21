@@ -41,4 +41,10 @@ public class UnionNode
     {
         return visitor.visitUnion(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new UnionNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+    }
 }

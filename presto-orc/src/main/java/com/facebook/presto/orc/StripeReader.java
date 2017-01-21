@@ -25,6 +25,7 @@ import com.facebook.presto.orc.metadata.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
+import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
@@ -41,7 +42,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;
 
@@ -65,6 +65,7 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.facebook.presto.orc.stream.CheckpointStreamSource.createCheckpointStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class StripeReader
@@ -73,6 +74,7 @@ public class StripeReader
     private final CompressionKind compressionKind;
     private final List<OrcType> types;
     private final int bufferSize;
+    private final HiveWriterVersion hiveWriterVersion;
     private final Set<Integer> includedOrcColumns;
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
@@ -85,6 +87,7 @@ public class StripeReader
             Set<Integer> includedColumns,
             int rowsInRowGroup,
             OrcPredicate predicate,
+            HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
@@ -94,6 +97,7 @@ public class StripeReader
         this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"));
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
     }
 
@@ -321,13 +325,13 @@ public class StripeReader
             throws IOException
     {
         long offset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
-        int tailLength = Ints.checkedCast(stripe.getFooterLength());
+        int tailLength = toIntExact(stripe.getFooterLength());
 
         // read the footer
         byte[] tailBuffer = new byte[tailLength];
         orcDataSource.readFully(offset, tailBuffer);
         try (InputStream inputStream = new OrcInputStream(orcDataSource.toString(), Slices.wrappedBuffer(tailBuffer).getInput(), compressionKind, bufferSize, systemMemoryUsage)) {
-            return metadataReader.readStripeFooter(types, inputStream);
+            return metadataReader.readStripeFooter(hiveWriterVersion, types, inputStream);
         }
     }
 
@@ -354,7 +358,7 @@ public class StripeReader
             if (stream.getStreamKind() == ROW_INDEX) {
                 OrcInputStream inputStream = streamsData.get(entry.getKey());
                 List<HiveBloomFilter> bloomFilters = bloomFilterIndexes.get(stream.getColumn());
-                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(inputStream);
+                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, inputStream);
                 if (bloomFilters != null && !bloomFilters.isEmpty()) {
                     ImmutableList.Builder<RowGroupIndex> newRowGroupIndexes = ImmutableList.builder();
                     for (int i = 0; i < rowGroupIndexes.size(); i++) {
@@ -374,7 +378,7 @@ public class StripeReader
     private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes)
             throws IOException
     {
-        int rowsInStripe = Ints.checkedCast(stripe.getNumberOfRows());
+        int rowsInStripe = toIntExact(stripe.getNumberOfRows());
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);
 
         ImmutableSet.Builder<Integer> selectedRowGroups = ImmutableSet.builder();
@@ -422,7 +426,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> streamDiskRanges = ImmutableMap.builder();
         long stripeOffset = 0;
         for (Stream stream : streams) {
-            int streamLength = Ints.checkedCast(stream.getLength());
+            int streamLength = toIntExact(stream.getLength());
             streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));
             stripeOffset += streamLength;
         }

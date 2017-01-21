@@ -14,10 +14,10 @@
 package com.facebook.presto.rcfile;
 
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.ChunkedSliceInput;
 import io.airlift.slice.ChunkedSliceInput.BufferReference;
@@ -30,17 +30,18 @@ import io.airlift.units.DataSize;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Map.Entry;
 
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static com.facebook.presto.rcfile.RcFileDecoderUtils.readVInt;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RcFileReader
@@ -65,7 +66,7 @@ public class RcFileReader
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
 
     private final RcFileDataSource dataSource;
-    private final Set<Integer> readColumns;
+    private final Map<Integer, Type> readColumns;
     private final ChunkedSliceInput input;
     private final long length;
 
@@ -96,9 +97,8 @@ public class RcFileReader
 
     public RcFileReader(
             RcFileDataSource dataSource,
-            List<Type> types,
             RcFileEncoding encoding,
-            Set<Integer> readColumns,
+            Map<Integer, Type> readColumns,
             RcFileCodecFactory codecFactory,
             long offset,
             long length,
@@ -106,8 +106,8 @@ public class RcFileReader
             throws IOException
     {
         this.dataSource = requireNonNull(dataSource, "rcFileDataSource is null");
-        this.readColumns = ImmutableSet.copyOf(requireNonNull(readColumns, "readColumns is null"));
-        this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), Ints.checkedCast(bufferSize.toBytes()));
+        this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
+        this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), toIntExact(bufferSize.toBytes()));
 
         checkArgument(offset >= 0, "offset is negative");
         checkArgument(offset < dataSource.getSize(), "offset is greater than data size");
@@ -191,9 +191,11 @@ public class RcFileReader
             throw corrupt("Too many columns (%s) in RCFile %s", columnCountString, dataSource);
         }
         columns = new Column[columnCount];
-        for (int columnIndex = 0; columnIndex < columns.length; columnIndex++) {
-            ColumnEncoding columnEncoding = encoding.getEncoding(types.get(columnIndex));
-            columns[columnIndex] = new Column(columnEncoding, decompressor);
+        for (Entry<Integer, Type> entry : readColumns.entrySet()) {
+            if (entry.getKey() < columnCount) {
+                ColumnEncoding columnEncoding = encoding.getEncoding(entry.getValue());
+                columns[entry.getKey()] = new Column(columnEncoding, decompressor);
+            }
         }
 
         // read sync bytes
@@ -351,33 +353,30 @@ public class RcFileReader
         BasicSliceInput headerInput = header.getInput();
 
         // read number of rows in row group
-        rowGroupRowCount = Ints.checkedCast(readVInt(headerInput));
+        rowGroupRowCount = toIntExact(readVInt(headerInput));
         rowsRead += rowGroupRowCount;
         rowGroupPosition = 0;
         currentChunkRowCount = min(ColumnData.MAX_SIZE, rowGroupRowCount);
 
         // set column buffers
         for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-            int compressedDataSize = Ints.checkedCast(readVInt(headerInput));
-            int uncompressedDataSize = Ints.checkedCast(readVInt(headerInput));
+            int compressedDataSize = toIntExact(readVInt(headerInput));
+            int uncompressedDataSize = toIntExact(readVInt(headerInput));
             if (decompressor == null && compressedDataSize != uncompressedDataSize) {
                 throw corrupt("Invalid RCFile %s", dataSource);
             }
 
-            int lengthsSize = Ints.checkedCast(readVInt(headerInput));
+            int lengthsSize = toIntExact(readVInt(headerInput));
 
             Slice lengthsBuffer = headerInput.readSlice(lengthsSize);
 
-            Slice dataBuffer;
-            if (readColumns.contains(columnIndex)) {
-                dataBuffer = input.readSlice(compressedDataSize);
+            if (readColumns.containsKey(columnIndex)) {
+                Slice dataBuffer = input.readSlice(compressedDataSize);
+                columns[columnIndex].setBuffers(lengthsBuffer, dataBuffer, uncompressedDataSize);
             }
             else {
                 skipFully(input, compressedDataSize);
-                dataBuffer = Slices.EMPTY_SLICE;
             }
-
-            columns[columnIndex].setBuffers(lengthsBuffer, dataBuffer, uncompressedDataSize);
         }
 
         return currentChunkRowCount;
@@ -386,9 +385,15 @@ public class RcFileReader
     public Block readBlock(int columnIndex)
             throws IOException
     {
-        if (currentChunkRowCount <= 0) {
-            throw new IllegalStateException("No more data");
+        checkArgument(readColumns.containsKey(columnIndex), "Column %s is not being read", columnIndex);
+        checkState(currentChunkRowCount > 0, "No more data");
+
+        if (columnIndex >= columns.length) {
+            Type type = readColumns.get(columnIndex);
+            Block nullBlock = type.createBlockBuilder(new BlockBuilderStatus(), 1, 0).appendNull().build();
+            return new RunLengthEncodedBlock(nullBlock, currentChunkRowCount);
         }
+
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);
     }
 
@@ -415,7 +420,7 @@ public class RcFileReader
     private Slice readLengthPrefixedString(SliceInput in)
             throws RcFileCorruptionException
     {
-        int length = Ints.checkedCast(readVInt(in));
+        int length = toIntExact(readVInt(in));
         if (length > MAX_METADATA_STRING_LENGTH) {
             throw corrupt("Metadata string value is too long (%s) in RCFile %s", length, in);
         }
@@ -518,7 +523,7 @@ public class RcFileReader
                 return lastValueLength;
             }
 
-            int valueLength = Ints.checkedCast(readVInt(lengthsInput));
+            int valueLength = toIntExact(readVInt(lengthsInput));
 
             // negative length is used to encode a run or the last value
             if (valueLength < 0) {

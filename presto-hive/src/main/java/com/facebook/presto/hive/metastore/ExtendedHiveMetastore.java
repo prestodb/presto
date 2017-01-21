@@ -14,9 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.HiveType;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -41,7 +38,7 @@ public interface ExtendedHiveMetastore
 
     void renameDatabase(String databaseName, String newDatabaseName);
 
-    void createTable(Table table, PrincipalPrivilegeSet principalPrivilegeSet);
+    void createTable(Table table, PrincipalPrivileges principalPrivileges);
 
     void dropTable(String databaseName, String tableName, boolean deleteData);
 
@@ -50,7 +47,7 @@ public interface ExtendedHiveMetastore
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */
-    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivilegeSet principalPrivilegeSet);
+    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
 
     void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 
@@ -83,7 +80,7 @@ public interface ExtendedHiveMetastore
 
     Set<HivePrivilegeInfo> getTablePrivileges(String user, String databaseName, String tableName);
 
-    void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
+    void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
 
-    void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<PrivilegeGrantInfo> privilegeGrantInfoSet);
+    void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges);
 }

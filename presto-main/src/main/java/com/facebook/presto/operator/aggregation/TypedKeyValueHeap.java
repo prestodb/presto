@@ -20,12 +20,12 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.RowType;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.toIntExact;
 
 public class TypedKeyValueHeap
 {
@@ -95,7 +95,7 @@ public class TypedKeyValueHeap
 
     public static TypedKeyValueHeap deserialize(Block block, Type keyType, Type valueType, BlockComparator blockComparator)
     {
-        int capacity = Ints.checkedCast(BIGINT.getLong(block, 0));
+        int capacity = toIntExact(BIGINT.getLong(block, 0));
         Block keysBlock = new ArrayType(keyType).getObject(block, 1);
         Block valuesBlock = new ArrayType(valueType).getObject(block, 2);
         TypedKeyValueHeap heap = new TypedKeyValueHeap(blockComparator, keyType, valueType, capacity);

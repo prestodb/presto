@@ -15,10 +15,10 @@ package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
 import javax.annotation.PostConstruct;
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;

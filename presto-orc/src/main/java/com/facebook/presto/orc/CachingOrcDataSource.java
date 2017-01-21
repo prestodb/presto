@@ -15,13 +15,13 @@ package com.facebook.presto.orc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.util.Map;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class CachingOrcDataSource
@@ -92,7 +92,7 @@ public class CachingOrcDataSource
         if (position + length > cachePosition + cacheLength) {
             throw new IllegalArgumentException(String.format("read request (offset %d length %d) partially overlaps cache (offset %d length %d)", position, length, cachePosition, cacheLength));
         }
-        System.arraycopy(cache, Ints.checkedCast(position - cachePosition), buffer, bufferOffset, length);
+        System.arraycopy(cache, toIntExact(position - cachePosition), buffer, bufferOffset, length);
     }
 
     @Override

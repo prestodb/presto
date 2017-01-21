@@ -121,6 +121,7 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregatesOrWindowFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -128,7 +129,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwMissingAttributeException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
@@ -226,13 +227,13 @@ public class ExpressionAnalyzer
 
     public Type analyze(Expression expression, Scope scope)
     {
-        Visitor visitor = new Visitor(scope, symbolTypes);
+        Visitor visitor = new Visitor(scope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda()));
     }
 
     private Type analyze(Expression expression, Scope scope, Context context)
     {
-        Visitor visitor = new Visitor(scope, symbolTypes);
+        Visitor visitor = new Visitor(scope);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
@@ -256,7 +257,7 @@ public class ExpressionAnalyzer
     {
         private final Scope scope;
 
-        private Visitor(Scope scope, Map<Symbol, Type> symbolTypes)
+        private Visitor(Scope scope)
         {
             this.scope = requireNonNull(scope, "scope is null");
         }
@@ -370,7 +371,7 @@ public class ExpressionAnalyzer
                         return handleResolvedField(node, resolvedField.get());
                     }
                     if (!scope.isColumnReference(qualifiedName)) {
-                        throwMissingAttributeException(node, qualifiedName);
+                        throw missingAttributeException(node, qualifiedName);
                     }
                 }
             }
@@ -390,7 +391,7 @@ public class ExpressionAnalyzer
                 }
             }
             if (rowFieldType == null) {
-                throwMissingAttributeException(node);
+                throw missingAttributeException(node);
             }
 
             expressionTypes.put(node, rowFieldType);
@@ -776,13 +777,13 @@ public class ExpressionAnalyzer
             if (node.getFilter().isPresent()) {
                 Expression expression = node.getFilter().get();
                 process(expression, context);
-                Type type = expressionTypes.get(expression);
             }
 
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression expression : node.getArguments()) {
                 if (expression instanceof LambdaExpression) {
                     LambdaExpression lambdaExpression = (LambdaExpression) expression;
+                    verifyNoAggregatesOrWindowFunctions(functionRegistry, lambdaExpression.getBody(), "Lambda expression");
 
                     // captures are not supported for now, use empty tuple descriptor
                     Expression lambdaBody = lambdaExpression.getBody();
@@ -1011,7 +1012,9 @@ public class ExpressionAnalyzer
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = createQueryBoundaryScope();
+            Scope subqueryScope = Scope.builder()
+                    .withParent(scope)
+                    .build();
             analyzer.getAnalysis().setScope(node, subqueryScope);
             Scope queryScope = analyzer.process(node.getQuery(), subqueryScope);
 
@@ -1043,7 +1046,7 @@ public class ExpressionAnalyzer
         protected Type visitExists(ExistsPredicate node, StackableAstVisitorContext<Context> context)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
-            Scope subqueryScope = createQueryBoundaryScope();
+            Scope subqueryScope = Scope.builder().withParent(scope).build();
             analyzer.getAnalysis().setScope(node, subqueryScope);
             analyzer.process(node.getSubquery(), subqueryScope);
 
@@ -1085,14 +1088,6 @@ public class ExpressionAnalyzer
 
             expressionTypes.put(node, BOOLEAN);
             return BOOLEAN;
-        }
-
-        private Scope createQueryBoundaryScope()
-        {
-            return Scope.builder()
-                    .withParent(scope)
-                    .markQueryBoundary()
-                    .build();
         }
 
         @Override
@@ -1177,40 +1172,36 @@ public class ExpressionAnalyzer
 
         private Type coerceToSingleType(StackableAstVisitorContext<Context> context, Node node, String message, Expression first, Expression second)
         {
-            Type firstType = null;
+            Type firstType = UNKNOWN;
             if (first != null) {
                 firstType = process(first, context);
             }
-            Type secondType = null;
+            Type secondType = UNKNOWN;
             if (second != null) {
                 secondType = process(second, context);
             }
 
-            if (firstType == null) {
-                return secondType;
-            }
-            if (secondType == null) {
-                return firstType;
-            }
-            if (firstType.equals(secondType)) {
-                return firstType;
+            // coerce types if possible
+            Optional<Type> superTypeOptional = typeManager.getCommonSuperType(firstType, secondType);
+            if (superTypeOptional.isPresent()
+                    && typeManager.canCoerce(firstType, superTypeOptional.get())
+                    && typeManager.canCoerce(secondType, superTypeOptional.get())) {
+                Type superType = superTypeOptional.get();
+                if (!firstType.equals(superType)) {
+                    expressionCoercions.put(first, superType);
+                    if (typeManager.isTypeOnlyCoercion(firstType, superType)) {
+                        typeOnlyCoercions.add(first);
+                    }
+                }
+                if (!secondType.equals(superType)) {
+                    expressionCoercions.put(second, superType);
+                    if (typeManager.isTypeOnlyCoercion(secondType, superType)) {
+                        typeOnlyCoercions.add(second);
+                    }
+                }
+                return superType;
             }
 
-            // coerce types if possible
-            if (typeManager.canCoerce(firstType, secondType)) {
-                expressionCoercions.put(first, secondType);
-                if (typeManager.isTypeOnlyCoercion(firstType, secondType)) {
-                    typeOnlyCoercions.add(first);
-                }
-                return secondType;
-            }
-            if (typeManager.canCoerce(secondType, firstType)) {
-                expressionCoercions.put(second, firstType);
-                if (typeManager.isTypeOnlyCoercion(secondType, firstType)) {
-                    typeOnlyCoercions.add(second);
-                }
-                return firstType;
-            }
             throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
         }
 

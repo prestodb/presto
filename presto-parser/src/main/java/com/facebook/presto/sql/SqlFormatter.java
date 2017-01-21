@@ -766,7 +766,10 @@ public final class SqlFormatter
                     .map(element -> {
                         if (element instanceof ColumnDefinition) {
                             ColumnDefinition column = (ColumnDefinition) element;
-                            return elementIndent + formatName(column.getName()) + " " + column.getType();
+                            return elementIndent + formatName(column.getName()) + " " + column.getType() +
+                                    column.getComment()
+                                            .map(comment -> " COMMENT " + formatStringLiteral(comment))
+                                            .orElse("");
                         }
                         if (element instanceof LikeClause) {
                             LikeClause likeClause = (LikeClause) element;

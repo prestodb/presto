@@ -283,7 +283,7 @@ public final class ExpressionFormatter
         @Override
         protected String visitExists(ExistsPredicate node, Boolean unmangleNames)
         {
-            return "(EXISTS (" + formatSql(node.getSubquery(), unmangleNames, parameters) + "))";
+            return "(EXISTS " + formatSql(node.getSubquery(), unmangleNames, parameters) + ")";
         }
 
         @Override

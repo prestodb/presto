@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.operator.window.WindowAssertions.executeWindowQueryWithNulls;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;

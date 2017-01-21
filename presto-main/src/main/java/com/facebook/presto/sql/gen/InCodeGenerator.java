@@ -34,7 +34,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -55,6 +54,7 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.util.FastutilSetHelper.toFastutilHashSet;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
@@ -144,7 +144,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = Ints.checkedCast(Long.hashCode((Long) hashCodeFunction.invoke(object)));
+                            int hashCode = toIntExact(Long.hashCode((Long) hashCodeFunction.invoke(object)));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
@@ -178,7 +178,7 @@ public class InCodeGenerator
                 // A white-list is used to select types eligible for DIRECT_SWITCH.
                 // For these types, it's safe to not use presto HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
-                    switchBuilder.addCase(Ints.checkedCast((Long) constantValue), match);
+                    switchBuilder.addCase(toIntExact((Long) constantValue), match);
                 }
                 switchBuilder.defaultCase(defaultLabel);
                 switchBlock = new BytecodeBlock()

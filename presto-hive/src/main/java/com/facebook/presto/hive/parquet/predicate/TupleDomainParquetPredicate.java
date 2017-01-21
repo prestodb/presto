@@ -41,10 +41,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.parquet.predicate.ParquetPredicateUtils.isStatisticsOverflow;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -139,7 +143,7 @@ public class TupleDomainParquetPredicate<C>
                 return Domain.create(ValueSet.of(type, false), hasNullValue);
             }
         }
-        else if (type.equals(BIGINT) && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
+        else if ((type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER)) && (statistics instanceof LongStatistics || statistics instanceof IntStatistics)) {
             ParquetIntegerStatistics parquetIntegerStatistics;
             if (statistics instanceof LongStatistics) {
                 LongStatistics longStatistics = (LongStatistics) statistics;
@@ -156,6 +160,9 @@ public class TupleDomainParquetPredicate<C>
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
                 parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
+            }
+            if (isStatisticsOverflow(type, parquetIntegerStatistics)) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
             }
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
         }

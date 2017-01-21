@@ -66,6 +66,7 @@ import static java.lang.Double.isFinite;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.BigInteger.ZERO;
 import static java.math.RoundingMode.HALF_UP;
@@ -235,7 +236,7 @@ public final class DecimalCasts
         }
 
         try {
-            return Math.toIntExact(longResult);
+            return toIntExact(longResult);
         }
         catch (ArithmeticException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", longResult));

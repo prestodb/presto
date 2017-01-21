@@ -56,7 +56,6 @@ import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERT
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -113,6 +112,7 @@ public class DistributedQueryRunner
 
             Map<String, String> extraCoordinatorProperties = ImmutableMap.<String, String>builder()
                     .put("optimizer.optimize-mixed-distinct-aggregations", "true")
+                    .put("experimental.iterative-optimizer-enabled", "true")
                     .putAll(extraProperties)
                     .putAll(coordinatorProperties)
                     .build();
@@ -265,7 +265,7 @@ public class DistributedQueryRunner
             connectorIds.add(server.createCatalog(catalogName, connectorName, properties));
         }
         ConnectorId connectorId = getOnlyElement(connectorIds);
-        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, succinctNanos(start));
+        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
 
         // wait for all nodes to announce the new catalog
         start = System.nanoTime();
@@ -279,7 +279,7 @@ public class DistributedQueryRunner
                 throw Throwables.propagate(e);
             }
         }
-        log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, succinctNanos(start));
+        log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
     }
 
     private boolean isConnectionVisibleToAllNodes(ConnectorId connectorId)

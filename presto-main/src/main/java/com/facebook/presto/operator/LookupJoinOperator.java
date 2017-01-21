@@ -174,11 +174,11 @@ public class LookupJoinOperator
         closed = true;
         probe = null;
         pageBuilder.reset();
-        onClose.run();
         // closing lookup source is only here for index join
         if (lookupSource != null) {
             lookupSource.close();
         }
+        onClose.run();
     }
 
     private boolean joinCurrentPosition()
@@ -191,7 +191,7 @@ public class LookupJoinOperator
             probe.appendTo(pageBuilder);
 
             // write build columns
-            lookupSource.appendTo(joinPosition, pageBuilder, probe.getChannelCount());
+            lookupSource.appendTo(joinPosition, pageBuilder, probe.getOutputChannelCount());
 
             // get next join position for this row
             joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
@@ -222,7 +222,7 @@ public class LookupJoinOperator
             probe.appendTo(pageBuilder);
 
             // write nulls into build columns
-            int outputIndex = probe.getChannelCount();
+            int outputIndex = probe.getOutputChannelCount();
             for (int buildChannel = 0; buildChannel < lookupSource.getChannelCount(); buildChannel++) {
                 pageBuilder.getBlockBuilder(outputIndex).appendNull();
                 outputIndex++;

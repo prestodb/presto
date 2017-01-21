@@ -467,6 +467,9 @@ public class TestHiveIntegrationSmokeTest
         assertColumnType(tableMetadata, "_varchar", createVarcharType(3));
         assertColumnType(tableMetadata, "_char", createCharType(10));
 
+        // assure reader supports basic column reordering and pruning
+        assertQuery(session, "SELECT _integer, _varchar, _integer from test_format_table", "SELECT 2, 'foo', 2");
+
         assertQuery(session, "SELECT * from test_format_table", select);
 
         assertUpdate(session, "DROP TABLE test_format_table");
@@ -1503,8 +1506,8 @@ public class TestHiveIntegrationSmokeTest
                         "   c1 bigint,\n" +
                         "   \"c 2\" varchar,\n" +
                         "   \"c'3\" array(bigint),\n" +
-                        "   c4 map(bigint, varchar),\n" +
-                        "   c5 double\n)\n" +
+                        "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
+                        "   c5 double COMMENT 'comment test5'\n)\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
                         "   partitioned_by = ARRAY['c4','c5']\n" +

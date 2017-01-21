@@ -94,7 +94,7 @@ public class FailedQueryExecution
     }
 
     @Override
-    public void start()
+    public void start(Optional<String> resourceGroupName)
     {
         // no-op
     }

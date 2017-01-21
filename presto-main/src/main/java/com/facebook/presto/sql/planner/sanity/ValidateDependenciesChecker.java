@@ -64,12 +64,15 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -252,7 +255,7 @@ public final class ValidateDependenciesChecker
             verifyUniqueId(node);
 
             Set<Symbol> inputs = createInputs(source, boundSymbols);
-            for (Expression expression : node.getAssignments().values()) {
+            for (Expression expression : node.getAssignments().getExpressions()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }
@@ -337,6 +340,10 @@ public final class ValidateDependenciesChecker
 
             Set<Symbol> leftInputs = createInputs(node.getLeft(), boundSymbols);
             Set<Symbol> rightInputs = createInputs(node.getRight(), boundSymbols);
+            Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(leftInputs)
+                    .addAll(rightInputs)
+                    .build();
 
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
@@ -345,16 +352,34 @@ public final class ValidateDependenciesChecker
 
             node.getFilter().ifPresent(predicate -> {
                 Set<Symbol> predicateSymbols = DependencyExtractor.extractUnique(predicate);
-                Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
-                        .addAll(leftInputs)
-                        .addAll(rightInputs)
-                        .build();
                 checkArgument(
                         allInputs.containsAll(predicateSymbols),
                         "Symbol from filter (%s) not in sources (%s)",
-                        allInputs,
-                        predicateSymbols);
+                        predicateSymbols,
+                        allInputs);
             });
+
+            checkDependencies(allInputs, node.getOutputSymbols(), "Symbol from join output (%s) not in sources (%s)", node.getOutputSymbols(), allInputs);
+
+            List<Integer> rightSymbolIndexes = node.getRight().getOutputSymbols().stream()
+                    .filter(symbol -> node.getOutputSymbols().contains(symbol))
+                    .map(symbol -> node.getOutputSymbols().indexOf(symbol))
+                    .collect(toImmutableList());
+
+            boolean allLeftBeforeRight = node.getLeft().getOutputSymbols().stream()
+                    .filter(symbol -> node.getOutputSymbols().contains(symbol))
+                    .map(symbol -> node.getOutputSymbols().indexOf(symbol))
+                    .allMatch(leftIndex -> rightSymbolIndexes.stream()
+                            .allMatch(rightIndex -> rightIndex > leftIndex));
+            checkState(allLeftBeforeRight, "Not all left output symbols are before right output symbols");
+
+            if (node.isCrossJoin()) {
+                List<Symbol> allInputsOrdered = ImmutableList.<Symbol>builder()
+                        .addAll(node.getLeft().getOutputSymbols())
+                        .addAll(node.getRight().getOutputSymbols())
+                        .build();
+                checkState(allInputsOrdered.equals(node.getOutputSymbols()), "Outputs symbols (%s) for cross join do not match ordered input symbols (%s)", node.getOutputSymbols(), allInputsOrdered);
+            }
 
             return null;
         }
@@ -588,7 +613,7 @@ public final class ValidateDependenciesChecker
                     .addAll(createInputs(node.getInput(), boundSymbols))
                     .build();
 
-            for (Expression expression : node.getSubqueryAssignments().values()) {
+            for (Expression expression : node.getSubqueryAssignments().getExpressions()) {
                 Set<Symbol> dependencies = DependencyExtractor.extractUnique(expression);
                 checkDependencies(inputs, dependencies, "Invalid node. Expression dependencies (%s) not in source plan output (%s)", dependencies, inputs);
             }

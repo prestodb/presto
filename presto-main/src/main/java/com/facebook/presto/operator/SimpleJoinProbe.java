@@ -30,12 +30,14 @@ public class SimpleJoinProbe
             implements JoinProbeFactory
     {
         private List<Type> types;
+        private List<Integer> probeOutputChannels;
         private List<Integer> probeJoinChannels;
         private final Optional<Integer> probeHashChannel;
 
-        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeJoinChannels, Optional<Integer> probeHashChannel)
+        public SimpleJoinProbeFactory(List<Type> types, List<Integer> probeOutputChannels, List<Integer> probeJoinChannels, Optional<Integer> probeHashChannel)
         {
             this.types = types;
+            this.probeOutputChannels = probeOutputChannels;
             this.probeJoinChannels = probeJoinChannels;
             this.probeHashChannel = probeHashChannel;
         }
@@ -43,11 +45,12 @@ public class SimpleJoinProbe
         @Override
         public JoinProbe createJoinProbe(LookupSource lookupSource, Page page)
         {
-            return new SimpleJoinProbe(types, lookupSource, page, probeJoinChannels, probeHashChannel);
+            return new SimpleJoinProbe(types, probeOutputChannels, lookupSource, page, probeJoinChannels, probeHashChannel);
         }
     }
 
     private final List<Type> types;
+    private final List<Integer> probeOutputChannels;
     private final LookupSource lookupSource;
     private final int positionCount;
     private final Block[] blocks;
@@ -58,9 +61,10 @@ public class SimpleJoinProbe
 
     private int position = -1;
 
-    private SimpleJoinProbe(List<Type> types, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels, Optional<Integer> hashChannel)
+    private SimpleJoinProbe(List<Type> types, List<Integer> probeOutputChannels, LookupSource lookupSource, Page page, List<Integer> probeJoinChannels, Optional<Integer> hashChannel)
     {
         this.types = types;
+        this.probeOutputChannels = probeOutputChannels;
         this.lookupSource = lookupSource;
         this.positionCount = page.getPositionCount();
         this.blocks = new Block[page.getChannelCount()];
@@ -79,9 +83,9 @@ public class SimpleJoinProbe
     }
 
     @Override
-    public int getChannelCount()
+    public int getOutputChannelCount()
     {
-        return blocks.length;
+        return probeOutputChannels.size();
     }
 
     @Override
@@ -94,10 +98,11 @@ public class SimpleJoinProbe
     @Override
     public void appendTo(PageBuilder pageBuilder)
     {
-        for (int outputIndex = 0; outputIndex < blocks.length; outputIndex++) {
+        int pageBuilderOutputChannel = 0;
+        for (int outputIndex : probeOutputChannels) {
             Type type = types.get(outputIndex);
             Block block = blocks[outputIndex];
-            type.appendTo(block, position, pageBuilder.getBlockBuilder(outputIndex));
+            type.appendTo(block, position, pageBuilder.getBlockBuilder(pageBuilderOutputChannel++));
         }
     }
 

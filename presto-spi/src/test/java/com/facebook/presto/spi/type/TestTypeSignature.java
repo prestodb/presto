@@ -108,7 +108,7 @@ public class TestTypeSignature
 
     private TypeSignature varchar()
     {
-        return new TypeSignature(StandardTypes.VARCHAR);
+        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.of(VarcharType.UNBOUNDED_LENGTH));
     }
 
     private TypeSignature varchar(long length)
@@ -148,7 +148,7 @@ public class TestTypeSignature
     {
         assertSignature("bigint", "bigint", ImmutableList.of());
         assertSignature("boolean", "boolean", ImmutableList.of());
-        assertSignature("varchar", "varchar", ImmutableList.of());
+        assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)));
 
         assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
         assertSignature("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));

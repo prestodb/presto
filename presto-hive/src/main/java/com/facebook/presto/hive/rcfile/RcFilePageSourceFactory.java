@@ -24,10 +24,11 @@ import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.rcfile.text.TextRcFileEncoding;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -42,18 +43,21 @@ import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.isRcfileOptimizedReaderEnabled;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static com.facebook.presto.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static com.google.common.base.Strings.nullToEmpty;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
@@ -117,23 +121,23 @@ public class RcFilePageSourceFactory
             inputStream = fileSystem.open(path);
         }
         catch (Exception e) {
-            throw Throwables.propagate(e);
+            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
+                    e instanceof FileNotFoundException) {
+                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
+            }
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
         try {
-            Set<Integer> readColumns = columns.stream()
-                    .map(HiveColumnHandle::getHiveColumnIndex)
-                    .collect(Collectors.toSet());
-            List<Type> types = columns.stream()
-                    .map(HiveColumnHandle::getHiveType)
-                    .map(hiveType -> hiveType.getType(typeManager))
-                    .collect(Collectors.toList());
+            ImmutableMap.Builder<Integer, Type> readColumns = ImmutableMap.builder();
+            for (HiveColumnHandle column : columns) {
+                readColumns.put(column.getHiveColumnIndex(), column.getHiveType().getType(typeManager));
+            }
 
             RcFileReader rcFileReader = new RcFileReader(
                     new HdfsRcFileDataSource(path.toString(), inputStream, size),
-                    types,
                     rcFileEncoding,
-                    readColumns,
+                    readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,
@@ -152,8 +156,20 @@ public class RcFilePageSourceFactory
             }
             catch (IOException ignored) {
             }
-            throw Throwables.propagate(e);
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
+            String message = splitError(e, path, start, length);
+            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+            }
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private static String splitError(Throwable t, Path path, long start, long length)
+    {
+        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
     private static TextRcFileEncoding createTextVectorEncoding(Properties schema, DateTimeZone hiveStorageTimeZone)

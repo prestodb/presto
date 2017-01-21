@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -64,13 +65,13 @@ public class Analyzer
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl);
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
-        analyzer.process(rewrittenStatement, Scope.builder().markQueryBoundary().build());
+        analyzer.process(rewrittenStatement, Scope.create());
         return analysis;
     }
 
-    static void verifyNoAggregatesOrWindowFunctions(Metadata metadata, Expression predicate, String clause)
+    static void verifyNoAggregatesOrWindowFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
     {
-        AggregateExtractor extractor = new AggregateExtractor(metadata);
+        AggregateExtractor extractor = new AggregateExtractor(functionRegistry);
         extractor.process(predicate, null);
 
         WindowFunctionExtractor windowExtractor = new WindowFunctionExtractor();
@@ -79,7 +80,7 @@ public class Analyzer
         List<FunctionCall> found = ImmutableList.copyOf(Iterables.concat(extractor.getAggregates(), windowExtractor.getWindowFunctions()));
 
         if (!found.isEmpty()) {
-            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, predicate, "%s clause cannot contain aggregations or window functions: %s", clause, found);
+            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS, predicate, "%s cannot contain aggregations or window functions: %s", clause, found);
         }
     }
 }

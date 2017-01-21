@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RealType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarbinaryType;
@@ -47,6 +48,8 @@ import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public enum CassandraType
@@ -60,7 +63,7 @@ public enum CassandraType
     COUNTER(BigintType.BIGINT, Long.class),
     DECIMAL(DoubleType.DOUBLE, BigDecimal.class),
     DOUBLE(DoubleType.DOUBLE, Double.class),
-    FLOAT(DoubleType.DOUBLE, Float.class),
+    FLOAT(RealType.REAL, Float.class),
     INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH), InetAddress.class),
     INT(IntegerType.INTEGER, Integer.class),
     TEXT(createUnboundedVarcharType(), String.class),
@@ -185,7 +188,7 @@ public enum CassandraType
                 case DOUBLE:
                     return NullableValue.of(nativeType, row.getDouble(i));
                 case FLOAT:
-                    return NullableValue.of(nativeType, (double) row.getFloat(i));
+                    return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(i)));
                 case DECIMAL:
                     return NullableValue.of(nativeType, row.getDecimal(i).doubleValue());
                 case UUID:
@@ -400,7 +403,7 @@ public enum CassandraType
                 return ((Long) nativeValue).intValue();
             case FLOAT:
                 // conversion can result in precision lost
-                return ((Double) nativeValue).floatValue();
+                return intBitsToFloat(((Long) nativeValue).intValue());
             case DECIMAL:
                 // conversion can result in precision lost
                 // Presto uses double for decimal, so to keep the floating point precision, convert it to string.
@@ -468,11 +471,20 @@ public enum CassandraType
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;
         }
+        else if (type.equals(RealType.REAL)) {
+            return FLOAT;
+        }
         else if (isVarcharType(type)) {
             return TEXT;
         }
         else if (type.equals(DateType.DATE)) {
             return TEXT;
+        }
+        else if (type.equals(VarbinaryType.VARBINARY)) {
+            return BLOB;
+        }
+        else if (type.equals(TimestampType.TIMESTAMP)) {
+            return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);
     }

@@ -1,4 +1,4 @@
--- database: presto; groups: mysql_connector; queryType: SELECT; tables: mysql.real_table_mysql
+-- database: presto; groups: mysql_connector; queryType: SELECT; tables: mysql.test.real_table_mysql
 --!
 describe mysql.test.real_table_mysql
 --!

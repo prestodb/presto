@@ -26,8 +26,8 @@ import io.airlift.slice.Slice;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.primitives.Ints.checkedCast;
 import static com.google.re2j.Options.Algorithm.DFA_FALLBACK_TO_NFA;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public final class Re2JRegexp
@@ -91,7 +91,7 @@ public final class Re2JRegexp
     public Block extractAll(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
-        int group = checkedCast(groupIndex);
+        int group = toIntExact(groupIndex);
         validateGroup(group, matcher.groupCount());
 
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), 32);
@@ -113,7 +113,7 @@ public final class Re2JRegexp
     public Slice extract(Slice source, long groupIndex)
     {
         Matcher matcher = re2jPattern.matcher(source);
-        int group = checkedCast(groupIndex);
+        int group = toIntExact(groupIndex);
         validateGroup(group, matcher.groupCount());
 
         if (!matcher.find()) {

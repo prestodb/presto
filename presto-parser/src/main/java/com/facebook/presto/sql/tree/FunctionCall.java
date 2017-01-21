@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -30,7 +32,7 @@ public class FunctionCall
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
-        this(Optional.empty(), name, Optional.empty(),  Optional.empty(), false, arguments);
+        this(Optional.empty(), name, Optional.empty(), Optional.empty(), false, arguments);
     }
 
     public FunctionCall(NodeLocation location, QualifiedName name, List<Expression> arguments)
@@ -107,6 +109,16 @@ public class FunctionCall
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitFunctionCall(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
+        window.ifPresent(nodes::add);
+        filter.ifPresent(nodes::add);
+        nodes.addAll(arguments);
+        return nodes.build();
     }
 
     @Override

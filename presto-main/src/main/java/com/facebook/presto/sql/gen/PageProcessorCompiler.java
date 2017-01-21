@@ -49,14 +49,14 @@ import com.facebook.presto.sql.relational.Signatures;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.IntStream;
 
@@ -455,7 +455,6 @@ public class PageProcessorCompiler
         Variable cardinality = scope.declareVariable("cardinality", body, selectedPositions.length());
 
         Variable dictionary = scope.declareVariable(Block.class, "dictionary");
-        Variable ids = scope.declareVariable(Slice.class, "ids");
         Variable dictionaryCount = scope.declareVariable(int.class, "dictionaryCount");
         Variable inputSourceId = scope.declareVariable(DictionaryId.class, "inputSourceId");
         Variable outputSourceId = scope.declareVariable(DictionaryId.class, "outputSourceId");
@@ -471,7 +470,6 @@ public class PageProcessorCompiler
         BytecodeExpression castDictionaryBlock = inputBlock.cast(DictionaryBlock.class);
         body.comment("Extract dictionary, ids, positionCount and dictionarySourceId")
                 .append(dictionary.set(castDictionaryBlock.invoke("getDictionary", Block.class)))
-                .append(ids.set(castDictionaryBlock.invoke("getIds", Slice.class)))
                 .append(dictionaryCount.set(dictionary.invoke("getPositionCount", int.class)))
                 .append(inputSourceId.set(castDictionaryBlock.invoke("getDictionarySourceId", DictionaryId.class)));
 
@@ -509,8 +507,7 @@ public class PageProcessorCompiler
                         .append(dictionarySourceIds.invoke("put", Object.class, inputSourceId.cast(Object.class), outputSourceId.cast(Object.class)))
                         .pop()));
 
-        BytecodeExpression idsSlice = invokeStatic(Slices.class, "wrappedIntArray", Slice.class, outputIds);
-        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, idsSlice, constantFalse(), outputSourceId)
+        body.append(newInstance(DictionaryBlock.class, cardinality, outputDictionary, outputIds, constantFalse(), outputSourceId)
                 .cast(Block.class)
                 .ret());
         return method;
@@ -743,13 +740,12 @@ public class PageProcessorCompiler
             RowExpression projection,
             String methodPrefix)
     {
-        List<RowExpression> lambdaAndTryExpressions = extractLambdaAndTryExpressions(projection);
+        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(projection));
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
         ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
 
-        for (int i = 0; i < lambdaAndTryExpressions.size(); i++) {
-            RowExpression expression = lambdaAndTryExpressions.get(i);
-
+        int counter = 0;
+        for (RowExpression expression : lambdaAndTryExpressions) {
             if (expression instanceof CallExpression) {
                 CallExpression tryExpression = (CallExpression) expression;
                 verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
@@ -774,7 +770,7 @@ public class PageProcessorCompiler
                 MethodDefinition tryMethod = defineTryMethod(
                         innerExpressionVisitor,
                         containerClassDefinition,
-                        methodPrefix + "_try_" + i,
+                        methodPrefix + "_try_" + counter,
                         inputParameters,
                         Primitives.wrap(tryExpression.getType().getJavaType()),
                         tryExpression,
@@ -787,7 +783,7 @@ public class PageProcessorCompiler
                 PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
                 FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                         lambdaExpression,
-                        methodPrefix + "_lambda_" + i,
+                        methodPrefix + "_lambda_" + counter,
                         containerClassDefinition,
                         preGeneratedExpressions,
                         callSiteBinder,
@@ -798,6 +794,7 @@ public class PageProcessorCompiler
             else {
                 throw new VerifyException(format("unexpected expression: %s", expression.toString()));
             }
+            counter++;
         }
 
         return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());

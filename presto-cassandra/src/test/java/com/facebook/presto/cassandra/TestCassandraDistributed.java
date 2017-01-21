@@ -15,7 +15,6 @@ package com.facebook.presto.cassandra;
 
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
-import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
@@ -32,7 +31,7 @@ public class TestCassandraDistributed
     public TestCassandraDistributed()
             throws Exception
     {
-        super(createCassandraQueryRunner(TpchTable.getTables()));
+        super(createCassandraQueryRunner());
     }
 
     @Override

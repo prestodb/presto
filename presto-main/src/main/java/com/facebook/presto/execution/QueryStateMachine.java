@@ -18,6 +18,7 @@ import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.operator.BlockedReason;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
@@ -123,6 +124,8 @@ public class QueryStateMachine
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
+
+    private final AtomicReference<String> resourceGroup = new AtomicReference<>();
 
     private QueryStateMachine(QueryId queryId, String query, Session session, URI self, boolean autoCommit, TransactionManager transactionManager, Executor executor, Ticker ticker)
     {
@@ -241,6 +244,17 @@ public class QueryStateMachine
         }
     }
 
+    public void setResourceGroup(String group)
+    {
+        requireNonNull(group, "group is null");
+        resourceGroup.compareAndSet(null, group);
+    }
+
+    public Optional<String> getResourceGroup()
+    {
+        return Optional.ofNullable(resourceGroup.get());
+    }
+
     public QueryInfo getQueryInfoWithoutDetails()
     {
         return getQueryInfo(Optional.empty());
@@ -303,6 +317,7 @@ public class QueryStateMachine
         boolean fullyBlocked = rootStage.isPresent();
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
+        ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         boolean completeInfo = true;
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageStats stageStats = stageInfo.getStageStats();
@@ -337,6 +352,7 @@ public class QueryStateMachine
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
             completeInfo = completeInfo && stageInfo.isCompleteInfo();
+            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
         }
 
         if (rootStage.isPresent()) {
@@ -382,7 +398,8 @@ public class QueryStateMachine
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(outputDataSize),
-                outputPositions);
+                outputPositions,
+                operatorStatsSummary.build());
 
         return new QueryInfo(queryId,
                 session.toSessionRepresentation(),
@@ -405,7 +422,8 @@ public class QueryStateMachine
                 errorCode,
                 inputs.get(),
                 output.get(),
-                completeInfo);
+                completeInfo,
+                getResourceGroup());
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -735,8 +753,8 @@ public class QueryStateMachine
                 queryInfo.getErrorCode(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
-                queryInfo.isCompleteInfo()
-        );
+                queryInfo.isCompleteInfo(),
+                queryInfo.getResourceGroupName());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

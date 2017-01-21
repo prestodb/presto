@@ -578,6 +578,7 @@ public class PrestoConnection
                 httpUri,
                 user,
                 source,
+                clientInfo.get("ClientInfo"),
                 catalog.get(),
                 schema.get(),
                 timeZoneId.get(),

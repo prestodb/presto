@@ -15,7 +15,6 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -30,6 +29,7 @@ import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_S
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -76,7 +76,7 @@ public class SharedOutputBufferPartition
         List<Page> pages = new ArrayList<>();
         long bytes = 0;
 
-        int listOffset = Ints.checkedCast(sequenceId - masterSequenceId.get());
+        int listOffset = toIntExact(sequenceId - masterSequenceId.get());
         while (listOffset < masterBuffer.size()) {
             Page page = masterBuffer.get(listOffset++);
             bytes += page.getSizeInBytes();
@@ -94,7 +94,7 @@ public class SharedOutputBufferPartition
      */
     public synchronized boolean hasMorePages(long sequenceId)
     {
-        int listOffset = Ints.checkedCast(sequenceId - masterSequenceId.get());
+        int listOffset = toIntExact(sequenceId - masterSequenceId.get());
         return listOffset < masterBuffer.size();
     }
 
@@ -111,7 +111,7 @@ public class SharedOutputBufferPartition
         masterSequenceId.set(newSequenceId);
 
         // drop consumed pages
-        int pagesToRemove = Ints.checkedCast(newSequenceId - oldMasterSequenceId);
+        int pagesToRemove = toIntExact(newSequenceId - oldMasterSequenceId);
         checkState(masterBuffer.size() >= pagesToRemove,
                 "MasterBuffer does not have any pages to remove: pagesToRemove %s oldMasterSequenceId: %s newSequenceId: %s",
                 pagesToRemove,

@@ -493,7 +493,7 @@ class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments());
+            Map<Symbol, Symbol> identities = computeIdentityTranslations(node.getAssignments().getMap());
 
             ActualProperties translatedProperties = properties.translate(column -> Optional.ofNullable(identities.get(column)));
 

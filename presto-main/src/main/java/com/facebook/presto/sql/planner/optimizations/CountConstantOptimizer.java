@@ -39,6 +39,7 @@ import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class CountConstantOptimizer
         implements PlanOptimizer
 {

@@ -18,12 +18,12 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import java.util.concurrent.TimeUnit;
+import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DateEncoding
         implements TextColumnEncoding
@@ -69,6 +69,6 @@ public class DateEncoding
     private static int parseDate(Slice slice, int offset, int length)
     {
         long millis = HIVE_DATE_PARSER.parseMillis(slice.toStringAscii(offset, length));
-        return Ints.checkedCast(TimeUnit.MILLISECONDS.toDays(millis));
+        return toIntExact(MILLISECONDS.toDays(millis));
     }
 }

@@ -23,6 +23,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeClientStatus
+        implements OperatorInfo
 {
     private final long bufferedBytes;
     private final long averageBytesPerRequest;

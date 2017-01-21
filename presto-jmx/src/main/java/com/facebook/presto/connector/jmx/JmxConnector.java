@@ -16,8 +16,9 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
+
+import javax.inject.Inject;
 
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -26,8 +27,6 @@ import static java.util.Objects.requireNonNull;
 public class JmxConnector
         implements Connector
 {
-    public static final String CONNECTOR_ID_PARAMETER = "jmx.connectorId";
-
     private static final Logger log = Logger.get(JmxConnector.class);
 
     private final JmxMetadata jmxMetadata;

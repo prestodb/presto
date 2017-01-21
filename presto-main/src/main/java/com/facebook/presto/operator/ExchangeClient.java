@@ -61,6 +61,7 @@ public class ExchangeClient
     private final DataSize maxResponseSize;
     private final int concurrentRequestMultiplier;
     private final Duration minErrorDuration;
+    private final Duration maxErrorDuration;
     private final HttpClient httpClient;
     private final ScheduledExecutorService executor;
 
@@ -99,6 +100,7 @@ public class ExchangeClient
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration minErrorDuration,
+            Duration maxErrorDuration,
             HttpClient httpClient,
             ScheduledExecutorService executor,
             SystemMemoryUsageListener systemMemoryUsageListener)
@@ -108,6 +110,7 @@ public class ExchangeClient
         this.maxResponseSize = maxResponseSize;
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.minErrorDuration = minErrorDuration;
+        this.maxErrorDuration = maxErrorDuration;
         this.httpClient = httpClient;
         this.executor = executor;
         this.systemMemoryUsageListener = systemMemoryUsageListener;
@@ -202,8 +205,10 @@ public class ExchangeClient
 
         if (page != null) {
             synchronized (this) {
-                bufferBytes -= page.getRetainedSizeInBytes();
-                systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+                if (!closed.get()) {
+                    bufferBytes -= page.getRetainedSizeInBytes();
+                    systemMemoryUsageListener.updateSystemMemoryUsage(-page.getRetainedSizeInBytes());
+                }
             }
             if (!closed.get() && pageBuffer.peek() == NO_MORE_PAGES) {
                 closed.set(true);
@@ -227,7 +232,10 @@ public class ExchangeClient
     @Override
     public synchronized void close()
     {
-        closed.set(true);
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+
         for (HttpPageBufferClient client : allClients.values()) {
             closeQuietly(client);
         }
@@ -265,6 +273,7 @@ public class ExchangeClient
                         httpClient,
                         maxResponseSize,
                         minErrorDuration,
+                        maxErrorDuration,
                         location,
                         new ExchangeClientCallback(),
                         blockEncodingSerde,

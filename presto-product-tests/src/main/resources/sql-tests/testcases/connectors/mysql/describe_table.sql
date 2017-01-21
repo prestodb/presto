@@ -1,4 +1,4 @@
--- database: presto; groups: mysql_connector; queryType: SELECT; tables: mysql.workers_mysql
+-- database: presto; groups: mysql_connector; queryType: SELECT; tables: mysql.test.workers_mysql
 --!
 describe mysql.test.workers_mysql
 --!

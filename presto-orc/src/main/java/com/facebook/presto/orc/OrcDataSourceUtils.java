@@ -14,7 +14,6 @@
 package com.facebook.presto.orc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -26,6 +25,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import static java.lang.Math.toIntExact;
 
 public final class OrcDataSourceUtils
 {
@@ -81,7 +82,7 @@ public final class OrcDataSourceUtils
             DiskRange bufferRange = bufferEntry.getKey();
             byte[] buffer = bufferEntry.getValue();
             if (bufferRange.contains(diskRange)) {
-                int offset = Ints.checkedCast(diskRange.getOffset() - bufferRange.getOffset());
+                int offset = toIntExact(diskRange.getOffset() - bufferRange.getOffset());
                 return Slices.wrappedBuffer(buffer, offset, diskRange.getLength());
             }
         }

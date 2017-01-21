@@ -88,7 +88,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
                 return context.defaultRewrite(node);
             }
 
-            Expression expression = getOnlyElement(node.getSubqueryAssignments().values());
+            Expression expression = getOnlyElement(node.getSubqueryAssignments().getExpressions());
             if (!(expression instanceof InPredicate)) {
                 return context.defaultRewrite(node);
             }
@@ -97,7 +97,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
             PlanNode subquery = context.rewrite(node.getSubquery());
 
             InPredicate inPredicate = (InPredicate) expression;
-            Symbol semiJoinSymbol = getOnlyElement(node.getSubqueryAssignments().keySet());
+            Symbol semiJoinSymbol = getOnlyElement(node.getSubqueryAssignments().getSymbols());
             return new SemiJoinNode(idAllocator.getNextId(),
                     input,
                     subquery,

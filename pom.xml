@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.162-SNAPSHOT</version>
+    <version>0.164-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -39,18 +39,21 @@
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.skip-license>false</air.check.skip-license>
 
-        <air.check.fail-checkstyle>true</air.check.fail-checkstyle>
-        <air.check.skip-checkstyle>false</air.check.skip-checkstyle>
+        <air.check.skip-checkstyle>${air.check.skip-basic}</air.check.skip-checkstyle>
+        <air.check.fail-checkstyle>${air.check.fail-basic}</air.check.fail-checkstyle>
+
+        <air.check.skip-modernizer>${air.check.skip-basic}</air.check.skip-modernizer>
+        <air.check.fail-modernizer>${air.check.fail-basic}</air.check.fail-modernizer>
 
         <air.java.version>1.8.0-60</air.java.version>
         <air.maven.version>3.3.9</air.maven.version>
 
-        <dep.antlr.version>4.5.1</dep.antlr.version>
+        <dep.antlr.version>4.6</dep.antlr.version>
         <dep.airlift.version>0.139</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.27</dep.slice.version>
+        <dep.slice.version>0.28</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
-        <dep.tempto.version>1.18</dep.tempto.version>
+        <dep.tempto.version>1.23</dep.tempto.version>
 
         <!--
         Versions newer than 6.9 appear to have an issue where the @BeforeClass method in
@@ -343,6 +346,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.presto.orc</groupId>
+                <artifactId>orc-protobuf</artifactId>
+                <version>1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
                 <version>0.8</version>
@@ -375,12 +384,6 @@
                         <groupId>commons-logging</groupId>
                     </exclusion>
                 </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.protobuf</groupId>
-                <artifactId>protobuf-java</artifactId>
-                <version>2.4.1</version>
             </dependency>
 
             <dependency>
@@ -869,6 +872,18 @@
                     <version>2.0</version>
                 </plugin>
 
+                <plugin>
+                    <groupId>org.gaul</groupId>
+                    <artifactId>modernizer-maven-plugin</artifactId>
+                    <version>1.4.0</version>
+                    <configuration>
+                        <skip>${air.check.skip-modernizer}</skip>
+                        <javaVersion>1.8</javaVersion>
+                        <failOnViolations>true</failOnViolations>
+                        <exclusionsFile>${air.main.basedir}/src/modernizer/exclusions.txt</exclusionsFile>
+                    </configuration>
+                </plugin>
+
                 <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
                 <plugin>
                     <!--suppress MavenModelInspection -->
@@ -1001,11 +1016,6 @@
             <plugin>
                 <groupId>org.gaul</groupId>
                 <artifactId>modernizer-maven-plugin</artifactId>
-                <version>1.2.2</version>
-                <configuration>
-                    <javaVersion>1.8</javaVersion>
-                    <failOnViolations>true</failOnViolations>
-                </configuration>
                 <executions>
                     <execution>
                         <id>modernizer</id>
@@ -1045,7 +1055,7 @@
                     <dependency>
                         <groupId>com.puppycrawl.tools</groupId>
                         <artifactId>checkstyle</artifactId>
-                        <version>6.15</version>
+                        <version>7.3</version>
                     </dependency>
                 </dependencies>
             </plugin>

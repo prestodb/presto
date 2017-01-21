@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.security.HiveSecurityModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -42,6 +43,7 @@ import javax.management.MBeanServer;
 
 import java.lang.management.ManagementFactory;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -85,10 +87,10 @@ public class HiveConnectorFactory
                     new JsonModule(),
                     new HiveClientModule(
                             connectorId,
-                            metastore,
                             context.getTypeManager(),
                             context.getPageIndexerFactory(),
                             context.getNodeManager()),
+                    new HiveMetastoreModule(connectorId, Optional.ofNullable(metastore)),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     binder -> {

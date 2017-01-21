@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.testing.FileUtils.deleteRecursively;
@@ -66,6 +67,7 @@ public class TestShardRecovery
 
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
         ShardManager shardManager = createShardManager(dbi);
         recoveryManager = createShardRecoveryManager(storageService, Optional.of(backupStore), shardManager);
     }

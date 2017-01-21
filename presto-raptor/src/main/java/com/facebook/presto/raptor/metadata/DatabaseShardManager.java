@@ -66,7 +66,6 @@ import java.util.UUID;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS;
-import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.MAX_BINARY_INDEX_SIZE;
 import static com.facebook.presto.raptor.util.ArrayUtil.intArrayFromBytes;
@@ -164,8 +163,6 @@ public class DatabaseShardManager
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.startupGracePeriod = requireNonNull(startupGracePeriod, "startupGracePeriod is null");
         this.startTime = ticker.read();
-
-        createTablesWithRetry(dbi);
     }
 
     @Override
@@ -322,6 +319,10 @@ public class DatabaseShardManager
 
         runCommit(transactionId, (handle) -> {
             lockTable(handle, tableId);
+
+            if (!updateTime.isPresent() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {
+                throw new PrestoException(TRANSACTION_CONFLICT, "Maintenance is blocked for table");
+            }
 
             ShardStats newStats = shardStats(newShards);
             long rowCount = newStats.getRowCount();
@@ -627,6 +628,30 @@ public class DatabaseShardManager
     }
 
     @Override
+    public void updateBucketAssignment(long distributionId, int bucketNumber, String nodeId)
+    {
+        dao.updateBucketNode(distributionId, bucketNumber, getOrCreateNodeId(nodeId));
+    }
+
+    @Override
+    public List<Distribution> getDistributions()
+    {
+        return dao.listActiveDistributions();
+    }
+
+    @Override
+    public long getDistributionSizeInBytes(long distributionId)
+    {
+        return dao.getDistributionSizeBytes(distributionId);
+    }
+
+    @Override
+    public List<BucketNode> getBucketNodes(long distibutionId)
+    {
+        return dao.getBucketNodes(distibutionId);
+    }
+
+    @Override
     public Set<UUID> getExistingShardUuids(long tableId, Set<UUID> shardUuids)
     {
         try (Handle handle = dbi.open()) {
@@ -651,6 +676,11 @@ public class DatabaseShardManager
         }
     }
 
+    private List<BucketNode> getBuckets(long distributionId)
+    {
+        return dao.getBucketNodes(distributionId);
+    }
+
     private Map<Integer, String> loadBucketAssignments(long distributionId)
     {
         Set<String> nodeIds = getNodeIdentifiers();
@@ -658,7 +688,7 @@ public class DatabaseShardManager
 
         ImmutableMap.Builder<Integer, String> assignments = ImmutableMap.builder();
 
-        for (BucketNode bucketNode : dao.getBucketNodes(distributionId)) {
+        for (BucketNode bucketNode : getBuckets(distributionId)) {
             int bucket = bucketNode.getBucketNumber();
             String nodeId = bucketNode.getNodeIdentifier();
 

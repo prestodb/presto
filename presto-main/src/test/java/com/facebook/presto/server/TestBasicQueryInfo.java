@@ -82,7 +82,8 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("29GB"),
                                 30,
                                 DataSize.valueOf("31GB"),
-                                32),
+                                32,
+                                ImmutableList.of()),
                         ImmutableMap.of(),
                         ImmutableSet.of(),
                         ImmutableMap.of(),
@@ -95,7 +96,8 @@ public class TestBasicQueryInfo
                         StandardErrorCode.ABANDONED_QUERY.toErrorCode(),
                         ImmutableSet.of(),
                         Optional.empty(),
-                        false));
+                        false,
+                        Optional.empty()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

@@ -16,7 +16,7 @@ package com.facebook.presto.rcfile;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -237,9 +237,8 @@ public class TestRcFileReaderManual
 
         RcFileReader reader = new RcFileReader(
                 new SliceRcFileDataSource(data),
-                ImmutableList.of(SMALLINT),
                 new BinaryRcFileEncoding(),
-                ImmutableSet.of(0),
+                ImmutableMap.of(0, SMALLINT),
                 codecName -> {
                     throw new UnsupportedOperationException();
                 },

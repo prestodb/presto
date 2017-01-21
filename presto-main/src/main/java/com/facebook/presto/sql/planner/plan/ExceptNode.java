@@ -39,4 +39,10 @@ public class ExceptNode
     {
         return visitor.visitExcept(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new ExceptNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+    }
 }

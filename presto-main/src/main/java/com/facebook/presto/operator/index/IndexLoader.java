@@ -414,5 +414,10 @@ public class IndexLoader
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void close()
+        {
+        }
     }
 }

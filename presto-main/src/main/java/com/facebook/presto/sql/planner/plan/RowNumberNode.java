@@ -17,6 +17,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -106,5 +107,11 @@ public final class RowNumberNode
     public <C, R> R accept(PlanVisitor<C, R> visitor, C context)
     {
         return visitor.visitRowNumber(this, context);
+    }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new RowNumberNode(getId(), Iterables.getOnlyElement(newChildren), partitionBy, rowNumberSymbol, maxRowCountPerPartition, hashSymbol);
     }
 }

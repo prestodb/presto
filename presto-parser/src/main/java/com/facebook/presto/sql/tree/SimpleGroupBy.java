@@ -63,6 +63,12 @@ public final class SimpleGroupBy
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder().addAll(columns).build();
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {

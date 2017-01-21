@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -97,6 +96,9 @@ public class TypeSignature
     public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
     {
         if (!signature.contains("<") && !signature.contains("(")) {
+            if (signature.equalsIgnoreCase(StandardTypes.VARCHAR)) {
+                return VarcharType.createUnboundedVarcharType().getTypeSignature();
+            }
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
             return new TypeSignature(signature, new ArrayList<>());
         }
@@ -329,7 +331,7 @@ public class TypeSignature
         else if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
                 (parameters.size() == 1) &&
                 parameters.get(0).isLongLiteral() &&
-                parameters.get(0).getLongLiteral() == VarcharType.MAX_LENGTH) {
+                parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
             return base;
         }
         else {
@@ -395,32 +397,13 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
-        // TODO remove this hack together with hack from toString()
-        if (magicVarcharEquals(other, this)) {
-            return true;
-        }
-
         return Objects.equals(this.base.toLowerCase(Locale.ENGLISH), other.base.toLowerCase(Locale.ENGLISH)) &&
                 Objects.equals(this.parameters, other.parameters);
-    }
-
-    private static boolean magicVarcharEquals(TypeSignature first, TypeSignature second)
-    {
-        // treat varchar and varchar(MAX_LONG) as equivalent
-        // should replaced with hack in parser as soon as we change declarations of all functions taking varchar parameters to use parameterization
-        return first.getBase().equals(StandardTypes.VARCHAR)
-                && second.getBase().equals(StandardTypes.VARCHAR)
-                && ((first.getParameters().isEmpty() && second.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH))))
-                || (second.getParameters().isEmpty() && first.getParameters().equals(Arrays.asList(TypeSignatureParameter.of(VarcharType.MAX_LENGTH)))));
     }
 
     @Override
     public int hashCode()
     {
-        // TODO remove this hack together with hack from toString()
-        if (getBase().equals(StandardTypes.VARCHAR) && parameters.isEmpty()) {
-            return VarcharType.createUnboundedVarcharType().getTypeSignature().hashCode();
-        }
         return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
     }
 }

@@ -31,6 +31,7 @@ The following file types are supported for the Hive connector:
 
 * ORC
 * Parquet
+* Avro
 * RCFile
 * SequenceFile
 * Text

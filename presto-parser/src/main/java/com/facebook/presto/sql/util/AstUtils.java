@@ -16,7 +16,13 @@ package com.facebook.presto.sql.util;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Node;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class AstUtils
 {
@@ -38,6 +44,36 @@ public class AstUtils
                 return findResultHolder.get();
             }
         }.process(node, new AtomicBoolean(false));
+    }
+
+    public static Stream<Node> preOrder(Node node)
+    {
+        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(new PreOrderIterator(node), 0), false);
+    }
+
+    private static final class PreOrderIterator
+            implements Iterator<Node>
+    {
+        private final Deque<Node> remaining = new ArrayDeque<>();
+
+        public PreOrderIterator(Node node)
+        {
+            remaining.push(node);
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            return remaining.size() > 0;
+        }
+
+        @Override
+        public Node next()
+        {
+            Node node = remaining.pop();
+            node.getChildren().forEach(remaining::push);
+            return node;
+        }
     }
 
     private AstUtils() {}

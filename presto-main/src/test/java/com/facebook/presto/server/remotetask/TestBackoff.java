@@ -28,10 +28,10 @@ import static org.testng.Assert.assertTrue;
 public class TestBackoff
 {
     @Test
-    public void testMaxFailureInterval()
+    public void testFailureInterval()
     {
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
+        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
         ticker.increment(10, MICROSECONDS);
 
         assertEquals(backoff.getFailureCount(), 0);
@@ -51,11 +51,73 @@ public class TestBackoff
     }
 
     @Test
+    public void testStartRequest()
+    {
+        TestingTicker ticker = new TestingTicker();
+        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
+        ticker.increment(10, MICROSECONDS);
+
+        assertEquals(backoff.getFailureCount(), 0);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 0);
+
+        ticker.increment(14, SECONDS);
+        backoff.startRequest();
+        ticker.increment(14, SECONDS);
+
+        assertFalse(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 1);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 28);
+
+        ticker.increment(1, SECONDS);
+
+        assertTrue(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 2);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 29);
+    }
+
+    @Test
+    public void testMaxFailureInterval()
+    {
+        TestingTicker ticker = new TestingTicker();
+        Backoff backoff = new Backoff(new Duration(5, SECONDS), new Duration(15, SECONDS), ticker, new Duration(10, MILLISECONDS));
+        ticker.increment(10, MICROSECONDS);
+        ticker.increment(6, SECONDS);
+
+        assertTrue(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 1);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 6);
+
+        backoff.success();
+        // Check that we will tolerate failures for longer than the min, if the query has been running that long
+        ticker.increment(6, SECONDS);
+
+        assertFalse(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 1);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 6);
+
+        ticker.increment(1, SECONDS);
+
+        // Check that we won't tolerate failures for longer than the query has been running
+        assertTrue(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 2);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 7);
+
+        ticker.increment(20, SECONDS);
+        backoff.success();
+        ticker.increment(20, SECONDS);
+
+        // Check that we won't tolerate failures for longer than the max, even if the query has been running for a long time
+        assertTrue(backoff.failure());
+        assertEquals(backoff.getFailureCount(), 1);
+        assertEquals(backoff.getTimeSinceLastSuccess().roundTo(SECONDS), 20);
+    }
+
+    @Test
     public void testDelay()
     {
         // 1, 2, 4, 8
         TestingTicker ticker = new TestingTicker();
-        Backoff backoff = new Backoff(new Duration(15, SECONDS), ticker,
+        Backoff backoff = new Backoff(new Duration(15, SECONDS), new Duration(15, SECONDS), ticker,
                 new Duration(0, SECONDS),
                 new Duration(1, SECONDS),
                 new Duration(2, SECONDS),

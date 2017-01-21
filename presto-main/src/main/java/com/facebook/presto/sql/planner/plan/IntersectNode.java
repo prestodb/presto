@@ -41,4 +41,10 @@ public class IntersectNode
     {
         return visitor.visitIntersect(this, context);
     }
+
+    @Override
+    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    {
+        return new IntersectNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+    }
 }

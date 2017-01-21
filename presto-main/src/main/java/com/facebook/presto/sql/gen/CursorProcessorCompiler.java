@@ -42,10 +42,12 @@ import com.facebook.presto.sql.relational.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.bytecode.Access.PUBLIC;
 import static com.facebook.presto.bytecode.Access.a;
@@ -187,14 +189,13 @@ public class CursorProcessorCompiler
             RowExpression projection,
             String methodPrefix)
     {
-        List<RowExpression> lambdaAndTryExpressions = extractLambdaAndTryExpressions(projection);
+        Set<RowExpression> lambdaAndTryExpressions = ImmutableSet.copyOf(extractLambdaAndTryExpressions(projection));
 
         ImmutableMap.Builder<CallExpression, MethodDefinition> tryMethodMap = ImmutableMap.builder();
         ImmutableMap.Builder<LambdaDefinitionExpression, FieldDefinition> lambdaFieldMap = ImmutableMap.builder();
 
-        for (int i = 0; i < lambdaAndTryExpressions.size(); i++) {
-            RowExpression expression = lambdaAndTryExpressions.get(i);
-
+        int counter = 0;
+        for (RowExpression expression : lambdaAndTryExpressions) {
             if (expression instanceof CallExpression) {
                 CallExpression tryExpression = (CallExpression) expression;
                 verify(!Signatures.TRY.equals(tryExpression.getSignature().getName()));
@@ -217,7 +218,7 @@ public class CursorProcessorCompiler
                 MethodDefinition tryMethod = defineTryMethod(
                         innerExpressionVisitor,
                         containerClassDefinition,
-                        methodPrefix + "_try_" + i,
+                        methodPrefix + "_try_" + counter,
                         inputParameters,
                         Primitives.wrap(tryExpression.getType().getJavaType()),
                         tryExpression,
@@ -227,7 +228,7 @@ public class CursorProcessorCompiler
             }
             else if (expression instanceof LambdaDefinitionExpression) {
                 LambdaDefinitionExpression lambdaExpression = (LambdaDefinitionExpression) expression;
-                String fieldName = methodPrefix + "_lambda_" + i;
+                String fieldName = methodPrefix + "_lambda_" + counter;
                 PreGeneratedExpressions preGeneratedExpressions = new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());
                 FieldDefinition methodHandleField = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                         lambdaExpression,
@@ -242,6 +243,7 @@ public class CursorProcessorCompiler
             else {
                 throw new VerifyException(format("unexpected expression: %s", expression.toString()));
             }
+            counter++;
         }
 
         return new PreGeneratedExpressions(tryMethodMap.build(), lambdaFieldMap.build());

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.Session;
+import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.QueryId;
 import io.airlift.units.Duration;
 
@@ -33,7 +33,7 @@ public interface QueryManager
 
     void recordHeartbeat(QueryId queryId);
 
-    QueryInfo createQuery(Session session, String query);
+    QueryInfo createQuery(SessionSupplier sessionSupplier, String query);
 
     void cancelQuery(QueryId queryId);
 

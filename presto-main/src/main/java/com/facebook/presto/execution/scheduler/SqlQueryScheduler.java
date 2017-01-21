@@ -209,7 +209,8 @@ public class SqlQueryScheduler
                 session,
                 summarizeTaskInfo,
                 nodeTaskMap,
-                executor);
+                executor,
+                schedulerStats);
 
         stages.add(stage);
 
@@ -275,7 +276,7 @@ public class SqlQueryScheduler
         Set<SqlStageExecution> childStages = childStagesBuilder.build();
         stage.addStateChangeListener(newState -> {
             if (newState.isDone()) {
-                childStages.stream().forEach(SqlStageExecution::cancel);
+                childStages.forEach(SqlStageExecution::cancel);
             }
         });
 

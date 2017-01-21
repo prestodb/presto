@@ -111,6 +111,7 @@ public class TestExchangeOperator
                 new DataSize(10, MEGABYTE),
                 3,
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 httpClient,
                 executor,
                 systemMemoryUsageListener);
@@ -287,7 +288,7 @@ public class TestExchangeOperator
                 break;
             }
 
-            if (operator.getOperatorContext().getOperatorStats().getSystemMemoryReservation().toBytes() > 0) {
+            if (operator.getOperatorContext().getDriverContext().getPipelineContext().getPipelineStats().getSystemMemoryReservation().toBytes() > 0) {
                 greaterThanZero = true;
                 break;
             }

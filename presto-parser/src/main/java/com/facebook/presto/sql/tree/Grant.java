@@ -40,6 +40,7 @@ public class Grant
     {
         this(Optional.of(location), privileges, table, tableName, grantee, withGrantOption);
     }
+
     private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, boolean table, QualifiedName tableName, String grantee, boolean withGrantOption)
     {
         super(location);
@@ -80,6 +81,12 @@ public class Grant
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitGrant(this, context);
+    }
+
+    @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.of();
     }
 
     @Override

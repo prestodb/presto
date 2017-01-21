@@ -14,7 +14,11 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Database;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode;
 import com.facebook.presto.hive.metastore.StorageFormat;
@@ -40,6 +44,7 @@ import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -50,6 +55,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -58,17 +64,13 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -114,7 +116,9 @@ import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.HiveWriteUtils.checkTableIsWritable;
 import static com.facebook.presto.hive.HiveWriteUtils.initializeSerializer;
 import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
+import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
+import static com.facebook.presto.hive.metastore.PrincipalType.USER;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
@@ -127,6 +131,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.concat;
 import static java.lang.String.format;
@@ -354,21 +359,22 @@ public class HiveMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
-        Database database = new Database();
-        database.setName(schemaName);
-
-        HiveSchemaProperties.getLocation(properties).ifPresent(locationUri -> {
+        Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
                 hdfsEnvironment.getFileSystem(session.getUser(), new Path(locationUri));
             }
             catch (IOException e) {
                 throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
             }
-            database.setLocationUri(locationUri);
+            return locationUri;
         });
 
-        database.setOwnerType(PrincipalType.USER);
-        database.setOwnerName(session.getUser());
+        Database database = Database.builder()
+                .setDatabaseName(schemaName)
+                .setLocation(location)
+                .setOwnerType(USER)
+                .setOwnerName(session.getUser())
+                .build();
 
         metastore.createDatabase(database);
     }
@@ -433,8 +439,8 @@ public class HiveMetadata
                 targetPath,
                 external,
                 prestoVersion);
-        PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(table.getOwner());
-        metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
+        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+        metastore.createTable(session, table, principalPrivileges, Optional.empty());
     }
 
     private Path getExternalPath(String user, String location)
@@ -468,7 +474,7 @@ public class HiveMetadata
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
-                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))
+                .map(column -> new Column(column.getName(), column.getHiveType(), column.getComment()))
                 .collect(toList());
 
         Set<String> partitionColumnNames = ImmutableSet.copyOf(partitionedBy);
@@ -479,7 +485,7 @@ public class HiveMetadata
             HiveType type = columnHandle.getHiveType();
             if (!partitionColumnNames.contains(name)) {
                 verify(!columnHandle.isPartitionKey(), "Column handles are not consistent with partitioned by property");
-                columns.add(new Column(name, type, Optional.empty()));
+                columns.add(new Column(name, type, columnHandle.getComment()));
             }
             else {
                 verify(columnHandle.isPartitionKey(), "Column handles are not consistent with partitioned by property");
@@ -513,17 +519,16 @@ public class HiveMetadata
         return tableBuilder.build();
     }
 
-    private static PrincipalPrivilegeSet buildInitialPrivilegeSet(String tableOwner)
+    private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
     {
-        return new PrincipalPrivilegeSet(
-                ImmutableMap.of(tableOwner, ImmutableList.of(
-                        new PrivilegeGrantInfo("SELECT", 0, tableOwner, PrincipalType.USER, true),
-                        new PrivilegeGrantInfo("INSERT", 0, tableOwner, PrincipalType.USER, true),
-                        new PrivilegeGrantInfo("UPDATE", 0, tableOwner, PrincipalType.USER, true),
-                        new PrivilegeGrantInfo("DELETE", 0, tableOwner, PrincipalType.USER, true)
-                )),
-                ImmutableMap.of(),
-                ImmutableMap.of());
+        return new PrincipalPrivileges(
+                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true))
+                        .build(),
+                ImmutableMultimap.of());
     }
 
     @Override
@@ -614,7 +619,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
 
@@ -639,7 +644,7 @@ public class HiveMetadata
                 targetPath,
                 false,
                 prestoVersion);
-        PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(handle.getTableOwner());
+        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
@@ -653,7 +658,7 @@ public class HiveMetadata
             }
         }
 
-        metastore.createTable(session, table, principalPrivilegeSet, Optional.of(writePath));
+        metastore.createTable(session, table, principalPrivileges, Optional.of(writePath));
 
         if (!handle.getPartitionedBy().isEmpty()) {
             if (respectTableFormat) {
@@ -662,6 +667,11 @@ public class HiveMetadata
             partitionUpdates.forEach(partitionUpdate ->
                     metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), buildPartitionObject(session.getQueryId(), table, partitionUpdate), partitionUpdate.getWritePath()));
         }
+
+        return Optional.of(new HiveWrittenPartitions(
+                partitionUpdates.stream()
+                        .map(PartitionUpdate::getName)
+                        .collect(Collectors.toList())));
     }
 
     private ImmutableList<PartitionUpdate> computePartitionUpdatesForMissingBuckets(HiveWritableTableHandle handle, Table table, List<PartitionUpdate> partitionUpdates)
@@ -797,7 +807,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
         HiveInsertTableHandle handle = checkType(insertHandle, HiveInsertTableHandle.class, "invalid insertTableHandle");
 
@@ -856,6 +866,11 @@ public class HiveMetadata
                 metastore.addPartition(session, handle.getSchemaName(), handle.getTableName(), partition, partitionUpdate.getWritePath());
             }
         }
+
+        return Optional.of(new HiveWrittenPartitions(
+                partitionUpdates.stream()
+                        .map(PartitionUpdate::getName)
+                        .collect(Collectors.toList())));
     }
 
     private Partition buildPartitionObject(String queryId, Table table, PartitionUpdate partitionUpdate)
@@ -910,7 +925,7 @@ public class HiveMetadata
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
                 .setLocation("");
         Table table = tableBuilder.build();
-        PrincipalPrivilegeSet principalPrivilegeSet = buildInitialPrivilegeSet(session.getUser());
+        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
@@ -918,12 +933,12 @@ public class HiveMetadata
                 throw new ViewAlreadyExistsException(viewName);
             }
 
-            metastore.replaceView(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivilegeSet);
+            metastore.replaceView(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
             return;
         }
 
         try {
-            metastore.createTable(session, table, principalPrivilegeSet, Optional.empty());
+            metastore.createTable(session, table, principalPrivileges, Optional.empty());
         }
         catch (TableAlreadyExistsException e) {
             throw new ViewAlreadyExistsException(e.getTableName());
@@ -1104,28 +1119,56 @@ public class HiveMetadata
                 ImmutableList.of());
     }
 
-    private static TupleDomain<ColumnHandle> createPredicate(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
+    @VisibleForTesting
+    static TupleDomain<ColumnHandle> createPredicate(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
     {
         if (partitions.isEmpty()) {
             return TupleDomain.none();
         }
 
-        Map<ColumnHandle, Domain> domains = new HashMap<>(partitionColumns.size());
+        return withColumnDomains(
+                partitionColumns.stream()
+                        .collect(Collectors.toMap(
+                                Function.identity(),
+                                column -> buildColumnDomain(column, partitions))));
+    }
+
+    private static Domain buildColumnDomain(ColumnHandle column, List<HivePartition> partitions)
+    {
+        checkArgument(!partitions.isEmpty(), "partitions cannot be empty");
+
+        boolean hasNull = false;
+        List<Object> nonNullValues = new ArrayList<>();
+        Type type = null;
 
         for (HivePartition partition : partitions) {
-            Map<ColumnHandle, NullableValue> partitionValues = partition.getKeys();
-            for (ColumnHandle column : partitionColumns) {
-                NullableValue nullableValue = partitionValues.get(column);
-                if (nullableValue == null) {
-                    throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does now have a value for partition column %s", partition, column));
-                }
+            NullableValue value = partition.getKeys().get(column);
+            if (value == null) {
+                throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does not have a value for partition column %s", partition, column));
+            }
 
-                Type type = nullableValue.getType();
-                Domain domain = nullableValue.isNull() ? Domain.onlyNull(type) : Domain.singleValue(type, nullableValue.getValue());
-                domains.merge(column, domain, Domain::union);
+            if (value.isNull()) {
+                hasNull = true;
+            }
+            else {
+                nonNullValues.add(value.getValue());
+            }
+
+            if (type == null) {
+                type = value.getType();
             }
         }
-        return withColumnDomains(domains);
+
+        if (!nonNullValues.isEmpty()) {
+            Domain domain = Domain.multipleValues(type, nonNullValues);
+            if (hasNull) {
+                return domain.union(Domain.onlyNull(type));
+            }
+
+            return domain;
+        }
+
+        return Domain.onlyNull(type);
     }
 
     @Override
@@ -1180,11 +1223,11 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        Set<PrivilegeGrantInfo> privilegeGrantInfoSet = privileges.stream()
-                .map(privilege -> new PrivilegeGrantInfo(privilege.name().toLowerCase(), 0, session.getUser(), PrincipalType.USER, grantOption))
+        Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
                 .collect(toSet());
 
-        metastore.grantTablePrivileges(schemaName, tableName, grantee, privilegeGrantInfoSet);
+        metastore.grantTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
@@ -1193,11 +1236,11 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        Set<PrivilegeGrantInfo> privilegeGrantInfoSet = privileges.stream()
-                .map(privilege -> new PrivilegeGrantInfo(privilege.name().toLowerCase(), 0, session.getUser(), PrincipalType.USER, grantOption))
+        Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
                 .collect(toSet());
 
-        metastore.revokeTablePrivileges(schemaName, tableName, grantee, privilegeGrantInfoSet);
+        metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
@@ -1291,7 +1334,8 @@ public class HiveMetadata
                     toHiveType(typeTranslator, column.getType()),
                     column.getType().getTypeSignature(),
                     ordinal,
-                    columnType));
+                    columnType,
+                    Optional.ofNullable(column.getComment())));
             ordinal++;
         }
 

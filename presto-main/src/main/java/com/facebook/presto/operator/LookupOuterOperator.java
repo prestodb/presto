@@ -42,8 +42,8 @@ public class LookupOuterOperator
         private final PlanNodeId planNodeId;
         private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
         private final List<Type> types;
-        private final List<Type> probeTypes;
-        private final List<Type> buildTypes;
+        private final List<Type> probeOutputTypes;
+        private final List<Type> buildOutputTypes;
         private final Runnable onOperatorClose;
         private State state = State.NOT_CREATED;
 
@@ -51,20 +51,20 @@ public class LookupOuterOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 ListenableFuture<OuterPositionIterator> outerPositionsFuture,
-                List<Type> probeTypes,
-                List<Type> buildTypes,
+                List<Type> probeOutputTypes,
+                List<Type> buildOutputTypes,
                 Runnable onOperatorClose)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
-            this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
-            this.buildTypes = ImmutableList.copyOf(requireNonNull(buildTypes, "buildTypes is null"));
+            this.probeOutputTypes = ImmutableList.copyOf(requireNonNull(probeOutputTypes, "probeOutputTypes is null"));
+            this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
             this.onOperatorClose = requireNonNull(onOperatorClose, "referenceCount is null");
 
             this.types = ImmutableList.<Type>builder()
-                    .addAll(probeTypes)
-                    .addAll(buildTypes)
+                    .addAll(probeOutputTypes)
+                    .addAll(buildOutputTypes)
                     .build();
         }
 
@@ -86,7 +86,7 @@ public class LookupOuterOperator
             state = State.CREATED;
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupOuterOperator.class.getSimpleName());
-            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeTypes, buildTypes, onOperatorClose);
+            return new LookupOuterOperator(operatorContext, outerPositionsFuture, probeOutputTypes, buildOutputTypes, onOperatorClose);
         }
 
         @Override
@@ -110,7 +110,7 @@ public class LookupOuterOperator
     private final ListenableFuture<OuterPositionIterator> outerPositionsFuture;
 
     private final List<Type> types;
-    private final List<Type> probeTypes;
+    private final List<Type> probeOutputTypes;
     private final Runnable onClose;
 
     private final PageBuilder pageBuilder;
@@ -121,18 +121,18 @@ public class LookupOuterOperator
     public LookupOuterOperator(
             OperatorContext operatorContext,
             ListenableFuture<OuterPositionIterator> outerPositionsFuture,
-            List<Type> probeTypes,
-            List<Type> buildTypes,
+            List<Type> probeOutputTypes,
+            List<Type> buildOutputTypes,
             Runnable onClose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outerPositionsFuture = requireNonNull(outerPositionsFuture, "outerPositionsFuture is null");
 
         this.types = ImmutableList.<Type>builder()
-                .addAll(requireNonNull(probeTypes, "probeTypes is null"))
-                .addAll(requireNonNull(buildTypes, "buildTypes is null"))
+                .addAll(requireNonNull(probeOutputTypes, "probeOutputTypes is null"))
+                .addAll(requireNonNull(buildOutputTypes, "buildOutputTypes is null"))
                 .build();
-        this.probeTypes = ImmutableList.copyOf(probeTypes);
+        this.probeOutputTypes = ImmutableList.copyOf(probeOutputTypes);
         this.pageBuilder = new PageBuilder(types);
         this.onClose = requireNonNull(onClose, "onClose is null");
     }
@@ -193,7 +193,7 @@ public class LookupOuterOperator
         boolean outputPositionsFinished = false;
         while (!pageBuilder.isFull()) {
             // write build columns
-            outputPositionsFinished = !outerPositions.appendToNext(pageBuilder, probeTypes.size());
+            outputPositionsFinished = !outerPositions.appendToNext(pageBuilder, probeOutputTypes.size());
             if (outputPositionsFinished) {
                 break;
             }
@@ -201,7 +201,7 @@ public class LookupOuterOperator
 
             // write nulls into probe columns
             // todo use RLE blocks
-            for (int probeChannel = 0; probeChannel < probeTypes.size(); probeChannel++) {
+            for (int probeChannel = 0; probeChannel < probeOutputTypes.size(); probeChannel++) {
                 pageBuilder.getBlockBuilder(probeChannel).appendNull();
             }
         }

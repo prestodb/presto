@@ -620,6 +620,8 @@ class AstBuilder
                 return new ExplainType(getLocation(context), ExplainType.Type.LOGICAL);
             case SqlBaseLexer.DISTRIBUTED:
                 return new ExplainType(getLocation(context), ExplainType.Type.DISTRIBUTED);
+            case SqlBaseLexer.VALIDATE:
+                return new ExplainType(getLocation(context), ExplainType.Type.VALIDATE);
         }
 
         throw new IllegalArgumentException("Unsupported EXPLAIN type: " + context.value.getText());
@@ -984,7 +986,7 @@ class AstBuilder
     @Override
     public Node visitExists(SqlBaseParser.ExistsContext context)
     {
-        return new ExistsPredicate(getLocation(context), (Query) visit(context.query()));
+        return new ExistsPredicate(getLocation(context), new SubqueryExpression(getLocation(context), (Query) visit(context.query())));
     }
 
     @Override
@@ -1059,14 +1061,9 @@ class AstBuilder
     // ********************* primary expressions **********************
 
     @Override
-    public Node visitImplicitRowConstructor(SqlBaseParser.ImplicitRowConstructorContext context)
+    public Node visitParenthesizedExpression(SqlBaseParser.ParenthesizedExpressionContext context)
     {
-        List<Expression> items = visit(context.expression(), Expression.class);
-        if (items.size() == 1) {
-            return items.get(0);
-        }
-
-        return new Row(getLocation(context), items);
+        return visit(context.expression());
     }
 
     @Override
@@ -1275,7 +1272,11 @@ class AstBuilder
     @Override
     public Node visitColumnDefinition(SqlBaseParser.ColumnDefinitionContext context)
     {
-        return new ColumnDefinition(getLocation(context), context.identifier().getText(), getType(context.type()));
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(unquote(context.STRING().getText()));
+        }
+        return new ColumnDefinition(getLocation(context), context.identifier().getText(), getType(context.type()), comment);
     }
 
     @Override

@@ -74,6 +74,15 @@ public class Explain
     }
 
     @Override
+    public List<Node> getChildren()
+    {
+        return ImmutableList.<Node>builder()
+                .add(statement)
+                .addAll(options)
+                .build();
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(statement, options, analyze);

@@ -17,7 +17,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.type.TypeRegistry;
-import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
@@ -95,11 +94,11 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 expectedMaxSize,
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -180,11 +179,11 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -220,11 +219,11 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -288,11 +287,11 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 blockEncodingManager,
-                executor,
-                Stopwatch.createUnstarted());
+                executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -342,11 +341,12 @@ public class TestHttpPageBufferClient
         HttpPageBufferClient client = new HttpPageBufferClient(new TestingHttpClient(processor, executor),
                 new DataSize(10, Unit.MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
                 blockEncodingManager,
                 executor,
-                Stopwatch.createUnstarted(ticker));
+                ticker);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
@@ -383,7 +383,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportTimeoutException.class);
-        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - requests failed for 61.00s)");
+        assertContains(callback.getFailure().getMessage(), WORKER_NODE_ERROR + " (http://localhost:8080/0 - 3 failures, time since last success 61.00s)");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
     }
 

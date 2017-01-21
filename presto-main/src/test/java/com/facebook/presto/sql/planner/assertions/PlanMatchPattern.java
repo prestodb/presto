@@ -38,11 +38,13 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +52,8 @@ import java.util.Optional;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteQualifiedNamesToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
+import static com.facebook.presto.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.google.common.base.Preconditions.checkState;
@@ -77,6 +81,7 @@ public final class PlanMatchPattern
      * Matches to any tree of nodes with children matching to given source matchers.
      * anyNodeTree(tableScanNode("nation")) - will match to any plan which all leafs contain
      * any node containing table scan from nation table.
+     * @note anyTree does not match zero nodes. E.g. output(anyTree(tableScan)) will NOT match TableScan node followed by OutputNode.
      */
     public static PlanMatchPattern anyTree(PlanMatchPattern... sources)
     {
@@ -97,6 +102,14 @@ public final class PlanMatchPattern
     {
         PlanMatchPattern result = tableScan(expectedTableName);
         return result.addColumnReferences(expectedTableName, columnReferences);
+    }
+
+    public static PlanMatchPattern strictTableScan(String expectedTableName, Map<String, String> columnReferences)
+    {
+        return tableScan(expectedTableName, columnReferences)
+                .withExactAssignedOutputs(columnReferences.values().stream()
+                        .map(columnName -> columnReference(expectedTableName, columnName))
+                        .collect(ImmutableCollectors.toImmutableList()));
     }
 
     public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint)
@@ -128,7 +141,7 @@ public final class PlanMatchPattern
     }
 
     public static PlanMatchPattern aggregation(
-            List<List<Symbol>> groupingSets,
+            List<List<String>> groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
             Map<Symbol, Symbol> masks,
             Optional<Symbol> groupId,
@@ -174,6 +187,11 @@ public final class PlanMatchPattern
         return result;
     }
 
+    public static PlanMatchPattern strictOutput(List<String> outputs, PlanMatchPattern source)
+    {
+        return output(outputs, source).withExactOutputs(outputs);
+    }
+
     public static PlanMatchPattern project(PlanMatchPattern source)
     {
         return node(ProjectNode.class, source);
@@ -185,6 +203,17 @@ public final class PlanMatchPattern
         assignments.entrySet().forEach(
                 assignment -> result.withAlias(assignment.getKey(), assignment.getValue()));
         return result;
+    }
+
+    public static PlanMatchPattern strictProject(Map<String, ExpressionMatcher> assignments, PlanMatchPattern source)
+    {
+        /*
+         * Under the current implementation of project, all of the outputs are also in the assignment.
+         * If the implementation changes, this will need to change too.
+         */
+        return project(assignments, source)
+                .withExactAssignedOutputs(assignments.values())
+                .withExactAssignments(assignments.values());
     }
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
@@ -246,9 +275,9 @@ public final class PlanMatchPattern
         return result;
     }
 
-    public static PlanMatchPattern groupingSet(List<List<Symbol>> groups, PlanMatchPattern source)
+    public static PlanMatchPattern groupingSet(List<List<String>> groups, String groupIdAlias, PlanMatchPattern source)
     {
-        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of()));
+        return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of(), groupIdAlias));
     }
 
     public static PlanMatchPattern values(Map<String, Integer> values)
@@ -313,6 +342,41 @@ public final class PlanMatchPattern
     public PlanMatchPattern withAlias(Optional<String> alias, RvalueMatcher matcher)
     {
         matchers.add(new Alias(alias, matcher));
+        return this;
+    }
+
+    public PlanMatchPattern withNumberOfOutputColumns(int numberOfSymbols)
+    {
+        matchers.add(new SymbolCardinalityMatcher(numberOfSymbols));
+        return this;
+    }
+
+    /*
+     * This is useful if you already know the bindings for the aliases you expect to find
+     * in the outputs. This is the case for symbols that are produced by a direct or indirect
+     * source of the node you're applying this to.
+     */
+    public PlanMatchPattern withExactOutputs(List<String> expectedAliases)
+    {
+        matchers.add(new StrictSymbolsMatcher(actualOutputs(), expectedAliases));
+        return this;
+    }
+
+    /*
+     * withExactAssignments and withExactAssignedOutputs are needed for matching symbols
+     * that are produced in the node that you're matching. The name of the symbol bound to
+     * the alias is *not* known when the Matcher is run, and so you need to match by what
+     * is being assigned to it.
+     */
+    public PlanMatchPattern withExactAssignedOutputs(Collection<? extends RvalueMatcher> expectedAliases)
+    {
+        matchers.add(new StrictAssignedSymbolsMatcher(actualOutputs(), expectedAliases));
+        return this;
+    }
+
+    public PlanMatchPattern withExactAssignments(Collection<? extends RvalueMatcher> expectedAliases)
+    {
+        matchers.add(new StrictAssignedSymbolsMatcher(actualAssignments(), expectedAliases));
         return this;
     }
 

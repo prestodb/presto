@@ -44,6 +44,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.io.Files.createTempDir;
@@ -69,6 +70,7 @@ public class TestShardEjector
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dummyHandle = dbi.open();
+        createTablesWithRetry(dbi);
         shardManager = createShardManager(dbi);
 
         dataDir = createTempDir();

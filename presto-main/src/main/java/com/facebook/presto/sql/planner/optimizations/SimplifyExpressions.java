@@ -39,9 +39,7 @@ import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
@@ -61,6 +59,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class SimplifyExpressions
@@ -108,8 +107,7 @@ public class SimplifyExpressions
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), this::simplifyExpression));
-            return new ProjectNode(node.getId(), source, assignments);
+            return new ProjectNode(node.getId(), source, node.getAssignments().rewrite(this::simplifyExpression));
         }
 
         @Override
@@ -215,11 +213,29 @@ public class SimplifyExpressions
         @Override
         public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, NodeContext context, ExpressionTreeRewriter<NodeContext> treeRewriter)
         {
-            List<Expression> predicates = extractPredicates(node.getType(), node).stream()
-                    .map(expression -> treeRewriter.rewrite(expression, NodeContext.NOT_ROOT_NODE))
-                    .collect(toImmutableList());
+            Expression expression = combinePredicates(
+                    node.getType(),
+                    extractPredicates(node.getType(), node).stream()
+                            .map(subExpression -> treeRewriter.rewrite(subExpression, NodeContext.NOT_ROOT_NODE))
+                            .collect(toImmutableList()));
 
-            List<List<Expression>> subPredicates = getSubPredicates(predicates);
+            if (!(expression instanceof LogicalBinaryExpression)) {
+                return expression;
+            }
+
+            Expression simplified = extractCommonPredicates((LogicalBinaryExpression) expression);
+
+            // Prefer AND LogicalBinaryExpression at the root if possible
+            if (context.isRootNode() && simplified instanceof LogicalBinaryExpression && ((LogicalBinaryExpression) simplified).getType() == OR) {
+                return distributeIfPossible((LogicalBinaryExpression) simplified);
+            }
+
+            return simplified;
+        }
+
+        private static Expression extractCommonPredicates(LogicalBinaryExpression node)
+        {
+            List<List<Expression>> subPredicates = getSubPredicates(node);
 
             Set<Expression> commonPredicates = ImmutableSet.copyOf(subPredicates.stream()
                     .map(ExtractCommonPredicatesExpressionRewriter::filterDeterministicPredicates)
@@ -237,24 +253,70 @@ public class SimplifyExpressions
                     .collect(toImmutableList());
             Expression combinedUncorrelatedPredicates = combinePredicates(node.getType(), uncorrelatedPredicates);
 
-            // Do not simplify top level conjuncts if it would result in top level disjuncts
-            // Conjuncts are easier to process when pushing down predicates.
-            if (context.isRootNode() && flippedNodeType == OR && !combinedUncorrelatedPredicates.equals(FALSE_LITERAL)) {
-                return combinePredicates(node.getType(), predicates);
-            }
-
             return combinePredicates(flippedNodeType, ImmutableList.<Expression>builder()
                     .addAll(commonPredicates)
                     .add(combinedUncorrelatedPredicates)
                     .build());
         }
 
-        private static List<List<Expression>> getSubPredicates(List<Expression> predicates)
+        private static List<List<Expression>> getSubPredicates(LogicalBinaryExpression expression)
         {
-            return predicates.stream()
+            return extractPredicates(expression.getType(), expression).stream()
                     .map(predicate -> predicate instanceof LogicalBinaryExpression ?
                             extractPredicates((LogicalBinaryExpression) predicate) : ImmutableList.of(predicate))
                     .collect(toImmutableList());
+        }
+
+        /**
+         * Applies the boolean distributive property.
+         *
+         * For example:
+         * ( A & B ) | ( C & D ) => ( A | C ) & ( A | D ) & ( B | C ) & ( B | D )
+         *
+         * Returns the original expression if the expression is non-deterministic or if the distribution will
+         * expand the expression by too much.
+         */
+        private static Expression distributeIfPossible(LogicalBinaryExpression expression)
+        {
+            if (!DeterminismEvaluator.isDeterministic(expression)) {
+                // Do not distribute boolean expressions if there are any non-deterministic elements
+                // TODO: This can be optimized further if non-deterministic elements are not repeated
+                return expression;
+            }
+            List<Set<Expression>> subPredicates = getSubPredicates(expression).stream()
+                    .map(ImmutableSet::copyOf)
+                    .collect(toList());
+
+            int originalBaseExpressions = subPredicates.stream()
+                    .mapToInt(Set::size)
+                    .sum();
+
+            int newBaseExpressions;
+            try {
+                newBaseExpressions = Math.multiplyExact(subPredicates.stream()
+                        .mapToInt(Set::size)
+                        .reduce(Math::multiplyExact)
+                        .getAsInt(), subPredicates.size());
+            }
+            catch (ArithmeticException e) {
+                // Integer overflow from multiplication means there are too many expressions
+                return expression;
+            }
+
+            if (newBaseExpressions > originalBaseExpressions * 2) {
+                // Do not distribute boolean expressions if it would create 2x more base expressions
+                // (e.g. A, B, C, D from the above example). This is just an arbitrary heuristic to
+                // avoid cross product expression explosion.
+                return expression;
+            }
+
+            Set<List<Expression>> crossProduct = Sets.cartesianProduct(subPredicates);
+
+            return combinePredicates(
+                    expression.getType().flip(),
+                    crossProduct.stream()
+                            .map(expressions -> combinePredicates(expression.getType(), expressions))
+                            .collect(toImmutableList()));
         }
 
         private static Set<Expression> filterDeterministicPredicates(List<Expression> predicates)

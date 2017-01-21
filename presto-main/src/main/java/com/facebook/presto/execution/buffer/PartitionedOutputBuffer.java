@@ -195,7 +195,7 @@ public class PartitionedOutputBuffer
         partitions.get(partitionNumber).enqueuePages(pageReferences);
 
         // drop the initial reference
-        pageReferences.stream().forEach(ClientBuffer.PageReference::dereferencePage);
+        pageReferences.forEach(ClientBuffer.PageReference::dereferencePage);
 
         return memoryManager.getNotFullFuture();
     }

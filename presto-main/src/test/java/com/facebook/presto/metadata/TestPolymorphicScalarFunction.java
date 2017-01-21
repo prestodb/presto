@@ -22,7 +22,6 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -34,6 +33,7 @@ import static com.facebook.presto.metadata.TestPolymorphicScalarFunction.TestMet
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 
 public class TestPolymorphicScalarFunction
@@ -49,7 +49,7 @@ public class TestPolymorphicScalarFunction
     private static final long INPUT_VARCHAR_LENGTH = 10;
     private static final String INPUT_VARCHAR_SIGNATURE = "varchar(" + INPUT_VARCHAR_LENGTH + ")";
     private static final TypeSignature INPUT_VARCHAR_TYPE = parseTypeSignature(INPUT_VARCHAR_SIGNATURE);
-    private static final Slice INPUT_SLICE = Slices.allocate(Ints.checkedCast(INPUT_VARCHAR_LENGTH));
+    private static final Slice INPUT_SLICE = Slices.allocate(toIntExact(INPUT_VARCHAR_LENGTH));
     private static final BoundVariables BOUND_VARIABLES = new BoundVariables(
             ImmutableMap.of("V", TYPE_REGISTRY.getType(INPUT_VARCHAR_TYPE)),
             ImmutableMap.of("x", INPUT_VARCHAR_LENGTH)

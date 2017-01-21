@@ -97,6 +97,12 @@ public class TaskExecutor
     private final Set<PrioritizedSplitRunner> allSplits = new HashSet<>();
 
     /**
+     * Splits that were force started.
+     */
+    @GuardedBy("this")
+    private final Set<PrioritizedSplitRunner> forcedRunningSplits = new HashSet<>();
+
+    /**
      * Splits waiting for a runner thread.
      */
     private final PriorityBlockingQueue<PrioritizedSplitRunner> pendingSplits;
@@ -168,6 +174,7 @@ public class TaskExecutor
         return toStringHelper(this)
                 .add("runnerThreads", runnerThreads)
                 .add("allSplits", allSplits.size())
+                .add("forcedRunningSplits", forcedRunningSplits.size())
                 .add("pendingSplits", pendingSplits.size())
                 .add("runningSplits", runningSplits.size())
                 .add("blockedSplits", blockedSplits.size())
@@ -201,6 +208,7 @@ public class TaskExecutor
 
             // stop tracking splits (especially blocked splits which may never unblock)
             allSplits.removeAll(splits);
+            forcedRunningSplits.removeAll(splits);
             blockedSplits.keySet().removeAll(splits);
             pendingSplits.removeAll(splits);
         }
@@ -233,7 +241,7 @@ public class TaskExecutor
                 }
                 else if (forceStart) {
                     // Note: we do not record queued time for forced splits
-                    startSplit(prioritizedSplitRunner);
+                    forceStartSplit(prioritizedSplitRunner);
                     // add the runner to the handle so it can be destroyed if the task is canceled
                     taskHandle.recordForcedRunningSplit(prioritizedSplitRunner);
                 }
@@ -259,6 +267,7 @@ public class TaskExecutor
     {
         synchronized (this) {
             allSplits.remove(split);
+            forcedRunningSplits.remove(split);
 
             TaskHandle taskHandle = split.getTaskHandle();
             taskHandle.splitComplete(split);
@@ -290,7 +299,13 @@ public class TaskExecutor
 
     private synchronized void addNewEntrants()
     {
-        int running = allSplits.size();
+        // For determinism ignore forced running splits when checking minimumNumberOfDrivers.
+        // Otherwise with (for example) minimumNumberOfDrivers = 100, 200 "forceStart" splits
+        // and 100 "normal" splits, depending on order of appearing splits, number of
+        // simultaneously running splits may vary. If normal splits start first, there will
+        // be 300 running splits. If "forceStart" splits start first, there will be only
+        // 200 running splits.
+        int running = allSplits.size() - forcedRunningSplits.size();
         for (int i = 0; i < minimumNumberOfDrivers - running; i++) {
             PrioritizedSplitRunner split = pollNextSplitWorker();
             if (split == null) {
@@ -300,6 +315,12 @@ public class TaskExecutor
             queuedTime.add(Duration.nanosSince(split.createdNanos));
             startSplit(split);
         }
+    }
+
+    private synchronized void forceStartSplit(PrioritizedSplitRunner split)
+    {
+        startSplit(split);
+        forcedRunningSplits.add(split);
     }
 
     private synchronized void startSplit(PrioritizedSplitRunner split)
@@ -747,6 +768,12 @@ public class TaskExecutor
     public synchronized int getTotalSplits()
     {
         return allSplits.size();
+    }
+
+    @Managed
+    public synchronized int getForcedRunningSplits()
+    {
+        return forcedRunningSplits.size();
     }
 
     @Managed

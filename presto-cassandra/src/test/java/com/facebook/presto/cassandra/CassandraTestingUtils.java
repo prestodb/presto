@@ -15,15 +15,18 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
-import com.datastax.driver.mapping.Mapper;
-import com.datastax.driver.mapping.MappingManager;
-import com.datastax.driver.mapping.annotations.PartitionKey;
-import com.datastax.driver.mapping.annotations.Table;
+import com.datastax.driver.core.querybuilder.Insert;
+import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Ints;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
@@ -34,7 +37,8 @@ public class CassandraTestingUtils
 {
     public static final String HOSTNAME = "localhost";
     public static final int PORT = 9142;
-    public static final String TABLE_NAME = "Presto_Test";
+    public static final String TABLE_ALL_TYPES = "table_all_types";
+    public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
     private static final String CLUSTER_NAME = "TestCluster";
 
     private CassandraTestingUtils() {}
@@ -47,144 +51,128 @@ public class CassandraTestingUtils
                 .build();
     }
 
+    public static void createTestTables(String keyspace, Date date)
+    {
+        try (Cluster cluster = getCluster()) {
+            try (Session session = cluster.connect()) {
+                createOrReplaceKeyspace(session, keyspace);
+            }
+            try (Session session = cluster.connect(keyspace)) {
+                createTableAllTypes(session, keyspace, TABLE_ALL_TYPES, date);
+                createTableAllTypesPartitionKey(session, keyspace, TABLE_ALL_TYPES_PARTITION_KEY, date);
+            }
+        }
+    }
+
     public static void createOrReplaceKeyspace(Session session, String keyspaceName)
     {
         session.execute("DROP KEYSPACE IF EXISTS " + keyspaceName);
         session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor':1}");
     }
 
-    public static void initializeTestData(Date date, String keyspace)
+    public static void createTableAllTypes(Session session, String keyspace, String tableName, Date date)
     {
-        try (Cluster cluster = getCluster()) {
-            try (Session session = cluster.connect()) {
-                createOrReplaceKeyspace(session, keyspace);
-            }
-
-            try (Session session = cluster.connect(keyspace)) {
-                session.execute("DROP TABLE IF EXISTS " + TABLE_NAME);
-                session.execute("CREATE TABLE " + TABLE_NAME + " (" +
-                        " key text PRIMARY KEY, " +
-                        " typeuuid uuid, " +
-                        " typeinteger int, " +
-                        " typelong bigint, " +
-                        " typebytes blob, " +
-                        " typetimestamp timestamp " +
-                        ")");
-
-                Mapper<TableRow> mapper = new MappingManager(session).mapper(TableRow.class);
-
-                for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
-                    TableRow tableRow = new TableRow(
-                            "key " + rowNumber.toString(),
-                            UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)),
-                            rowNumber,
-                            rowNumber.longValue() + 1000,
-                            ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer(),
-                            date
-                    );
-                    mapper.save(tableRow);
-                    assertEquals(mapper.get(tableRow.getKey()).toString(), tableRow.toString());
-                }
-
-                assertEquals(session.execute("SELECT COUNT(*) FROM presto_test").all().get(0).getLong(0), 9);
-            }
-        }
+        session.execute("DROP TABLE IF EXISTS " + tableName);
+        session.execute("CREATE TABLE " + tableName + " (" +
+                " key text PRIMARY KEY, " +
+                " typeuuid uuid, " +
+                " typeinteger int, " +
+                " typelong bigint, " +
+                " typebytes blob, " +
+                " typetimestamp timestamp, " +
+                " typeansi ascii, " +
+                " typeboolean boolean, " +
+                " typedecimal decimal, " +
+                " typedouble double, " +
+                " typefloat float, " +
+                " typeinet inet, " +
+                " typevarchar varchar, " +
+                " typevarint varint, " +
+                " typetimeuuid timeuuid, " +
+                " typelist list<text>, " +
+                " typemap map<int, bigint>, " +
+                " typeset set<boolean>, " +
+                ")");
+        insertTestData(session, keyspace, tableName, date);
     }
 
-    @Table(name = "presto_test")
-    public static class TableRow
+    public static void createTableAllTypesPartitionKey(Session session, String keyspace, String tableName, Date date)
     {
-        @PartitionKey
-        private String key;
-        private UUID typeuuid;
-        private Integer typeinteger;
-        private Long typelong;
-        private ByteBuffer typebytes;
-        private Date typetimestamp;
+        session.execute("DROP TABLE IF EXISTS " + tableName);
 
-        public TableRow() {}
+        session.execute("CREATE TABLE " + tableName + " (" +
+                " key text, " +
+                " typeuuid uuid, " +
+                " typeinteger int, " +
+                " typelong bigint, " +
+                " typebytes blob, " +
+                " typetimestamp timestamp, " +
+                " typeansi ascii, " +
+                " typeboolean boolean, " +
+                " typedecimal decimal, " +
+                " typedouble double, " +
+                " typefloat float, " +
+                " typeinet inet, " +
+                " typevarchar varchar, " +
+                " typevarint varint, " +
+                " typetimeuuid timeuuid, " +
+                " typelist frozen <list<text>>, " +
+                " typemap frozen <map<int, bigint>>, " +
+                " typeset frozen <set<boolean>>, " +
+                " PRIMARY KEY ((" +
+                "   key, " +
+                "   typeuuid, " +
+                "   typeinteger, " +
+                "   typelong, " +
+                // TODO: NOT YET SUPPORTED AS A PARTITION KEY
+                // "   typebytes, " +
+                "   typetimestamp, " +
+                "   typeansi, " +
+                "   typeboolean, " +
+                // TODO: PRECISION LOST. IMPLEMENT IT AS STRING
+                //  "   typedecimal, " +
+                "   typedouble, " +
+                "   typefloat, " +
+                "   typeinet, " +
+                "   typevarchar, " +
+                // TODO: NOT YET SUPPORTED AS A PARTITION KEY
+                // "   typevarint, " +
+                "   typetimeuuid " +
+                // TODO: NOT YET SUPPORTED AS A PARTITION KEY
+                // "   typelist, " +
+                // "   typemap, " +
+                // "   typeset" +
+                " ))" +
+                ")");
 
-        public TableRow(String key, UUID typeuuid, Integer typeinteger, Long typelong, ByteBuffer typebytes, Date typetimestamp)
-        {
-            this.key = key;
-            this.typeuuid = typeuuid;
-            this.typeinteger = typeinteger;
-            this.typelong = typelong;
-            this.typebytes = typebytes;
-            this.typetimestamp = typetimestamp;
+        insertTestData(session, keyspace, tableName, date);
+    }
+
+    private static void insertTestData(Session session, String keyspace, String table, Date date)
+    {
+        for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
+            Insert insert = QueryBuilder.insertInto(keyspace, table)
+                    .value("key", "key " + rowNumber.toString())
+                    .value("typeuuid", UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)))
+                    .value("typeinteger", rowNumber)
+                    .value("typelong", rowNumber.longValue() + 1000)
+                    .value("typebytes", ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer())
+                    .value("typetimestamp", date)
+                    .value("typeansi", "ansi " + rowNumber)
+                    .value("typeboolean", rowNumber % 2 == 0)
+                    .value("typedecimal", new BigDecimal(Math.pow(2, rowNumber)))
+                    .value("typedouble", Math.pow(4, rowNumber))
+                    .value("typefloat", (float) Math.pow(8, rowNumber))
+                    .value("typeinet", InetAddresses.forString("127.0.0.1"))
+                    .value("typevarchar", "varchar " + rowNumber)
+                    .value("typevarint", BigInteger.TEN.pow(rowNumber))
+                    .value("typetimeuuid", UUID.fromString(String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)))
+                    .value("typelist", ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber))
+                    .value("typemap", ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L))
+                    .value("typeset", ImmutableSet.of(false, true));
+
+            session.execute(insert);
         }
-
-        public String getKey()
-        {
-            return key;
-        }
-
-        public void setKey(String key)
-        {
-            this.key = key;
-        }
-
-        public UUID getTypeuuid()
-        {
-            return typeuuid;
-        }
-
-        public void setTypeuuid(UUID typeuuid)
-        {
-            this.typeuuid = typeuuid;
-        }
-
-        public Integer getTypeinteger()
-        {
-            return typeinteger;
-        }
-
-        public void setTypeinteger(Integer typeinteger)
-        {
-            this.typeinteger = typeinteger;
-        }
-
-        public Long getTypelong()
-        {
-            return typelong;
-        }
-
-        public void setTypelong(Long typelong)
-        {
-            this.typelong = typelong;
-        }
-
-        public ByteBuffer getTypebytes()
-        {
-            return typebytes;
-        }
-
-        public void setTypebytes(ByteBuffer typebytes)
-        {
-            this.typebytes = typebytes;
-        }
-
-        public Date getTypetimestamp()
-        {
-            return typetimestamp;
-        }
-
-        public void setTypetimestamp(Date typetimestamp)
-        {
-            this.typetimestamp = typetimestamp;
-        }
-
-        @Override
-        public String toString()
-        {
-            return "TableRow{" +
-                    "key='" + key + '\'' +
-                    ", typeuuid=" + typeuuid +
-                    ", typeinteger=" + typeinteger +
-                    ", typelong=" + typelong +
-                    ", typebytes=" + Charset.forName("UTF-8").decode(typebytes) +
-                    ", typetimestamp=" + typetimestamp +
-                    '}';
-        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
     }
 }

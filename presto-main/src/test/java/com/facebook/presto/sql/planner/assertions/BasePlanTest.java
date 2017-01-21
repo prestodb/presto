@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.assertions;
 
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
@@ -37,11 +38,19 @@ public class BasePlanTest
 
     public BasePlanTest()
     {
-        this.queryRunner = new LocalQueryRunner(testSessionBuilder()
+        this(ImmutableMap.of());
+    }
+
+    public BasePlanTest(Map<String, String> sessionProperties)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
-                .build());
+                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+
+        sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
+
+        this.queryRunner = new LocalQueryRunner(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
@@ -70,9 +79,6 @@ public class BasePlanTest
     protected void assertPlanWithOptimizers(String sql, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
         queryRunner.inTransaction(transactionSession -> {
-            FeaturesConfig featuresConfig = new FeaturesConfig()
-                    .setDistributedIndexJoinsEnabled(false)
-                    .setOptimizeHashGeneration(true);
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, LogicalPlanner.Stage.OPTIMIZED);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
@@ -82,9 +88,6 @@ public class BasePlanTest
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new PruneUnreferencedOutputs(),

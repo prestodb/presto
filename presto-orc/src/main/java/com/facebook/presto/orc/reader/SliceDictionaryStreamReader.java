@@ -97,8 +97,6 @@ public class SliceDictionaryStreamReader
     private StreamSource<LongStream> dataStreamSource = missingStreamSource(LongStream.class);
     @Nullable
     private LongStream dataStream;
-    @Nonnull
-    private int[] dataVector = new int[0];
 
     private boolean rowGroupOpen;
 
@@ -142,9 +140,8 @@ public class SliceDictionaryStreamReader
         if (isNullVector.length < nextBatchSize) {
             isNullVector = new boolean[nextBatchSize];
         }
-        if (dataVector.length < nextBatchSize) {
-            dataVector = new int[nextBatchSize];
-        }
+
+        int[] dataVector = new int[nextBatchSize];
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException("Value is not null but data stream is not present");
@@ -188,8 +185,7 @@ public class SliceDictionaryStreamReader
         }
 
         // copy ids into a private array for this block since data vector is reused
-        Slice ids = Slices.wrappedIntArray(Arrays.copyOfRange(dataVector, 0, nextBatchSize));
-        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, ids);
+        Block block = new DictionaryBlock(nextBatchSize, dictionaryBlock, dataVector);
 
         readOffset = 0;
         nextBatchSize = 0;

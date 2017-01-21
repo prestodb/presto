@@ -31,13 +31,15 @@ public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
     private final List<Type> types;
+    private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
     private final List<Block> precomputedHashChannel;
 
-    public SimplePagesHashStrategy(List<Type> types, List<List<Block>> channels, List<Integer> hashChannels, Optional<Integer> precomputedHashChannel)
+    public SimplePagesHashStrategy(List<Type> types, List<Integer> outputChannels, List<List<Block>> channels, List<Integer> hashChannels, Optional<Integer> precomputedHashChannel)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
 
         checkArgument(types.size() == channels.size(), "Expected types and channels to be the same length");
@@ -53,7 +55,7 @@ public class SimplePagesHashStrategy
     @Override
     public int getChannelCount()
     {
-        return channels.size();
+        return outputChannels.size();
     }
 
     @Override
@@ -68,9 +70,9 @@ public class SimplePagesHashStrategy
     @Override
     public void appendTo(int blockIndex, int position, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        for (int i = 0; i < channels.size(); i++) {
-            Type type = types.get(i);
-            List<Block> channel = channels.get(i);
+        for (int outputIndex : outputChannels) {
+            Type type = types.get(outputIndex);
+            List<Block> channel = channels.get(outputIndex);
             Block block = channel.get(blockIndex);
             type.appendTo(block, position, pageBuilder.getBlockBuilder(outputChannelOffset));
             outputChannelOffset++;

@@ -28,15 +28,17 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 
 public class GroupIdMatcher
-    implements Matcher
+        implements Matcher
 {
-    private final List<List<Symbol>> groups;
-    private final Map<Symbol, Symbol> identityMappings;
+    private final List<List<String>> groups;
+    private final Map<String, String> identityMappings;
+    private final String groupIdAlias;
 
-    public GroupIdMatcher(List<List<Symbol>> groups, Map<Symbol, Symbol> identityMappings)
+    public GroupIdMatcher(List<List<String>> groups, Map<String, String> identityMappings, String groupIdAlias)
     {
         this.groups = groups;
         this.identityMappings = identityMappings;
+        this.groupIdAlias = groupIdAlias;
     }
 
     @Override
@@ -59,16 +61,16 @@ public class GroupIdMatcher
         }
 
         for (int i = 0; i < actualGroups.size(); i++) {
-            if (!AggregationMatcher.matches(actualGroups.get(i), groups.get(i))) {
+            if (!AggregationMatcher.matches(groups.get(i), actualGroups.get(i), symbolAliases)) {
                 return NO_MATCH;
             }
         }
 
-        if (!AggregationMatcher.matches(identityMappings.keySet(), actualArgumentMappings.keySet())) {
+        if (!AggregationMatcher.matches(identityMappings.keySet(), actualArgumentMappings.keySet(), symbolAliases)) {
             return NO_MATCH;
         }
 
-        return match();
+        return match(groupIdAlias, groudIdNode.getGroupIdSymbol().toSymbolReference());
     }
 
     @Override

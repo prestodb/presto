@@ -147,7 +147,7 @@ public class QueryContext
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.forEach(TaskContext::moreMemoryAvailable);
             }
 
             @Override
@@ -155,7 +155,7 @@ public class QueryContext
             {
                 originalPool.free(queryId, originalReserved);
                 // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-                taskContexts.stream().forEach(TaskContext::moreMemoryAvailable);
+                taskContexts.forEach(TaskContext::moreMemoryAvailable);
             }
         });
     }

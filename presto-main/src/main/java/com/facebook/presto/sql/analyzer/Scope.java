@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwAmbiguousAttributeException;
-import static com.facebook.presto.sql.analyzer.SemanticExceptions.throwMissingAttributeException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
+import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -38,7 +38,6 @@ public class Scope
 {
     private final Optional<Scope> parent;
     private final RelationType relation;
-    private final boolean queryBoundary;
     private final Map<String, WithQuery> namedQueries;
 
     public static Scope create()
@@ -54,13 +53,11 @@ public class Scope
     private Scope(
             Optional<Scope> parent,
             RelationType relation,
-            Map<String, WithQuery> namedQueries,
-            boolean queryBoundary)
+            Map<String, WithQuery> namedQueries)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
-        this.queryBoundary = queryBoundary;
     }
 
     public RelationType getRelationType()
@@ -70,7 +67,7 @@ public class Scope
 
     public ResolvedField resolveField(Expression expression, QualifiedName name)
     {
-        return tryResolveField(expression, name).orElseThrow(() -> throwMissingAttributeException(expression, name));
+        return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
     }
 
     public Optional<ResolvedField> tryResolveField(Expression expression)
@@ -103,30 +100,19 @@ public class Scope
     {
         List<Field> matches = relation.resolveFields(name);
         if (matches.size() > 1) {
-            throwAmbiguousAttributeException(node, name);
+            throw ambiguousAttributeException(node, name);
         }
-
-        if (matches.isEmpty()) {
+        else if (matches.size() == 1) {
+            return Optional.of(asResolvedField(getOnlyElement(matches), local));
+        }
+        else {
             if (isColumnReference(name, relation)) {
                 return Optional.empty();
             }
-            Scope boundary = this;
-            while (!boundary.queryBoundary) {
-                if (boundary.parent.isPresent()) {
-                    boundary = boundary.parent.get();
-                }
-                else {
-                    return Optional.empty();
-                }
-            }
-            if (boundary.parent.isPresent()) {
-                // jump over the query boundary
-                return boundary.parent.get().resolveField(node, name, false);
+            if (parent.isPresent()) {
+                return parent.get().resolveField(node, name, false);
             }
             return Optional.empty();
-        }
-        else {
-            return Optional.of(asResolvedField(getOnlyElement(matches), local));
         }
     }
 
@@ -143,7 +129,6 @@ public class Scope
             if (isColumnReference(name, current.relation)) {
                 return true;
             }
-
             current = current.parent.orElse(null);
         }
 
@@ -178,7 +163,6 @@ public class Scope
     {
         private RelationType relationType = new RelationType();
         private Optional<Boolean> approximate = Optional.empty();
-        private boolean queryBoundary = false;
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
 
@@ -191,12 +175,6 @@ public class Scope
         public Builder withParent(Scope parent)
         {
             this.parent = Optional.of(parent);
-            return this;
-        }
-
-        public Builder markQueryBoundary()
-        {
-            this.queryBoundary = true;
             return this;
         }
 
@@ -214,7 +192,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, relationType, namedQueries, queryBoundary);
+            return new Scope(parent, relationType, namedQueries);
         }
     }
 }

@@ -19,7 +19,8 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.inject.Inject;
+
+import javax.inject.Inject;
 
 import java.nio.file.Path;
 import java.util.List;

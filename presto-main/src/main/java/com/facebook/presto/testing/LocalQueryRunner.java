@@ -152,6 +152,8 @@ import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -223,7 +225,12 @@ public class LocalQueryRunner
 
     public LocalQueryRunner(Session defaultSession)
     {
-        this(defaultSession, new FeaturesConfig().setOptimizeMixedDistinctAggregations(true), false);
+        this(
+                defaultSession,
+                new FeaturesConfig()
+                        .setOptimizeMixedDistinctAggregations(true)
+                        .setIterativeOptimizerEnabled(true),
+                false);
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig)
@@ -321,6 +328,7 @@ public class LocalQueryRunner
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),
                 defaultSession.getUserAgent(),
+                defaultSession.getClientInfo(),
                 defaultSession.getStartTime(),
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
@@ -636,7 +644,7 @@ public class LocalQueryRunner
         FeaturesConfig featuresConfig = new FeaturesConfig()
                 .setDistributedIndexJoinsEnabled(false)
                 .setOptimizeHashGeneration(true);
-        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true);
+        PlanOptimizers planOptimizers = new PlanOptimizers(metadata, sqlParser, featuresConfig, true, new MBeanExporter(new TestingMBeanServer()));
         return createPlan(session, sql, planOptimizers.get(), stage);
     }
 

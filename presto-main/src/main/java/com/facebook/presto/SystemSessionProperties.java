@@ -57,6 +57,7 @@ public final class SystemSessionProperties
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
     public static final String COLOCATED_JOIN = "colocated_join";
+    public static final String REORDER_JOINS = "reorder_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
@@ -65,6 +66,8 @@ public final class SystemSessionProperties
     public static final String OPERATOR_MEMORY_LIMIT_BEFORE_SPILL = "operator_memory_limit_before_spill";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ORDER_BY = "legacy_order_by";
+    public static final String REORDER_WINDOWS = "reorder_windows";
+    public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -232,6 +235,11 @@ public final class SystemSessionProperties
                         true,
                         false),
                 booleanSessionProperty(
+                        REORDER_JOINS,
+                        "Experimental: Reorder joins to optimize plan",
+                        featuresConfig.isJoinReorderingEnabled(),
+                        false),
+                booleanSessionProperty(
                         COLOCATED_JOIN,
                         "Experimental: Use a colocated join when possible",
                         featuresConfig.isColocatedJoinsEnabled(),
@@ -259,6 +267,16 @@ public final class SystemSessionProperties
                         LEGACY_ORDER_BY,
                         "Use legacy rules for column resolution in ORDER BY clause",
                         featuresConfig.isLegacyOrderBy(),
+                        false),
+                booleanSessionProperty(
+                        REORDER_WINDOWS,
+                        "Allow reordering window functions in query",
+                        featuresConfig.isReorderWindows(),
+                        false),
+                booleanSessionProperty(
+                        ITERATIVE_OPTIMIZER,
+                        "Experimental: enable iterative optimizer",
+                        featuresConfig.isIterativeOptimizerEnabled(),
                         false));
     }
 
@@ -357,6 +375,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
     }
 
+    public static boolean isJoinReorderingEnabled(Session session)
+    {
+        return session.getSystemProperty(REORDER_JOINS, Boolean.class);
+    }
+
     public static boolean isColocatedJoinEnabled(Session session)
     {
         return session.getSystemProperty(COLOCATED_JOIN, Boolean.class);
@@ -372,6 +395,11 @@ public final class SystemSessionProperties
         Integer priority = session.getSystemProperty(QUERY_PRIORITY, Integer.class);
         checkArgument(priority > 0, "Query priority must be positive");
         return priority;
+    }
+
+    public static boolean isReorderWindowsEnabled(Session session)
+    {
+        return session.getSystemProperty(REORDER_WINDOWS, Boolean.class);
     }
 
     public static Duration getSplitConcurrencyAdjustmentInterval(Session session)
@@ -404,5 +432,10 @@ public final class SystemSessionProperties
     public static boolean isLegacyOrderByEnabled(Session session)
     {
         return session.getSystemProperty(LEGACY_ORDER_BY, Boolean.class);
+    }
+
+    public static boolean isNewOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(ITERATIVE_OPTIMIZER, Boolean.class);
     }
 }

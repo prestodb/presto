@@ -13,12 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.BridgingHiveMetastore;
-import com.facebook.presto.hive.metastore.CachingHiveMetastore;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.HiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
-import com.facebook.presto.hive.metastore.ThriftHiveMetastore;
 import com.facebook.presto.hive.orc.DwrfPageSourceFactory;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
@@ -54,15 +49,13 @@ public class HiveClientModule
         implements Module
 {
     private final String connectorId;
-    private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeManager nodeManager;
 
-    public HiveClientModule(String connectorId, ExtendedHiveMetastore metastore, TypeManager typeManager, PageIndexerFactory pageIndexerFactory, NodeManager nodeManager)
+    public HiveClientModule(String connectorId, TypeManager typeManager, PageIndexerFactory pageIndexerFactory, NodeManager nodeManager)
     {
         this.connectorId = connectorId;
-        this.metastore = metastore;
         this.typeManager = typeManager;
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeManager = nodeManager;
@@ -83,19 +76,6 @@ public class HiveClientModule
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
-
-        if (metastore != null) {
-            binder.bind(ExtendedHiveMetastore.class).toInstance(metastore);
-        }
-        else {
-            binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
-            binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(BridgingHiveMetastore.class).in(Scopes.SINGLETON);
-            binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(HiveMetastore.class)
-                    .as(generatedNameOf(ThriftHiveMetastore.class, connectorId));
-            newExporter(binder).export(ExtendedHiveMetastore.class)
-                    .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
-        }
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).as(generatedNameOf(NamenodeStats.class));

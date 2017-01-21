@@ -25,7 +25,6 @@ import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.DoubleType;
-import com.google.common.primitives.Ints;
 
 import javax.validation.constraints.NotNull;
 
@@ -35,6 +34,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
 import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 
 @AggregationFunction("numeric_histogram")
 public final class DoubleHistogramAggregation
@@ -60,7 +60,7 @@ public final class DoubleHistogramAggregation
         NumericHistogram histogram = state.get();
         if (histogram == null) {
             checkCondition(buckets >= 2, INVALID_FUNCTION_ARGUMENT, "numeric_histogram bucket count must be greater than one");
-            histogram = new NumericHistogram(Ints.checkedCast(buckets), ENTRY_BUFFER_SIZE);
+            histogram = new NumericHistogram(toIntExact(buckets), ENTRY_BUFFER_SIZE);
             state.set(histogram);
         }
 

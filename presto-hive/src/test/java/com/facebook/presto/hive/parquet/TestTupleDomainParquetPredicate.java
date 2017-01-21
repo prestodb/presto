@@ -25,12 +25,16 @@ import parquet.io.api.Binary;
 import static com.facebook.presto.hive.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static com.facebook.presto.spi.predicate.Domain.all;
 import static com.facebook.presto.spi.predicate.Domain.create;
+import static com.facebook.presto.spi.predicate.Domain.notNull;
 import static com.facebook.presto.spi.predicate.Domain.singleValue;
 import static com.facebook.presto.spi.predicate.Range.range;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
@@ -73,6 +77,45 @@ public class TestTupleDomainParquetPredicate
         LongStatistics statistics = new LongStatistics();
         statistics.setMinMax(minimum, maximum);
         return statistics;
+    }
+
+    @Test
+    public void testInteger()
+            throws Exception
+    {
+        assertEquals(getDomain(INTEGER, 0, null), all(INTEGER));
+
+        assertEquals(getDomain(INTEGER, 10, longColumnStats(100, 100)), singleValue(INTEGER, 100L));
+
+        assertEquals(getDomain(INTEGER, 10, longColumnStats(0, 100)), create(ValueSet.ofRanges(range(INTEGER, 0L, true, 100L, true)), false));
+
+        assertEquals(getDomain(INTEGER, 20, longColumnStats(0, 2147483648L)), notNull(INTEGER));
+    }
+
+    @Test
+    public void testSmallint()
+            throws Exception
+    {
+        assertEquals(getDomain(SMALLINT, 0, null), all(SMALLINT));
+
+        assertEquals(getDomain(SMALLINT, 10, longColumnStats(100, 100)), singleValue(SMALLINT, 100L));
+
+        assertEquals(getDomain(SMALLINT, 10, longColumnStats(0, 100)), create(ValueSet.ofRanges(range(SMALLINT, 0L, true, 100L, true)), false));
+
+        assertEquals(getDomain(SMALLINT, 20, longColumnStats(0, 2147483648L)), notNull(SMALLINT));
+    }
+
+    @Test
+    public void testTinyint()
+            throws Exception
+    {
+        assertEquals(getDomain(TINYINT, 0, null), all(TINYINT));
+
+        assertEquals(getDomain(TINYINT, 10, longColumnStats(100, 100)), singleValue(TINYINT, 100L));
+
+        assertEquals(getDomain(TINYINT, 10, longColumnStats(0, 100)), create(ValueSet.ofRanges(range(TINYINT, 0L, true, 100L, true)), false));
+
+        assertEquals(getDomain(TINYINT, 20, longColumnStats(0, 2147483648L)), notNull(TINYINT));
     }
 
     @Test

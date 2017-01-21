@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 
 import java.util.ArrayDeque;
 import java.util.List;
@@ -40,6 +41,8 @@ import static java.util.Objects.requireNonNull;
 public class FixedSourcePartitionedScheduler
         implements StageScheduler
 {
+    private static final Logger log = Logger.get(FixedSourcePartitionedScheduler.class);
+
     private final SqlStageExecution stage;
     private final NodePartitionMap partitioning;
     private final Queue<SourcePartitionedScheduler> sourcePartitionedSchedulers;
@@ -97,7 +100,7 @@ public class FixedSourcePartitionedScheduler
             if (!blocked.isDone() || !schedule.isFinished()) {
                 break;
             }
-            sourcePartitionedSchedulers.remove();
+            sourcePartitionedSchedulers.remove().close();
         }
         if (blockedReason != null) {
             return new ScheduleResult(sourcePartitionedSchedulers.isEmpty(), newTasks, blocked, blockedReason, splitsScheduled);
@@ -111,7 +114,14 @@ public class FixedSourcePartitionedScheduler
     @Override
     public void close()
     {
-        sourcePartitionedSchedulers.isEmpty();
+        while (!sourcePartitionedSchedulers.isEmpty()) {
+            try {
+                sourcePartitionedSchedulers.remove().close();
+            }
+            catch (Throwable t) {
+                log.warn(t, "Error closing split source");
+            }
+        }
     }
 
     private static class FixedSplitPlacementPolicy

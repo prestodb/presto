@@ -210,7 +210,7 @@ public final class FunctionAssertions
         return metadata;
     }
 
-    public FunctionAssertions addFunctions(List<SqlFunction> functionInfos)
+    public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
     {
         metadata.addFunctions(functionInfos);
         return this;

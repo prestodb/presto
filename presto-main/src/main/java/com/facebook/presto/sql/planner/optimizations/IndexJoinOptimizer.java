@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -140,12 +141,12 @@ public class IndexJoinOptimizer
                 switch (node.getType()) {
                     case INNER:
                         // Prefer the right candidate over the left candidate
-                        IndexJoinNode indexJoinNode = null;
+                        PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                            indexJoinNode = createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                            indexJoinNode = createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
                         }
 
                         if (indexJoinNode != null) {
@@ -159,14 +160,14 @@ public class IndexJoinOptimizer
                     case LEFT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && rightIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
+                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
                         }
                         break;
 
                     case RIGHT:
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (!node.getFilter().isPresent() && leftIndexCandidate.isPresent()) {
-                            return new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
+                            return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
                         }
                         break;
 
@@ -179,9 +180,21 @@ public class IndexJoinOptimizer
             }
 
             if (leftRewritten != node.getLeft() || rightRewritten != node.getRight()) {
-                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
+                return new JoinNode(node.getId(), node.getType(), leftRewritten, rightRewritten, node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol());
             }
             return node;
+        }
+
+        private static PlanNode createIndexJoinWithExpectedOutputs(List<Symbol> expectedOutputs, IndexJoinNode.Type type, PlanNode probe, PlanNode index, List<IndexJoinNode.EquiJoinClause> equiJoinClause, PlanNodeIdAllocator idAllocator)
+        {
+            PlanNode result = new IndexJoinNode(idAllocator.getNextId(), type, probe, index, equiJoinClause, Optional.empty(), Optional.empty());
+            if (!result.getOutputSymbols().equals(expectedOutputs)) {
+                result = new ProjectNode(
+                        idAllocator.getNextId(),
+                        result,
+                        Assignments.identity(expectedOutputs));
+            }
+            return result;
         }
 
         private static List<IndexJoinNode.EquiJoinClause> createEquiJoinClause(List<Symbol> probeSymbols, List<Symbol> indexSymbols)
@@ -460,7 +473,7 @@ public class IndexJoinOptimizer
             public Map<Symbol, Symbol> visitProject(ProjectNode node, Set<Symbol> lookupSymbols)
             {
                 // Map from output Symbols to source Symbols
-                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments(), SymbolReference.class::isInstance), Symbol::from);
+                Map<Symbol, Symbol> directSymbolTranslationOutputMap = Maps.transformValues(Maps.filterValues(node.getAssignments().getMap(), SymbolReference.class::isInstance), Symbol::from);
                 Map<Symbol, Symbol> outputToSourceMap = lookupSymbols.stream()
                         .filter(directSymbolTranslationOutputMap.keySet()::contains)
                         .collect(toImmutableMap(identity(), directSymbolTranslationOutputMap::get));

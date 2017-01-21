@@ -101,7 +101,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type
+    : identifier type (COMMENT STRING)?
     ;
 
 likeClause
@@ -280,10 +280,7 @@ primaryExpression
     | BINARY_LITERAL                                                                      #binaryLiteral
     | '?'                                                                                 #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
-    // This case handles both an implicit row constructor or a simple parenthesized
-    // expression. We can't make the two separate alternatives because it needs
-    // unbounded look-ahead to figure out which one to take while it looks for the comma
-    | '(' expression (',' expression)* ')'                                                #implicitRowConstructor
+    | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' filter? over?  #functionCall
@@ -308,6 +305,7 @@ primaryExpression
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
+    | '(' expression ')'                                                                  #parenthesizedExpression
     ;
 
 timeZoneSpecifier
@@ -386,8 +384,8 @@ frameBound
 
 
 explainOption
-    : FORMAT value=(TEXT | GRAPHVIZ)         #explainFormat
-    | TYPE value=(LOGICAL | DISTRIBUTED)     #explainType
+    : FORMAT value=(TEXT | GRAPHVIZ)                   #explainFormat
+    | TYPE value=(LOGICAL | DISTRIBUTED | VALIDATE)    #explainType
     ;
 
 transactionMode
@@ -439,7 +437,7 @@ nonReserved
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW | MAP | ARRAY
     | TINYINT | SMALLINT | INTEGER | DATE | TIME | TIMESTAMP | INTERVAL | ZONE
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
-    | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
+    | EXPLAIN | ANALYZE | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED | VALIDATE
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | TO
     | SET | RESET
     | VIEW | REPLACE
@@ -449,12 +447,14 @@ nonReserved
     | NO | DATA
     | START | TRANSACTION | COMMIT | ROLLBACK | WORK | ISOLATION | LEVEL
     | SERIALIZABLE | REPEATABLE | COMMITTED | UNCOMMITTED | READ | WRITE | ONLY
+    | COMMENT
     | CALL
     | GRANT | REVOKE | PRIVILEGES | PUBLIC | OPTION
     | SUBSTRING
     | SCHEMA | CASCADE | RESTRICT
     | INPUT | OUTPUT
     | INCLUDING | EXCLUDING | PROPERTIES
+    | ALL | SOME | ANY
     ;
 
 normalForm
@@ -552,6 +552,7 @@ VALUES: 'VALUES';
 CREATE: 'CREATE';
 SCHEMA: 'SCHEMA';
 TABLE: 'TABLE';
+COMMENT: 'COMMENT';
 VIEW: 'VIEW';
 REPLACE: 'REPLACE';
 INSERT: 'INSERT';
@@ -572,6 +573,7 @@ TEXT: 'TEXT';
 GRAPHVIZ: 'GRAPHVIZ';
 LOGICAL: 'LOGICAL';
 DISTRIBUTED: 'DISTRIBUTED';
+VALIDATE: 'VALIDATE';
 CAST: 'CAST';
 TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';

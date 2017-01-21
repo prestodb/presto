@@ -22,7 +22,6 @@ import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.WhiteListPolicy;
-import com.google.common.primitives.Ints;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -40,6 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
@@ -139,8 +139,8 @@ public class CassandraClientModule
         clusterBuilder.withLoadBalancingPolicy(loadPolicy);
 
         SocketOptions socketOptions = new SocketOptions();
-        socketOptions.setReadTimeoutMillis(Ints.checkedCast(config.getClientReadTimeout().toMillis()));
-        socketOptions.setConnectTimeoutMillis(Ints.checkedCast(config.getClientConnectTimeout().toMillis()));
+        socketOptions.setReadTimeoutMillis(toIntExact(config.getClientReadTimeout().toMillis()));
+        socketOptions.setConnectTimeoutMillis(toIntExact(config.getClientConnectTimeout().toMillis()));
         if (config.getClientSoLinger() != null) {
             socketOptions.setSoLinger(config.getClientSoLinger());
         }

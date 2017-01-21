@@ -87,7 +87,6 @@ public class BenchmarkHashBuildAndJoinOperators
         protected Optional<Integer> hashChannel;
         protected List<Type> types;
         protected List<Integer> hashChannels;
-        protected LookupSourceFactory lookupSourceFactory;
 
         @Setup
         public void setup()
@@ -108,8 +107,6 @@ public class BenchmarkHashBuildAndJoinOperators
             executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
             initializeBuildPages();
-
-            lookupSourceFactory = new BenchmarkHashBuildAndJoinOperators().benchmarkBuildHash(this);
         }
 
         public TaskContext createTaskContext()
@@ -133,11 +130,6 @@ public class BenchmarkHashBuildAndJoinOperators
         public List<Type> getTypes()
         {
             return types;
-        }
-
-        public LookupSourceFactory getLookupSourceFactory()
-        {
-            return lookupSourceFactory;
         }
 
         public List<Page> getBuildPages()
@@ -172,19 +164,51 @@ public class BenchmarkHashBuildAndJoinOperators
         @Param({"0.1", "1", "2"})
         protected double matchRate;
 
+        @Param({"bigint", "all"})
+        protected String outputColumns;
+
         protected List<Page> probePages;
+        protected List<Integer> outputChannels;
+
+        protected LookupSourceFactory lookupSourceFactory;
 
         @Override
         @Setup
         public void setup()
         {
             super.setup();
+
+            switch (outputColumns) {
+                case "varchar":
+                    outputChannels = Ints.asList(0);
+                    break;
+                case "bigint":
+                    outputChannels = Ints.asList(1);
+                    break;
+                case "all":
+                    outputChannels = Ints.asList(0, 1, 2);
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unknown outputColumns value [%s]", hashColumns));
+            }
+
+            lookupSourceFactory = new BenchmarkHashBuildAndJoinOperators().benchmarkBuildHash(this, outputChannels);
             initializeProbePages();
+        }
+
+        public LookupSourceFactory getLookupSourceFactory()
+        {
+            return lookupSourceFactory;
         }
 
         public List<Page> getProbePages()
         {
             return probePages;
+        }
+
+        public List<Integer> getOutputChannels()
+        {
+            return outputChannels;
         }
 
         protected void initializeProbePages()
@@ -238,12 +262,18 @@ public class BenchmarkHashBuildAndJoinOperators
     @Benchmark
     public LookupSourceFactory benchmarkBuildHash(BuildContext buildContext)
     {
+        return benchmarkBuildHash(buildContext, ImmutableList.of(0, 1, 2));
+    }
+
+    private LookupSourceFactory benchmarkBuildHash(BuildContext buildContext, List<Integer> outputChannels)
+    {
         DriverContext driverContext = buildContext.createTaskContext().addPipelineContext(true, true).addDriverContext();
 
         HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                 HASH_BUILD_OPERATOR_ID,
                 TEST_PLAN_NODE_ID,
                 buildContext.getTypes(),
+                outputChannels,
                 ImmutableMap.of(),
                 buildContext.getHashChannels(),
                 buildContext.getHashChannel(),
@@ -258,8 +288,8 @@ public class BenchmarkHashBuildAndJoinOperators
         }
         operator.finish();
 
-        if (!operator.isFinished()) {
-            throw new AssertionError("Expected hash build operator to be finished");
+        if (!hashBuilderOperatorFactory.getLookupSourceFactory().createLookupSource().isDone()) {
+            throw new AssertionError("Expected lookup source to be done");
         }
 
         return hashBuilderOperatorFactory.getLookupSourceFactory();
@@ -277,7 +307,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 joinContext.getTypes(),
                 joinContext.getHashChannels(),
                 joinContext.getHashChannel(),
-                false);
+                Optional.of(joinContext.getOutputChannels()));
 
         DriverContext driverContext = joinContext.createTaskContext().addPipelineContext(true, true).addDriverContext();
         Operator joinOperator = joinOperatorFactory.createOperator(driverContext);

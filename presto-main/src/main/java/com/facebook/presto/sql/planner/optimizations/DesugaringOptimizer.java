@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.DesugaringRewriter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
+import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -29,8 +30,6 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -81,7 +80,7 @@ public class DesugaringOptimizer
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            Map<Symbol, Expression> assignments = ImmutableMap.copyOf(Maps.transformValues(node.getAssignments(), this::desugar));
+            Assignments assignments = node.getAssignments().rewrite(this::desugar);
             return new ProjectNode(node.getId(), source, assignments);
         }
 

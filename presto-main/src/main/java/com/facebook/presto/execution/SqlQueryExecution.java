@@ -28,6 +28,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -52,6 +53,7 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
 import io.airlift.concurrent.SetThreadName;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -75,6 +77,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class SqlQueryExecution
         implements QueryExecution
 {
+    private static final Logger log = Logger.get(SqlQueryExecution.class);
+
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
     private final QueryStateMachine stateMachine;
@@ -215,10 +219,11 @@ public final class SqlQueryExecution
     }
 
     @Override
-    public void start()
+    public void start(Optional<String> resourceGroupName)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
+                resourceGroupName.ifPresent(groupName -> stateMachine.setResourceGroup(groupName));
                 // transition to planning
                 if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished
@@ -319,6 +324,14 @@ public final class SqlQueryExecution
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
         stateMachine.recordDistributedPlanningTime(distributedPlanningStart);
 
+        // ensure split sources are closed
+        stateMachine.addStateChangeListener(state -> {
+            if (state.isDone()) {
+                closeSplitSources(outputStageExecutionPlan);
+            }
+        });
+
+        // if query was canceled, skip creating scheduler
         if (stateMachine.isDone()) {
             return;
         }
@@ -355,6 +368,22 @@ public final class SqlQueryExecution
         if (stateMachine.isDone()) {
             scheduler.abort();
             queryScheduler.set(null);
+        }
+    }
+
+    private static void closeSplitSources(StageExecutionPlan plan)
+    {
+        for (SplitSource source : plan.getSplitSources().values()) {
+            try {
+                source.close();
+            }
+            catch (Throwable t) {
+                log.warn(t, "Error closing split source");
+            }
+        }
+
+        for (StageExecutionPlan stage : plan.getSubStages()) {
+            closeSplitSources(stage);
         }
     }
 

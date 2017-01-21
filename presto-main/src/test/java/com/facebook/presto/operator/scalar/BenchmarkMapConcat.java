@@ -35,7 +35,6 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.MapType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -195,7 +194,7 @@ public class BenchmarkMapConcat
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, Slices.wrappedIntArray(keyIds));
+            return new DictionaryBlock(positionCount * keys.size(), keyDictionaryBlock, keyIds);
         }
 
         private static Block createValueBlock(int positionCount, int mapSize)

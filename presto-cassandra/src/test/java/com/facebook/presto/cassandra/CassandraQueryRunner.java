@@ -17,10 +17,8 @@ import com.datastax.driver.core.Cluster;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createOrReplaceKeyspace;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -33,25 +31,14 @@ public final class CassandraQueryRunner
     {
     }
 
-    private static final String TPCH_SCHEMA = "tpch";
+    private static boolean tpchLoaded = false;
 
-    public static DistributedQueryRunner createCassandraQueryRunner(TpchTable<?>... tables)
+    public static synchronized DistributedQueryRunner createCassandraQueryRunner()
             throws Exception
     {
-        return createCassandraQueryRunner(ImmutableList.copyOf(tables));
-    }
+        EmbeddedCassandra.start();
 
-    public static DistributedQueryRunner createCassandraQueryRunner(Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        EmbeddedCassandraServerHelper.startEmbeddedCassandra();
-
-        try (Cluster cluster = CassandraTestingUtils.getCluster();
-                com.datastax.driver.core.Session session = cluster.connect()) {
-            createOrReplaceKeyspace(session, "tpch");
-        }
-
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -62,14 +49,16 @@ public final class CassandraQueryRunner
                 "cassandra.native-protocol-port", "9142",
                 "cassandra.allow-drop-table", "true"));
 
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+        if (!tpchLoaded) {
+            try (Cluster cluster = CassandraTestingUtils.getCluster();
+                    com.datastax.driver.core.Session session = cluster.connect()) {
+                createOrReplaceKeyspace(session, "tpch");
+            }
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), TpchTable.getTables());
+            tpchLoaded = true;
+        }
 
         return queryRunner;
-    }
-
-    public static Session createSession()
-    {
-        return createCassandraSession(TPCH_SCHEMA);
     }
 
     public static Session createCassandraSession(String schema)

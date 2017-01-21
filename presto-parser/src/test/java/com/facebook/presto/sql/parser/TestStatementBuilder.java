@@ -189,6 +189,7 @@ public class TestStatementBuilder
         printStatement("alter schema foo.bar rename to baz");
 
         printStatement("create table test (a boolean, b bigint, c double, d varchar, e timestamp)");
+        printStatement("create table test (a boolean, b bigint comment 'test')");
         printStatement("create table if not exists baz (a timestamp, b varchar)");
         printStatement("create table test (a boolean, b bigint) with (a = 'apple', b = 'banana')");
         printStatement("drop table test");

@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableIdentity;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
@@ -168,7 +169,7 @@ public interface Metadata
     /**
      * Finish a table creation with data after the data is written.
      */
-    void finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
 
     Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
 
@@ -180,7 +181,7 @@ public interface Metadata
     /**
      * Finish insert query
      */
-    void finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
+    Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.

@@ -15,6 +15,7 @@ package com.facebook.presto.hive.rcfile;
 
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.rcfile.RcFileCorruptionException;
 import com.facebook.presto.rcfile.RcFileReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.block.LazyBlockLoader;
 import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
@@ -35,6 +35,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.util.List;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -155,6 +156,10 @@ public class RcFilePageSource
 
             return page;
         }
+        catch (PrestoException e) {
+            closeWithSuppression(e);
+            throw e;
+        }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
             throw new PrestoException(HIVE_CURSOR_ERROR, e);
@@ -237,7 +242,10 @@ public class RcFilePageSource
                 lazyBlock.setBlock(block);
             }
             catch (IOException e) {
-                throw Throwables.propagate(e);
+                if (e instanceof RcFileCorruptionException) {
+                    throw new PrestoException(HIVE_BAD_DATA, e);
+                }
+                throw new PrestoException(HIVE_CURSOR_ERROR, e);
             }
 
             loaded = true;
