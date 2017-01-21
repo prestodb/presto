@@ -26,7 +26,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -80,20 +79,6 @@ public class ExpressionCompiler
     public long getCacheSize()
     {
         return pageProcessors.size();
-    }
-
-    @Managed
-    @Nested
-    public CacheStatsMBean getPageCacheStats()
-    {
-        return new CacheStatsMBean(pageProcessors.stats());
-    }
-
-    @Managed
-    @Nested
-    public CacheStatsMBean getCursorCacheStats()
-    {
-        return new CacheStatsMBean(cursorProcessors.stats());
     }
 
     public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
