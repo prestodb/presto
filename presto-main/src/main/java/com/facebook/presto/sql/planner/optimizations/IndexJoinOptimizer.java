@@ -143,16 +143,24 @@ public class IndexJoinOptimizer
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
-                            indexJoinNode = createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), Optional.empty(), Optional.empty());
                         }
                         else if (leftIndexCandidate.isPresent()) {
-                            indexJoinNode = createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
+                            indexJoinNode = new IndexJoinNode(idAllocator.getNextId(), IndexJoinNode.Type.INNER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), Optional.empty(), Optional.empty());
                         }
 
                         if (indexJoinNode != null) {
                             if (node.getFilter().isPresent()) {
-                                return new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
+                                indexJoinNode = new FilterNode(idAllocator.getNextId(), indexJoinNode, node.getFilter().get());
                             }
+
+                            if (!indexJoinNode.getOutputSymbols().equals(node.getOutputSymbols())) {
+                                indexJoinNode = new ProjectNode(
+                                        idAllocator.getNextId(),
+                                        indexJoinNode,
+                                        Assignments.identity(node.getOutputSymbols()));
+                            }
+
                             return indexJoinNode;
                         }
                         break;
