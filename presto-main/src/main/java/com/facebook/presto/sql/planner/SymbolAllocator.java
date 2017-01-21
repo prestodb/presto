@@ -30,8 +30,18 @@ import static java.util.Objects.requireNonNull;
 
 public class SymbolAllocator
 {
-    private final Map<Symbol, Type> symbols = new HashMap<>();
+    private final Map<Symbol, Type> symbols;
     private int nextId;
+
+    public SymbolAllocator()
+    {
+        symbols = new HashMap<>();
+    }
+
+    public SymbolAllocator(Map<Symbol, Type> initial)
+    {
+        symbols = new HashMap<>(initial);
+    }
 
     public Symbol newSymbol(String nameHint, Type type)
     {
