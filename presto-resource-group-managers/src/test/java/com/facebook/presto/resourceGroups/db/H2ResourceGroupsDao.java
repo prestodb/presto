@@ -75,9 +75,10 @@ public interface H2ResourceGroupsDao
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 
     @SqlUpdate("INSERT INTO selectors\n" +
-            "(resource_group_id, user_regex, source_regex)\n" +
-            "VALUES (:resource_group_id, :user_regex, :source_regex)")
+            "(selector_order, resource_group_id, user_regex, source_regex)\n" +
+            "VALUES (:selector_order, :resource_group_id, :user_regex, :source_regex)")
     void insertSelector(
+            @Bind("selector_order") int selectorOrder,
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("user_regex") String userRegex,
             @Bind("source_regex") String sourceRegex);

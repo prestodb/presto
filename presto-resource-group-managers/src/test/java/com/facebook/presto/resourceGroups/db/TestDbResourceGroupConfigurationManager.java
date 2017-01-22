@@ -54,7 +54,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, "weighted", null, true, "1h", "1d", null);
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, null, 5, null, null, null, 1L);
-        dao.insertSelector(2, null, null);
+        dao.insertSelector(100, 2, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> { },
                 daoProvider.get());
         AtomicBoolean exported = new AtomicBoolean();
@@ -85,7 +85,7 @@ public class TestDbResourceGroupConfigurationManager
             assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcSQLException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
-        dao.insertSelector(1, null, null);
+        dao.insertSelector(100, 1, null, null);
         daoProvider = setup("test_dup_subs");
         dao = daoProvider.get();
         dao.createResourceGroupsGlobalPropertiesTable();
@@ -102,7 +102,7 @@ public class TestDbResourceGroupConfigurationManager
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
 
-        dao.insertSelector(2, null, null);
+        dao.insertSelector(200, 2, null, null);
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No matching configuration found for: missing")
@@ -116,7 +116,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, "weighted", null, true, "1h", "1d", null);
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, null, 5, null, null, null, 1L);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        dao.insertSelector(2, null, null);
+        dao.insertSelector(100, 2, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {
         },
                 daoProvider.get());
@@ -135,7 +135,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.createSelectorsTable();
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, "weighted", null, true, "1h", "1d", null);
         dao.insertResourceGroup(2, "sub", "2MB", 4, 3, null, 5, null, null, null, 1L);
-        dao.insertSelector(2, null, null);
+        dao.insertSelector(100, 2, null, null);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 (poolId, listener) -> { },

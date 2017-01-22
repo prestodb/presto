@@ -104,8 +104,8 @@ public class TestResourceGroupsDao
         dao.insertResourceGroup(1, "admin", "100%", 100, 100, null, null, null, null, null, null);
         dao.insertResourceGroup(2, "ping_query", "50%", 50, 50, null, null, null, null, null, 1L);
         dao.insertResourceGroup(3, "config", "50%", 50, 50, null, null, null, null, null, 1L);
-        dao.insertSelector(2, "ping_user", ".*");
-        dao.insertSelector(3, "admin_user", ".*");
+        dao.insertSelector(100, 2, "ping_user", ".*");
+        dao.insertSelector(200, 3, "admin_user", ".*");
         List<SelectorRecord> records = dao.getSelectors();
         compareSelectors(map, records);
     }
@@ -163,7 +163,7 @@ public class TestResourceGroupsDao
             return;
         }
 
-        dao.insertSelector(3, "user1", "pipeline");
+        dao.insertSelector(300, 3, "user1", "pipeline");
         map.put(3L, new SelectorRecord(
                 3L,
                 Optional.of(Pattern.compile("user1")),
