@@ -50,6 +50,9 @@ class TranslationMap
     // current mappings of underlying field -> symbol for translating direct field references
     private final Symbol[] fieldSymbols;
 
+    // current explicit qualified name reference mappings
+    private final IdentityHashMap<QualifiedNameReference, Expression> qualifiedNameReferenceSymbols = new IdentityHashMap<>();
+
     // current mappings of sub-expressions -> symbol
     private final Map<Expression, Symbol> expressionToSymbols = new HashMap<>();
     private final Map<Expression, Expression> expressionToExpressions = new HashMap<>();
@@ -94,6 +97,7 @@ class TranslationMap
                 other.fieldSymbols.length,
                 fieldSymbols.length);
 
+        qualifiedNameReferenceSymbols.putAll(other.qualifiedNameReferenceSymbols);
         expressionToSymbols.putAll(other.expressionToSymbols);
         expressionToExpressions.putAll(other.expressionToExpressions);
         System.arraycopy(other.fieldSymbols, 0, fieldSymbols, 0, other.fieldSymbols.length);
@@ -101,6 +105,7 @@ class TranslationMap
 
     public void putExpressionMappingsFrom(TranslationMap other)
     {
+        qualifiedNameReferenceSymbols.putAll(other.qualifiedNameReferenceSymbols);
         expressionToSymbols.putAll(other.expressionToSymbols);
         expressionToExpressions.putAll(other.expressionToExpressions);
     }
@@ -197,6 +202,11 @@ class TranslationMap
         expressionToExpressions.put(translateNamesToSymbols(expression), rewritten);
     }
 
+    public void addQualifiedNameReferenceMapping(QualifiedNameReference expression, Expression rewritten)
+    {
+        qualifiedNameReferenceSymbols.put(expression, rewritten);
+    }
+
     public void addIntermediateMapping(Expression expression, Expression rewritten)
     {
         if (rewritten.equals(expression)) {
@@ -248,8 +258,12 @@ class TranslationMap
                 }
             }
 
-            private Expression rewriteExpressionWithResolvedName(Expression node)
+            private Expression rewriteExpressionWithResolvedName(QualifiedNameReference node)
             {
+                if (qualifiedNameReferenceSymbols.containsKey(node)) {
+                    return coerceIfNecessary(node, qualifiedNameReferenceSymbols.get(node));
+                }
+
                 return rewriteBase.getSymbol(node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                         .orElse(node);

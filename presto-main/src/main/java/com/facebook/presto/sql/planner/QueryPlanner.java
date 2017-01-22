@@ -24,6 +24,7 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
+import com.facebook.presto.sql.analyzer.ResolvedField;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -49,6 +50,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.SortItem;
@@ -57,6 +59,7 @@ import com.facebook.presto.sql.tree.SortItem.Ordering;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -77,6 +80,8 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -147,10 +152,17 @@ class QueryPlanner
 
         builder = window(builder, node);
 
-        List<Expression> orderBy = analysis.getOrderByExpressions(node);
-        builder = handleSubqueries(builder, node, orderBy);
         List<Expression> outputs = analysis.getOutputExpressions(node);
         builder = handleSubqueries(builder, node, outputs);
+        List<Expression> orderBy = analysis.getOrderByExpressions(node);
+        builder = builder.prependProjections(outputs, symbolAllocator, idAllocator);
+        Map<QualifiedNameReference, Symbol> orderByQualifiedNmeReferenceMappings = mapOrderByQualifiedNameReferencesToOutputSymbols(analysis.getScope(node), builder, orderBy);
+        for (Map.Entry<QualifiedNameReference, Symbol> orderByQualifiedNameReferenceMapping : orderByQualifiedNmeReferenceMappings.entrySet()) {
+            builder.getTranslations().addQualifiedNameReferenceMapping(
+                    orderByQualifiedNameReferenceMapping.getKey(),
+                    orderByQualifiedNameReferenceMapping.getValue().toSymbolReference());
+        }
+        builder = handleSubqueries(builder, node, orderBy);
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
         builder = distinct(builder, node, outputs, orderBy);
@@ -162,6 +174,19 @@ class QueryPlanner
                 builder.getRoot(),
                 analysis.getScope(node),
                 computeOutputs(builder, analysis.getOutputExpressions(node)));
+    }
+
+    private Map<QualifiedNameReference, Symbol> mapOrderByQualifiedNameReferencesToOutputSymbols(Scope outputScope, PlanBuilder builder, List<Expression> orderBy)
+    {
+        return orderBy.stream()
+                .flatMap(AstUtils::preOrder)
+                .filter(isInstanceOfAny(QualifiedNameReference.class))
+                .map(QualifiedNameReference.class::cast)
+                .filter(outputScope::canResolveLocalField)
+                .collect(toImmutableMap(reference -> reference, reference -> {
+                    ResolvedField field = outputScope.tryResolveField(reference).get();
+                    return builder.getRoot().getOutputSymbols().get(field.getFieldIndex());
+                }));
     }
 
     public DeleteNode plan(Delete node)

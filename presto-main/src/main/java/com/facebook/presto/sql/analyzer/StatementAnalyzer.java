@@ -60,8 +60,6 @@ import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -127,7 +125,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
@@ -1277,18 +1274,8 @@ class StatementAnalyzer
                     orderByExpression = outputExpressions.get(field);
                 }
                 else {
-                    // Analyze the original expression using a synthetic scope (which delegates to the source scope for any missing name)
-                    // to catch any semantic errors (due to type mismatch, etc)
-                    Scope synthetic = Scope.builder()
-                            .withParent(sourceScope)
-                            .withRelationType(outputScope.getRelationType())
-                            .build();
-
-                    analyzeExpression(expression, synthetic);
-
-                    orderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node)), expression);
-
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(orderByExpression, sourceScope);
+                    orderByExpression = expression;
+                    ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, outputScope);
                     analysis.recordSubqueries(node, expressionAnalysis);
                 }
 
@@ -1412,42 +1399,6 @@ class StatementAnalyzer
         }
 
         return assignments.build();
-    }
-
-    private static class OrderByExpressionRewriter
-            extends ExpressionRewriter<Void>
-    {
-        private final Multimap<QualifiedName, Expression> assignments;
-
-        public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
-        {
-            this.assignments = assignments;
-        }
-
-        @Override
-        public Expression rewriteQualifiedNameReference(QualifiedNameReference reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            if (reference.getName().getPrefix().isPresent()) {
-                return reference;
-            }
-
-            // if this is a simple name reference, try to resolve against output columns
-            QualifiedName name = reference.getName();
-            Set<Expression> expressions = assignments.get(name)
-                    .stream()
-                    .collect(Collectors.toSet());
-
-            if (expressions.size() > 1) {
-                throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name.getSuffix());
-            }
-
-            if (expressions.size() == 1) {
-                return Iterables.getOnlyElement(expressions);
-            }
-
-            // otherwise, couldn't resolve name against output aliases, so fall through...
-            return reference;
-        }
     }
 
     private List<List<Expression>> analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)

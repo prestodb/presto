@@ -91,6 +91,12 @@ public class Scope
         return name;
     }
 
+    public boolean canResolveLocalField(Expression expression)
+    {
+        Optional<ResolvedField> field = tryResolveField(expression);
+        return field.isPresent() && field.get().isLocal();
+    }
+
     public Optional<ResolvedField> tryResolveField(Expression node, QualifiedName name)
     {
         return resolveField(node, name, true);
