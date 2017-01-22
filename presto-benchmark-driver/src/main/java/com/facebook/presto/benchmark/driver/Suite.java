@@ -136,8 +136,8 @@ public class Suite
                 @JsonProperty("session") Map<String, String> session,
                 @JsonProperty("query") List<String> query)
         {
-            this.schema = requireNonNull(schema, "schema is null");
-            this.session = requireNonNull(session, "session is null");
+            this.schema = ImmutableList.copyOf(requireNonNull(schema, "schema is null"));
+            this.session = ImmutableMap.copyOf(requireNonNull(session, "session is null"));
             this.query = requireNonNull(query, "query is null");
         }
 
