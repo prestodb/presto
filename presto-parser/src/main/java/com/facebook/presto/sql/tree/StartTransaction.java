@@ -56,11 +56,9 @@ public final class StartTransaction
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(transactionModes)
-                .build();
+        return transactionModes;
     }
 
     @Override

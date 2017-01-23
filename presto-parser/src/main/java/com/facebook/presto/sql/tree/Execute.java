@@ -62,11 +62,9 @@ public class Execute
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(parameters)
-                .build();
+        return parameters;
     }
 
     @Override

@@ -66,11 +66,9 @@ public class With
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(queries)
-                .build();
+        return queries;
     }
 
     @Override
