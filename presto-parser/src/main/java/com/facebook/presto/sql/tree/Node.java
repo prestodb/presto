@@ -40,7 +40,7 @@ public abstract class Node
         return location;
     }
 
-    public abstract List<Node> getChildren();
+    public abstract List<? extends Node> getChildren();
 
     // Force subclasses to have a proper equals and hashcode implementation
     @Override
