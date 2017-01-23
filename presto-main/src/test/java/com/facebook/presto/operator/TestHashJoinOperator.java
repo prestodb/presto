@@ -120,7 +120,7 @@ public class TestHashJoinOperator
         );
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
                 .row("20", 1020L, 2020L, "20", 30L, 40L)
                 .row("21", 1021L, 2021L, "21", 31L, 41L)
                 .row("22", 1022L, 2022L, "22", 32L, 42L)
@@ -171,7 +171,7 @@ public class TestHashJoinOperator
         );
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -726,7 +726,7 @@ public class TestHashJoinOperator
                 Optional.empty());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", "b")
@@ -775,7 +775,7 @@ public class TestHashJoinOperator
                 Optional.empty());
 
         // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypesWithoutHash()))
                 .row("a", "a")
                 .row("a", "a")
                 .row("b", null)
