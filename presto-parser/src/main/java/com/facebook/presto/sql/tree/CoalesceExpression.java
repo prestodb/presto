@@ -63,11 +63,9 @@ public class CoalesceExpression
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(operands)
-                .build();
+        return operands;
     }
 
     @Override

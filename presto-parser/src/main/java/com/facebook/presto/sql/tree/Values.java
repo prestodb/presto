@@ -56,11 +56,9 @@ public final class Values
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(rows)
-                .build();
+        return rows;
     }
 
     @Override

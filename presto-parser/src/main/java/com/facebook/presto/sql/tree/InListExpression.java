@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,11 +50,9 @@ public class InListExpression
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(values)
-                .build();
+        return values;
     }
 
     @Override

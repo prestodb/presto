@@ -62,9 +62,9 @@ public class GroupBy
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder().addAll(groupingElements).build();
+        return groupingElements;
     }
 
     @Override
