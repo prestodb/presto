@@ -883,6 +883,9 @@
                     <groupId>org.gaul</groupId>
                     <artifactId>modernizer-maven-plugin</artifactId>
                     <configuration>
+                        <violationsFiles>
+                            <violationsFile>${air.main.basedir}/src/modernizer/violations.xml</violationsFile>
+                        </violationsFiles>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
                         </exclusionPatterns>
