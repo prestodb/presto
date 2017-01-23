@@ -62,9 +62,9 @@ public class Select
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return null;
+        return selectItems;
     }
 
     @Override
