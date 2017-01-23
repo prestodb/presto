@@ -56,6 +56,7 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.google.common.io.Files.createTempDir;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -64,7 +65,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestShardCompactor

@@ -37,11 +37,11 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
 import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static com.google.common.base.Strings.repeat;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
