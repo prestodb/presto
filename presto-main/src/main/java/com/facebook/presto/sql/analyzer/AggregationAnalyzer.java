@@ -342,10 +342,10 @@ class AggregationAnalyzer
                 }
             }
             else if (node.getFilter().isPresent()) {
-                    throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION,
-                            node,
-                            "Filter is only valid for aggregation functions",
-                            node);
+                throw new SemanticException(MUST_BE_AGGREGATION_FUNCTION,
+                        node,
+                        "Filter is only valid for aggregation functions",
+                        node);
             }
 
             if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
