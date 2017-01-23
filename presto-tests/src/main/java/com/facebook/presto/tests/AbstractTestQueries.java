@@ -82,6 +82,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.tests.QueryTemplate.parameter;
@@ -94,7 +95,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;

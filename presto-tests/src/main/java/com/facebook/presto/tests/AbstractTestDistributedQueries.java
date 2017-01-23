@@ -48,6 +48,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -57,7 +58,6 @@ import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

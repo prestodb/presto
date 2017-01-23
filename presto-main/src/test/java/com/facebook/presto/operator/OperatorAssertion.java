@@ -30,10 +30,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
