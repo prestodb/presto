@@ -57,6 +57,7 @@ import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.util.AstUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -72,10 +73,12 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.optimizations.Predicates.isInstanceOfAny;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -87,6 +90,7 @@ class AggregationAnalyzer
     private final List<Integer> fieldIndexes;
     private final List<Expression> expressions;
 
+    private final Analysis analysis;
     private final Metadata metadata;
     private final Set<Expression> columnReferences;
     private final List<Expression> parameters;
@@ -94,14 +98,16 @@ class AggregationAnalyzer
 
     private final Scope scope;
 
-    public AggregationAnalyzer(List<Expression> groupByExpressions, Metadata metadata, Scope scope, Set<Expression> columnReferences, List<Expression> parameters, boolean isDescribe)
+    public AggregationAnalyzer(Analysis analysis, List<Expression> groupByExpressions, Metadata metadata, Scope scope, Set<Expression> columnReferences, List<Expression> parameters, boolean isDescribe)
     {
+        requireNonNull(analysis, "analysis is null");
         requireNonNull(groupByExpressions, "groupByExpressions is null");
         requireNonNull(metadata, "metadata is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(columnReferences, "columnReferences is null");
         requireNonNull(parameters, "parameters is null");
 
+        this.analysis = analysis;
         this.scope = scope;
         this.metadata = metadata;
         this.columnReferences = ImmutableSet.copyOf(columnReferences);
@@ -167,7 +173,29 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitSubqueryExpression(SubqueryExpression node, Void context)
         {
+            AstUtils.preOrder(node)
+                    .filter(isInstanceOfAny(DereferenceExpression.class, Identifier.class))
+                    .map(Expression.class::cast)
+                    .forEach(this::analyzeSubqueryReference);
+
             return true;
+        }
+
+        private void analyzeSubqueryReference(Expression referenceExpression)
+        {
+            ResolvedField resolvedField = analysis.getScope(referenceExpression)
+                    .tryResolveField(referenceExpression)
+                    // Unresolvable fields should be found and reported earlier.
+                    .orElseThrow(() -> new IllegalStateException(format("Cannot resolve %s", referenceExpression)));
+
+            if (resolvedField.getScope() != scope) {
+                // Not our scope, not our responsibility
+                return;
+            }
+            if (!fieldIndexes.contains(resolvedField.getFieldIndex())) {
+                throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, referenceExpression,
+                        "Subquery uses '%s' which must appear in GROUP BY clause", referenceExpression);
+            }
         }
 
         @Override
