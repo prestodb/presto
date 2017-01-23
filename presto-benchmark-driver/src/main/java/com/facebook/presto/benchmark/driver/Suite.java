@@ -114,7 +114,7 @@ public class Suite
             throws IOException
     {
         requireNonNull(file, "file is null");
-        checkArgument(file.canRead(), "Can not read file: %s" + file);
+        checkArgument(file.canRead(), String.format("Can not read file: %s", file));
         byte[] json = Files.readAllBytes(file.toPath());
         Map<String, OptionsJson> options = mapJsonCodec(String.class, OptionsJson.class).fromJson(json);
         ImmutableList.Builder<Suite> runOptions = ImmutableList.builder();
