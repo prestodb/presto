@@ -156,6 +156,74 @@ Tasks managment properties
 Node scheduler properties
 -------------------------
 
+``node-scheduler.max-pending-splits-per-node-per-stage``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``10``
+ * **Description:**
+
+  Must be smaller than ``node-scheduler.max-splits-per-node``. This property describes
+  how many splits can be queued to each worker node. Having this value higher will
+  allow more jobs to be queued but will cause resources to be used for that.
+
+  Using a higher value is recommended if queries are submitted in large batches, (eg.
+  running a large group of reports periodically). Increasing this value may help to avoid
+  query drops and decrease the risk of short query starvation. High value is also
+  recommended if splits are processed relatively quickly compared to a time of generating
+  new splits by the connector.
+
+  Too high value may drastically increase processing wall time if node distribution of
+  query work will be skew. This is especially important if nodes do have important
+  differences in performance. The best value for that is enough to provide at least one
+  split always waiting to be process but not higher.
+
+
+``node-scheduler.max-splits-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``100``
+ * **Description:**
+
+  This property limits the number of splits that can be scheduled for each node.
+
+  Increasing this value will allow the cluster to process more queries or reduce visibility
+  of problems connected to data skew. High value is also recommended if splits are
+  processed relatively quickly compared to a time of generating new splits by the connector.
+
+  Excessively high values may result in poor performance due to context switching and
+  higher memory reservation for cluster metadata.
+
+
+``node-scheduler.min-candidates``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``10``
+ * **Description:**
+
+  The minimal number of node candidates check by scheduler when looking for a node to schedule
+  a split. Having this value to low may increase skew of work distribution between nodes.
+  Too high value may increase latency of query and CPU load. The value should be aligned
+  with number of nodes in cluster.
+
+
+``node-scheduler.multiple-tasks-per-node-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``false``
+ * **Description:**
+
+  Allow nodes to be selected multiple times by the node scheduler in a single stage.
+  With this property set to ``false`` the ``hash_partition_count`` is capped at number of
+  nodes in system. Having this set to ``true`` may allow better scheduling and concurrency,
+  which would reduce the number of outliers and speed up computations. It may also improve
+  reliability in unstable network conditions. The drawbacks are that some optimization may
+  work less efficiently on smaller partitions. Also slight hardware efficiency drop is
+  expected in heavy loaded system.
+
 .. _node-scheduler-network-topology:
 
 ``node-scheduler.network-topology``
