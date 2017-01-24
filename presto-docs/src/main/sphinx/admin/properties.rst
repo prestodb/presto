@@ -804,3 +804,54 @@ Session properties
  * **Description:**
 
   See :ref:`task.writer-count <tuning-pref-task>`.
+
+
+
+.. _tuning-pref-regexp:
+
+Regular expression properties
+-----------------------------
+
+``regex-library``
+^^^^^^^^^^^^^^^^^
+
+* **Type:** ``String``
+* **Default value:** ``JONI``
+* **Description:**
+
+  Which library to use for regular expression matching functions.
+  Options are ``JONI`` and ``RE2J``.  Setting this property to ``RE2J`` tells Presto to use
+  the more efficient re2j-td library, which is a linear time regular expression library.
+
+
+``re2j-dfa-states-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Integer``
+* **Default value:** ``MAX_INT``
+* **Description:**
+
+  The maximum number of states to use when re2j-td builds the
+  fast but potentially memory intensive deterministic finite automaton (DFA)
+  for regular expression matching. If the limit is reached, re2j-td will fall
+  back to the algorithm that uses the slower, but less memory intensive
+  non-deterministic finite automaton (NFA). Decreasing this value decreases the
+  maximum memory footprint of a regular expression search at the cost of speed.
+
+
+``re2j-dfa-retries``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Integer``
+* **Default value:** ``5``
+* **Description:**
+
+  The number of times that re2j-td will retry the DFA algorithm
+  when it reaches a states limit before using the slower, but less memory
+  intensive NFA algorithm for all future inputs for that search. If hitting the
+  limit for a given input row is likely to be an outlier, you want to be able
+  to process subsequent rows using the faster DFA algorithm. If you are likely
+  to hit the limit on matches for subsequent rows as well, you want to use the
+  correct algorithm from the beginning so as not to waste time and resources.
+  The greater the number of rows you are processing, the greater this value
+  should be.
