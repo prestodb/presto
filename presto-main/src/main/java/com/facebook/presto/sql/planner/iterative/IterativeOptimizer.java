@@ -109,10 +109,17 @@ public class IterativeOptimizer
         while (!done) {
             done = true;
             for (Rule rule : rules) {
-                long start = System.nanoTime();
-                Optional<PlanNode> transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
-                long duration = System.nanoTime() - start;
-
+                Optional<PlanNode> transformed;
+                long duration;
+                try {
+                    long start = System.nanoTime();
+                    transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+                    duration = System.nanoTime() - start;
+                }
+                catch (RuntimeException e) {
+                    stats.recordFailure(rule);
+                    throw e;
+                }
                 stats.record(rule, duration, transformed.isPresent());
 
                 if (transformed.isPresent()) {
