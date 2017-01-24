@@ -4,23 +4,6 @@ Presto properties
 
 This is a list and description of most important presto properties that may be used to tune Presto or alter it behavior when required.
 
-.. _tuning-pref-task:
-
-Tasks managment properties
---------------------------
-
-``task.max-worker-threads``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
- * **Type:** ``Integer``
- * **Default value:** ``Node CPUs`` * ``2``
- * **Description:**
-
-  Sets the number of threads used by workers to process splits. Increasing this number
-  can improve throughput if worker CPU utilization is low and all the threads are in use,
-  but will cause increased heap space usage. The number of active threads is available via
-  the ``com.facebook.presto.execution.TaskExecutor.RunningSplits`` JMX stat.
-
 
 .. _tuning-pref-general:
 
@@ -41,6 +24,24 @@ General properties
   the join fit in memory on each machine, whereas with distributed joins the
   tables on the right side have to fit in distributed memory. This can also be
   specified on a per-query basis using the ``distributed_join`` session property.
+
+
+.. _tuning-pref-task:
+
+Tasks managment properties
+--------------------------
+
+``task.max-worker-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``Node CPUs`` * ``2``
+ * **Description:**
+
+  Sets the number of threads used by workers to process splits. Increasing this number
+  can improve throughput if worker CPU utilization is low and all the threads are in use,
+  but will cause increased heap space usage. The number of active threads is available via
+  the ``com.facebook.presto.execution.TaskExecutor.RunningSplits`` JMX stat.
 
 
 .. _tuning-pref-node:
