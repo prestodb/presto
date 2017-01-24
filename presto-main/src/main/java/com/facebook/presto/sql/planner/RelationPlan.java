@@ -42,7 +42,9 @@ class RelationPlan
         requireNonNull(scope, "scope is null");
 
         checkArgument(scope.getRelationType().getAllFieldCount() == fieldMappings.size(),
-                "Number of outputs (%s) doesn't match scope size (%s)", fieldMappings.size(), scope.getRelationType().getAllFieldCount());
+                "Number of outputs (%s) doesn't match scope size (%s)",
+                fieldMappings.size(),
+                scope.getRelationType().getAllFieldCount());
 
         this.root = root;
         this.scope = scope;
