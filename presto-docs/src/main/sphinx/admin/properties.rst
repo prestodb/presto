@@ -67,6 +67,221 @@ General properties
   a large value is not recommended when the environment is unstable.
 
 
+.. _tuning-pref-query:
+
+Query execution properties
+--------------------------
+
+
+``query.execution-policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (``all-at-once`` or ``phased``)
+ * **Default value:** ``all-at-once``
+ * **Description:**
+
+  Setting this value to ``phased`` will allow the query scheduler to split a single
+  query execution between different time slots. This will allow Presto to switch context
+  more often and possibly stage the partially executed query in order to increase robustness.
+  Average time to execute a query may slightly increase after setting this to ``phased``,
+  but query execution time will be more consistent. This can also be specified on a
+  per-query basis using the ``execution_policy`` session property.
+
+
+``query.initial-hash-partitions``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``100``
+ * **Description:**
+
+  This value is used to determine how many nodes may share the same query when fixed
+  partitioning is chosen by Presto. Manipulating this value will affect the distribution
+  of work between nodes. A value lower then the number of Presto nodes may lower the utilization
+  of the cluster in a low traffic environment. An excessively high value will cause multiple
+  partitions of the same query to be assigned to a single node, or Presto may ignore
+  the setting if ``node-scheduler.multiple-tasks-per-node-enabled`` is set to false -
+  the value is internally capped at the number of available worker nodes in such scenario.
+  This can also be specified on a per-query basis using the ``hash_partition_count``
+  session property.
+
+
+``query.low-memory-killer.delay``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (duration, at least ``5s``)
+ * **Default value:** ``5 m``
+ * **Description:**
+
+  Delay between a cluster running low on memory and invoking a query killer.
+  A lower value may cause more queries to fail fast, but fewer queries to
+  fail in an unexpected way.
+
+
+``query.low-memory-killer.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``false``
+ * **Description:**
+
+  This property controls whether a query killer should be triggered when a cluster
+  is running out of memory. The killer will drop the largest queries first so enabling
+  this option may cause problems with executing large queries in a highly loaded cluster,
+  but should increase stability of smaller queries.
+
+
+``query.manager-executor-pool-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``5``
+ * **Description:**
+
+  Size of the thread pool used for garbage collecting after queries. Threads from this
+  pool are used to free resources from canceled queries, as well as enforce memory limits,
+  queries timeouts etc. More threads will allow for more efficient memory management,
+  and so may help avoid out of memory exceptions in some scenarios. However, having more
+  threads may also increase CPU usage for garbage collecting and will have an additional
+  constant memory cost even if the threads have nothing to do.
+
+
+``query.min-expire-age``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (duration)
+ * **Default value:** ``15 m``
+ * **Description:**
+
+  This property describes the minimum time after which the query metadata may be removed
+  from the server. If the value is too low, the client may not be able to receive information
+  about query completion. The value describes minimum time, but if there is space available
+  in the history queue the query data will be kept longer. The size of the history queue is
+  defined by the ``query.max-history property``.
+
+
+``query.max-concurrent-queries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``1000``
+ * **Description:**
+
+  **Deprecated** Describes how many queries can be processed simultaneously in a single cluster node.
+  In new configurations, the ``query.queue-config-file`` should be used instead.
+
+
+.. _query-max-memory:
+
+``query.max-memory``
+^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``20 GB``
+ * **Description:**
+
+  Serves as the default value for the ``query_max_memory`` session property. This property also describes
+  the strict limit of total memory that may be used to process a single query. A query is dropped if the
+  limit is reached unless the ``resource_overcommit`` session property is set. This property helps ensure
+  that a single query cannot use all resources in a cluster. It should be set higher than what is expected
+  to be needed for a typical query in the system. It is important to set this to higher than the default
+  if Presto will be running complex queries on large datasets. It is possible to decrease the query memory
+  limit for a session by setting ``query_max_memory`` to a smaller value. Setting ``query_max_memory`` to
+  a greater value than ``query.max-memory`` will not have any effect.
+
+
+``query.max-memory-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``JVM max memory`` * ``0.1``
+ * **Description:**
+
+  The purpose of that is same as of :ref:`query.max-memory<query-max-memory>` but the memory is not counted
+  cluster-wise but node-wise instead. This should not be any lower than ``query.max-memory / number of nodes``.
+  It may be required to increase this value if data are skewed.
+
+
+``query.max-queued-queries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``5000``
+ * **Description:**
+
+  **Deprecated** Describes how many queries may wait in Presto coordinator queue. If the limit is reached the
+  server will drop all new incoming queries. Setting this value high may allow to order a lot of queries at
+  once with the cost of additional memory needed to keep informations about tasks to process. Lowering this
+  value will decrease system capacity but will allow to utilize memory for real processing of data instead
+  of queuing. It shouldn't be used in new configuration, the ``query.queue-config-file`` can be used instead.
+
+
+``query.max-run-time``
+^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (duration)
+ * **Default value:** ``100 d``
+ * **Description:**
+
+  Used as default for session property ``query_max_run_time``. If the Presto works in environment where there
+  are mostly very long queries (over 100 days) than it may be a good idea to increase this value to avoid
+  dropping clients that didn't set their session property correctly. On the other hand in the Presto works
+  in environment where they are only very short queries this value set to small value may be used to detect
+  user errors in queries. It may also be decreased in poor Presto cluster configuration with mostly short
+  queries to increase garbage collection efficiency and by that lowering memory usage in cluster.
+
+
+``query.queue-config-file``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String``
+ * **Default value:**
+ * **Description:**
+
+  The path to the queue config file. Queues are used to manage the number of concurrent queries across the
+  system. More information on queues and how to configure them can be found in :doc:/admin/queue.
+
+
+``query.remote-task.max-callback-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``1000``
+ * **Description:**
+
+  This value describes the maximum size of the thread pool used to handle responses to HTTP requests for
+  each task. Increasing this value will cause more resources to be used for handling HTTP communication
+  itself, but may also improve response time when Presto is distributed across many hosts or there are
+  a lot of small queries being run.
+
+
+``query.remote-task.min-error-duration``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (duration, at least ``1s``)
+ * **Default value:** ``2 m``
+ * **Description:**
+
+  The minimal time that HTTP worker must be unavailable before the coordinator assumes the worker crashed.
+  A higher value may be recommended in unstable connection conditions. This value is only a bottom line
+  so there is no guarantee that a node will be considered dead after the ``query.remote-task.min-error-duration``.
+  In order to consider a node dead, the defined time must pass between two failed attempts of HTTP communication,
+  with no successful communication in between.
+
+
+``query.schedule-split-batch-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``1000``
+ * **Description:**
+
+  The size of single data chunk expressed in split that will be processed in a single stage. Higher value may
+  be used if system works in reliable environment and the responsiveness is less important then average answer
+  time, it will require more memory reserve though. Decreasing this value may have a positive effect if
+  there are lots of nodes in system and calculations are relatively heavy for each of splits.
+
+
 .. _tuning-pref-exchange:
 
 Exchange properties
