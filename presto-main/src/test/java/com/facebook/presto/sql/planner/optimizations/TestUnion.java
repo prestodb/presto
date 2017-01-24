@@ -18,19 +18,34 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestUnion
         extends BasePlanTest
 {
+    public TestUnion()
+    {
+        super();
+    }
+
+    public TestUnion(Map<String, String> sessionProperties)
+    {
+        super(sessionProperties);
+    }
+
     @Test
     public void testPartialAggregationsWithUnion()
     {
@@ -51,6 +66,36 @@ public class TestUnion
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
     }
 
+    @Test
+    public void testUnionOnProbeSide()
+    {
+        Plan plan = plan(
+                "SELECT * FROM (SELECT * FROM nation UNION ALL SELECT * from nation) n, region r WHERE n.regionkey=r.regionkey",
+                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                false);
+
+        assertPlanIsFullyDistributed(plan);
+    }
+
+    private void assertPlanIsFullyDistributed(Plan plan)
+    {
+        assertTrue(
+                searchFrom(plan.getRoot())
+                        .skipOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
+                        .findAll()
+                        .stream()
+                        .noneMatch(planNode -> planNode instanceof AggregationNode || planNode instanceof JoinNode),
+                "There is an Aggregation or Join between output and first REMOTE GATHER ExchangeNode");
+
+        List<PlanNode> gathers = searchFrom(plan.getRoot())
+                .where(TestUnion::isRemoteGatheringExchange)
+                .findAll()
+                .stream()
+                .collect(toList());
+
+        assertEquals(gathers.size(), 1, "Only a single REMOTE GATHER was expected");
+    }
+
     private static void assertAtMostOneAggregationBetweenRemoteExchanges(Plan plan)
     {
         List<PlanNode> fragments = searchFrom(plan.getRoot())
@@ -68,6 +113,16 @@ public class TestUnion
 
             assertFalse(aggregations.size() > 1, "More than a single AggregationNode between remote exchanges");
         }
+    }
+
+    private static boolean isNotRemoteGatheringExchange(PlanNode planNode)
+    {
+        return !isRemoteGatheringExchange(planNode);
+    }
+
+    private static boolean isRemoteGatheringExchange(PlanNode planNode)
+    {
+        return isRemoteExchange(planNode) && ((ExchangeNode) planNode).getType().equals(GATHER);
     }
 
     private static boolean isNotRemoteExchange(PlanNode planNode)
