@@ -605,7 +605,7 @@ public class TestHiveIntegrationSmokeTest
             fail("expected failure");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Can not insert into existing partitions of bucketed Hive table");
+            assertEquals(e.getMessage(), "Cannot insert into existing partition of bucketed Hive table: partition_key=c");
         }
 
         assertUpdate(session, "DROP TABLE " + tableName);
@@ -715,7 +715,7 @@ public class TestHiveIntegrationSmokeTest
             fail("expected failure");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Can not insert into existing partitions of bucketed Hive table");
+            assertEquals(e.getMessage(), "Cannot insert into existing partition of bucketed Hive table: orderstatus=O");
         }
     }
 
@@ -813,7 +813,7 @@ public class TestHiveIntegrationSmokeTest
             fail("expected failure");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Can not insert into existing partitions of bucketed Hive table");
+            assertEquals(e.getMessage(), "Cannot insert into existing partition of bucketed Hive table: partition_key=c");
         }
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
