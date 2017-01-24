@@ -1118,6 +1118,16 @@ public class AddExchanges
                 }
             }
 
+            // parent does not have preference or prefers some partitioning without any explicit partitioning - just use children partitioning
+            if (!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) {
+                if (!partitionedChildren.isEmpty() && unpartitionedChildren.isEmpty()) {
+                    // don't gather partitioned inputs
+                    // TODO: if all children have the same partitioning, pass this partitioning to the parent instead of "arbitraryPartition".
+                    return new PlanWithProperties(node, ActualProperties.builder().build());
+                }
+                // TODO: add FIXED_RANDOM_DISTRIBUTION on non empty unpartitionedChildren
+            }
+
             PlanNode result;
             if (!partitionedChildren.isEmpty() && unpartitionedChildren.isEmpty()) {
                 // add a gathering exchange above partitioned inputs
