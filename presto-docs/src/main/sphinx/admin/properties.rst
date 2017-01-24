@@ -667,3 +667,140 @@ Optimizer properties
   UNION ALL speed when write speed is not yet saturated. However it may slow down queries
   in an already heavily loaded system. This can also be specified on a per-query basis
   using the ``push_table_write_through_union`` session property.
+
+
+.. _tuning-pref-session:
+
+Session properties
+------------------
+
+``processing_optimization``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (``disabled``, ``columnar`` or ``columnar_dictionary``)
+ * **Default value:** ``optimizer.processing-optimization`` (``false``)
+ * **Description:**
+
+  See :ref:`optimizer.processing-optimization<tuning-pref-optimizer>`.
+
+
+``execution_policy``
+^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (``all-at-once`` or ``phased``)
+ * **Default value:** ``query.execution-policy`` (``all-at-once``)
+ * **Description:**
+
+  See :ref:`query.execution-policy <tuning-pref-query>`.
+
+
+``hash_partition_count``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``query.initial-hash-partitions`` (``100``)
+ * **Description:**
+
+  See :ref:`query.initial-hash-partitions <tuning-pref-query>`.
+
+
+``optimize_hash_generation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``optimizer.optimize-hash-generation`` (``true``)
+ * **Description:**
+
+  See :ref:`optimizer.optimize-hash-generation <tuning-pref-optimizer>`.
+
+
+``plan_with_table_node_partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``true``
+ * **Description:**
+
+  **Experimental.** Adapt plan to use backend partitioning. When this is set, presto will
+  try to partition data for workers such that each worker gets a chunk of data from a single
+  backend partition. This enables workers to take advantage of the I/O distribution optimization
+  in table partitioning. Note that this property is only used if a given projection uses all
+  columns used for table partitioning inside connector.
+
+
+
+``push_table_write_through_union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``optimizer.push-table-write-through-union`` (``true``)
+ * **Description:**
+
+  See :ref:`optimizer.push-table-writethrough-union <tuning-pref-optimizer>`.
+
+
+``query_max_memory``
+^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``query.max-memory`` (``20 GB``)
+ * **Description:**
+
+  This property can be use to be nice to the cluster if a particular query is not as important
+  as the usual cluster routines. Setting this value to less than the server property
+  ``query.max-memory`` will cause Presto to drop the query in the session if it will require
+  more then ``query_max_memory`` memory. Setting this value to higher than ``query.max-memory``
+  will not have any effect.
+
+
+
+``query_max_run_time``
+^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (duration)
+ * **Default value:** ``query.max-run-time`` (``100 d``)
+ * **Description:**
+
+  If the expected query processing time is higher than ``query.max-run-time``, it is crucial
+  to set this session property to prevent results of long running queries being dropped after
+  ``query.max-run-time``. A session may also set this value to less than ``query.max-run-time``
+  in order to crosscheck for bugs in the query. Setting this value less than ``query.max-run-time``
+  may be particularly useful for a session with a very large number of short-running queries.
+  It is important to set this value to much higher than the average query time to avoid problems
+  with outliers (some queries may randomly take much longer due to cluster load and other circumstances).
+  As the query timed out by this limit immediately returns all used resources this may be particularly
+  useful in query management systems to force user limits.
+
+
+``resource_overcommit``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``false``
+ * **Description:**
+
+  Use resources that are not guaranteed to be available to a query. This property allows you to exceed
+  the limits of memory available per query and session. It may allow resources to be used more efficiently,
+  but may also cause non-deterministic query drops due to insufficient memory on machine. It can be
+  particularly useful for performing more demanding queries.
+
+
+``task_concurrency``
+^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (power of 2).
+ * **Default value:** ``task.concurrency`` (``16``)
+ * **Description:**
+
+  Default number of local parallel aggregation jobs per worker. Unlike `task.concurrency` this property
+  must be power of two. See :ref:`task.concurrency<task-concurrency>`.
+
+
+``task_writer_count``
+^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``task.writer-count`` (``1``)
+ * **Description:**
+
+  See :ref:`task.writer-count <tuning-pref-task>`.
