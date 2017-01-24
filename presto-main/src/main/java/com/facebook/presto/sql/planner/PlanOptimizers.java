@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
@@ -117,6 +118,7 @@ public class PlanOptimizers
                         stats,
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
+                                new RemoveFullSample(),
                                 new EvaluateZeroLimit(),
                                 new EvaluateZeroSample(),
                                 new PushLimitThroughProject(),
