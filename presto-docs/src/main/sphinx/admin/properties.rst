@@ -52,6 +52,71 @@ General Properties
     large heap, a smaller value may work. Basically, set this value large
     enough that the JVM does not fail with ``OutOfMemoryError``.
 
+
+Exchange Properties
+-------------------
+
+Exchanges transfer data between Presto nodes for different stages of
+a query. Adjusting these properties may help to resolve inter-node
+communication issues or improve network utilization.
+
+``exchange.client-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``25``
+
+    Number of threads used by exchange clients to fetch data from other Presto
+    nodes. A higher value can improve performance for large clusters or clusters
+    with very high concurrency, but excessively high values may cause a drop
+    in performance due to context switches and additional memory usage.
+
+``exchange.concurrent-request-multiplier``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``3``
+
+    Multiplier determining the number of concurrent requests relative to
+    available buffer memory. The maximum number of requests is determined
+    using a heuristic of the number of clients that can fit into available
+    buffer space based on average buffer usage per request times this
+    multiplier. For example, with an ``exchange.max-buffer-size`` of ``32 MB``
+    and ``20 MB`` already used and average size per request being ``2MB``,
+    the maximum number of clients is
+    ``multiplier * ((32MB - 20MB) / 2MB) = multiplier * 6``. Tuning this
+    value adjusts the heuristic, which may increase concurrency and improve
+    network utilization.
+
+``exchange.max-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``32 MB``
+
+    Size of buffer in the exchange client that holds data fetched from other
+    nodes before it is processed. A larger buffer can increase network
+    throughput for larger clusters and thus decrease query processing time,
+    but will reduce the amount of memory available for other usages.
+
+``exchange.max-response-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Minimum value:** ``1MB``
+    * **Default value:** ``16 MB``
+
+    Maximum size of a response returned from an exchange request. The response
+    will be placed in the exchange client buffer which is shared across all
+    concurrent requests for the exchange.
+
+    Increasing the value may improve network throughput if there is high
+    latency. Decreasing the value may improve query performance for large
+    clusters as it reduces skew due to the exchange client buffer holding
+    responses for more tasks (rather than hold more data from fewer tasks).
+
 ``sink.max-buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
