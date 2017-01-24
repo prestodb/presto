@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
@@ -23,6 +24,8 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Map;
+
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class NoApplyNodeLeftChecker
         implements PlanSanityChecker.Checker
@@ -36,10 +39,10 @@ public class NoApplyNodeLeftChecker
             public Object visitApply(ApplyNode node, Object context)
             {
                 if (node.getCorrelation().isEmpty()) {
-                    throw new IllegalArgumentException("Unsupported subquery type");
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported subquery type");
                 }
                 else {
-                    throw new IllegalArgumentException("Unsupported correlated subquery type");
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported correlated subquery type");
                 }
             }
         }, null);
