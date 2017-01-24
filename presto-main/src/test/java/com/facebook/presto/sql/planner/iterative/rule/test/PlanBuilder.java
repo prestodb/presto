@@ -39,8 +39,11 @@ import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -226,6 +229,18 @@ public class PlanBuilder
         }
 
         return symbol;
+    }
+
+    public WindowNode window(WindowNode.Specification specification, Map<Symbol, WindowNode.Function> functions, PlanNode source)
+    {
+        return new WindowNode(
+                idAllocator.getNextId(),
+                source,
+                specification,
+                ImmutableMap.copyOf(functions),
+                Optional.empty(),
+                ImmutableSet.of(),
+                0);
     }
 
     public static Expression expression(String sql)

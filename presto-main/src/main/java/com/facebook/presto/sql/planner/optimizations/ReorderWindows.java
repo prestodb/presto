@@ -105,6 +105,8 @@ import static com.google.common.base.Preconditions.checkState;
  *
  * Even though there are no identical <i>partition by</i> clauses in such a plan.
  */
+
+@Deprecated
 public class ReorderWindows
         implements PlanOptimizer
 {
