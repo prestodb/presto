@@ -18,6 +18,8 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 
+import java.util.List;
+
 /**
  * Visitor to count number of tables scanned in the current fragment
  * (fragments separated by ExchangeNodes).
@@ -27,6 +29,15 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 public final class FragmentTableScanCounter
 {
     private FragmentTableScanCounter() {}
+
+    public static boolean hasMultipleSources(List<PlanNode> nodes)
+    {
+        int count = 0;
+        for (PlanNode node : nodes) {
+            count += node.accept(new Visitor(), null);
+        }
+        return count > 1;
+    }
 
     public static boolean hasMultipleSources(PlanNode... nodes)
     {
