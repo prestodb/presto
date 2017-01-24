@@ -39,6 +39,11 @@ public class StatsRecorder
         stats.get(rule.getClass()).record(nanos, match);
     }
 
+    public void recordFailure(Rule rule)
+    {
+        stats.get(rule.getClass()).recordFailure();
+    }
+
     void export(MBeanExporter exporter)
     {
         for (Map.Entry<Class<?>, RuleStats> entry : stats.entrySet()) {

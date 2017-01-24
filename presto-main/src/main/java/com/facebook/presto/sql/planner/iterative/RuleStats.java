@@ -24,6 +24,7 @@ public class RuleStats
 {
     private final AtomicLong hits = new AtomicLong();
     private final TimeDistribution time = new TimeDistribution(TimeUnit.MICROSECONDS);
+    private final AtomicLong failures = new AtomicLong();
 
     public void record(long nanos, boolean match)
     {
@@ -32,6 +33,11 @@ public class RuleStats
         }
 
         time.add(nanos);
+    }
+
+    public void recordFailure()
+    {
+        failures.incrementAndGet();
     }
 
     @Managed
@@ -45,5 +51,11 @@ public class RuleStats
     public TimeDistribution getTime()
     {
         return time;
+    }
+
+    @Managed
+    public long getFailures()
+    {
+        return failures.get();
     }
 }
