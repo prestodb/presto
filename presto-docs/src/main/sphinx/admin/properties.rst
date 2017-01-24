@@ -238,3 +238,93 @@ Node scheduler properties
   where the data is located by reserving 50% of the work queue for local splits.
   It is recommended to use ``flat`` for clusters where distributed storage runs on
   the same nodes as Presto workers.
+
+
+.. _tuning-pref-optimizer:
+
+Optimizer properties
+--------------------
+
+``optimizer.processing-optimization``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (``disabled``, ``columnar`` or ``columnar_dictionary``)
+ * **Default value:** ``disabled``
+ * **Description:**
+
+  Setting this property changes how filtering and projection operators are processed.
+  Setting it to ``columnar`` allows Presto to use columnar processing instead of
+  row by row. Setting ``columnar_dictionary`` adds additional dictionary to simplify
+  columnar scan. Setting this to a value other than ``disabled`` may improve performance
+  for data containing large rows often filtered by a simple key. This can also be specified
+  on a per-query basis using the ``processing_optimization`` session property.
+
+``optimizer.dictionary-aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``false``
+ * **Description:**
+
+  Enables optimization for aggregations on dictionaries. This can also be specified on
+  a per-query basis using the ``dictionary_aggregation`` session property.
+
+
+``optimizer.optimize-hash-generation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``true``
+ * **Description:**
+
+  Compute hash codes for distribution, joins, and aggregations early in the query plan
+  allowing result to be shared between operations later in the plan. While this will
+  increase the preprocessing time, it may allow the optimizer to drop some computations
+  later in query processing. In most cases it will decrease overall query processing time.
+  This can also be specified on a per-query basis using the ``optimize_hash_generation``
+  session property.
+
+
+``optimizer.optimize-metadata-queries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``false``
+ * **Description:**
+
+  Setting this property to ``true`` enables optimization of some aggregations by using values
+  that are kept in metadata. This allows Presto to execute some simple queries in ``O(1)`` time.
+  Currently this optimization applies to ``max``, ``min`` and ``approx_distinct`` of partition
+  keys and other aggregation insensitive to the cardinality of the input (including
+  ``DISTINCT`` aggregates). Using this may speed some queries significantly, though it may
+  have a negative effect when used with very small data sets. Also it may cause incorrect/not
+  accurate/invalid results in some backend db, especially in Hive when there are partition
+  without any rows.
+
+
+``optimizer.optimize-single-distinct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``true``
+ * **Description:**
+
+  Enables the single distinct optimization. This optimization will try to replace multiple
+  DISTINCT clauses with a single GROUP BY clause. Enabling this optimization will speed up
+  some specific SELECT queries, but analyzing all queries to check if they qualify for this
+  optimization may be a slight overhead.
+
+
+``optimizer.push-table-write-through-union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Boolean``
+ * **Default value:** ``true``
+ * **Description:**
+
+  Parallelize writes when using UNION ALL in queries that write data. This improves the
+  speed of writing output tables in UNION ALL queries because these writes do not require
+  additional synchronization when collecting results. Enabling this optimization can improve
+  UNION ALL speed when write speed is not yet saturated. However it may slow down queries
+  in an already heavily loaded system. This can also be specified on a per-query basis
+  using the ``push_table_write_through_union`` session property.
