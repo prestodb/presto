@@ -67,6 +67,71 @@ General properties
   a large value is not recommended when the environment is unstable.
 
 
+.. _tuning-pref-exchange:
+
+Exchange properties
+-------------------
+
+The Exchange service is responsible for transferring data between Presto nodes.
+Adjusting these properties may help to resolve inter-node communication issues
+or improve network utilization.
+
+``exchange.client-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``25``
+ * **Description:**
+
+  Number of threads that the exchange server can spawn to handle clients.
+  Higher value will increase concurrency but excessively high values may cause
+  a drop in performance due to context switches and additional memory usage.
+
+
+``exchange.concurrent-request-multiplier``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (at least ``1``)
+ * **Default value:** ``3``
+ * **Description:**
+
+  Multiplier determining how many clients of the exchange server may be spawned
+  relative to available buffer memory. The number of possible clients is determined
+  by heuristic as the number of clients that can fit into available buffer space
+  based on average buffer usage per request times this multiplier. For example
+  with the ``exchange.max-buffer-size`` of ``32 MB`` and ``20 MB`` already used,
+  and average bytes per request being ``2MB`` up to
+  ``exchange.concurrent-request-multipier`` * ((``32MB`` - ``20MB``) / ``2MB``) = ``exchange.concurrent-request-multiplier`` * ``6``
+  may be spawned. Tuning this value adjusts the heuristic, which may increase
+  concurrency and improve network utilization.
+
+
+``exchange.max-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``32 MB``
+ * **Description:**
+
+  Size of memory block reserved for the client buffer in exchange server. Lower
+  value may increase processing time under heavy load. Increasing this value
+  may improve network utilization, but will reduce the amount of memory available
+  for other activities.
+
+
+``exchange.max-response-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size, at least ``1 MB``)
+ * **Default value:** ``16 MB``
+ * **Description:**
+
+  Max size of messages sent through the exchange server. The size of message headers
+  is included in this value, so the amount of data sent per message will be a little lower.
+  Increasing this value may improve network utilization if the network is stable. In an
+  unstable network environment, making this value smaller may improve stability.
+
+
 .. _tuning-pref-task:
 
 Tasks managment properties
