@@ -81,6 +81,7 @@ public class HiveClientConfig
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private int maxPartitionsPerWriter = 100;
+    private int writeValidationThreads = 16;
 
     private List<String> resourceConfigFiles;
 
@@ -532,6 +533,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    public int getWriteValidationThreads()
+    {
+        return writeValidationThreads;
+    }
+
+    @Config("hive.write-validation-threads")
+    @ConfigDescription("Number of threads used for verifying data after a write")
+    public HiveClientConfig setWriteValidationThreads(int writeValidationThreads)
+    {
+        this.writeValidationThreads = writeValidationThreads;
         return this;
     }
 

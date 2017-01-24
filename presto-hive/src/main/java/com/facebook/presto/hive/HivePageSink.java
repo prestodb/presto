@@ -27,6 +27,10 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
@@ -42,7 +46,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -52,7 +58,6 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 
 public class HivePageSink
@@ -72,6 +77,8 @@ public class HivePageSink
     private final HdfsEnvironment hdfsEnvironment;
 
     private final int maxOpenWriters;
+    private final ListeningExecutorService writeVerificationExecutor;
+
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     private final List<HiveWriter> writers = new ArrayList<>();
@@ -89,6 +96,7 @@ public class HivePageSink
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
             int maxOpenWriters,
+            ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ConnectorSession session)
     {
@@ -100,6 +108,7 @@ public class HivePageSink
 
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.maxOpenWriters = maxOpenWriters;
+        this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         requireNonNull(bucketProperty, "bucketProperty is null");
@@ -159,19 +168,38 @@ public class HivePageSink
     {
         // Must be wrapped in doAs entirely
         // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        Collection<Slice> result = hdfsEnvironment.doAs(session.getUser(), this::doFinish);
-        return completedFuture(result);
+        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+        return MoreFutures.toCompletableFuture(result);
     }
 
-    private ImmutableList<Slice> doFinish()
+    private ListenableFuture<Collection<Slice>> doFinish()
     {
         ImmutableList.Builder<Slice> partitionUpdates = ImmutableList.builder();
+        List<Callable<Object>> verificationTasks = new ArrayList<>();
         for (HiveWriter writer : writers) {
             writer.commit();
             PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
             partitionUpdates.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdate)));
+            writer.getVerificationTask()
+                    .map(Executors::callable)
+                    .ifPresent(verificationTasks::add);
         }
-        return partitionUpdates.build();
+        List<Slice> result = partitionUpdates.build();
+
+        if (verificationTasks.isEmpty()) {
+            return Futures.immediateFuture(result);
+        }
+
+        try {
+            List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
+                    .map(future-> (ListenableFuture<?>) future)
+                    .collect(toList());
+            return Futures.transform(Futures.allAsList(futures), input -> result);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

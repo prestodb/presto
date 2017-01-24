@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.Page;
 
+import java.util.Optional;
+
 public interface HiveFileWriter
 {
     long getSystemMemoryUsage();
@@ -24,4 +26,9 @@ public interface HiveFileWriter
     void commit();
 
     void rollback();
+
+    default Optional<Runnable> getVerificationTask()
+    {
+        return Optional.empty();
+    }
 }

@@ -24,6 +24,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
@@ -31,7 +32,10 @@ import javax.inject.Inject;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public class HivePageSinkProvider
         implements ConnectorPageSinkProvider
@@ -44,6 +48,7 @@ public class HivePageSinkProvider
     private final int maxOpenPartitions;
     private final boolean immutablePartitions;
     private final LocationService locationService;
+    private final ListeningExecutorService writeVerificationExecutor;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     @Inject
@@ -67,6 +72,7 @@ public class HivePageSinkProvider
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
         this.locationService = requireNonNull(locationService, "locationService is null");
+        this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
     }
 
@@ -114,6 +120,7 @@ public class HivePageSinkProvider
                 typeManager,
                 hdfsEnvironment,
                 maxOpenPartitions,
+                writeVerificationExecutor,
                 partitionUpdateCodec,
                 session);
     }

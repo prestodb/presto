@@ -54,6 +54,11 @@ public class HiveWriter
         fileWriter.commit();
     }
 
+    public Optional<Runnable> getVerificationTask()
+    {
+        return fileWriter.getVerificationTask();
+    }
+
     public void rollback()
     {
         fileWriter.rollback();
