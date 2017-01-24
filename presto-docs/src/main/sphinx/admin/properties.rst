@@ -149,6 +149,54 @@ Tasks managment properties
 Node Scheduler Properties
 -------------------------
 
+``node-scheduler.max-splits-per-node``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``100``
+
+    The target value for the total number of splits that can be running for
+    each worker node.
+
+    Using a higher value is recommended if queries are submitted in large batches
+    (e.g., running a large group of reports periodically) or for connectors that
+    produce many splits that complete quickly. Increasing this value may improve
+    query latency by ensuring that the workers have enough splits to keep them
+    fully utilized.
+
+    Setting this too high will waste memory and may result in lower performance
+    due to splits not being balanced across workers. Ideally, it should be set
+    such that there is always at least one split waiting to be processed, but
+    not higher.
+
+``node-scheduler.max-pending-splits-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``10``
+
+    The number of outstanding splits that can be queued for each worker node
+    for a single stage of a query, even when the node is already at the limit for
+    total number of splits. Allowing a minimum number of splits per stage is
+    required to prevent starvation and deadlocks.
+
+    This value must be smaller than ``node-scheduler.max-splits-per-node``,
+    will usually be increased for the same reasons, and has similar drawbacks
+    if set too high.
+
+``node-scheduler.min-candidates``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Minimum value:** ``1``
+    * **Default value:** ``10``
+
+    The minimum number of candidate nodes that will be evaluated by the
+    node scheduler when choosing the target node for a split. Setting
+    this value too low may prevent splits from being properly balanced
+    across all worker nodes. Setting it too high may increase query
+    latency and increase CPU usage on the coordinator.
+
 ``node-scheduler.network-topology``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
