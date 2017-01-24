@@ -206,7 +206,9 @@ Property Name                                Description
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
-                                             of AWS.
+                                             of AWS. When using V4 signatures, it is recommended to
+                                             set this to the AWS region-specific endpoint
+                                             (e.g. http[s]://<bucket>.s3-<AWS-region>.amazonaws.com).
 
 ``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
                                              Example: ``S3SignerType`` for v2 signer type
