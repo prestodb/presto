@@ -18,6 +18,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
+import static org.testng.Assert.assertTrue;
 
 public class TestTpchDistributedQueries
         extends AbstractTestQueries
@@ -34,5 +35,21 @@ public class TestTpchDistributedQueries
         //  Generate a super-long query: SELECT x,x,x,x,x,... FROM (VALUES 1,2,3,4,5) t(x)
         @Language("SQL") String longQuery = "SELECT x" + Strings.repeat(",x", 500_000) + " FROM (VALUES 1,2,3,4,5) t(x)";
         assertQueryFails(longQuery, "Query text length \\(1000037\\) exceeds the maximum length \\(1000000\\)");
+    }
+
+    @Test
+    public void testTableSampleSystem()
+    {
+        int total = computeActual("SELECT orderkey FROM orders").getMaterializedRows().size();
+
+        boolean sampleSizeFound = false;
+        for (int i = 0; i < 100; i++) {
+            int sampleSize = computeActual("SELECT orderkey FROM ORDERS TABLESAMPLE SYSTEM (50)").getMaterializedRows().size();
+            if (sampleSize > 0 && sampleSize < total) {
+                sampleSizeFound = true;
+                break;
+            }
+        }
+        assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
     }
 }
