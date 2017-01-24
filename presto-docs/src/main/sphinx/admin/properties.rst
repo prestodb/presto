@@ -204,8 +204,70 @@ Node Scheduler Properties
     * **Allowed values:** ``legacy``, ``flat``
     * **Default value:** ``legacy``
 
-    Sets the network topology to use when scheduling splits. ``legacy`` will ignore
-    the topology when scheduling splits. ``flat`` will try to schedule splits on the host
-    where the data is located by reserving 50% of the work queue for local splits.
-    It is recommended to use ``flat`` for clusters where distributed storage runs on
-    the same nodes as Presto workers.
+
+Optimizer Properties
+--------------------
+
+``optimizer.dictionary-aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables optimization for aggregations on dictionaries. This can also be specified
+    on a per-query basis using the ``dictionary_aggregation`` session property.
+
+``optimizer.optimize-hash-generation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Compute hash codes for distribution, joins, and aggregations early during execution,
+    allowing result to be shared between operations later in the query. This can reduce
+    CPU usage by avoiding computing the same hash multiple times, but at the cost of
+    additional network transfer for the hashes. In most cases it will decrease overall
+    query processing time. This can also be specified on a per-query basis using the
+    ``optimize_hash_generation`` session property.
+
+    It is often helpful to disable this property when using :doc:`/sql/explain` in order
+    to make the query plan easier to read.
+
+``optimizer.optimize-metadata-queries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enable optimization of some aggregations by using values that are stored as metadata.
+    This allows Presto to execute some simple queries in constant time. Currently, this
+    optimization applies to ``max``, ``min`` and ``approx_distinct`` of partition
+    keys and other aggregation insensitive to the cardinality of the input (including
+    ``DISTINCT`` aggregates). Using this may speed up some queries significantly.
+
+    The main drawback is that it can produce incorrect results if the connector returns
+    partition keys for partitions that have no rows. In particular, the Hive connector
+    can return empty partitions if they were created by other systems (Presto cannot
+    create them).
+
+``optimizer.optimize-single-distinct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    The single distinct optimization will try to replace multiple ``DISTINCT`` clauses
+    with a single ``GROUP BY`` clause, which can be substantially faster to execute.
+
+``optimizer.push-table-write-through-union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    Parallelize writes when using ``UNION ALL`` in queries that write data. This improves the
+    speed of writing output tables in ``UNION ALL`` queries because these writes do not require
+    additional synchronization when collecting results. Enabling this optimization can improve
+    ``UNION ALL`` speed when write speed is not yet saturated. However, it may slow down queries
+    in an already heavily loaded system. This can also be specified on a per-query basis
+    using the ``push_table_write_through_union`` session property.
