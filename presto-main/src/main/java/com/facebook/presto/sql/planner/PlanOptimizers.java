@@ -37,6 +37,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SingleMarkDistinctToGroupBy;
+import com.facebook.presto.sql.planner.iterative.rule.SwapAdjacentWindowsByPartitionsOrder;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToScalarApply;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
@@ -62,7 +63,6 @@ import com.facebook.presto.sql.planner.optimizations.ProjectionPushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.optimizations.RemoveUnreferencedScalarInputApplyNodes;
-import com.facebook.presto.sql.planner.optimizations.ReorderWindows;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SimplifyExpressions;
 import com.facebook.presto.sql.planner.optimizations.TransformCorrelatedScalarAggregationToJoin;
@@ -174,7 +174,12 @@ public class PlanOptimizers
                         ImmutableSet.of(new SimplifyCountOverConstant())),
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new MergeWindows(),
-                new ReorderWindows(), // Should be after MergeWindows to avoid unnecessary reordering of mergeable windows
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableSet.of(
+                                // add UnaliasSymbolReferences when it's ported
+                                new RemoveRedundantIdentityProjections(),
+                                new SwapAdjacentWindowsByPartitionsOrder())),
                 new MergeProjections(),
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
