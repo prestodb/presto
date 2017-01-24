@@ -22,6 +22,48 @@ General Properties
     only need to fit in distributed memory across all nodes. This can also be
     specified on a per-query basis using the ``distributed_join`` session property.
 
+``redistribute-writes``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+    This property enables redistribution of data before writing. This can
+    eliminate the performance impact of data skew when writing by hashing it
+    across nodes in the cluster. It can be disabled when it is known that the
+    output data set is not skewed in order to avoid the overhead of hashing and
+    redistributing all the data across the network. This can also be specified
+    on a per-query basis using the ``redistribute_writes`` session property.
+
+``resources.reserved-system-memory``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``JVM max memory * 0.4``
+
+    The amount of JVM memory reserved, for accounting purposes, for things
+    that are not directly attributable to or controllable by a user query.
+    For example, output buffers, code caches, etc. This also accounts for
+    memory that is not tracked by the memory tracking system.
+
+    This purpose of this property is to prevent the JVM from running out of
+    memory (OOM). The default value is suitable for smaller JVM heap sizes or
+    clusters with many concurrent queries. If running fewer queries with a
+    large heap, a smaller value may work. Basically, set this value large
+    enough that the JVM does not fail with ``OutOfMemoryError``.
+
+``sink.max-buffer-size``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``32 MB``
+
+    Output buffer size for task data that is waiting to be pulled by upstream
+    tasks. If the task output is hash partitioned, then the buffer will be
+    shared across all of the partitioned consumers. Increasing this value may
+    improve network throughput for data transferred between stages if the
+    network has high latency or if there are many nodes in the cluster.
+
 
 Tasks managment properties
 --------------------------
