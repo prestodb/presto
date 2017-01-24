@@ -352,6 +352,91 @@ or improve network utilization.
 Tasks managment properties
 --------------------------
 
+
+.. _task-concurrency:
+
+``task.concurrency``
+^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer`` (power of 2)
+ * **Default value:** ``16``
+ * **Description:**
+
+  Default local concurrency for parallel operators. Serves as the default value for the
+  ``task_concurrency`` session property. Increasing this value is strongly recommended when
+  any of CPU, IO or memory is not saturated on a regular basis. It will allow queries to
+  utilize as many resources as possible. Setting this value too high will cause queries to
+  slow down. Slow down may happen even if none of the resources is saturated as there are
+  cases in which increasing parallelism is not possible due to algorithms limitations.
+
+``task.info-refresh-max-wait``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ * **Type:** ``String`` (duration)
+ * **Default value:** ``1s``
+ * **Description:**
+
+  Controls staleness of task information, which is used in scheduling. Increasing this value
+  can reduce coordinator CPU load, but may result in suboptimal split scheduling.
+
+
+``task.http-response-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``100``
+ * **Description:**
+
+  Max number of threads that may be created to handle http responses. Threads are created on
+  demand and they end when there is no response to be sent. That means that there is no overhead
+  if there are only a small number of requests handled by the system, even if this value is big.
+  On the other hand increasing this value may increase utilization of CPU in multicore environment
+  (with the cost of memory usage). Also in systems having a lot of requests, the response time
+  distribution may be manipulated using this property. A higher value may be used to prevent
+  outliers from increasing average response time.
+
+
+``task.http-timeout-threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``3``
+ * **Description:**
+
+  Number of threads spawned for handling timeouts of http requests. Presto server sends update of
+  query status whenever it is different then the one that client knows about. However in order to
+  ensure client that connection is still alive, server sends this data after delay declared
+  internally in HTTP headers (by default ``200 ms``). This property tells how many threads
+  are designated to handle this delay. If the property turn out to low it's possible that the
+  update time will increase even significantly when comparing to requested value (``200ms``).
+  Increasing this value may solve the problem, but it generate a cost of additional memory even
+  if threads are not used all the time. If there is no problem with updating status of query
+  this value should not be manipulated.
+
+
+``task.info-update-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (duration)
+ * **Default value:** ``200 ms``
+ * **Description:**
+
+  Controls staleness of task information which is used in scheduling. Increasing this value can
+  reduce coordinator CPU load but may result in suboptimal split scheduling.
+
+
+``task.max-partial-aggregation-memory``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``16 MB``
+ * **Description:**
+
+  Max size of partial aggregation result (if it is splitable). Increasing this value will decrease
+  the fragmentation of the result which may improve query run times and CPU utilization with the
+  cost of additional memory usage. Also a high value may cause a drop in performance in unstable
+  cluster conditions.
+
+
 ``task.max-worker-threads``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -365,6 +450,45 @@ Tasks managment properties
   due to a context switching. The number of active threads is available via the
   ``com.facebook.presto.execution.TaskExecutor.RunningSplits`` JMX stat.
 
+
+``task.min-drivers``
+^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``Node CPUs`` * ``4``
+ * **Description:**
+
+  This describes how many drivers are kept on a worker at any time. A lower value may cause
+  better responsiveness for new tasks, but decrease CPU utilization. A higher value makes
+  context switching faster, but uses additional memory. In general, if it is possible to
+  assign a split to a driver, it is assigned if: there are fewer than ``3`` drivers assigned
+  to the given task OR there are fewer drivers on the worker than ``task.min-drivers`` OR the
+  task has been enqueued with the ``force start`` property.
+
+
+``task.operator-pre-allocated-memory``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``String`` (data size)
+ * **Default value:** ``16 MB``
+ * **Description:**
+
+  Memory preallocated for each driver in query execution. Increasing this value may cause less
+  efficient memory usage but will fail fast in a low memory environment more frequently.
+
+
+``task.writer-count``
+^^^^^^^^^^^^^^^^^^^^^
+
+ * **Type:** ``Integer``
+ * **Default value:** ``1``
+ * **Description:**
+
+  The number of concurrent writer threads per worker per query. Serves as the default for
+  the session property ``task_writer_count``. Increasing this value may increase write speed,
+  especially when a query is NOT I/O bounded and could use more CPU cores for parallel writes.
+  However, in many cases increasing this value will visibly increase computation time while
+  writing.
 
 .. _tuning-pref-node:
 
