@@ -28,7 +28,8 @@ public class SecurityConfig
     {
         NONE,
         KERBEROS,
-        LDAP
+        LDAP,
+        MIXED
     }
 
     public AuthenticationType getAuthenticationType()
