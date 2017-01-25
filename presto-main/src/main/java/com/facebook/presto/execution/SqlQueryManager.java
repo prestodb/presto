@@ -531,17 +531,17 @@ public class SqlQueryManager
                 continue;
             }
 
-            if (isAbandoned(queryExecution)) {
+            if (isAbandoned(queryInfo)) {
                 log.info("Failing abandoned query %s", queryExecution.getQueryId());
                 queryExecution.fail(new PrestoException(ABANDONED_QUERY, format("Query %s has not been accessed since %s: currentTime %s", queryInfo.getQueryId(), queryInfo.getQueryStats().getLastHeartbeat(), DateTime.now())));
             }
         }
     }
 
-    private boolean isAbandoned(QueryExecution query)
+    private boolean isAbandoned(QueryInfo queryInfo)
     {
         DateTime oldestAllowedHeartbeat = DateTime.now().minus(clientTimeout.toMillis());
-        DateTime lastHeartbeat = query.getQueryInfo().getQueryStats().getLastHeartbeat();
+        DateTime lastHeartbeat = queryInfo.getQueryStats().getLastHeartbeat();
 
         return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
     }
