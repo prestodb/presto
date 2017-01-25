@@ -1,0 +1,14 @@
+databases:
+  hive:
+    host: hadoop-master
+
+  presto:
+    host: presto-master.docker.cluster
+    port: 7778
+    http_port: 8080
+    https_port: ${databases.presto.port}
+    server_address: https://${databases.presto.host}:${databases.presto.https_port}
+    jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?SSL=1&SSLTrustStorePath=/docker/volumes/conf/presto/etc/docker.cluster.jks&SSLTrustStorePassword=123456
+    configured_hdfs_user: hdfs
+    https_keystore_path: /docker/volumes/conf/presto/etc/docker.cluster.jks
+    https_keystore_password: '123456'

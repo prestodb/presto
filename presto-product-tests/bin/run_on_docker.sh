@@ -184,11 +184,15 @@ if [[ "$ENVIRONMENT" == "multinode" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
 elif [[ "$ENVIRONMENT" == "multinode-tls-ldap" ]]; then
    PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2 ldapserver"
+elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
+   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
 fi
 
 CLI_ARGUMENTS="--server presto-master:8080"
 if [[ "$ENVIRONMENT" == "multinode-tls-ldap" ]]; then
     CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456 --user admin -P admin"
+elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
+    CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456"
 fi
 
 # check docker and docker compose installation
