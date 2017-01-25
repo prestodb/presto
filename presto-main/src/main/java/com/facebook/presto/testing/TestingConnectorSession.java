@@ -47,10 +47,11 @@ public class TestingConnectorSession
     private final long startTime;
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
+    private final boolean isLegacyTimestamp;
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of());
+        this("user", UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), true);
     }
 
     public TestingConnectorSession(
@@ -59,7 +60,8 @@ public class TestingConnectorSession
             Locale locale,
             long startTime,
             List<PropertyMetadata<?>> propertyMetadatas,
-            Map<String, Object> propertyValues)
+            Map<String, Object> propertyValues,
+            boolean isLegacyTimestamp)
     {
         this.queryId = queryIdGenerator.createNextQueryId().toString();
         this.identity = new Identity(requireNonNull(user, "user is null"), Optional.empty());
@@ -68,6 +70,7 @@ public class TestingConnectorSession
         this.startTime = startTime;
         this.properties = Maps.uniqueIndex(propertyMetadatas, PropertyMetadata::getName);
         this.propertyValues = ImmutableMap.copyOf(propertyValues);
+        this.isLegacyTimestamp = isLegacyTimestamp;
     }
 
     @Override
@@ -98,6 +101,12 @@ public class TestingConnectorSession
     public long getStartTime()
     {
         return startTime;
+    }
+
+    @Override
+    public boolean isLegacyTimestamp()
+    {
+        return isLegacyTimestamp;
     }
 
     @Override
