@@ -689,11 +689,15 @@ public final class DomainTranslator
         Object left = ExpressionInterpreter.expressionOptimizer(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
         Object right = ExpressionInterpreter.expressionOptimizer(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
 
+        Type leftType = expressionTypes.get(comparison.getLeft());
+        Type rightType = expressionTypes.get(comparison.getRight());
+        checkArgument(leftType.equals(rightType), "left and right type do not match in comparison expression (%s)", comparison);
+
         if (left instanceof SymbolReference && !(right instanceof Expression)) {
-            return Optional.of(new NormalizedSimpleComparison((SymbolReference) left, comparison.getType(), new NullableValue(expressionTypes.get(comparison.getRight()), right)));
+            return Optional.of(new NormalizedSimpleComparison((SymbolReference) left, comparison.getType(), new NullableValue(rightType, right)));
         }
         if (right instanceof SymbolReference && !(left instanceof Expression)) {
-            return Optional.of(new NormalizedSimpleComparison((SymbolReference) right, comparison.getType().flip(), new NullableValue(expressionTypes.get(comparison.getLeft()), left)));
+            return Optional.of(new NormalizedSimpleComparison((SymbolReference) right, comparison.getType().flip(), new NullableValue(leftType, left)));
         }
         return Optional.empty();
     }
