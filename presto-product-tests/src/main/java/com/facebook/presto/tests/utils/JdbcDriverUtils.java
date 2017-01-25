@@ -78,17 +78,19 @@ public class JdbcDriverUtils
 
     public static boolean usingPrestoJdbcDriver(Connection connection)
     {
-        return getClassNameForJdbcDriver(connection).equals("com.facebook.presto.jdbc.PrestoConnection");
+        return connection instanceof PrestoConnection;
     }
 
     public static boolean usingTeradataJdbcDriver(Connection connection)
     {
-        return  getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.");
+        String className = getClassNameForJdbcDriver(connection);
+        return className != null && className.startsWith("com.teradata.jdbc.");
     }
 
     public static boolean usingTeradataJdbc4Driver(Connection connection)
     {
-        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.jdbc.jdbc4.");
+        String className = getClassNameForJdbcDriver(connection);
+        return className != null && className.startsWith("com.teradata.jdbc.jdbc4.");
     }
 
     private static String getClassNameForJdbcDriver(Connection connection)

@@ -14,6 +14,10 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Throwables;
+import com.google.common.cache.CacheLoader;
+import com.google.common.collect.ImmutableList;
+import io.airlift.http.client.jetty.JettyIoPool;
+import io.airlift.http.client.jetty.JettyIoPoolConfig;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -23,14 +27,14 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.format;
 
 public class PrestoDriver
         implements Driver, Closeable
@@ -40,13 +44,13 @@ public class PrestoDriver
     static final int DRIVER_VERSION_MAJOR;
     static final int DRIVER_VERSION_MINOR;
 
-    private static final DriverPropertyInfo[] DRIVER_PROPERTY_INFOS = {};
-
     private static final String DRIVER_URL_START = "jdbc:presto:";
 
-    private static final String USER_PROPERTY = "user";
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final QueryExecutor queryExecutor;
+    private final JettyIoPool jettyIoPool;
+
+    private final ReferenceCountingLoadingCache<HttpClientCreator, QueryExecutor> queryExecutorCache;
 
     static {
         String version = nullToEmpty(PrestoDriver.class.getPackage().getImplementationVersion());
@@ -70,31 +74,177 @@ public class PrestoDriver
         }
     }
 
+    /*
+     * The relationship between the PrestoDriver, QueryExecutors, and
+     * PrestoConnections is complicated:
+     *
+     * PrestoConnection <-many:one-> QueryExecutor <-many:one-> PrestoDriver
+     *                               (HTTP client)
+     *
+     * - A PrestoConnection represents the outside world's view of a JDBC
+     * connection to a Presto server.
+     * - A PrestoConnection contains a QueryExecutor, which is responsible
+     * for actually executing queries against the Presto server.
+     * - QueryExecutor contains a reference to a driver-wide pool of execution
+     * resources, and an HTTP client that executes requests using the resources
+     * in that pool.
+     *
+     * An HTTP client is expensive to create and destroy, and we would like to
+     * share it across as many PrestoConnections as possible. If every
+     * connection could use the same HTTP client, life would be simple.
+     * Unfortunately, some things that can be specified at the PrestoConnection
+     * level must be configured at the HTTP client level. The obvious case of
+     * this is the SSL/TLS trust store configuration: An HTTP client has to be
+     * configured with the appropriate trust store to make SSL connections to a
+     * Presto server.
+     *
+     * The PrestoDriver deals in QueryExecutors, which have a 1:1 relationship
+     * with HTTP clients. In order to create many PrestoConnections with the
+     * same QueryExecutor, the PrestoDriver maintains a cache of
+     * QueryExecutors.
+     *
+     * This leaves us having to solve one of the two hard problems in computer
+     * science: cache invalidation, which in this case, is closely intertwined
+     * with the need to eventually close the HTTP client contained in the
+     * cached QueryExecutor.
+     *
+     * Conceptually, the flow is simple:
+     * driver.connect() returns either
+     * 1) A cached QueryExecutor that has an HTTP client that satisfies the
+     *    requested connection properties.
+     * 2) A new QueryExecutor with a new HTTP client if no cached
+     *    QueryExecutor is satisfactory.
+     *
+     * connection.close() calls queryExecutor.close()
+     * If this is the last reference to the queryExecutor, close the HTTP
+     * client and invalidate() queryExecutor from the cache.
+     *
+     * Now we need a reference count. And things get hairy.
+     *
+     * com.google.common.cache.LoadingCache is safe for concurrent access, so
+     * the get() call in driver.connect() and the invalidate() call in
+     * queryExecutor.close() can't get us into a state where somebody has
+     * gotten() a reference that's already been invalidated().
+     *
+     * The problem is actually the refcount; there's no way to atomically get()
+     * a QueryExecutor from the cache and increment its refcount. It gets
+     * worse: there's no way to know ahead of time which QueryExecutor you're
+     * going to get from get(), so the locking for the refcount has to be done
+     * against the cache rather than individual QueryExecutors.
+     *
+     * The solution is to protect the refcounts by synchronizing on the cache
+     * and incrementing and decrementing the refcount while holding the cache's
+     * monitor.
+     *
+     * This logic is encapsulated in ReferenceCountingLoadingCache. get() and
+     * close() operations call acquire() and release(), respectively.
+     *
+     * The last wrinkle is that we need to retain released() QueryExecutors
+     * for some short time period to handle cases where somebody releases the
+     * last reference to a QE, but is going to reacquire it immediately. This
+     * requires scheduling cache invalidation into the future, which adds yet
+     * more joy to our lives, as detailed below.
+     *
+     * The cleaner count handles the following situation:
+     *
+     * Thread T1 has a reference on V for key K.
+     * T1 calls release(K1) scheduling future F1 and increments cleaner count -> 1
+     * time passes.
+     * A daemon thread starts executing F1, but does not acquire the lock
+     * Thread T2 calls acquire() and acquires the lock.
+     *   acquire() increments the refcount
+     *   acquire tries, but fails to cancel F1 because F1 isn't is running
+     *     but is not interruptible.
+     *   acquire() releases the lock
+     *
+     * At this point 2 things can happen
+     * 1) F1 resumes executing. At this point the refcount is sufficient to
+     *    ensure correctness
+     * 2) T2 calls release(K1)
+     *      release() acquires the lock.
+     *      release schedules a cleanup F2 and increments cleaner count -> 2
+     *      release fails to cancel F1 for the same reason acquire did.
+     *      release() releases the lock.
+     *    F1 resumes executing and acquires the lock.
+     *      releaseForCleaning() decrements cleaner count -> 1
+     *      nothing further happens.
+     *    more time passes.
+     *    F2 executes
+     *      releaseForCleaning() decrements cleaner count -> 0
+     *      refcount is 0
+     *      K1 is invalidated from the cache, and V1 is disposed.
+     *
+     * Without the cleaner count, we run the risk that some thread T3 calls
+     * acquire(K1), loading V2 while more time passes. F2 is still using V1's
+     * Holder, which has a refcount of zero. F1 then invalidates K1, which
+     * disposes of V2 while it's still being used by T3. Havoc ensues.
+     *
+     * Instead of keeping a cleaner count, we could have a boolean flag in the
+     * Holder that tracks whether or not the value has been invalidated. The
+     * cleaner count has the advantage of ensuring the desired retention period
+     * as well as guarding against the above situation, so it's all around
+     * better.
+     *
+     * The other, other approach would be to set an 'invalidate after' time
+     * in the holder. Now we have to worry about clock resolution, jitter, and
+     * monotonicity. No thanks; somebody did that work for the ScheduledFuture/
+     * ScheduledExecutorService, let's take advantage of that.
+     *
+     * The locking hierarchy is as follows:
+     * 1) The monitor on the ReferenceCountingLoadingCache
+     * 2) <internal locking of com.google.common.cache.LoadingCache>
+     *
+     * The last case of interest is the process that is using PrestoDriver
+     * calling prestoDriver.close(). This invalidates all of the cached
+     * QueryExecutors regardless of their refcount by calling the cache's
+     * close() method, and in doing so closes their HTTP clients. If anybody is
+     * still trying to use a PrestoConnection created by the driver, they're
+     * SOL.
+     */
+
     public PrestoDriver()
     {
-        this.queryExecutor = QueryExecutor.create(DRIVER_NAME + "/" + DRIVER_VERSION);
+        this.jettyIoPool = new JettyIoPool("presto-jdbc", new JettyIoPoolConfig());
+        this.queryExecutorCache = ReferenceCountingLoadingCache.<HttpClientCreator, QueryExecutor>builder().build(
+                new CacheLoader<HttpClientCreator, QueryExecutor>()
+                {
+                    @Override
+                    public QueryExecutor load(HttpClientCreator clientCreator)
+                    {
+                        return QueryExecutor.create(clientCreator.create(QueryExecutor.baseClientConfig()));
+                    }
+                },
+                QueryExecutor::close);
     }
 
     @Override
     public void close()
     {
-        queryExecutor.close();
+        if (closed.compareAndSet(false, true)) {
+            queryExecutorCache.close();
+            jettyIoPool.close();
+        }
     }
 
     @Override
-    public Connection connect(String url, Properties info)
+    public Connection connect(String url, Properties driverProperties)
             throws SQLException
     {
+        if (closed.get()) {
+            throw new SQLException("Already closed");
+        }
+
         if (!acceptsURL(url)) {
             return null;
         }
 
-        String user = info.getProperty(USER_PROPERTY);
-        if (isNullOrEmpty(user)) {
-            throw new SQLException(format("Username property (%s) must be set", USER_PROPERTY));
-        }
+        PrestoConnectionConfig uri = new PrestoConnectionConfig(url, driverProperties);
+        String user = USER.getValue(uri.getConnectionProperties()).get();
 
-        return new PrestoConnection(new PrestoDriverUri(url), user, queryExecutor);
+        HttpClientCreator clientCreator = uri.getCreator(DRIVER_NAME + "/" + DRIVER_VERSION, jettyIoPool);
+
+        QueryExecutor queryExecutor = queryExecutorCache.acquire(clientCreator);
+        return new PrestoConnection(uri, user, queryExecutor, () -> queryExecutorCache.release(clientCreator));
     }
 
     @Override
@@ -105,10 +255,18 @@ public class PrestoDriver
     }
 
     @Override
-    public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
+    public DriverPropertyInfo[] getPropertyInfo(String url, Properties driverProperties)
             throws SQLException
     {
-        return DRIVER_PROPERTY_INFOS;
+        PrestoConnectionConfig uri = new PrestoConnectionConfig(url, driverProperties);
+        ImmutableList.Builder<DriverPropertyInfo> result = ImmutableList.builder();
+
+        Properties mergedProperties = uri.getConnectionProperties();
+        for (ConnectionProperty property : ConnectionProperties.allOf()) {
+            result.add(property.getDriverPropertyInfo(mergedProperties));
+        }
+
+        return result.build().toArray(new DriverPropertyInfo[0]);
     }
 
     @Override

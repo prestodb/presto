@@ -14,7 +14,9 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.http.client.jetty.JettyIoPool;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -22,15 +24,19 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
+import static com.facebook.presto.jdbc.ConnectionProperties.SECURE;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_ENABLED;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Parses and extracts parameters from a Presto JDBC URL.
  */
-final class PrestoDriverUri
+final class PrestoConnectionConfig
 {
     private static final String JDBC_URL_START = "jdbc:";
 
@@ -39,26 +45,29 @@ final class PrestoDriverUri
 
     private final HostAndPort address;
     private final URI uri;
+    private final Properties connectionProperties;
 
     private String catalog;
     private String schema;
 
     private final boolean useSecureConnection;
 
-    public PrestoDriverUri(String url)
+    public PrestoConnectionConfig(String url, Properties driverProperties)
             throws SQLException
     {
-        this(parseDriverUrl(url));
+        this(parseDriverUrl(url), driverProperties);
     }
 
-    private PrestoDriverUri(URI uri)
+    private PrestoConnectionConfig(URI uri, Properties driverProperties)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        connectionProperties = mergeConnectionProperties(uri, driverProperties);
 
-        Map<String, String> params = parseParameters(uri.getQuery());
-        useSecureConnection = Boolean.parseBoolean(params.get("secure"));
+        validateConnectionProperties(connectionProperties);
+
+        useSecureConnection = SECURE.getValue(connectionProperties).get() == SSL_ENABLED;
 
         initCatalogAndSchema();
     }
@@ -81,6 +90,17 @@ final class PrestoDriverUri
     public URI getHttpUri()
     {
         return buildHttpUri();
+    }
+
+    public Properties getConnectionProperties()
+    {
+        return connectionProperties;
+    }
+
+    public HttpClientCreator getCreator(String userAgent, JettyIoPool jettyIoPool)
+            throws SQLException
+    {
+        return new HttpClientCreator(userAgent, jettyIoPool, ImmutableMap.of());
     }
 
     private static Map<String, String> parseParameters(String query)
@@ -164,6 +184,30 @@ final class PrestoDriverUri
                 throw new SQLException("Schema name is empty: " + uri);
             }
             schema = parts.get(1);
+        }
+    }
+
+    private static Properties mergeConnectionProperties(URI uri, Properties driverProperties)
+            throws SQLException
+    {
+        Properties result = new Properties();
+        result.putAll(ConnectionProperties.getDefaults());
+        result.putAll(driverProperties);
+        result.putAll(parseParameters(uri.getQuery()));
+        return result;
+    }
+
+    private static void validateConnectionProperties(Properties connectionProperties)
+            throws SQLException
+    {
+        for (String propertyName : connectionProperties.stringPropertyNames()) {
+            if (ConnectionProperties.forKey(propertyName) == null) {
+                throw new SQLException(format("Unrecognized connection property '%s'", propertyName));
+            }
+        }
+
+        for (ConnectionProperty property : ConnectionProperties.allOf()) {
+            property.validate(connectionProperties);
         }
     }
 }
