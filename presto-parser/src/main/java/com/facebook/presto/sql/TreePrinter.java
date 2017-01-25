@@ -33,6 +33,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
@@ -87,12 +88,9 @@ public class TreePrinter
 
                 print(indentLevel, "QueryBody");
                 process(node.getQueryBody(), indentLevel);
-
-                if (!node.getOrderBy().isEmpty()) {
+                if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    for (SortItem sortItem : node.getOrderBy()) {
-                        process(sortItem, indentLevel + 1);
-                    }
+                    process(node.getOrderBy().get(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
@@ -164,15 +162,22 @@ public class TreePrinter
                     process(node.getHaving().get(), indentLevel + 1);
                 }
 
-                if (!node.getOrderBy().isEmpty()) {
+                if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    for (SortItem sortItem : node.getOrderBy()) {
-                        process(sortItem, indentLevel + 1);
-                    }
+                    process(node.getOrderBy().get(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
                     print(indentLevel, "Limit: " + node.getLimit().get());
+                }
+
+                return null;
+            }
+
+            protected Void visitOrderBy(OrderBy node, Integer indentLevel)
+            {
+                for (SortItem sortItem : node.getSortItems()) {
+                    process(sortItem, indentLevel);
                 }
 
                 return null;

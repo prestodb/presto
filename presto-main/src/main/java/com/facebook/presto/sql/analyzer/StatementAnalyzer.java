@@ -77,6 +77,7 @@ import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -1250,7 +1251,9 @@ class StatementAnalyzer
             return legacyAnalyzeOrderBy(node, sourceScope, outputScope, outputExpressions);
         }
 
-        List<SortItem> items = node.getOrderBy();
+        List<SortItem> items = node.getOrderBy()
+                .map(OrderBy::getSortItems)
+                .orElse(emptyList());
 
         ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
 
@@ -1315,7 +1318,9 @@ class StatementAnalyzer
      */
     private List<Expression> legacyAnalyzeOrderBy(QuerySpecification node, Scope sourceScope, Scope outputScope, List<Expression> outputExpressions)
     {
-        List<SortItem> items = node.getOrderBy();
+        List<SortItem> items = node.getOrderBy()
+                .map(OrderBy::getSortItems)
+                .orElse(emptyList());
 
         ImmutableList.Builder<Expression> orderByExpressionsBuilder = ImmutableList.builder();
 
@@ -1707,8 +1712,9 @@ class StatementAnalyzer
                 .filter(SingleColumn.class::isInstance)
                 .forEach(extractor::process);
 
-        node.getOrderBy().stream()
-                .forEach(extractor::process);
+        node.getOrderBy().map(OrderBy::getSortItems).ifPresent(
+                sortItems -> sortItems
+                        .forEach(extractor::process));
 
         node.getHaving()
                 .ifPresent(extractor::process);
@@ -1860,7 +1866,9 @@ class StatementAnalyzer
 
     private void analyzeOrderBy(Query node, Scope scope)
     {
-        List<SortItem> items = node.getOrderBy();
+        List<SortItem> items = node.getOrderBy()
+                .map(OrderBy::getSortItems)
+                .orElse(emptyList());
 
         ImmutableList.Builder<Expression> orderByFieldsBuilder = ImmutableList.builder();
 
