@@ -17,6 +17,7 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static java.lang.String.format;
@@ -28,26 +29,30 @@ public abstract class AbstractConnectionProperty<T>
     private final String key;
     private final Optional<String> defaultValue;
     private final Predicate<Properties> isRequired;
+    private final Predicate<Properties> isAllowed;
     private final Converter<T> converter;
 
     protected AbstractConnectionProperty(
             String key,
             Optional<String> defaultValue,
             Predicate<Properties> isRequired,
+            Predicate<Properties> isAllowed,
             Converter<T> converter)
     {
         this.key = requireNonNull(key);
         this.defaultValue = requireNonNull(defaultValue);
         this.isRequired = requireNonNull(isRequired);
+        this.isAllowed = requireNonNull(isAllowed);
         this.converter = requireNonNull(converter);
     }
 
     protected AbstractConnectionProperty(
             String key,
             Predicate<Properties> required,
+            Predicate<Properties> allowed,
             Converter<T> converter)
     {
-        this(key, Optional.empty(), required, converter);
+        this(key, Optional.empty(), required, allowed, converter);
     }
 
     @Override
@@ -77,6 +82,11 @@ public abstract class AbstractConnectionProperty<T>
         return isRequired.test(properties);
     }
 
+    public boolean isAllowed(Properties properties)
+    {
+        return !properties.containsKey(key) || isAllowed.test(properties);
+    }
+
     @Override
     public Optional<T> getValue(Properties properties)
             throws SQLException
@@ -101,6 +111,10 @@ public abstract class AbstractConnectionProperty<T>
     public void validate(Properties properties)
             throws SQLException
     {
+        if (!isAllowed(properties)) {
+            throw new SQLException(format("Connection property '%s' is not allowed", key));
+        }
+
         getValue(properties);
     }
 
@@ -112,12 +126,22 @@ public abstract class AbstractConnectionProperty<T>
         return properties -> properties.get(property.getKey()).equals(value.toString());
     }
 
-    private interface Converter<T>
+    protected static Predicate<Properties> noneOf(Set<String> keys)
+    {
+        return properties -> properties.keySet().stream()
+                .filter(keys::contains)
+                .count() == 0;
+    }
+
+    protected static final Predicate<Properties> ALLOWED = properties -> true;
+
+    public interface Converter<T>
     {
         T convert(String value)
                 throws Exception;
     }
 
-    protected static final Converter<String> STRING_CONVERTER = (value) -> value;
-    protected static final Converter<Boolean> BOOLEAN_CONVERTER = (value) -> Boolean.parseBoolean(value);
+    protected static final Converter<String> STRING_CONVERTER = value -> value;
+    protected static final Converter<Integer> INTEGER_CONVERTER = value -> Integer.parseInt(value);
+    protected static final Converter<Boolean> BOOLEAN_CONVERTER = value -> Boolean.parseBoolean(value);
 }

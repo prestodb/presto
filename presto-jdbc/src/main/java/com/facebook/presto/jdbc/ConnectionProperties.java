@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -22,7 +21,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Predicate;
 
+import static com.facebook.presto.jdbc.AbstractConnectionProperty.BOOLEAN_CONVERTER;
+import static com.facebook.presto.jdbc.AbstractConnectionProperty.INTEGER_CONVERTER;
+import static com.google.common.base.Joiner.on;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
@@ -32,15 +35,21 @@ public class ConnectionProperties
 {
     public static final ConnectionProperty<String> USER = new User();
     public static final ConnectionProperty<String> PASSWORD = new Password();
-    public static final ConnectionProperty<Boolean> SECURE = new Secure();
+    public static final ConnectionProperty<Boolean> SSL = new Ssl();
+    public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
+    public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
+    public static final ConnectionProperty<String> SSL_TRUST_STORE_PWD = new SslTrustStorePwd();
 
     private static final Set<ConnectionProperty> ALL_OF = ImmutableSet.of(
             USER,
             PASSWORD,
-            SECURE);
+            SSL,
+            SSL_TRUST_STORE_PATH,
+            SSL_TRUST_STORE_PASSWORD,
+            SSL_TRUST_STORE_PWD);
 
     private static final Map<String, ConnectionProperty> KEY_LOOKUP = unmodifiableMap(allOf().stream()
-            .collect(toMap(ConnectionProperty::getKey, identity())));
+                .collect(toMap(ConnectionProperty::getKey, identity())));
 
     private static final Map<String, String> DEFAULTS;
 
@@ -78,7 +87,7 @@ public class ConnectionProperties
     {
         private User()
         {
-            super("user", REQUIRED, STRING_CONVERTER);
+            super("user", REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -87,21 +96,50 @@ public class ConnectionProperties
     {
         private Password()
         {
-            super("password", NOT_REQUIRED, STRING_CONVERTER);
+            super("password", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
     public static final boolean SSL_DISABLED = false;
     public static final boolean SSL_ENABLED = true;
 
-    private static class Secure
+    private static class SslEnabledConverter
+            implements AbstractConnectionProperty.Converter<Boolean>
+    {
+        private static final Set<String> ALLOWED_BOOLEANS = ImmutableSet.of(
+                Boolean.toString(SSL_DISABLED),
+                Boolean.toString(SSL_ENABLED));
+
+        @Override
+        public Boolean convert(String value)
+                throws Exception
+        {
+            /*
+             * Boolean.parseBoolean will return false for any string that isn't true, ignoring case.
+             * This is not what we want; we want to convert ints to booleans too following the
+             * usual convention that any non-zero value is true, and zero is false.
+             */
+            if (ALLOWED_BOOLEANS.contains(value.toLowerCase())) {
+                return BOOLEAN_CONVERTER.convert(value);
+            }
+
+            return 0 != INTEGER_CONVERTER.convert(value);
+        }
+    }
+
+    private static class Ssl
             extends AbstractConnectionProperty<Boolean>
     {
-        private static final Set<Boolean> allowed = ImmutableSet.of(SSL_DISABLED, SSL_ENABLED);
+        private static Set<String> allowed = ImmutableSet.of(
+                Boolean.toString(SSL_DISABLED),
+                Boolean.toString(SSL_ENABLED),
+                // For compatibility with the Teradata JDBC driver, limit allowed integer values to 0, 1
+                Integer.toString(0),
+                Integer.toString(1));
 
-        private Secure()
+        private Ssl()
         {
-            super("secure", Optional.of(Boolean.toString(SSL_DISABLED)), NOT_REQUIRED, BOOLEAN_CONVERTER);
+            super("SSL", Optional.of(Boolean.toString(SSL_DISABLED)), NOT_REQUIRED, ALLOWED, new SslEnabledConverter());
         }
 
         @Override
@@ -113,9 +151,62 @@ public class ConnectionProperties
                 return;
             }
 
-            if (!allowed.contains(flag.get())) {
-                throw new SQLException(format("The value of %s must be one of %s", getKey(), Joiner.on(", ").join(allowed)));
+            if (!allowed.contains(properties.getProperty(getKey()))) {
+                throw new SQLException(format("The value of %s must be one of %s", getKey(), on(", ").join(allowed)));
             }
+        }
+    }
+
+    private static class IfSslEnabled
+            implements Predicate<Properties>
+    {
+        @Override
+        public boolean test(Properties properties)
+        {
+            try {
+                Optional<Boolean> sslEnabled = SSL.getValue(properties);
+                return sslEnabled.isPresent() && sslEnabled.get() == SSL_ENABLED;
+            }
+            catch (SQLException e) {
+                return false;
+            }
+        }
+    }
+
+    public static class SslTrustStorePath
+            extends AbstractConnectionProperty<String>
+    {
+        private SslTrustStorePath()
+        {
+            super("SSLTrustStorePath", new IfSslEnabled(), new IfSslEnabled(), STRING_CONVERTER);
+        }
+    }
+
+    private static final String SSL_TRUST_STORE_PASSWORD_KEY = "SSLTrustStorePassword";
+    private static final String SSL_TRUST_STORE_PWD_KEY = "SSLTrustStorePwd";
+
+    public static class SslTrustStorePassword
+            extends AbstractConnectionProperty<String>
+    {
+        private SslTrustStorePassword()
+        {
+            super(SSL_TRUST_STORE_PASSWORD_KEY,
+                    new IfSslEnabled().and(noneOf(ImmutableSet.of(SSL_TRUST_STORE_PWD_KEY))),
+                    new IfSslEnabled().and(noneOf(ImmutableSet.of(SSL_TRUST_STORE_PWD_KEY))),
+                    STRING_CONVERTER);
+        }
+    }
+
+    public static class SslTrustStorePwd
+            extends AbstractConnectionProperty<String>
+    {
+        private SslTrustStorePwd()
+        {
+            super(
+                    SSL_TRUST_STORE_PWD_KEY,
+                    new IfSslEnabled().and(noneOf(ImmutableSet.of(SSL_TRUST_STORE_PASSWORD_KEY))),
+                    new IfSslEnabled().and(noneOf(ImmutableSet.of(SSL_TRUST_STORE_PASSWORD_KEY))),
+                    STRING_CONVERTER);
         }
     }
 }

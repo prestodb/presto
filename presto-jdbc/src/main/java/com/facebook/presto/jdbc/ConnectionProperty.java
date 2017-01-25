@@ -28,6 +28,8 @@ public interface ConnectionProperty<T>
 
     boolean isRequired(Properties properties);
 
+    boolean isAllowed(Properties properties);
+
     Optional<T> getValue(Properties properties)
             throws SQLException;
 
