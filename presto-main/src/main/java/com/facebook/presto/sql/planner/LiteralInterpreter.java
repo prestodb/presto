@@ -316,7 +316,12 @@ public final class LiteralInterpreter
         protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
         {
             try {
-                return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                if (session.isLegacyTimestamp()) {
+                    return parseTimestampLiteral(session.getTimeZoneKey(), node.getValue());
+                }
+                else {
+                    return parseTimestampLiteral(node.getValue());
+                }
             }
             catch (Exception e) {
                 throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
