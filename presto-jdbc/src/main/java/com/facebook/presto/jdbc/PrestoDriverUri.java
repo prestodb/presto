@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.facebook.presto.client.ClientException;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
@@ -28,8 +29,12 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.client.OkHttpUtil.basicAuth;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
-import static com.facebook.presto.jdbc.ConnectionProperties.SECURE;
+import static com.facebook.presto.jdbc.ConnectionProperties.PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -70,7 +75,7 @@ final class PrestoDriverUri
 
         validateConnectionProperties(properties);
 
-        useSecureConnection = SECURE.getRequiredValue(properties);
+        useSecureConnection = SSL.getRequiredValue(properties);
 
         initCatalogAndSchema();
     }
@@ -106,15 +111,31 @@ final class PrestoDriverUri
         return properties;
     }
 
-    @SuppressWarnings("unused")
     public void setupClient(OkHttpClient.Builder builder)
             throws SQLException
     {
-        setupSsl(builder,
-                Optional.ofNullable(System.getProperty("javax.net.ssl.keyStore")),
-                Optional.ofNullable(System.getProperty("javax.net.ssl.keyStorePassword")),
-                Optional.ofNullable(System.getProperty("javax.net.ssl.trustStore")),
-                Optional.ofNullable(System.getProperty("javax.net.ssl.trustStorePassword")));
+        try {
+            // TODO: fix Tempto to allow empty passwords
+            String password = PASSWORD.getValue(properties).orElse("");
+            if (!password.isEmpty() && !password.equals("***empty***")) {
+                if (!useSecureConnection) {
+                    throw new SQLException("Authentication using username/password requires SSL to be enabled");
+                }
+                builder.addInterceptor(basicAuth(getUser(), password));
+            }
+
+            if (useSecureConnection) {
+                Optional<String> trustStorePath = SSL_TRUST_STORE_PATH.getValue(properties);
+                Optional<String> trustStorePassword = SSL_TRUST_STORE_PASSWORD.getValue(properties);
+                setupSsl(builder, Optional.empty(), Optional.empty(), trustStorePath, trustStorePassword);
+            }
+        }
+        catch (ClientException e) {
+            throw new SQLException(e.getMessage(), e);
+        }
+        catch (RuntimeException e) {
+            throw new SQLException("Error setting up connection", e);
+        }
     }
 
     private static Map<String, String> parseParameters(String query)
@@ -159,8 +180,7 @@ final class PrestoDriverUri
 
     private URI buildHttpUri()
     {
-        String scheme = (address.getPort() == 443 || useSecureConnection) ? "https" : "http";
-
+        String scheme = useSecureConnection ? "https" : "http";
         try {
             return new URI(scheme, null, address.getHost(), address.getPort(), null, null, null);
         }
