@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
 
@@ -23,10 +24,15 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Properties;
 
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
+import static com.facebook.presto.jdbc.ConnectionProperties.SECURE;
+import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -42,25 +48,29 @@ final class PrestoDriverUri
     private final HostAndPort address;
     private final URI uri;
 
+    private final Properties properties;
+
     private String catalog;
     private String schema;
 
     private final boolean useSecureConnection;
 
-    public PrestoDriverUri(String url)
+    public PrestoDriverUri(String url, Properties driverProperties)
             throws SQLException
     {
-        this(parseDriverUrl(url));
+        this(parseDriverUrl(url), driverProperties);
     }
 
-    private PrestoDriverUri(URI uri)
+    private PrestoDriverUri(URI uri, Properties driverProperties)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        properties = mergeConnectionProperties(uri, driverProperties);
 
-        Map<String, String> params = parseParameters(uri.getQuery());
-        useSecureConnection = Boolean.parseBoolean(params.get("secure"));
+        validateConnectionProperties(properties);
+
+        useSecureConnection = SECURE.getRequiredValue(properties);
 
         initCatalogAndSchema();
     }
@@ -85,6 +95,18 @@ final class PrestoDriverUri
         return buildHttpUri();
     }
 
+    public String getUser()
+            throws SQLException
+    {
+        return USER.getRequiredValue(properties);
+    }
+
+    public Properties getProperties()
+    {
+        return properties;
+    }
+
+    @SuppressWarnings("unused")
     public void setupClient(OkHttpClient.Builder builder)
             throws SQLException
     {
@@ -96,6 +118,7 @@ final class PrestoDriverUri
     }
 
     private static Map<String, String> parseParameters(String query)
+            throws SQLException
     {
         Map<String, String> result = new HashMap<>();
 
@@ -103,7 +126,9 @@ final class PrestoDriverUri
             Iterable<String> queryArgs = QUERY_SPLITTER.split(query);
             for (String queryArg : queryArgs) {
                 List<String> parts = ARG_SPLITTER.splitToList(queryArg);
-                result.put(parts.get(0), parts.get(1));
+                if (result.put(parts.get(0), parts.get(1)) != null) {
+                    throw new SQLException(format("Connection property '%s' is in URL multiple times", parts.get(0)));
+                }
             }
         }
 
@@ -178,6 +203,47 @@ final class PrestoDriverUri
                 throw new SQLException("Schema name is empty: " + uri);
             }
             schema = parts.get(1);
+        }
+    }
+
+    private static Properties mergeConnectionProperties(URI uri, Properties driverProperties)
+            throws SQLException
+    {
+        Map<String, String> defaults = ConnectionProperties.getDefaults();
+        Map<String, String> urlProperties = parseParameters(uri.getQuery());
+        Map<String, String> suppliedProperties = Maps.fromProperties(driverProperties);
+
+        for (String key : urlProperties.keySet()) {
+            if (suppliedProperties.containsKey(key)) {
+                throw new SQLException(format("Connection property '%s' is both in the URL and an argument", key));
+            }
+        }
+
+        Properties result = new Properties();
+        setProperties(result, defaults);
+        setProperties(result, urlProperties);
+        setProperties(result, suppliedProperties);
+        return result;
+    }
+
+    private static void setProperties(Properties properties, Map<String, String> values)
+    {
+        for (Entry<String, String> entry : values.entrySet()) {
+            properties.setProperty(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private static void validateConnectionProperties(Properties connectionProperties)
+            throws SQLException
+    {
+        for (String propertyName : connectionProperties.stringPropertyNames()) {
+            if (ConnectionProperties.forKey(propertyName) == null) {
+                throw new SQLException(format("Unrecognized connection property '%s'", propertyName));
+            }
+        }
+
+        for (ConnectionProperty<?> property : ConnectionProperties.allProperties()) {
+            property.validate(connectionProperties);
         }
     }
 }
