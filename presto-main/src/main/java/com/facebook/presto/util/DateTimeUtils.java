@@ -70,6 +70,8 @@ public final class DateTimeUtils
         return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
     }
 
+    @Deprecated
+    private static final DateTimeFormatter LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
@@ -81,10 +83,15 @@ public final class DateTimeUtils
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s").getParser(),
                 DateTimeFormat.forPattern("yyyy-M-d H:m:s.SSS").getParser()};
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS").getPrinter();
-        TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+        LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
                 .append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser)
                 .toFormatter()
                 .withOffsetParsed();
+
+        TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
+                .append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser)
+                .toFormatter()
+                .withZoneUTC();
 
         DateTimeParser[] timestampWithTimeZoneParser = {
                 DateTimeFormat.forPattern("yyyy-M-dZ").getParser(),
@@ -117,6 +124,18 @@ public final class DateTimeUtils
                 .withOffsetParsed();
     }
 
+    public static long parseTimestampLiteral(String value)
+    {
+        try {
+            DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.parseDateTime(value);
+            return packDateTimeWithZone(dateTime);
+        }
+        catch (Exception e) {
+            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+        }
+    }
+
+    @Deprecated
     public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
     {
         try {
@@ -124,7 +143,7 @@ public final class DateTimeUtils
             return packDateTimeWithZone(dateTime);
         }
         catch (Exception e) {
-            return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+            return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
         }
     }
 
@@ -134,6 +153,12 @@ public final class DateTimeUtils
         return packDateTimeWithZone(dateTime);
     }
 
+    public static long parseTimestampWithoutTimeZone(String value)
+    {
+        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+    }
+
+    @Deprecated
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
         return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
@@ -148,7 +173,7 @@ public final class DateTimeUtils
 
     public static String printTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, long timestamp)
     {
-        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
+        return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
     }
 
     public static boolean timestampHasTimeZone(String value)
@@ -196,6 +221,17 @@ public final class DateTimeUtils
         TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder().append(timeWithTimeZonePrinter, timeWithTimeZoneParser).toFormatter().withOffsetParsed();
     }
 
+    public static long parseTime(String value)
+    {
+        try {
+            return parseTimeWithTimeZone(value);
+        }
+        catch (Exception e) {
+            return parseTimeWithoutTimeZone(value);
+        }
+    }
+
+    @Deprecated
     public static long parseTime(TimeZoneKey timeZoneKey, String value)
     {
         try {
@@ -212,6 +248,12 @@ public final class DateTimeUtils
         return packDateTimeWithZone(dateTime);
     }
 
+    public static long parseTimeWithoutTimeZone(String value)
+    {
+        return TIME_FORMATTER.parseMillis(value);
+    }
+
+    @Deprecated
     public static long parseTimeWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
         return TIME_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).parseMillis(value);
