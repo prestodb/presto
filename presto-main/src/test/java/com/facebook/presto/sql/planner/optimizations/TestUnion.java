@@ -69,6 +69,18 @@ public class TestUnion
     }
 
     @Test
+    public void testAggregationWithUnionAndValues()
+    {
+        Plan plan = plan(
+                "SELECT regionkey, count(*) FROM (SELECT regionkey FROM nation UNION ALL SELECT * FROM (VALUES 2, 100) t(regionkey)) GROUP BY regionkey",
+                LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
+                false);
+        assertAtMostOneAggregationBetweenRemoteExchanges(plan);
+        // TODO: Enable this check once distributed UNION can handle both partitioned and single node sources at the same time
+        //assertPlanIsFullyDistributed(plan);
+    }
+
+    @Test
     public void testUnionOnProbeSide()
     {
         Plan plan = plan(
