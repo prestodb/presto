@@ -1822,6 +1822,14 @@ public abstract class AbstractTestQueries
                         "('O', 439774330),\n" +
                         "('F', 438500670),\n" +
                         "(NULL, 899745000)");
+
+        assertQuery(
+                "SELECT regionkey, count(*) FROM (" +
+                        "   SELECT regionkey FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM (VALUES 2, 100) t(regionkey)) " +
+                        "GROUP BY ROLLUP (regionkey)",
+                "SELECT * FROM (VALUES  (0, 5), (1, 5), (2, 6), (3, 5), (4, 5), (100, 1), (NULL, 27))");
     }
 
     @Test
@@ -5700,6 +5708,14 @@ public abstract class AbstractTestQueries
     @Test
     public void testUnionWithAggregation()
     {
+        assertQuery(
+                "SELECT regionkey, count(*) FROM (" +
+                        "   SELECT regionkey FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM (VALUES 2, 100) t(regionkey)) " +
+                        "GROUP BY regionkey",
+                "SELECT * FROM (VALUES  (0, 5), (1, 5), (2, 6), (3, 5), (4, 5), (100, 1))");
+
         assertQuery(
                 "SELECT ds, count(*) FROM (" +
                         "   SELECT orderdate ds, orderkey FROM orders " +
