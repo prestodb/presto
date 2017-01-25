@@ -19,9 +19,12 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
+import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
@@ -49,50 +52,101 @@ public class TestPrestoDriverUri
 
         // empty property
         assertInvalid("jdbc:presto://localhost:8080/hive/default?password=", "Connection property 'password' value is empty");
+
+        // property in url multiple times
+        assertInvalid("presto://localhost:8080/blackhole?password=a&password=b", "Connection property 'password' is in URL multiple times");
+
+        // property in both url and arguments
+        assertInvalid("presto://localhost:8080/blackhole?user=test123", "Connection property 'user' is both in the URL and an argument");
+
+        // invalid ssl flag
+        assertInvalid("jdbc:presto://localhost:8080?SSL=0", "Connection property 'SSL' value is invalid: 0");
+        assertInvalid("jdbc:presto://localhost:8080?SSL=1", "Connection property 'SSL' value is invalid: 1");
+        assertInvalid("jdbc:presto://localhost:8080?SSL=2", "Connection property 'SSL' value is invalid: 2");
+        assertInvalid("jdbc:presto://localhost:8080?SSL=abc", "Connection property 'SSL' value is invalid: abc");
+
+        // ssl trust store password without path
+        assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+
+        // trust store path without ssl
+        assertInvalid("jdbc:presto://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+
+        // trust store password without ssl
+        assertInvalid("jdbc:presto://localhost:8080?SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
     }
 
-    @Test
-    public void testUrlWithSsl()
-            throws SQLException
+    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
+    public void testRequireUser()
+            throws Exception
     {
-        PrestoDriverUri parameters = createDriverUri("presto://some-ssl-server:443/blackhole");
-
-        URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 443);
-        assertEquals(uri.getScheme(), "https");
+        new PrestoDriverUri("jdbc:presto://localhost:8080", new Properties());
     }
 
     @Test
-    public void testUriWithSecureMissing()
+    public void testUriWithoutSsl()
             throws SQLException
     {
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole");
-
-        URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 8080);
-        assertEquals(uri.getScheme(), "http");
+        assertUriPortScheme(parameters, 8080, "http");
     }
 
     @Test
-    public void testUriWithSecureTrue()
+    public void testUriWithSslPortDoesNotUseSsl()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?secure=true");
-
-        URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 8080);
-        assertEquals(uri.getScheme(), "https");
+        PrestoDriverUri parameters = createDriverUri("presto://somelocalhost:443/blackhole");
+        assertUriPortScheme(parameters, 443, "http");
     }
 
     @Test
-    public void testUriWithSecureFalse()
+    public void testUriWithSslDisabled()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?secure=false");
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=false");
+        assertUriPortScheme(parameters, 8080, "http");
+    }
 
+    @Test
+    public void testUriWithSslEnabled()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertNull(properties.getProperty(SSL_TRUST_STORE_PATH.getKey()));
+        assertNull(properties.getProperty(SSL_TRUST_STORE_PASSWORD.getKey()));
+    }
+
+    @Test
+    public void testUriWithSslEnabledPathOnly()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_PATH.getKey()), "truststore.jks");
+        assertNull(properties.getProperty(SSL_TRUST_STORE_PASSWORD.getKey()));
+    }
+
+    @Test
+    public void testUriWithSslEnabledPassword()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks&SSLTrustStorePassword=password");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_PATH.getKey()), "truststore.jks");
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_PASSWORD.getKey()), "password");
+    }
+
+    private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)
+    {
         URI uri = parameters.getHttpUri();
-        assertEquals(uri.getPort(), 8080);
-        assertEquals(uri.getScheme(), "http");
+        assertEquals(uri.getPort(), port);
+        assertEquals(uri.getScheme(), scheme);
     }
 
     private static PrestoDriverUri createDriverUri(String url)

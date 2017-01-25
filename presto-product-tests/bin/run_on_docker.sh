@@ -55,7 +55,6 @@ function run_product_tests() {
   mkdir -p "${REPORT_DIR}"
   run_in_application_runner_container \
     java "-Djava.util.logging.config.file=/docker/volumes/conf/tempto/logging.properties" \
-    ${TLS_CERTIFICATE} \
     -jar "/docker/volumes/presto-product-tests/presto-product-tests-executable.jar" \
     --report-dir "/docker/volumes/test-reports" \
     --config-local "/docker/volumes/tempto/tempto-configuration-local.yaml" \
@@ -188,11 +187,6 @@ fi
 CLI_ARGUMENTS="--server presto-master:8080"
 if [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
     CLI_ARGUMENTS="--server https://presto-master.docker.cluster:7778 --keystore-path /docker/volumes/conf/presto/etc/docker.cluster.jks --keystore-password 123456"
-fi
-
-TLS_CERTIFICATE=""
-if [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
-    TLS_CERTIFICATE="-Djavax.net.ssl.keyStore=/docker/volumes/conf/presto/etc/docker.cluster.jks -Djavax.net.ssl.keyStorePassword=123456"
 fi
 
 # check docker and docker compose installation

@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static java.util.Collections.unmodifiableMap;
 import static java.util.function.Function.identity;
@@ -28,12 +30,16 @@ final class ConnectionProperties
 {
     public static final ConnectionProperty<String> USER = new User();
     public static final ConnectionProperty<String> PASSWORD = new Password();
-    public static final ConnectionProperty<Boolean> SECURE = new Secure();
+    public static final ConnectionProperty<Boolean> SSL = new Ssl();
+    public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
+    public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
-            .add(SECURE)
+            .add(SSL)
+            .add(SSL_TRUST_STORE_PATH)
+            .add(SSL_TRUST_STORE_PASSWORD)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -71,7 +77,7 @@ final class ConnectionProperties
     {
         public User()
         {
-            super("user", REQUIRED, STRING_CONVERTER);
+            super("user", REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
@@ -80,16 +86,40 @@ final class ConnectionProperties
     {
         public Password()
         {
-            super("password", NOT_REQUIRED, STRING_CONVERTER);
+            super("password", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
-    private static class Secure
+    private static class Ssl
             extends AbstractConnectionProperty<Boolean>
     {
-        public Secure()
+        public Ssl()
         {
-            super("secure", Optional.of("false"), NOT_REQUIRED, BOOLEAN_CONVERTER);
+            super("SSL", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class SslTrustStorePath
+            extends AbstractConnectionProperty<String>
+    {
+        private static final Predicate<Properties> IF_SSL_ENABLED =
+                checkedPredicate(properties -> SSL.getValue(properties).orElse(false));
+
+        public SslTrustStorePath()
+        {
+            super("SSLTrustStorePath", NOT_REQUIRED, IF_SSL_ENABLED, STRING_CONVERTER);
+        }
+    }
+
+    private static class SslTrustStorePassword
+            extends AbstractConnectionProperty<String>
+    {
+        private static final Predicate<Properties> IF_TRUST_STORE =
+                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent());
+
+        public SslTrustStorePassword()
+        {
+            super("SSLTrustStorePassword", NOT_REQUIRED, IF_TRUST_STORE, STRING_CONVERTER);
         }
     }
 }
