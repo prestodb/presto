@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.iterative.rule.Util.pruneInputs;
+import static com.facebook.presto.util.Types.tryCast;
 
 public class PruneValuesColumns
         implements Rule
@@ -37,26 +38,18 @@ public class PruneValuesColumns
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
-        if (!(node instanceof ProjectNode)) {
-            return Optional.empty();
-        }
+        return tryCast(node, ProjectNode.class)
+                .flatMap(project -> lookup.resolve(project.getSource(), ValuesNode.class)
+                        .flatMap(values -> pruneInputs(values.getOutputSymbols(), project.getAssignments().getExpressions())
+                                .map((List<Symbol> dependencies) ->
+                                        new ProjectNode(
+                                                project.getId(),
+                                                createNewValuesNode(values, dependencies),
+                                                project.getAssignments()))));
+    }
 
-        ProjectNode parent = (ProjectNode) node;
-
-        PlanNode child = lookup.resolve(parent.getSource());
-        if (!(child instanceof ValuesNode)) {
-            return Optional.empty();
-        }
-
-        ValuesNode values = (ValuesNode) child;
-
-        Optional<List<Symbol>> dependencies = pruneInputs(child.getOutputSymbols(), parent.getAssignments().getExpressions());
-        if (!dependencies.isPresent()) {
-            return Optional.empty();
-        }
-
-        List<Symbol> newOutputs = dependencies.get();
-
+    private ValuesNode createNewValuesNode(ValuesNode values, List<Symbol> newOutputs)
+    {
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
         for (int i = 0; i < mapping.length; i++) {
@@ -70,10 +63,6 @@ public class PruneValuesColumns
                     .collect(Collectors.toList()));
         }
 
-        return Optional.of(
-                new ProjectNode(
-                        parent.getId(),
-                        new ValuesNode(values.getId(), newOutputs, rowsBuilder.build()),
-                        parent.getAssignments()));
+        return new ValuesNode(values.getId(), newOutputs, rowsBuilder.build());
     }
 }
