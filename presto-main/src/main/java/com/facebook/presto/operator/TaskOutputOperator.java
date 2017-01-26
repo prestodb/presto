@@ -14,6 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.buffer.OutputBuffer;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -23,6 +26,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.function.Function;
 
+import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -40,9 +46,9 @@ public class TaskOutputOperator
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor)
+        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
         {
-            return new TaskOutputOperatorFactory(operatorId, planNodeId, outputBuffer, pagePreprocessor);
+            return new TaskOutputOperatorFactory(operatorId, planNodeId, outputBuffer, pagePreprocessor, serdeFactory);
         }
     }
 
@@ -53,13 +59,15 @@ public class TaskOutputOperator
         private final PlanNodeId planNodeId;
         private final OutputBuffer outputBuffer;
         private final Function<Page, Page> pagePreprocessor;
+        private final PagesSerdeFactory serdeFactory;
 
-        public TaskOutputOperatorFactory(int operatorId, PlanNodeId planNodeId, OutputBuffer outputBuffer, Function<Page, Page> pagePreprocessor)
+        public TaskOutputOperatorFactory(int operatorId, PlanNodeId planNodeId, OutputBuffer outputBuffer, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+            this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
         }
 
         @Override
@@ -72,7 +80,7 @@ public class TaskOutputOperator
         public Operator createOperator(DriverContext driverContext)
         {
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TaskOutputOperator.class.getSimpleName());
-            return new TaskOutputOperator(operatorContext, outputBuffer, pagePreprocessor);
+            return new TaskOutputOperator(operatorContext, outputBuffer, pagePreprocessor, serdeFactory);
         }
 
         @Override
@@ -83,21 +91,23 @@ public class TaskOutputOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TaskOutputOperatorFactory(operatorId, planNodeId, outputBuffer, pagePreprocessor);
+            return new TaskOutputOperatorFactory(operatorId, planNodeId, outputBuffer, pagePreprocessor, serdeFactory);
         }
     }
 
     private final OperatorContext operatorContext;
     private final OutputBuffer outputBuffer;
     private final Function<Page, Page> pagePreprocessor;
+    private final PagesSerde serde;
     private ListenableFuture<?> blocked = NOT_BLOCKED;
     private boolean finished;
 
-    public TaskOutputOperator(OperatorContext operatorContext, OutputBuffer outputBuffer, Function<Page, Page> pagePreprocessor)
+    public TaskOutputOperator(OperatorContext operatorContext, OutputBuffer outputBuffer, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+        this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
     }
 
     @Override
@@ -157,7 +167,11 @@ public class TaskOutputOperator
 
         page = pagePreprocessor.apply(page);
 
-        ListenableFuture<?> future = outputBuffer.enqueue(page);
+        List<SerializedPage> serializedPages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()
+                .map(serde::serialize)
+                .collect(toImmutableList());
+
+        ListenableFuture<?> future = outputBuffer.enqueue(serializedPages);
         if (!future.isDone()) {
             this.blocked = future;
         }

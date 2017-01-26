@@ -15,7 +15,7 @@ package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.execution.buffer.ClientBuffer.PageReference;
+import com.facebook.presto.execution.buffer.ClientBuffer.SerializedPageReference;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -42,8 +43,10 @@ import static org.testng.Assert.fail;
 
 public class TestClientBuffer
 {
+    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
+
     private static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
-    private static final DataSize PAGE_SIZE = new DataSize(createPage(42).getRetainedSizeInBytes(), BYTE);
+    private static final DataSize BUFFERED_PAGE_SIZE = new DataSize(PAGES_SERDE.serialize(createPage(42)).getRetainedSizeInBytes(), BYTE);
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
@@ -317,12 +320,12 @@ public class TestClientBuffer
         return tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS).get();
     }
 
-    private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
+    private static synchronized AtomicBoolean addPage(ClientBuffer buffer, Page page)
     {
         AtomicBoolean dereferenced = new AtomicBoolean(true);
-        PageReference pageReference = new PageReference(page, 1, () -> dereferenced.set(false));
-        buffer.enqueuePages(ImmutableList.of(pageReference));
-        pageReference.dereferencePage();
+        SerializedPageReference serializedPageReference = new SerializedPageReference(PAGES_SERDE.serialize(page), 1, () -> dereferenced.set(false));
+        buffer.enqueuePages(ImmutableList.of(serializedPageReference));
+        serializedPageReference.dereferencePage();
         return dereferenced;
     }
 
@@ -357,13 +360,13 @@ public class TestClientBuffer
         assertEquals(buffer.isDestroyed(), true);
     }
 
-    private static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
+    private static synchronized void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)
     {
-        assertEquals(actual.getPages().size(), expected.getPages().size());
+        assertEquals(actual.getSerializedPages().size(), expected.getSerializedPages().size());
         assertEquals(actual.getToken(), expected.getToken());
-        for (int i = 0; i < actual.getPages().size(); i++) {
-            Page actualPage = actual.getPages().get(i);
-            Page expectedPage = expected.getPages().get(i);
+        for (int i = 0; i < actual.getSerializedPages().size(); i++) {
+            Page actualPage = PAGES_SERDE.deserialize(actual.getSerializedPages().get(i));
+            Page expectedPage = PAGES_SERDE.deserialize(expected.getSerializedPages().get(i));
             assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
             PageAssertions.assertPageEquals(types, actualPage, expectedPage);
         }
@@ -376,10 +379,17 @@ public class TestClientBuffer
         return bufferResult(token, pages);
     }
 
-    private static BufferResult bufferResult(long token, List<Page> pages)
+    private static synchronized BufferResult bufferResult(long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
-        return new BufferResult(TASK_INSTANCE_ID, token, token + pages.size(), false, pages);
+        return new BufferResult(
+                TASK_INSTANCE_ID,
+                token,
+                token + pages.size(),
+                false,
+                pages.stream()
+                        .map(PAGES_SERDE::serialize)
+                        .collect(Collectors.toList()));
     }
 
     private static Page createPage(int i)
@@ -389,6 +399,6 @@ public class TestClientBuffer
 
     private static DataSize sizeOfPages(int count)
     {
-        return new DataSize(PAGE_SIZE.toBytes() * count, BYTE);
+        return new DataSize(BUFFERED_PAGE_SIZE.toBytes() * count, BYTE);
     }
 }

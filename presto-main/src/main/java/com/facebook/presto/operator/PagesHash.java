@@ -23,6 +23,7 @@ import java.util.Arrays;
 
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
+import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.util.Objects.requireNonNull;
@@ -44,6 +45,8 @@ public final class PagesHash
     // to accessing values in blocks. We use bytes to reduce memory foot print
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
+    private final long hashCollisions;
+    private final double expectedHashCollisions;
 
     public PagesHash(LongArrayList addresses, PagesHashStrategy pagesHashStrategy)
     {
@@ -66,6 +69,7 @@ public final class PagesHash
         // We will process addresses in batches, to save memory on array of hashes.
         int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
         long[] positionToFullHashes = new long[positionsInStep];
+        long hashCollisionsLocal = 0;
 
         for (int step = 0; step * positionsInStep <= addresses.size(); step++) {
             int stepBeginPosition = step * positionsInStep;
@@ -105,6 +109,7 @@ public final class PagesHash
                     }
                     // increment position and mask to handler wrap around
                     pos = (pos + 1) & mask;
+                    hashCollisionsLocal++;
                 }
 
                 key[pos] = realPosition;
@@ -113,6 +118,8 @@ public final class PagesHash
 
         size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(key) + sizeOf(positionLinks) + sizeOf(positionToHashes);
+        hashCollisions = hashCollisionsLocal;
+        expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
 
     public final int getChannelCount()
@@ -128,6 +135,16 @@ public final class PagesHash
     public long getInMemorySizeInBytes()
     {
         return size;
+    }
+
+    public long getHashCollisions()
+    {
+        return hashCollisions;
+    }
+
+    public double getExpectedHashCollisions()
+    {
+        return expectedHashCollisions;
     }
 
     public int getAddressIndex(int position, Page hashChannelsPage, Page allChannelsPage)

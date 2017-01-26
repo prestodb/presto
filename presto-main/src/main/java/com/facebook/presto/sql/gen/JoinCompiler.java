@@ -28,7 +28,7 @@ import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
-import com.facebook.presto.operator.LookupSource;
+import com.facebook.presto.operator.LookupSourceSupplier;
 import com.facebook.presto.operator.PagesHash;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.spi.ConnectorSession;
@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -150,9 +149,9 @@ public class JoinCompiler
     {
         Class<? extends PagesHashStrategy> pagesHashStrategyClass = internalCompileHashStrategy(types, outputChannels, joinChannels);
 
-        Class<? extends Supplier> joinHashSupplierClass = IsolatedClass.isolateClass(
+        Class<? extends LookupSourceSupplier> joinHashSupplierClass = IsolatedClass.isolateClass(
                 new DynamicClassLoader(getClass().getClassLoader()),
-                Supplier.class,
+                LookupSourceSupplier.class,
                 JoinHashSupplier.class,
                 JoinHash.class,
                 PagesHash.class);
@@ -700,10 +699,10 @@ public class JoinCompiler
 
     public static class LookupSourceSupplierFactory
     {
-        private final Constructor<? extends Supplier> constructor;
+        private final Constructor<? extends LookupSourceSupplier> constructor;
         private final PagesHashStrategyFactory pagesHashStrategyFactory;
 
-        public LookupSourceSupplierFactory(Class<? extends Supplier> joinHashSupplierClass, PagesHashStrategyFactory pagesHashStrategyFactory)
+        public LookupSourceSupplierFactory(Class<? extends LookupSourceSupplier> joinHashSupplierClass, PagesHashStrategyFactory pagesHashStrategyFactory)
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
@@ -714,7 +713,7 @@ public class JoinCompiler
             }
         }
 
-        public Supplier<LookupSource> createLookupSourceSupplier(
+        public LookupSourceSupplier createLookupSourceSupplier(
                 ConnectorSession session,
                 LongArrayList addresses,
                 List<List<Block>> channels,

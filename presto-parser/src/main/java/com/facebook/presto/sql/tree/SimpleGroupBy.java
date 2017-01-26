@@ -63,9 +63,9 @@ public final class SimpleGroupBy
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder().addAll(columns).build();
+        return columns;
     }
 
     @Override

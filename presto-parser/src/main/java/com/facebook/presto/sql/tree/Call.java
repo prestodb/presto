@@ -62,11 +62,9 @@ public final class Call
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(arguments)
-                .build();
+        return arguments;
     }
 
     @Override

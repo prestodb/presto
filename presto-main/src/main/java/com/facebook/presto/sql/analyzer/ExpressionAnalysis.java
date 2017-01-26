@@ -16,9 +16,9 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +39,7 @@ public class ExpressionAnalysis
     private final Set<ExistsPredicate> existsSubqueries;
     private final Set<QuantifiedComparisonExpression> quantifiedComparisons;
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
-    private final IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences;
+    private final IdentityHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences;
 
     public ExpressionAnalysis(
             IdentityHashMap<Expression, Type> expressionTypes,
@@ -50,7 +50,7 @@ public class ExpressionAnalysis
             Set<Expression> columnReferences,
             Set<Expression> typeOnlyCoercions,
             Set<QuantifiedComparisonExpression> quantifiedComparisons,
-            IdentityHashMap<QualifiedNameReference, LambdaArgumentDeclaration> lambdaArgumentReferences)
+            IdentityHashMap<Identifier, LambdaArgumentDeclaration> lambdaArgumentReferences)
     {
         this.expressionTypes = requireNonNull(expressionTypes, "expressionTypes is null");
         this.expressionCoercions = requireNonNull(expressionCoercions, "expressionCoercions is null");
@@ -78,7 +78,7 @@ public class ExpressionAnalysis
         return expressionCoercions.get(expression);
     }
 
-    public LambdaArgumentDeclaration getLambdaArgumentReference(QualifiedNameReference qualifiedNameReference)
+    public LambdaArgumentDeclaration getLambdaArgumentReference(Identifier qualifiedNameReference)
     {
         return lambdaArgumentReferences.get(qualifiedNameReference);
     }

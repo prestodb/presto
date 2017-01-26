@@ -31,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Removes pure identity projections (e.g., Project $0 := $0, $1 := $1, ...)
  */
+@Deprecated
 public class PruneIdentityProjections
         implements PlanOptimizer
 {

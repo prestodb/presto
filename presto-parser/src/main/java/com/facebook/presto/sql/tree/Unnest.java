@@ -63,11 +63,9 @@ public final class Unnest
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(expressions)
-                .build();
+        return expressions;
     }
 
     @Override

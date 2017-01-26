@@ -14,7 +14,6 @@
 package com.facebook.presto.execution.buffer;
 
 import com.facebook.presto.OutputBuffers.OutputBufferId;
-import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
@@ -55,7 +54,7 @@ class ClientBuffer
     private final AtomicLong currentSequenceId = new AtomicLong();
 
     @GuardedBy("this")
-    private final LinkedList<PageReference> pages = new LinkedList<>();
+    private final LinkedList<SerializedPageReference> pages = new LinkedList<>();
 
     @GuardedBy("this")
     private boolean noMorePages;
@@ -105,7 +104,7 @@ class ClientBuffer
 
     public void destroy()
     {
-        List<PageReference> removedPages;
+        List<SerializedPageReference> removedPages;
         PendingRead pendingRead;
         synchronized (this) {
             removedPages = ImmutableList.copyOf(pages);
@@ -120,14 +119,14 @@ class ClientBuffer
             this.pendingRead = null;
         }
 
-        removedPages.forEach(PageReference::dereferencePage);
+        removedPages.forEach(SerializedPageReference::dereferencePage);
 
         if (pendingRead != null) {
             pendingRead.completeResultFutureWithEmpty();
         }
     }
 
-    public void enqueuePages(Collection<PageReference> pages)
+    public void enqueuePages(Collection<SerializedPageReference> pages)
     {
         PendingRead pendingRead;
         synchronized (this) {
@@ -137,14 +136,14 @@ class ClientBuffer
                 return;
             }
 
-            pages.forEach(PageReference::addReference);
+            pages.forEach(SerializedPageReference::addReference);
             this.pages.addAll(pages);
 
-            long rowCount = pages.stream().mapToLong(PageReference::getPositionCount).sum();
+            long rowCount = pages.stream().mapToLong(SerializedPageReference::getPositionCount).sum();
             rowsAdded.addAndGet(rowCount);
             pagesAdded.addAndGet(pages.size());
 
-            long bytesAdded = pages.stream().mapToLong(PageReference::getRetainedSizeInBytes).sum();
+            long bytesAdded = pages.stream().mapToLong(SerializedPageReference::getRetainedSizeInBytes).sum();
             bufferedBytes.addAndGet(bytesAdded);
 
             pendingRead = this.pendingRead;
@@ -270,16 +269,16 @@ class ClientBuffer
 
         // read the new pages
         long maxBytes = maxSize.toBytes();
-        List<Page> result = new ArrayList<>();
+        List<SerializedPage> result = new ArrayList<>();
         long bytes = 0;
 
-        for (PageReference page : pages) {
+        for (SerializedPageReference page : pages) {
             bytes += page.getRetainedSizeInBytes();
             // break (and don't add) if this page would exceed the limit
             if (!result.isEmpty() && bytes > maxBytes) {
                 break;
             }
-            result.add(page.getPage());
+            result.add(page.getSerializedPage());
         }
         return new BufferResult(taskInstanceId, sequenceId, sequenceId + result.size(), false, result);
     }
@@ -291,7 +290,7 @@ class ClientBuffer
     {
         checkState(!Thread.holdsLock(this), "Can not acknowledge pages while holding a lock on this");
 
-        List<PageReference> removedPages = new ArrayList<>();
+        List<SerializedPageReference> removedPages = new ArrayList<>();
         synchronized (this) {
             if (destroyed.get()) {
                 return;
@@ -308,7 +307,7 @@ class ClientBuffer
 
             long bytesRemoved = 0;
             for (int i = 0; i < pagesToRemove; i++) {
-                PageReference removedPage = pages.removeFirst();
+                SerializedPageReference removedPage = pages.removeFirst();
                 removedPages.add(removedPage);
                 bytesRemoved += removedPage.getRetainedSizeInBytes();
             }
@@ -321,7 +320,7 @@ class ClientBuffer
         }
 
         // dereference outside of synchronized to avoid making a callback while holding a lock
-        removedPages.forEach(PageReference::dereferencePage);
+        removedPages.forEach(SerializedPageReference::dereferencePage);
     }
 
     @Override
@@ -377,15 +376,15 @@ class ClientBuffer
     }
 
     @ThreadSafe
-    static class PageReference
+    static class SerializedPageReference
     {
-        private final Page page;
+        private final SerializedPage serializedPage;
         private final AtomicInteger referenceCount;
         private final Runnable onDereference;
 
-        public PageReference(Page page, int referenceCount, Runnable onDereference)
+        public SerializedPageReference(SerializedPage serializedPage, int referenceCount, Runnable onDereference)
         {
-            this.page = requireNonNull(page, "page is null");
+            this.serializedPage = requireNonNull(serializedPage, "page is null");
             checkArgument(referenceCount > 0, "referenceCount must be at least 1");
             this.referenceCount = new AtomicInteger(referenceCount);
             this.onDereference = requireNonNull(onDereference, "onDereference is null");
@@ -397,19 +396,19 @@ class ClientBuffer
             checkState(oldReferences > 0, "Page has already been dereferenced");
         }
 
-        public Page getPage()
+        public SerializedPage getSerializedPage()
         {
-            return page;
+            return serializedPage;
         }
 
         public int getPositionCount()
         {
-            return page.getPositionCount();
+            return serializedPage.getPositionCount();
         }
 
         public long getRetainedSizeInBytes()
         {
-            return page.getRetainedSizeInBytes();
+            return serializedPage.getRetainedSizeInBytes();
         }
 
         public void dereferencePage()

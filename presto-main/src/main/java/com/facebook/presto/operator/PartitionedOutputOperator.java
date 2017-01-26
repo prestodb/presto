@@ -14,6 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.execution.buffer.OutputBuffer;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -36,6 +39,8 @@ import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
+import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -71,7 +76,12 @@ public class PartitionedOutputOperator
         }
 
         @Override
-        public OperatorFactory createOutputOperator(int operatorId, PlanNodeId planNodeId, List<Type> types, Function<Page, Page> pagePreprocessor)
+        public OperatorFactory createOutputOperator(
+                int operatorId,
+                PlanNodeId planNodeId,
+                List<Type> types,
+                Function<Page, Page> pagePreprocessor,
+                PagesSerdeFactory serdeFactory)
         {
             return new PartitionedOutputOperatorFactory(
                     operatorId,
@@ -83,6 +93,7 @@ public class PartitionedOutputOperator
                     partitionConstants,
                     nullChannel,
                     outputBuffer,
+                    serdeFactory,
                     maxMemory);
         }
     }
@@ -99,6 +110,7 @@ public class PartitionedOutputOperator
         private final List<Optional<NullableValue>> partitionConstants;
         private final OptionalInt nullChannel;
         private final OutputBuffer outputBuffer;
+        private final PagesSerdeFactory serdeFactory;
         private final DataSize maxMemory;
 
         public PartitionedOutputOperatorFactory(
@@ -111,6 +123,7 @@ public class PartitionedOutputOperator
                 List<Optional<NullableValue>> partitionConstants,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
+                PagesSerdeFactory serdeFactory,
                 DataSize maxMemory)
         {
             this.operatorId = operatorId;
@@ -122,6 +135,7 @@ public class PartitionedOutputOperator
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+            this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
         }
 
@@ -144,6 +158,7 @@ public class PartitionedOutputOperator
                     partitionConstants,
                     nullChannel,
                     outputBuffer,
+                    serdeFactory,
                     maxMemory);
         }
 
@@ -165,6 +180,7 @@ public class PartitionedOutputOperator
                     partitionConstants,
                     nullChannel,
                     outputBuffer,
+                    serdeFactory,
                     maxMemory);
         }
     }
@@ -184,11 +200,20 @@ public class PartitionedOutputOperator
             List<Optional<NullableValue>> partitionConstants,
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
+            PagesSerdeFactory serdeFactory,
             DataSize maxMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.partitionFunction = new PagePartitioner(partitionFunction, partitionChannels, partitionConstants, nullChannel, outputBuffer, sourceTypes, maxMemory);
+        this.partitionFunction = new PagePartitioner(
+                partitionFunction,
+                partitionChannels,
+                partitionConstants,
+                nullChannel,
+                outputBuffer,
+                serdeFactory,
+                sourceTypes,
+                maxMemory);
 
         operatorContext.setInfoSupplier(this::getInfo);
         // TODO: We should try to make this more accurate
@@ -271,6 +296,7 @@ public class PartitionedOutputOperator
         private final PartitionFunction partitionFunction;
         private final List<Integer> partitionChannels;
         private final List<Optional<Block>> partitionConstants;
+        private final PagesSerde serde;
         private final List<PageBuilder> pageBuilders;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
         private final AtomicLong rowsAdded = new AtomicLong();
@@ -282,6 +308,7 @@ public class PartitionedOutputOperator
                 List<Optional<NullableValue>> partitionConstants,
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
+                PagesSerdeFactory serdeFactory,
                 List<Type> sourceTypes,
                 DataSize maxMemory)
         {
@@ -293,6 +320,7 @@ public class PartitionedOutputOperator
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
+            this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
 
             int pageSize = Math.min(PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES, ((int) maxMemory.toBytes()) / partitionFunction.getPartitionCount());
             pageSize = Math.max(1, pageSize);
@@ -373,7 +401,11 @@ public class PartitionedOutputOperator
                     Page pagePartition = partitionPageBuilder.build();
                     partitionPageBuilder.reset();
 
-                    blockedFutures.add(outputBuffer.enqueue(partition, pagePartition));
+                    List<SerializedPage> serializedPages = splitPage(pagePartition, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()
+                            .map(serde::serialize)
+                            .collect(toImmutableList());
+
+                    blockedFutures.add(outputBuffer.enqueue(partition, serializedPages));
                     pagesAdded.incrementAndGet();
                     rowsAdded.addAndGet(pagePartition.getPositionCount());
                 }

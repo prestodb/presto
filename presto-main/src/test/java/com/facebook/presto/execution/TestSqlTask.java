@@ -144,13 +144,13 @@ public class TestSqlTask
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).get();
         assertEquals(results.isBufferComplete(), false);
-        assertEquals(results.getPages().size(), 1);
-        assertEquals(results.getPages().get(0).getPositionCount(), 1);
+        assertEquals(results.getSerializedPages().size(), 1);
+        assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getPages().size(), new DataSize(1, MEGABYTE)).get();
+            results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, MEGABYTE)).get();
         }
-        assertEquals(results.getPages().size(), 0);
+        assertEquals(results.getSerializedPages().size(), 0);
 
         // complete the task by calling abort on it
         TaskInfo info = sqlTask.abortTaskResults(OUT);
@@ -302,7 +302,6 @@ public class TestSqlTask
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE),
-                true);
+                new DataSize(32, MEGABYTE));
     }
 }

@@ -114,7 +114,7 @@ public class Suite
             throws IOException
     {
         requireNonNull(file, "file is null");
-        checkArgument(file.canRead(), "Can not read file: %s" + file);
+        checkArgument(file.canRead(), "Cannot read file: %s", file);
         byte[] json = Files.readAllBytes(file.toPath());
         Map<String, OptionsJson> options = mapJsonCodec(String.class, OptionsJson.class).fromJson(json);
         ImmutableList.Builder<Suite> runOptions = ImmutableList.builder();
@@ -136,8 +136,8 @@ public class Suite
                 @JsonProperty("session") Map<String, String> session,
                 @JsonProperty("query") List<String> query)
         {
-            this.schema = requireNonNull(ImmutableList.copyOf(schema), "schema is null");
-            this.session = requireNonNull(ImmutableMap.copyOf(session), "session is null");
+            this.schema = ImmutableList.copyOf(requireNonNull(schema, "schema is null"));
+            this.session = ImmutableMap.copyOf(requireNonNull(session, "session is null"));
             this.query = requireNonNull(query, "query is null");
         }
 

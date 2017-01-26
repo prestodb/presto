@@ -401,7 +401,7 @@ public class TestPrestoS3FileSystem
     public void testDefaultS3ClientConfiguration()
             throws Exception
     {
-        HiveClientConfig defaults = new HiveClientConfig();
+        HiveS3Config defaults = new HiveS3Config();
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
             ClientConfiguration config = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);

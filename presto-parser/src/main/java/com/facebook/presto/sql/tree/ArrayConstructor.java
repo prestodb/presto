@@ -56,11 +56,9 @@ public class ArrayConstructor
     }
 
     @Override
-    public List<Node> getChildren()
+    public List<? extends Node> getChildren()
     {
-        return ImmutableList.<Node>builder()
-                .addAll(values)
-                .build();
+        return values;
     }
 
     @Override

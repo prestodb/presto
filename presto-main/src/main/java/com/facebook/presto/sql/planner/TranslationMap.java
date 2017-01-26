@@ -22,9 +22,9 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FieldReference;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
-import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.HashMap;
@@ -60,7 +60,7 @@ class TranslationMap
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.lambdaDeclarationToSymbolMap = requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
 
-        fieldSymbols = new Symbol[rewriteBase.getOutputSymbols().size()];
+        fieldSymbols = new Symbol[rewriteBase.getFieldMappings().size()];
     }
 
     public RelationPlan getRelationPlan()
@@ -236,7 +236,7 @@ class TranslationMap
             }
 
             @Override
-            public Expression rewriteQualifiedNameReference(QualifiedNameReference node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
@@ -250,7 +250,7 @@ class TranslationMap
 
             private Expression rewriteExpressionWithResolvedName(Expression node)
             {
-                return rewriteBase.getSymbol(node)
+                return getSymbol(rewriteBase, node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                         .orElse(node);
             }
@@ -261,7 +261,7 @@ class TranslationMap
                 Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
                 if (resolvedField.isPresent()) {
                     if (resolvedField.get().isLocal()) {
-                        return rewriteBase.getSymbol(node)
+                        return getSymbol(rewriteBase, node)
                                 .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                                 .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));
                     }
@@ -297,5 +297,13 @@ class TranslationMap
                 return rewritten;
             }
         }, expression, null);
+    }
+
+    Optional<Symbol> getSymbol(RelationPlan plan, Expression expression)
+    {
+        return plan.getScope()
+                .tryResolveField(expression)
+                .filter(ResolvedField::isLocal)
+                .map(field -> plan.getFieldMappings().get(field.getFieldIndex()));
     }
 }

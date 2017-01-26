@@ -567,7 +567,8 @@ public class LocalQueryRunner
                 new IndexJoinLookupStats(),
                 new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
                 new TaskManagerConfig().setTaskConcurrency(4),
-                spillerFactory);
+                spillerFactory,
+                blockEncodingSerde);
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(

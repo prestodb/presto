@@ -282,7 +282,7 @@ public class LogicalPlanner
             }
         });
 
-        List<Symbol> symbols = plan.getOutputSymbols();
+        List<Symbol> symbols = plan.getFieldMappings();
 
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {

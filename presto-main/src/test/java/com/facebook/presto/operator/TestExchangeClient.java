@@ -14,9 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
@@ -47,7 +48,7 @@ public class TestExchangeClient
 {
     private ScheduledExecutorService executor;
 
-    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
+    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
 
     @BeforeClass
     public void setUp()
@@ -78,7 +79,7 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, executor), executor, deltaMemoryInBytes -> { });
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, executor), executor, deltaMemoryInBytes -> { });
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -108,7 +109,7 @@ public class TestExchangeClient
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(32, Unit.MEGABYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
 
         URI location1 = URI.create("http://localhost:8081/foo");
         processor.addPage(location1, createPage(1));
@@ -172,7 +173,7 @@ public class TestExchangeClient
         processor.setComplete(location);
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
 
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
@@ -245,7 +246,7 @@ public class TestExchangeClient
         processor.addPage(location, createPage(3));
 
         @SuppressWarnings("resource")
-        ExchangeClient exchangeClient = new ExchangeClient(blockEncodingManager, new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
+        ExchangeClient exchangeClient = new ExchangeClient(new DataSize(1, Unit.BYTE), maxResponseSize, 1, new Duration(1, TimeUnit.MINUTES), new Duration(1, TimeUnit.MINUTES), new TestingHttpClient(processor, newCachedThreadPool(daemonThreadsNamed("test-%s"))), executor, deltaMemoryInBytes -> { });
         exchangeClient.addLocation(location);
         exchangeClient.noMoreLocations();
 
@@ -275,11 +276,11 @@ public class TestExchangeClient
         return new Page(BlockAssertions.createLongSequenceBlock(0, size));
     }
 
-    private static void assertPageEquals(Page actualPage, Page expectedPage)
+    private static void assertPageEquals(SerializedPage actualPage, Page expectedPage)
     {
         assertNotNull(actualPage);
         assertEquals(actualPage.getPositionCount(), expectedPage.getPositionCount());
-        assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
+        assertEquals(PAGES_SERDE.deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
     }
 
     private static void assertStatus(PageBufferClientStatus clientStatus,

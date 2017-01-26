@@ -113,7 +113,6 @@ public class SqlTaskManager
         clientTimeout = config.getClientTimeout();
 
         DataSize maxBufferSize = config.getSinkMaxBufferSize();
-        boolean newSinkBufferImplementation = config.isNewSinkBufferImplementation();
 
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -152,9 +151,7 @@ public class SqlTaskManager
                                 finishedTaskStats.merge(sqlTask.getIoStats());
                                 return null;
                         },
-                        maxBufferSize,
-                        newSinkBufferImplementation
-                );
+                        maxBufferSize);
             }
         });
     }

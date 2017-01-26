@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.SerializedPage;
+import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.operator.HttpPageBufferClient.ClientCallback;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableListMultimap;
 import io.airlift.http.client.HttpStatus;
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TOO_LARGE;
@@ -60,7 +62,7 @@ public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService executor;
 
-    private static final BlockEncodingManager blockEncodingManager = new BlockEncodingManager(new TypeRegistry());
+    private static final PagesSerde PAGES_SERDE = new TestingPagesSerdeFactory().createPagesSerde();
 
     @BeforeClass
     public void setUp()
@@ -97,7 +99,6 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
@@ -182,7 +183,6 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
@@ -222,7 +222,6 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
@@ -290,7 +289,6 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
                 executor);
 
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
@@ -344,7 +342,6 @@ public class TestHttpPageBufferClient
                 new Duration(1, TimeUnit.MINUTES),
                 location,
                 callback,
-                blockEncodingManager,
                 executor,
                 ticker);
 
@@ -425,7 +422,7 @@ public class TestHttpPageBufferClient
             implements ClientCallback
     {
         private final CyclicBarrier done;
-        private final List<Page> pages = Collections.synchronizedList(new ArrayList<>());
+        private final List<SerializedPage> pages = Collections.synchronizedList(new ArrayList<>());
         private final AtomicInteger completedRequests = new AtomicInteger();
         private final AtomicInteger finishedBuffers = new AtomicInteger();
         private final AtomicInteger failedBuffers = new AtomicInteger();
@@ -438,7 +435,14 @@ public class TestHttpPageBufferClient
 
         public List<Page> getPages()
         {
-            return pages;
+            return pages.stream()
+                    .map(this::deserialize)
+                    .collect(Collectors.toList());
+        }
+
+        private synchronized Page deserialize(SerializedPage serializedPage)
+        {
+            return PAGES_SERDE.deserialize(serializedPage);
         }
 
         private int getCompletedRequests()
@@ -462,7 +466,7 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public boolean addPages(HttpPageBufferClient client, List<Page> pages)
+        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
         {
             this.pages.addAll(pages);
             return true;

@@ -89,7 +89,6 @@ public class ExchangeClientFactory
     public ExchangeClient get(SystemMemoryUsageListener systemMemoryUsageListener)
     {
         return new ExchangeClient(
-                blockEncodingSerde,
                 maxBufferedBytes,
                 maxResponseSize,
                 concurrentRequestMultiplier,

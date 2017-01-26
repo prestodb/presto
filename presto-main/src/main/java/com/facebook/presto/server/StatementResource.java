@@ -30,6 +30,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
+import com.facebook.presto.execution.buffer.PagesSerde;
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -38,6 +41,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -89,6 +93,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
@@ -120,6 +125,7 @@ public class StatementResource
     private final QueryManager queryManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
+    private final BlockEncodingSerde blockEncodingSerde;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
@@ -128,11 +134,13 @@ public class StatementResource
     public StatementResource(
             QueryManager queryManager,
             SessionPropertyManager sessionPropertyManager,
-            ExchangeClientSupplier exchangeClientSupplier)
+            ExchangeClientSupplier exchangeClientSupplier,
+            BlockEncodingSerde blockEncodingSerde)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
     }
@@ -162,7 +170,13 @@ public class StatementResource
         SessionSupplier sessionSupplier = new HttpRequestSessionFactory(servletRequest);
 
         ExchangeClient exchangeClient = exchangeClientSupplier.get(deltaMemoryInBytes -> { });
-        Query query = new Query(sessionSupplier, statement, queryManager, sessionPropertyManager, exchangeClient);
+        Query query = new Query(
+                sessionSupplier,
+                statement,
+                queryManager,
+                sessionPropertyManager,
+                exchangeClient,
+                blockEncodingSerde);
         queries.put(query.getQueryId(), query);
 
         return getQueryResults(query, Optional.empty(), uriInfo, new Duration(1, MILLISECONDS));
@@ -262,6 +276,7 @@ public class StatementResource
         private final QueryManager queryManager;
         private final QueryId queryId;
         private final ExchangeClient exchangeClient;
+        private final PagesSerde serde;
 
         private final AtomicLong resultId = new AtomicLong();
         private final Session session;
@@ -301,7 +316,8 @@ public class StatementResource
                 String query,
                 QueryManager queryManager,
                 SessionPropertyManager sessionPropertyManager,
-                ExchangeClient exchangeClient)
+                ExchangeClient exchangeClient,
+                BlockEncodingSerde blockEncodingSerde)
         {
             requireNonNull(sessionSupplier, "sessionFactory is null");
             requireNonNull(query, "query is null");
@@ -314,6 +330,8 @@ public class StatementResource
             queryId = queryInfo.getQueryId();
             session = queryInfo.getSession().toSession(sessionPropertyManager);
             this.exchangeClient = exchangeClient;
+            requireNonNull(blockEncodingSerde, "serde is null");
+            this.serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
         }
 
         public void cancel()
@@ -503,10 +521,12 @@ public class StatementResource
             // wait up to max wait for data to arrive; then try to return at least DESIRED_RESULT_BYTES
             long bytes = 0;
             while (bytes < DESIRED_RESULT_BYTES) {
-                Page page = exchangeClient.getNextPage(maxWait);
-                if (page == null) {
+                SerializedPage serializedPage = exchangeClient.getNextPage(maxWait);
+                if (serializedPage == null) {
                     break;
                 }
+
+                Page page = serde.deserialize(serializedPage);
                 bytes += page.getSizeInBytes();
                 pages.add(new RowIterable(session.toConnectorSession(), types, page));
 

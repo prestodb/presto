@@ -39,19 +39,15 @@ public class IterativeOptimizer
     private final Set<Rule> rules;
     private final StatsRecorder stats;
 
+    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
+    {
+        this(stats, ImmutableList.of(), rules);
+    }
+
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.rules = ImmutableSet.copyOf(newRules);
-        this.stats = stats;
-
-        stats.registerAll(rules);
-    }
-
-    public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
-    {
-        this.legacyRules = ImmutableList.of();
-        this.rules = ImmutableSet.copyOf(rules);
         this.stats = stats;
 
         stats.registerAll(rules);
@@ -113,10 +109,17 @@ public class IterativeOptimizer
         while (!done) {
             done = true;
             for (Rule rule : rules) {
-                long start = System.nanoTime();
-                Optional<PlanNode> transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
-                long duration = System.nanoTime() - start;
-
+                Optional<PlanNode> transformed;
+                long duration;
+                try {
+                    long start = System.nanoTime();
+                    transformed = rule.apply(node, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+                    duration = System.nanoTime() - start;
+                }
+                catch (RuntimeException e) {
+                    stats.recordFailure(rule);
+                    throw e;
+                }
                 stats.record(rule, duration, transformed.isPresent());
 
                 if (transformed.isPresent()) {

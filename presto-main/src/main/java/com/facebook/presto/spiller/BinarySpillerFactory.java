@@ -14,6 +14,7 @@
 
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -37,7 +38,7 @@ public class BinarySpillerFactory
     public static final String SPILLER_THREAD_NAME_PREFIX = "binary-spiller";
 
     private final ListeningExecutorService executor;
-    private final BlockEncodingSerde blockEncodingSerde;
+    private final PagesSerdeFactory serde;
     private final Path spillPath;
 
     @Inject
@@ -50,7 +51,9 @@ public class BinarySpillerFactory
 
     public BinarySpillerFactory(ListeningExecutorService executor, BlockEncodingSerde blockEncodingSerde, Path spillPath)
     {
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        // TODO: add separate config for spill compression
+        this.serde = new PagesSerdeFactory(blockEncodingSerde, false);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillPath = requireNonNull(spillPath, "spillPath is null");
         this.spillPath.toFile().mkdirs();
@@ -66,6 +69,6 @@ public class BinarySpillerFactory
     @Override
     public Spiller create(List<Type> types)
     {
-        return new BinaryFileSpiller(blockEncodingSerde, executor, spillPath, spilledBytes);
+        return new BinaryFileSpiller(serde.createPagesSerde(), executor, spillPath, spilledBytes);
     }
 }

@@ -21,6 +21,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.SerializedPage;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Page;
 import com.google.common.collect.ImmutableList;
@@ -248,15 +249,15 @@ public class TaskResource
                 timeoutExecutor);
 
         CompletableFuture<Response> responseFuture = bufferResultFuture.thenApply(result -> {
-            List<Page> pages = result.getPages();
+            List<SerializedPage> serializedPages = result.getSerializedPages();
 
             GenericEntity<?> entity = null;
             Status status;
-            if (pages.isEmpty()) {
+            if (serializedPages.isEmpty()) {
                 status = Status.NO_CONTENT;
             }
             else {
-                entity = new GenericEntity<>(pages, new TypeToken<List<Page>>() {}.getType());
+                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Page>>() {}.getType());
                 status = Status.OK;
             }
 

@@ -18,8 +18,7 @@ import com.facebook.presto.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.SystemMemoryUsageListener;
-import com.facebook.presto.execution.buffer.ClientBuffer.PageReference;
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.execution.buffer.ClientBuffer.SerializedPageReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
@@ -45,8 +44,6 @@ import static com.facebook.presto.execution.buffer.BufferState.FLUSHING;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
-import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
-import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -67,7 +64,7 @@ public class BroadcastOutputBuffer
     private final Map<OutputBufferId, ClientBuffer> buffers = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private final List<PageReference> initialPagesForNewBuffers = new ArrayList<>();
+    private final List<SerializedPageReference> initialPagesForNewBuffers = new ArrayList<>();
 
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
@@ -177,9 +174,9 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> enqueue(Page page)
+    public ListenableFuture<?> enqueue(List<SerializedPage> pages)
     {
-        requireNonNull(page, "page is null");
+        requireNonNull(pages, "pages is null");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
@@ -187,23 +184,19 @@ public class BroadcastOutputBuffer
             return immediateFuture(true);
         }
 
-        // split the page
-        List<Page> pages = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-
         // reserve memory
-        long bytesAdded = pages.stream().mapToLong(Page::getRetainedSizeInBytes).sum();
+        long bytesAdded = pages.stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
         memoryManager.updateMemoryUsage(bytesAdded);
 
         // update stats
-        long rowCount = pages.stream().mapToLong(Page::getPositionCount).sum();
-        checkState(rowCount == page.getPositionCount());
+        long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(pages.size());
         totalBufferedPages.addAndGet(pages.size());
 
         // create page reference counts with an initial single reference
-        List<PageReference> pageReferences = pages.stream()
-                .map(pageSplit -> new PageReference(pageSplit, 1, () -> {
+        List<SerializedPageReference> serializedPageReferences = pages.stream()
+                .map(pageSplit -> new SerializedPageReference(pageSplit, 1, () -> {
                     checkState(totalBufferedPages.decrementAndGet() >= 0);
                     memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
                 }))
@@ -213,8 +206,8 @@ public class BroadcastOutputBuffer
         Collection<ClientBuffer> buffers;
         synchronized (this) {
             if (state.get().canAddBuffers()) {
-                pageReferences.forEach(ClientBuffer.PageReference::addReference);
-                initialPagesForNewBuffers.addAll(pageReferences);
+                serializedPageReferences.stream().forEach(SerializedPageReference::addReference);
+                initialPagesForNewBuffers.addAll(serializedPageReferences);
             }
 
             // make a copy while holding the lock to avoid race with initialPagesForNewBuffers.addAll above
@@ -222,19 +215,19 @@ public class BroadcastOutputBuffer
         }
 
         // add pages to all existing buffers (each buffer will increment the reference count)
-        buffers.forEach(partition -> partition.enqueuePages(pageReferences));
+        buffers.forEach(partition -> partition.enqueuePages(serializedPageReferences));
 
         // drop the initial reference
-        pageReferences.forEach(ClientBuffer.PageReference::dereferencePage);
+        serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
 
         return memoryManager.getNotFullFuture();
     }
 
     @Override
-    public ListenableFuture<?> enqueue(int partitionNumber, Page page)
+    public ListenableFuture<?> enqueue(int partitionNumber, List<SerializedPage> pages)
     {
         checkState(partitionNumber == 0, "Expected partition number to be zero");
-        return enqueue(page);
+        return enqueue(pages);
     }
 
     @Override
@@ -329,7 +322,7 @@ public class BroadcastOutputBuffer
     private void noMoreBuffers()
     {
         checkState(!Thread.holdsLock(this), "Can not set no more buffers while holding a lock on this");
-        List<PageReference> pages;
+        List<SerializedPageReference> pages;
         synchronized (this) {
             pages = ImmutableList.copyOf(initialPagesForNewBuffers);
             initialPagesForNewBuffers.clear();
@@ -340,7 +333,7 @@ public class BroadcastOutputBuffer
         }
 
         // dereference outside of synchronized to avoid making a callback while holding a lock
-        pages.forEach(ClientBuffer.PageReference::dereferencePage);
+        pages.stream().forEach(SerializedPageReference::dereferencePage);
     }
 
     private void checkFlushComplete()

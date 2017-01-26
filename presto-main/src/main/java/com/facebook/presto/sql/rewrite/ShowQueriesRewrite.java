@@ -94,8 +94,8 @@ import static com.facebook.presto.sql.QueryUtil.ascending;
 import static com.facebook.presto.sql.QueryUtil.caseWhen;
 import static com.facebook.presto.sql.QueryUtil.equal;
 import static com.facebook.presto.sql.QueryUtil.functionCall;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.QueryUtil.logicalAnd;
-import static com.facebook.presto.sql.QueryUtil.nameReference;
 import static com.facebook.presto.sql.QueryUtil.ordering;
 import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectAll;
@@ -175,11 +175,11 @@ final class ShowQueriesRewrite
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
 
-            Expression predicate = equal(nameReference("table_schema"), new StringLiteral(schema.getSchemaName()));
+            Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName()));
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
-                Expression likePredicate = new LikePredicate(nameReference("table_name"), new StringLiteral(likePattern.get()), null);
+                Expression likePredicate = new LikePredicate(identifier("table_name"), new StringLiteral(likePattern.get()), null);
                 predicate = logicalAnd(predicate, likePredicate);
             }
 
@@ -200,7 +200,7 @@ final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(nameReference("schema_name"), new StringLiteral(likePattern.get()), null));
+                predicate = Optional.of(new LikePredicate(identifier("schema_name"), new StringLiteral(likePattern.get()), null));
             }
 
             return simpleQuery(
@@ -220,7 +220,7 @@ final class ShowQueriesRewrite
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
             if (likePattern.isPresent()) {
-                predicate = Optional.of(new LikePredicate(nameReference("Catalog"), new StringLiteral(likePattern.get()), null));
+                predicate = Optional.of(new LikePredicate(identifier("Catalog"), new StringLiteral(likePattern.get()), null));
             }
 
             return simpleQuery(
@@ -248,8 +248,8 @@ final class ShowQueriesRewrite
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
-                            equal(nameReference("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(nameReference("table_name"), new StringLiteral(tableName.getObjectName()))),
+                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
                     ordering(ascending("ordinal_position")));
         }
 
@@ -328,8 +328,8 @@ final class ShowQueriesRewrite
             selectList.add(unaliasedName("partition_number"));
             for (ColumnHandle columnHandle : partitionColumns) {
                 ColumnMetadata column = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                Expression key = equal(nameReference("partition_key"), new StringLiteral(column.getName()));
-                Expression value = caseWhen(key, nameReference("partition_value"));
+                Expression key = equal(identifier("partition_key"), new StringLiteral(column.getName()));
+                Expression value = caseWhen(key, identifier("partition_value"));
                 value = new Cast(value, column.getType().getTypeSignature().toString());
                 Expression function = functionCall("max", value);
                 selectList.add(new SingleColumn(function, column.getName()));
@@ -340,9 +340,9 @@ final class ShowQueriesRewrite
                     selectAll(selectList.build()),
                     from(table.getCatalogName(), TABLE_INTERNAL_PARTITIONS),
                     Optional.of(logicalAnd(
-                            equal(nameReference("table_schema"), new StringLiteral(table.getSchemaName())),
-                            equal(nameReference("table_name"), new StringLiteral(table.getObjectName())))),
-                    Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(nameReference("partition_number")))))),
+                            equal(identifier("table_schema"), new StringLiteral(table.getSchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(table.getObjectName())))),
+                    Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(identifier("partition_number")))))),
                     Optional.empty(),
                     ImmutableList.of(),
                     Optional.empty());
@@ -513,7 +513,7 @@ final class ShowQueriesRewrite
                             new Values(rows.build()),
                             "session",
                             ImmutableList.of("name", "value", "default", "type", "description", "include")),
-                    nameReference("include"));
+                    identifier("include"));
         }
 
         private Query parseView(String view, QualifiedObjectName name, Node node)
