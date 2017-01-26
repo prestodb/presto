@@ -1,6 +1,18 @@
+hdfs:
+  username: hdfs/hadoop-master@LABS.TERADATA.COM
+  webhdfs:
+    authentication: SPNEGO
+    keytab: /etc/hadoop/conf/hdfs.keytab
+    spnego_use_canonical_hostname: false
+
 databases:
   hive:
     host: hadoop-master
+    jdbc_url: jdbc:hive2://${databases.hive.host}:10000/default;principal=hive/hadoop-master@LABS.TERADATA.COM;auth=kerberos;kerberosAuthType=fromSubject;
+    jdbc_user: hdfs
+    jdbc_password: na
+    kerberos_principal: hdfs/hadoop-master@LABS.TERADATA.COM
+    kerberos_keytab: /etc/hadoop/conf/hdfs.keytab
 
   presto:
     host: presto-master.docker.cluster
@@ -12,3 +24,9 @@ databases:
     configured_hdfs_user: hdfs
     https_keystore_path: /docker/volumes/conf/presto/etc/docker.cluster.jks
     https_keystore_password: '123456'
+    cli_kerberos_authentication: true
+    cli_kerberos_principal: presto-client/presto-master.docker.cluster@LABS.TERADATA.COM
+    cli_kerberos_keytab: /etc/presto/conf/presto-client.keytab
+    cli_kerberos_config_path: /etc/krb5.conf
+    cli_kerberos_service_name: presto-server
+    cli_kerberos_use_canonical_hostname: false

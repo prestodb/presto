@@ -12,6 +12,8 @@ services:
       default:
         aliases:
          - presto-master.docker.cluster
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-no-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
 
   presto-worker-1:
     domainname: docker.cluster
