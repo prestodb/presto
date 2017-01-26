@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.skife.clocked.ClockedExecutorService;
@@ -23,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -135,16 +135,20 @@ public class TestReferenceCountingLoadingCache
         loaderDisposer.validate();
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*closed with outstanding.*")
+    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Unreleased objects in cache at close.*")
     public void testCloseOutstandingObjects()
     {
         String first = "first";
-        SingleKeyMockCacheLoaderDisposer<Integer, String> loader = mockCacheLoaderDisposer(0, ImmutableList.of(first));
-        TestCache<Integer, String> cache = new TestCache<>(
-                loader,
-                failDisposer("Shouldn't have called dispose on unreleased object"));
+        SingleKeyMockCacheLoaderDisposer<Integer, String> loaderDisposer = mockCacheLoaderDisposer(0, ImmutableList.of(first));
+        TestCache<Integer, String> cache = new TestCache<>(loaderDisposer, loaderDisposer);
         assertSame(cache.acquire(0), first);
-        cache.close();
+        try {
+            cache.close();
+        }
+        catch (IllegalStateException e) {
+            loaderDisposer.validate();
+            throw e;
+        }
     }
 
     @Test(expectedExceptions = { IllegalStateException.class }, expectedExceptionsMessageRegExp = ".*closed cache.*")
@@ -190,7 +194,7 @@ public class TestReferenceCountingLoadingCache
         private ClockedExecutorService valueCleanupService;
 
         private TestCache(
-                CacheLoader<K, V> loader,
+                Function<K, V> loader,
                 Consumer<V> disposer)
         {
             valueCleanupService = new ClockedExecutorService();
@@ -239,8 +243,7 @@ public class TestReferenceCountingLoadingCache
     }
 
     private static class SingleKeyMockCacheLoaderDisposer<K, V>
-            extends CacheLoader<K, V>
-            implements Consumer<V>
+            implements Function<K, V>, Consumer<V>
     {
         K key;
         List<V> values;
@@ -254,8 +257,7 @@ public class TestReferenceCountingLoadingCache
         }
 
         @Override
-        public V load(K key)
-                throws Exception
+        public V apply(K key)
         {
             checkState(loadIndex == disposeIndex);
             checkState(key == this.key);
@@ -275,11 +277,11 @@ public class TestReferenceCountingLoadingCache
         }
     }
 
-    private static <K, V> CacheLoader<K, V> failLoader(String message)
+    private static <K, V> Function<K, V> failLoader(String message)
     {
-        return new CacheLoader<K, V>()
+        return new Function<K, V>()
         {
-            public V load(K key)
+            public V apply(K key)
             {
                 fail(message);
                 // not reached

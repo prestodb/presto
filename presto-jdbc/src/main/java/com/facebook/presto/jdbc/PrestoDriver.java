@@ -14,7 +14,6 @@
 package com.facebook.presto.jdbc;
 
 import com.google.common.base.Throwables;
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.jetty.JettyIoPool;
 import io.airlift.http.client.jetty.JettyIoPoolConfig;
@@ -119,22 +118,16 @@ public class PrestoDriver
      * If this is the last reference to the queryExecutor, close the HTTP
      * client and invalidate() queryExecutor from the cache.
      *
-     * Now we need a reference count. And things get hairy.
-     *
-     * com.google.common.cache.LoadingCache is safe for concurrent access, so
-     * the get() call in driver.connect() and the invalidate() call in
-     * queryExecutor.close() can't get us into a state where somebody has
-     * gotten() a reference that's already been invalidated().
-     *
-     * The problem is actually the refcount; there's no way to atomically get()
-     * a QueryExecutor from the cache and increment its refcount. It gets
-     * worse: there's no way to know ahead of time which QueryExecutor you're
-     * going to get from get(), so the locking for the refcount has to be done
-     * against the cache rather than individual QueryExecutors.
+     * Now we need a reference count. And things get hairy, because the cache
+     * updates and reference count manipulation need to happen atomically.
      *
      * The solution is to protect the refcounts by synchronizing on the cache
      * and incrementing and decrementing the refcount while holding the cache's
-     * monitor.
+     * monitor. This probably doesn't scale to gazillions of operations per
+     * second, but we're operating on the assumption that it doesn't have to.
+     * Presumably anybody who wants a connection probably also wants to use it,
+     * and the lifetime of a connection is dominated by the time it takes to
+     * actually run queries.
      *
      * This logic is encapsulated in ReferenceCountingLoadingCache. get() and
      * close() operations call acquire() and release(), respectively.
@@ -190,10 +183,6 @@ public class PrestoDriver
      * monotonicity. No thanks; somebody did that work for the ScheduledFuture/
      * ScheduledExecutorService, let's take advantage of that.
      *
-     * The locking hierarchy is as follows:
-     * 1) The monitor on the ReferenceCountingLoadingCache
-     * 2) <internal locking of com.google.common.cache.LoadingCache>
-     *
      * The last case of interest is the process that is using PrestoDriver
      * calling prestoDriver.close(). This invalidates all of the cached
      * QueryExecutors regardless of their refcount by calling the cache's
@@ -206,14 +195,7 @@ public class PrestoDriver
     {
         this.jettyIoPool = new JettyIoPool("presto-jdbc", new JettyIoPoolConfig());
         this.queryExecutorCache = ReferenceCountingLoadingCache.<HttpClientCreator, QueryExecutor>builder().build(
-                new CacheLoader<HttpClientCreator, QueryExecutor>()
-                {
-                    @Override
-                    public QueryExecutor load(HttpClientCreator clientCreator)
-                    {
-                        return QueryExecutor.create(clientCreator.create(QueryExecutor.baseClientConfig()));
-                    }
-                },
+                httpClientCreator -> QueryExecutor.create(httpClientCreator.create(QueryExecutor.baseClientConfig())),
                 QueryExecutor::close);
     }
 

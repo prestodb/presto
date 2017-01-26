@@ -13,19 +13,20 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.cache.RemovalListener;
-import com.google.common.cache.RemovalNotification;
+import com.google.common.base.Joiner;
 import io.airlift.units.Duration;
 
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -114,60 +115,27 @@ class ReferenceCountingLoadingCache<K, V>
         }
     }
 
+    private final Function<K, V> loader;
+    private final Consumer<V> disposer;
     private final ScheduledExecutorService valueCleanupService;
-    private final LoadingCache<K, Holder<V>> backingCache;
+    private final HashMap<K, Holder<V>> backingCache;
+
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private final Duration retentionDuration;
 
     protected ReferenceCountingLoadingCache(
-            CacheLoader<K, V> loader,
+            Function<K, V> loader,
             Consumer<V> disposer,
             Duration retentionDuration,
             ScheduledExecutorService valueCleanupService)
     {
-        requireNonNull(loader, "loader is null");
-        requireNonNull(disposer, "disposer is null");
+        this.loader = requireNonNull(loader, "loader is null");
+        this.disposer = requireNonNull(disposer, "disposer is null");
         this.retentionDuration = requireNonNull(retentionDuration, "retentionDuration is null");
 
         this.valueCleanupService = requireNonNull(valueCleanupService, "valueCleanupService is null");
-        this.backingCache = CacheBuilder.newBuilder()
-                .removalListener(new RemovalListener<K, Holder<V>>()
-                {
-                    @Override
-                    public void onRemoval(RemovalNotification<K, Holder<V>> notification)
-                    {
-                        Holder<V> holder = notification.getValue();
-                        /*
-                         * The docs say that both the key and value may be
-                         * null if they've already been garbage collected.
-                         * We aren't using weak or soft keys or values, so
-                         * this shouldn't apply.
-                         */
-                        requireNonNull(holder, format("holder is null while removing key %s", notification.getKey()));
-
-                        if (closed.get()) {
-                            // Caller goofed.
-                            checkState(holder.getReferenceCount() == 0, "Unreleased key %s on close", notification.getKey());
-                        }
-                        else {
-                            // We goofed.
-                            checkState(holder.getReferenceCount() == 0, "Non-zero referenceCount disposing %s", notification.getKey());
-                            checkState(holder.getCleanerCount() == 0, "Non-zero cleaner count disposing %s", notification.getKey());
-                        }
-
-                        disposer.accept(holder.get());
-                    }
-                })
-                .build(new CacheLoader<K, Holder<V>>()
-                {
-                    @Override
-                    public Holder<V> load(K key)
-                            throws Exception
-                    {
-                        return new Holder<>(loader.load(key));
-                    }
-                });
+        this.backingCache = new HashMap<>();
     }
 
     public static class Builder<K, V>
@@ -189,12 +157,11 @@ class ReferenceCountingLoadingCache<K, V>
              * Nothing has been scheduled on the original valueCleanupService.
              */
             this.valueCleanupService.shutdownNow();
-
             this.valueCleanupService = requireNonNull(valueCleanupService, "valueCleanupService is null");
             return this;
         }
 
-        public ReferenceCountingLoadingCache<K, V> build(CacheLoader<K, V> loader, Consumer<V> disposer)
+        public ReferenceCountingLoadingCache<K, V> build(Function<K, V> loader, Consumer<V> disposer)
         {
             return new ReferenceCountingLoadingCache<K, V>(loader, disposer, retentionDuration, valueCleanupService);
         }
@@ -208,13 +175,18 @@ class ReferenceCountingLoadingCache<K, V>
     public void close()
     {
         if (closed.compareAndSet(false, true)) {
-            synchronized (this) {
-                for (Holder<V> holder : backingCache.asMap().values()) {
-                    checkState(holder.getReferenceCount() == 0, "Cache closed with outstanding value(s)");
-                }
-            }
-            backingCache.invalidateAll();
             valueCleanupService.shutdown();
+            synchronized (this) {
+                List<K> unreleased = new LinkedList<>();
+                for (Map.Entry<K, Holder<V>> entry : backingCache.entrySet()) {
+                    if (entry.getValue().getReferenceCount() != 0) {
+                        unreleased.add(entry.getKey());
+                    }
+                    removeFromCache(entry.getKey(), entry.getValue());
+                }
+                checkState(unreleased.size() == 0, format(
+                        "Unreleased objects in cache at close. Keys: %s", Joiner.on(", ").join(unreleased)));
+            }
         }
     }
 
@@ -222,7 +194,7 @@ class ReferenceCountingLoadingCache<K, V>
     {
         checkState(!closed.get(), "Can't acquire from closed cache.");
         synchronized (this) {
-            Holder<V> holder = backingCache.getUnchecked(key);
+            Holder<V> holder = backingCache.computeIfAbsent(key, loaderKey -> new Holder<V>(loader.apply(loaderKey)));
             holder.reference();
             return holder.get();
         }
@@ -235,17 +207,14 @@ class ReferenceCountingLoadingCache<K, V>
          * Access through the Map interface to avoid creating a Holder and immediately
          * scheduling it for cleanup.
          */
-        Holder holder = backingCache.asMap().get(key);
+        Holder<V> holder = backingCache.get(key);
         if (holder == null) {
             return;
         }
 
         Runnable deferredRelease = () -> {
             synchronized (this) {
-                holder.releaseForCleaning();
-                if (holder.getCleanerCount() == 0 && holder.getReferenceCount() == 0) {
-                    backingCache.invalidate(key);
-                }
+                removeFromCache(key, holder);
             }
         };
 
@@ -255,6 +224,26 @@ class ReferenceCountingLoadingCache<K, V>
                 holder.scheduleCleanup(valueCleanupService, deferredRelease, retentionDuration.toMillis(), TimeUnit.MILLISECONDS);
             }
         }
+    }
+
+    private void removeFromCache(K key, Holder<V> holder)
+    {
+        if (!closed.get()) {
+            holder.releaseForCleaning();
+            if (!(holder.getCleanerCount() == 0 && holder.getReferenceCount() == 0)) {
+                return;
+            }
+        }
+
+        backingCache.remove(key);
+
+        if (!closed.get()) {
+            // We goofed.
+            checkState(holder.getReferenceCount() == 0, "Non-zero reference count disposing %s", key);
+            checkState(holder.getCleanerCount() == 0, "Non-zero cleaner count disposing %s", key);
+        }
+
+        disposer.accept(holder.get());
     }
 
     public Duration getRetentionDuration()
