@@ -96,8 +96,7 @@ public class TestQuantifiedComparison
         assertPlan(query, anyTree(
                 node(JoinNode.class,
                         tableScan("orders"),
-                        anyTree(
-                                node(AggregationNode.class,
-                                        node(ValuesNode.class))))));
+                        node(AggregationNode.class,
+                                node(ValuesNode.class)))));
     }
 }
