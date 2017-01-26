@@ -20,6 +20,7 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
@@ -583,6 +584,74 @@ public class TestArrayOperators
 
         assertInvalidFunction("SLICE(ARRAY [1, 2, 3, 4], 1, -1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SLICE(ARRAY [1, 2, 3, 4], 0, 1)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testArraysOverlap()
+            throws Exception
+    {
+        assertFunction("ARRAYS_OVERLAP(ARRAY [1, 2], ARRAY [2, 3])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2, 1], ARRAY [2, 3])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2, 1], ARRAY [3, 2])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [1, 2], ARRAY [3, 2])", BooleanType.BOOLEAN, true);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [1, 3], ARRAY [2, 4])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [3, 1], ARRAY [2, 4])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [3, 1], ARRAY [4, 2])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [1, 3], ARRAY [4, 2])", BooleanType.BOOLEAN, false);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [1, 3], ARRAY [2, 3, 4])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [3, 1], ARRAY [5, 4, 1])", BooleanType.BOOLEAN, true);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [CAST(2 AS BIGINT), 3])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(2 AS BIGINT), 1], ARRAY [CAST(2 AS BIGINT), 3])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(2 AS BIGINT), 1], ARRAY [CAST(3 AS BIGINT), 2])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [CAST(3 AS BIGINT), 2])", BooleanType.BOOLEAN, true);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 3], ARRAY [CAST(2 AS BIGINT), 4])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(3 AS BIGINT), 1], ARRAY [CAST(2 AS BIGINT), 4])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(3 AS BIGINT), 1], ARRAY [CAST(4 AS BIGINT), 2])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 3], ARRAY [CAST(4 AS BIGINT), 2])", BooleanType.BOOLEAN, false);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY ['dog', 'cat'], ARRAY ['monkey', 'dog'])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY ['dog', 'cat'], ARRAY ['monkey', 'fox'])", BooleanType.BOOLEAN, false);
+
+        // Test arrays with NULLs
+        assertFunction("ARRAYS_OVERLAP(ARRAY [1, 2], ARRAY [NULL, 2])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [1, 2], ARRAY [2, NULL])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2, 1], ARRAY [NULL, 3])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2, 1], ARRAY [3, NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 2], ARRAY [1, 2])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [2, NULL], ARRAY [1, 2])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 3], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [NULL, CAST(2 AS BIGINT)])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [CAST(2 AS BIGINT), NULL])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(2 AS BIGINT), 1], ARRAY [CAST(3 AS BIGINT), NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(2 AS BIGINT), 1], ARRAY [NULL, CAST(3 AS BIGINT)])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, CAST(2 AS BIGINT)], ARRAY [CAST(1 AS BIGINT), 2])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(2 AS BIGINT), NULL], ARRAY [CAST(1 AS BIGINT), 2])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(3 AS BIGINT), NULL], ARRAY [CAST(2 AS BIGINT), 1])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, CAST(3 AS BIGINT)], ARRAY [CAST(2 AS BIGINT), 1])", BooleanType.BOOLEAN, null);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY ['dog', 'cat'], ARRAY [NULL, 'dog'])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY ['dog', 'cat'], ARRAY ['monkey', NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 'dog'], ARRAY ['dog', 'cat'])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY ['monkey', NULL], ARRAY ['dog', 'cat'])", BooleanType.BOOLEAN, null);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [ARRAY [1, 2], ARRAY[3]], ARRAY [ARRAY[4], ARRAY [1, 2]])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [ARRAY [1, 2], ARRAY[3]], ARRAY [ARRAY[4], NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [ARRAY [2], ARRAY[3]], ARRAY [ARRAY[4], ARRAY[1, 2]])", BooleanType.BOOLEAN, false);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [1, 2])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [], ARRAY [NULL])", BooleanType.BOOLEAN, false);
+
+        assertFunction("ARRAYS_OVERLAP(ARRAY [true], ARRAY [true, false])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [false], ARRAY [true, true])", BooleanType.BOOLEAN, false);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [true, false], ARRAY [NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [false], ARRAY [true, NULL])", BooleanType.BOOLEAN, null);
     }
 
     @Test

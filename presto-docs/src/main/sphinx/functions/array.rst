@@ -62,6 +62,11 @@ Array Functions
     Sorts and returns the array ``x``. The elements of ``x`` must be orderable.
     Null elements will be placed at the end of the returned array.
 
+.. function:: arrays_overlap(x, y) -> boolean
+
+    Tests if arrays ``x`` and ``y`` have any any non-null elements in common.
+    Returns null if there are no non-null elements in common but either array contains null.
+
 .. function:: cardinality(x) -> bigint
 
     Returns the cardinality (size) of the array ``x``.
