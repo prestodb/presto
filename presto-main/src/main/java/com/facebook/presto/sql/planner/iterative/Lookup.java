@@ -15,6 +15,10 @@ package com.facebook.presto.sql.planner.iterative;
 
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
+import java.util.Optional;
+
+import static com.facebook.presto.util.Types.tryCast;
+
 public interface Lookup
 {
     /**
@@ -25,4 +29,9 @@ public interface Lookup
      * argument as is.
      */
     PlanNode resolve(PlanNode node);
+
+    default <T extends PlanNode> Optional<T> resolve(PlanNode node, Class<T> target)
+    {
+        return tryCast(resolve(node), target);
+    }
 }
