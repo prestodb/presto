@@ -25,6 +25,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
 import java.util.Map;
 
+import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isResolvedScalarSubquery;
 import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 
@@ -46,7 +47,7 @@ public class RemoveUnreferencedScalarInputApplyNodes
         @Override
         public PlanNode visitApply(ApplyNode node, RewriteContext<PlanNode> context)
         {
-            if (node.getInput().getOutputSymbols().isEmpty() && isScalar(node.getInput()) && node.isResolvedScalarSubquery()) {
+            if (node.getInput().getOutputSymbols().isEmpty() && isScalar(node.getInput()) && isResolvedScalarSubquery(node)) {
                 return context.rewrite(node.getSubquery());
             }
 

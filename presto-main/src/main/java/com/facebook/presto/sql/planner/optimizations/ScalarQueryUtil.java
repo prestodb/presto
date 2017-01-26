@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
@@ -21,22 +22,61 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
+import java.util.function.Function;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.function.Function.identity;
 
 public final class ScalarQueryUtil
 {
     private ScalarQueryUtil() {}
 
+    /**
+     * @return true when subquery is scalar and its output symbols are directly mapped to the ApplyNode's output symbols
+     */
+    public static boolean isResolvedScalarSubquery(ApplyNode applyNode)
+    {
+        return isScalar(applyNode.getSubquery(), identity()) && applyNode.getSubqueryAssignments().getExpressions().stream()
+                .allMatch(expression -> expression instanceof SymbolReference);
+    }
+
+    public static boolean isResolvedScalarSubquery(ApplyNode applyNode, Function<PlanNode, PlanNode> lookup)
+    {
+        PlanNode subquery = lookup.apply(applyNode.getSubquery());
+        return isScalar(subquery, lookup) && applyNode.getSubqueryAssignments().getExpressions().stream()
+                .allMatch(expression -> expression instanceof SymbolReference);
+    }
+
     public static boolean isScalar(PlanNode node)
     {
-        return node.accept(new IsScalarPlanVisitor(), null);
+        return isScalar(node, identity());
+    }
+
+    public static boolean isScalar(PlanNode node, Function<PlanNode, PlanNode> lookupFunction)
+    {
+        return node.accept(new IsScalarPlanVisitor(lookupFunction), null);
     }
 
     private static final class IsScalarPlanVisitor
             extends PlanVisitor<Void, Boolean>
     {
+        /*
+        With the iterative optimizer, plan nodes are replaced with
+        GroupReference nodes. This requires the rules that look deeper
+        in the tree than the rewritten node and its immediate sources
+        to use Lookup for resolving the nodes corresponding to the
+        GroupReferences.
+        */
+        private final Function<PlanNode, PlanNode> lookupFunction;
+
+        public IsScalarPlanVisitor(Function<PlanNode, PlanNode> lookupFunction)
+        {
+            this.lookupFunction = lookupFunction;
+        }
+
         @Override
         protected Boolean visitPlan(PlanNode node, Void context)
         {
@@ -59,19 +99,19 @@ public final class ScalarQueryUtil
         public Boolean visitExchange(ExchangeNode node, Void context)
         {
             return (node.getSources().size() == 1) &&
-                    getOnlyElement(node.getSources()).accept(this, null);
+                    lookupFunction.apply(getOnlyElement(node.getSources())).accept(this, null);
         }
 
         @Override
         public Boolean visitProject(ProjectNode node, Void context)
         {
-            return node.getSource().accept(this, null);
+            return lookupFunction.apply(node.getSource()).accept(this, null);
         }
 
         @Override
         public Boolean visitFilter(FilterNode node, Void context)
         {
-            return node.getSource().accept(this, null);
+            return lookupFunction.apply(node.getSource()).accept(this, null);
         }
 
         public Boolean visitValues(ValuesNode node, Void context)
