@@ -23,43 +23,34 @@ import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
+import java.util.function.Predicate;
+
+import static com.facebook.presto.util.Predicates.predicate;
+import static com.facebook.presto.util.Types.tryCast;
 
 public class MergeLimitWithDistinct
-    implements Rule
+        implements Rule
 {
+    private static final Predicate<AggregationNode> NOT_DISTINCT = predicate(MergeLimitWithDistinct::isDistinct).negate();
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
     {
-        if (!(node instanceof LimitNode)) {
-            return Optional.empty();
-        }
-
-        LimitNode parent = (LimitNode) node;
-
-        PlanNode input = lookup.resolve(parent.getSource());
-        if (!(input instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
-        AggregationNode child = (AggregationNode) input;
-
-        if (isDistinct(child)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(
-                new DistinctLimitNode(
-                        parent.getId(),
-                        child.getSource(),
-                        parent.getCount(),
-                        false,
-                        child.getHashSymbol()));
+        return tryCast(node, LimitNode.class)
+                .flatMap(parent -> lookup.resolve(parent.getSource(), AggregationNode.class)
+                        .filter(NOT_DISTINCT)
+                        .map(child -> new DistinctLimitNode(
+                                parent.getId(),
+                                lookup.resolve(child.getSource()),
+                                parent.getCount(),
+                                false,
+                                child.getHashSymbol())));
     }
 
     /**
      * Whether this node corresponds to a DISTINCT operation in SQL
      */
-    private boolean isDistinct(AggregationNode node)
+    private static boolean isDistinct(AggregationNode node)
     {
         return !node.getAggregations().isEmpty() ||
                 node.getOutputSymbols().size() != node.getGroupingKeys().size() ||
