@@ -31,7 +31,9 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttri
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 @Immutable
 public class Scope
@@ -58,6 +60,10 @@ public class Scope
         this.parent = requireNonNull(parent, "parent is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
+
+        if (parent.isPresent()) {
+            checkArgument(namedQueries.keySet().containsAll(parent.get().namedQueries.keySet()), "namedQueries do not contain all namedQueries from parent scope");
+        }
     }
 
     public RelationType getRelationType()
@@ -152,10 +158,6 @@ public class Scope
             return Optional.of(namedQueries.get(name));
         }
 
-        if (parent.isPresent()) {
-            return parent.get().getNamedQuery(name);
-        }
-
         return Optional.empty();
     }
 
@@ -163,6 +165,7 @@ public class Scope
     {
         private RelationType relationType = new RelationType();
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
+        private Optional<Map<String, WithQuery>> parentNamedQueries = Optional.empty();
         private Optional<Scope> parent = Optional.empty();
 
         public Builder withRelationType(RelationType relationType)
@@ -173,7 +176,9 @@ public class Scope
 
         public Builder withParent(Scope parent)
         {
+            checkArgument(!this.parent.isPresent(), "parent is already set");
             this.parent = Optional.of(parent);
+            this.parentNamedQueries = Optional.of(ImmutableMap.copyOf(parent.namedQueries));
             return this;
         }
 
@@ -191,7 +196,16 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, relationType, namedQueries);
+            Map<String, WithQuery> parentVisibleNamedQueries = parentNamedQueries.map(
+                    queries -> queries.entrySet().stream()
+                            .filter(entry -> !namedQueries.containsKey(entry.getKey()))
+                            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue)))
+                    .orElse(emptyMap());
+            Map<String, WithQuery> allNamedQueries = ImmutableMap.<String, WithQuery>builder()
+                    .putAll(namedQueries)
+                    .putAll(parentVisibleNamedQueries)
+                    .build();
+            return new Scope(parent, relationType, allNamedQueries);
         }
     }
 }

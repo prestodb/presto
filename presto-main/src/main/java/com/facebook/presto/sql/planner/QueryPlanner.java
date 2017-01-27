@@ -260,7 +260,9 @@ class QueryPlanner
     private RelationPlan planImplicitTable(QuerySpecification node)
     {
         List<Expression> emptyRow = ImmutableList.of();
-        Scope scope = Scope.builder().withParent(analysis.getScope(node)).build();
+        Scope scope = Scope.builder()
+                .withParent(analysis.getScope(node))
+                .build();
         return new RelationPlan(
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow)),
                 scope,
