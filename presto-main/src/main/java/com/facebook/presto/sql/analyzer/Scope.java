@@ -39,6 +39,7 @@ import static java.util.stream.Collectors.toMap;
 public class Scope
 {
     private final Optional<Scope> parent;
+    private final boolean queryBoundary;
     private final RelationType relation;
     private final Map<String, WithQuery> namedQueries;
 
@@ -54,10 +55,12 @@ public class Scope
 
     private Scope(
             Optional<Scope> parent,
+            boolean queryBoundary,
             RelationType relation,
             Map<String, WithQuery> namedQueries)
     {
         this.parent = requireNonNull(parent, "parent is null");
+        this.queryBoundary = queryBoundary;
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
 
@@ -167,6 +170,7 @@ public class Scope
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Map<String, WithQuery>> parentNamedQueries = Optional.empty();
         private Optional<Scope> parent = Optional.empty();
+        private boolean queryBoundary;
 
         public Builder withRelationType(RelationType relationType)
         {
@@ -178,6 +182,21 @@ public class Scope
         {
             checkArgument(!this.parent.isPresent(), "parent is already set");
             this.parent = Optional.of(parent);
+            withParentNamedQueries(parent);
+            return this;
+        }
+
+        public Builder withOuterQueryParent(Scope parent)
+        {
+            checkArgument(!this.parent.isPresent(), "parent is already set");
+            this.parent = Optional.of(parent);
+            this.queryBoundary = true;
+            return this;
+        }
+
+        public Builder withParentNamedQueries(Scope parent)
+        {
+            checkArgument(!this.parentNamedQueries.isPresent(), "parentNamedQueries is already set");
             this.parentNamedQueries = Optional.of(ImmutableMap.copyOf(parent.namedQueries));
             return this;
         }
@@ -196,6 +215,8 @@ public class Scope
 
         public Scope build()
         {
+            checkArgument(!parent.isPresent() || parentNamedQueries.isPresent(), "parent is set but parentNamedQueries is empty");
+
             Map<String, WithQuery> parentVisibleNamedQueries = parentNamedQueries.map(
                     queries -> queries.entrySet().stream()
                             .filter(entry -> !namedQueries.containsKey(entry.getKey()))
@@ -205,7 +226,7 @@ public class Scope
                     .putAll(namedQueries)
                     .putAll(parentVisibleNamedQueries)
                     .build();
-            return new Scope(parent, relationType, allNamedQueries);
+            return new Scope(parent, queryBoundary, relationType, allNamedQueries);
         }
     }
 }
