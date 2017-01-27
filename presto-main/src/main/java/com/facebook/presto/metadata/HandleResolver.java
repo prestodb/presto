@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.connector.EmptySplitHandleResolver;
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.system.SystemHandleResolver;
 import com.facebook.presto.spi.ColumnHandle;
@@ -51,6 +52,7 @@ public class HandleResolver
         handleResolvers.put(REMOTE_CONNECTOR_ID.toString(), new MaterializedHandleResolver(new RemoteHandleResolver()));
         handleResolvers.put("$system", new MaterializedHandleResolver(new SystemHandleResolver()));
         handleResolvers.put("$info_schema", new MaterializedHandleResolver(new InformationSchemaHandleResolver()));
+        handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)
