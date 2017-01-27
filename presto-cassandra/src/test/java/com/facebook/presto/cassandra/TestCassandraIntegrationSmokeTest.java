@@ -34,6 +34,9 @@ import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandra
 import static com.facebook.presto.cassandra.CassandraQueryRunner.createCassandraSession;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES_PARTITION_KEY;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -119,6 +122,78 @@ public class TestCassandraIntegrationSmokeTest
         execute("CREATE TABLE table_all_types_copy AS SELECT * FROM " + TABLE_ALL_TYPES);
         assertSelect("table_all_types_copy", true);
         execute("DROP TABLE table_all_types_copy");
+    }
+
+    @Test
+    public void testClusteringPredicates()
+            throws Exception
+    {
+        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key='key_1' AND clust_one='clust_one'";
+        assertEquals(execute(sql).getRowCount(), 1);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one'";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key='key_1' AND clust_one!='clust_one'";
+        assertEquals(execute(sql).getRowCount(), 0);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2','key_3','key_4') AND clust_one='clust_one' AND clust_two>'clust_two_1'";
+        assertEquals(execute(sql).getRowCount(), 3);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND " +
+                "((clust_two='clust_two_1') OR (clust_two='clust_two_2'))";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND " +
+                "((clust_two='clust_two_1' AND clust_three='clust_three_1') OR (clust_two='clust_two_2' AND clust_three='clust_three_2'))";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND clust_three='clust_three_1'";
+        assertEquals(execute(sql).getRowCount(), 1);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE key IN ('key_1','key_2') AND clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2')";
+        assertEquals(execute(sql).getRowCount(), 2);
+    }
+
+    @Test
+    public void testMultiplePartitionClusteringPredicates()
+            throws Exception
+    {
+        String partitionInPredicates = " partition_one IN ('partition_one_1','partition_one_2') AND partition_two IN ('partition_two_1','partition_two_2') ";
+        String sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one='clust_one'";
+        assertEquals(execute(sql).getRowCount(), 1);
+        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one'";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE partition_one='partition_one_1' AND partition_two='partition_two_1' AND clust_one!='clust_one'";
+        assertEquals(execute(sql).getRowCount(), 0);
+        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " +
+                "partition_one IN ('partition_one_1','partition_one_2','partition_one_3','partition_one_4') AND " +
+                "partition_two IN ('partition_two_1','partition_two_2','partition_two_3','partition_two_4') AND " +
+                "clust_one='clust_one' AND clust_two>'clust_two_1'";
+        assertEquals(execute(sql).getRowCount(), 3);
+        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND " +
+                "((clust_two='clust_two_1') OR (clust_two='clust_two_2'))";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND " +
+                "((clust_two='clust_two_1' AND clust_three='clust_three_1') OR (clust_two='clust_two_2' AND clust_three='clust_three_2'))";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND clust_three='clust_three_1'";
+        assertEquals(execute(sql).getRowCount(), 1);
+        sql = "SELECT * FROM " + TABLE_MULTI_PARTITION_CLUSTERING_KEYS + " WHERE " + partitionInPredicates + " AND clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2')";
+        assertEquals(execute(sql).getRowCount(), 2);
+    }
+
+    @Test
+    public void testClusteringKeyOnlyPushdown()
+            throws Exception
+    {
+        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one'";
+        assertEquals(execute(sql).getRowCount(), 9);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one' AND clust_two='clust_two_2'";
+        assertEquals(execute(sql).getRowCount(), 1);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three='clust_three_2'";
+        assertEquals(execute(sql).getRowCount(), 1);
+
+        // below test cases are needed to verify clustering key pushdown with unpartitioned table
+        // for the smaller table (<200 partitions by default) connector fetches all the partitions id
+        // and the partitioned patch is being followed
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two='clust_two_2'";
+        assertEquals(execute(sql).getRowCount(), 1);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two='clust_two_2' AND clust_three='clust_three_2'";
+        assertEquals(execute(sql).getRowCount(), 1);
     }
 
     private void assertSelect(String tableName, boolean createdByPresto)

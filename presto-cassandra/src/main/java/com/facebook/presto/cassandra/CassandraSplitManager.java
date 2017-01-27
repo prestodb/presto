@@ -67,7 +67,6 @@ public class CassandraSplitManager
         CassandraTableHandle cassandraTableHandle = layoutHandle.getTable();
         List<CassandraPartition> partitions = layoutHandle.getPartitions();
 
-        requireNonNull(partitions, "partitions is null");
         if (partitions.isEmpty()) {
             return new FixedSplitSource(ImmutableList.of());
         }
@@ -82,7 +81,7 @@ public class CassandraSplitManager
             }
         }
 
-        return new FixedSplitSource(getSplitsForPartitions(cassandraTableHandle, partitions));
+        return new FixedSplitSource(getSplitsForPartitions(cassandraTableHandle, partitions, layoutHandle.getClusteringPredicates()));
     }
 
     private List<ConnectorSplit> getSplitsByTokenRange(CassandraTable table, String partitionId)
@@ -108,10 +107,9 @@ public class CassandraSplitManager
         return tokenExpression + " > " + startToken + " AND " + tokenExpression + " <= " + endToken;
     }
 
-    private List<ConnectorSplit> getSplitsForPartitions(CassandraTableHandle cassTableHandle, List<CassandraPartition> partitions)
+    private List<ConnectorSplit> getSplitsForPartitions(CassandraTableHandle cassTableHandle, List<CassandraPartition> partitions, List<String> clusteringPredicates)
     {
         String schema = cassTableHandle.getSchemaName();
-        String table = cassTableHandle.getTableName();
         HostAddressFactory hostAddressFactory = new HostAddressFactory();
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
 
@@ -152,8 +150,7 @@ public class CassandraSplitManager
                 hostMap.put(hostAddresses, addresses);
             }
             else {
-                CassandraSplit split = new CassandraSplit(connectorId, schema, table, cassandraPartition.getPartitionId(), null, addresses);
-                builder.add(split);
+                builder.addAll(createSplitsForClusteringPredicates(cassTableHandle, cassandraPartition.getPartitionId(), addresses, clusteringPredicates));
             }
         }
         if (singlePartitionKeyColumn) {
@@ -168,8 +165,7 @@ public class CassandraSplitManager
                     size++;
                     if (size > partitionSizeForBatchSelect) {
                         String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
-                        CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()));
-                        builder.add(split);
+                        builder.addAll(createSplitsForClusteringPredicates(cassTableHandle, partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                         size = 0;
                         sb.setLength(0);
                         sb.trimToSize();
@@ -177,10 +173,29 @@ public class CassandraSplitManager
                 }
                 if (size > 0) {
                     String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
-                    CassandraSplit split = new CassandraSplit(connectorId, schema, table, partitionId, null, hostMap.get(entry.getKey()));
-                    builder.add(split);
+                    builder.addAll(createSplitsForClusteringPredicates(cassTableHandle, partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                 }
             }
+        }
+        return builder.build();
+    }
+
+    private List<CassandraSplit> createSplitsForClusteringPredicates(
+            CassandraTableHandle tableHandle,
+            String partitionId,
+            List<HostAddress> hosts,
+            List<String> clusteringPredicates)
+    {
+        String schema = tableHandle.getSchemaName();
+        String table = tableHandle.getTableName();
+
+        if (clusteringPredicates.isEmpty()) {
+            return ImmutableList.of(new CassandraSplit(connectorId, schema, table, partitionId, null, hosts));
+        }
+
+        ImmutableList.Builder<CassandraSplit> builder = ImmutableList.builder();
+        for (String clusteringPredicate : clusteringPredicates) {
+            builder.add(new CassandraSplit(connectorId, schema, table, partitionId, clusteringPredicate, hosts));
         }
         return builder.build();
     }

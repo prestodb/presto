@@ -32,6 +32,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -195,9 +196,27 @@ public class CassandraMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         CassandraTableHandle handle = (CassandraTableHandle) table;
-        CassandraPartitionResult result = partitionManager.getPartitions(handle, constraint.getSummary());
-        ConnectorTableLayout layout = getTableLayout(session, new CassandraTableLayoutHandle(handle, result.getPartitions()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, result.getUnenforcedConstraint()));
+        CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());
+
+        List<String> clusteringKeyPredicates;
+        TupleDomain<ColumnHandle> unenforcedConstraint;
+        if (partitionResult.isUnpartitioned()) {
+            clusteringKeyPredicates = ImmutableList.of();
+            unenforcedConstraint = partitionResult.getUnenforcedConstraint();
+        }
+        else {
+            CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
+                    schemaProvider.getTable(handle).getClusteringKeyColumns(),
+                    partitionResult.getUnenforcedConstraint());
+            clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
+            unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
+        }
+
+        ConnectorTableLayout layout = getTableLayout(session, new CassandraTableLayoutHandle(
+                handle,
+                partitionResult.getPartitions(),
+                clusteringKeyPredicates));
+        return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
     }
 
     @Override
