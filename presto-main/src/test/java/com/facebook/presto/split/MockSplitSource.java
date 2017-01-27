@@ -55,6 +55,12 @@ public class MockSplitSource
     }
 
     @Override
+    public ConnectorTransactionHandle getTransactionHandle()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ListenableFuture<List<Split>> getNextBatch(int maxSize)
     {
         nextBatchCalls++;
