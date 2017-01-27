@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -42,7 +41,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayDeque;
@@ -350,57 +348,12 @@ public class Analysis
             return Optional.of(scopes.get(node));
         }
 
-        if (root == null) {
-            return Optional.empty();
-        }
-
-        GetScopeVisitor visitor = new GetScopeVisitor(scopes, node);
-        visitor.process(root, null);
-        return visitor.getResult();
+        return Optional.empty();
     }
 
     public Scope getRootScope()
     {
         return getScope(root);
-    }
-
-    private static class GetScopeVisitor
-            extends DefaultTraversalVisitor<Void, Scope>
-    {
-        private final IdentityHashMap<Node, Scope> scopes;
-        private final Node node;
-        private Scope result;
-
-        public GetScopeVisitor(IdentityHashMap<Node, Scope> scopes, Node node)
-        {
-            this.scopes = requireNonNull(scopes, "scopes is null");
-            this.node = requireNonNull(node, "node is null");
-        }
-
-        @Override
-        public Void process(Node current, @Nullable Scope candidate)
-        {
-            if (result != null) {
-                return null;
-            }
-
-            if (scopes.containsKey(current)) {
-                candidate = scopes.get(current);
-            }
-            if (node == current) {
-                result = candidate;
-            }
-            else {
-                super.process(current, candidate);
-            }
-
-            return null;
-        }
-
-        public Optional<Scope> getResult()
-        {
-            return Optional.ofNullable(result);
-        }
     }
 
     public void setScope(Node node, Scope scope)
