@@ -30,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isResolvedScalarSubquery;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class TransformUncorrelatedScalarToJoin
         implements PlanOptimizer
 {
