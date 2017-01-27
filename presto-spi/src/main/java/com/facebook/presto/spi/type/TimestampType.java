@@ -39,7 +39,12 @@ public final class TimestampType
             return null;
         }
 
-        return new SqlTimestamp(block.getLong(position, 0), session.getTimeZoneKey());
+        if (session.isLegacyTimestamp()) {
+            return new SqlTimestamp(block.getLong(position, 0), session.getTimeZoneKey());
+        }
+        else {
+            return new SqlTimestamp(block.getLong(position, 0));
+        }
     }
 
     @Override
