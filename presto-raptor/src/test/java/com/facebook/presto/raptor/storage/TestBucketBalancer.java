@@ -247,7 +247,7 @@ public class TestBucketBalancer
 
     private static void assertBalancing(BucketBalancer balancer, int expectedMoves)
     {
-        int actualMoves = balancer.process();
+        int actualMoves = balancer.balance();
         assertEquals(actualMoves, expectedMoves);
 
         // check that number of buckets per node is within bounds
@@ -266,7 +266,7 @@ public class TestBucketBalancer
         }
 
         // check stability
-        assertEquals(balancer.process(), 0);
+        assertEquals(balancer.balance(), 0);
     }
 
     private long createDistribution(String distributionName, int bucketCount)

@@ -129,7 +129,7 @@ public class BucketBalancer
     public void start()
     {
         if (enabled && backupAvailable && coordinator && !started.getAndSet(true)) {
-            startJob();
+            executor.scheduleWithFixedDelay(this::runBalanceJob, interval.toMillis(), interval.toMillis(), MILLISECONDS);
         }
     }
 
@@ -153,22 +153,25 @@ public class BucketBalancer
         return jobErrors;
     }
 
-    private void startJob()
+    @Managed
+    public void startBalanceJob()
     {
-        executor.scheduleWithFixedDelay(() -> {
-            try {
-                process();
-            }
-            catch (Throwable t) {
-                log.error(t, "Error balancing buckets");
-                jobErrors.update(1);
-            }
-        }, interval.toMillis(), interval.toMillis(), MILLISECONDS);
+        executor.submit(this::runBalanceJob);
+    }
+
+    private void runBalanceJob()
+    {
+        try {
+            balance();
+        }
+        catch (Throwable t) {
+            log.error(t, "Error balancing buckets");
+            jobErrors.update(1);
+        }
     }
 
     @VisibleForTesting
-    @Managed
-    synchronized int process()
+    synchronized int balance()
     {
         log.info("Bucket balancer started. Computing assignments...");
         Multimap<String, BucketAssignment> sourceToAssignmentChanges = computeAssignmentChanges(fetchClusterState());
