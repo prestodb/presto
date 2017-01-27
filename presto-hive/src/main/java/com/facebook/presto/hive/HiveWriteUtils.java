@@ -443,6 +443,18 @@ public final class HiveWriteUtils
         }
     }
 
+    public static boolean isViewFileSystem(String user, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            // Hadoop 1.x does not have the ViewFileSystem class
+            return hdfsEnvironment.getFileSystem(user, path)
+                    .getClass().getName().equals("org.apache.hadoop.fs.viewfs.ViewFileSystem");
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+        }
+    }
+
     private static boolean isDirectory(String user, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
@@ -457,6 +469,11 @@ public final class HiveWriteUtils
     {
         // use a per-user temporary directory to avoid permission problems
         String temporaryPrefix = "/tmp/presto-" + user;
+
+        // use relative temporary directory on ViewFS
+        if (isViewFileSystem(user, hdfsEnvironment, targetPath)) {
+            temporaryPrefix = ".hive-staging";
+        }
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
