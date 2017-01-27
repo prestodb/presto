@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.TimeZone;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.block.BlockSerdeUtil.writeBlock;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -1248,7 +1249,12 @@ public class TestArrayOperators
 
     private static SqlTimestamp sqlTimestamp(long millisUtc)
     {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+        if (isLegacyTimestamp(TEST_SESSION)) {
+            return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
+        }
+        else {
+            return new SqlTimestamp(millisUtc);
+        }
     }
 
     private static SqlTimestamp sqlTimestamp(String dateString)
