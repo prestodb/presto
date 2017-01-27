@@ -170,7 +170,10 @@ public class PlanOptimizers
                 new TransformQuantifiedComparisonApplyToScalarApply(metadata),
                 new RemoveUnreferencedScalarInputApplyNodes(),
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                new TransformUncorrelatedScalarToJoin(),
+                new IterativeOptimizer(stats,
+                        ImmutableList.of(new TransformUncorrelatedScalarToJoin()),
+                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedScalarToJoin())
+                ),
                 new TransformCorrelatedScalarAggregationToJoin(metadata),
                 new PredicatePushDown(metadata, sqlParser),
                 new MergeProjections(),
