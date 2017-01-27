@@ -276,7 +276,7 @@ class StatementAnalyzer
                     "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
         }
 
-        return createScope(insert, scope, Field.newUnqualified("rows", BIGINT));
+        return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
     }
 
     private boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
@@ -324,7 +324,7 @@ class StatementAnalyzer
 
         accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
+        return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
     }
 
     @Override
@@ -340,7 +340,7 @@ class StatementAnalyzer
         if (targetTableHandle.isPresent()) {
             if (node.isNotExists()) {
                 analysis.setCreateTableAsSelectNoOp(true);
-                return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
+                return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
             }
             throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
         }
@@ -361,7 +361,7 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
-        return createScope(node, scope, Field.newUnqualified("rows", BIGINT));
+        return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
     }
 
     @Override
@@ -385,127 +385,127 @@ class StatementAnalyzer
 
         validateColumns(node, queryScope.getRelationType());
 
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitSetSession(SetSession node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitResetSession(ResetSession node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitAddColumn(AddColumn node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitCreateSchema(CreateSchema node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitDropSchema(DropSchema node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitRenameSchema(RenameSchema node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitCreateTable(CreateTable node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitDropTable(DropTable node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitRenameTable(RenameTable node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitRenameColumn(RenameColumn node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitDropView(DropView node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitStartTransaction(StartTransaction node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitCommit(Commit node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitRollback(Rollback node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitPrepare(Prepare node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitDeallocate(Deallocate node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitExecute(Execute node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitGrant(Grant node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitRevoke(Revoke node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     @Override
     protected Scope visitCall(Call node, Scope scope)
     {
-        return createScope(node, scope, emptyList());
+        return createAndAssignScope(node, scope, emptyList());
     }
 
     private static void validateColumns(Statement node, RelationType descriptor)
@@ -537,7 +537,7 @@ class StatementAnalyzer
         }
         process(node.getStatement(), scope);
         analysis.setUpdateType(null);
-        return createScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+        return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
     }
 
     @Override
@@ -582,7 +582,7 @@ class StatementAnalyzer
         if (node.isWithOrdinality()) {
             outputFields.add(Field.newUnqualified(Optional.empty(), BIGINT));
         }
-        return createScope(node, scope, outputFields.build());
+        return createAndAssignScope(node, scope, outputFields.build());
     }
 
     @Override
@@ -634,7 +634,7 @@ class StatementAnalyzer
                             .collect(toImmutableList());
                 }
 
-                return createScope(table, scope, fields);
+                return createAndAssignScope(table, scope, fields);
             }
         }
 
@@ -684,7 +684,7 @@ class StatementAnalyzer
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
-            return createScope(table, scope, outputFields);
+            return createAndAssignScope(table, scope, outputFields);
         }
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
@@ -719,7 +719,7 @@ class StatementAnalyzer
 
         analysis.registerTable(table, tableHandle.get());
 
-        return createScope(table, scope, fields.build());
+        return createAndAssignScope(table, scope, fields.build());
     }
 
     @Override
@@ -737,7 +737,7 @@ class StatementAnalyzer
         }
 
         RelationType descriptor = relationType.withAlias(relation.getAlias(), relation.getColumnNames());
-        return createScope(relation, scope, descriptor);
+        return createAndAssignScope(relation, scope, descriptor);
     }
 
     @Override
@@ -776,7 +776,7 @@ class StatementAnalyzer
 
         analysis.setSampleRatio(relation, samplePercentageValue / 100);
         Scope relationScope = process(relation.getRelation(), scope);
-        return createScope(relation, scope, relationScope.getRelationType());
+        return createAndAssignScope(relation, scope, relationScope.getRelationType());
     }
 
     @Override
@@ -784,7 +784,7 @@ class StatementAnalyzer
     {
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
         Scope queryScope = analyzer.process(node.getQuery(), scope);
-        return createScope(node, scope, queryScope.getRelationType());
+        return createAndAssignScope(node, scope, queryScope.getRelationType());
     }
 
     @Override
@@ -824,7 +824,7 @@ class StatementAnalyzer
         List<Scope> relationScopes = node.getRelations().stream()
                 .map(relation -> {
                     Scope relationScope = process(relation, scope);
-                    return createScope(relation, scope, relationScope.getRelationType().withOnlyVisibleFields());
+                    return createAndAssignScope(relation, scope, relationScope.getRelationType().withOnlyVisibleFields());
                 })
                 .collect(toImmutableList());
 
@@ -881,7 +881,7 @@ class StatementAnalyzer
                 }
             }
         }
-        return createScope(node, scope, outputDescriptorFields);
+        return createAndAssignScope(node, scope, outputDescriptorFields);
     }
 
     @Override
@@ -915,7 +915,7 @@ class StatementAnalyzer
         Scope left = process(node.getLeft(), scope);
         Scope right = process(node.getRight(), isUnnestRelation(node.getRight()) ? left : scope);
 
-        Scope output = createScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
+        Scope output = createAndAssignScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
 
         if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
             return output;
@@ -1136,7 +1136,7 @@ class StatementAnalyzer
                 .map(valueType -> Field.newUnqualified(Optional.empty(), valueType))
                 .collect(toImmutableList());
 
-        return createScope(node, scope, fields);
+        return createAndAssignScope(node, scope, fields);
     }
 
     private void analyzeWindowFunctions(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
@@ -1589,7 +1589,7 @@ class StatementAnalyzer
             }
         }
 
-        return createScope(node, scope, outputFields.build());
+        return createAndAssignScope(node, scope, outputFields.build());
     }
 
     private List<Expression> analyzeSelect(QuerySpecification node, Scope scope)
@@ -1900,17 +1900,17 @@ class StatementAnalyzer
         analysis.setOrderByExpressions(node, orderByFieldsBuilder.build());
     }
 
-    public Scope createScope(Node node, Scope parent, Field... fields)
+    private Scope createAndAssignScope(Node node, Scope parent, Field... fields)
     {
-        return createScope(node, parent, new RelationType(fields));
+        return createAndAssignScope(node, parent, new RelationType(fields));
     }
 
-    public Scope createScope(Node node, Scope parent, List<Field> fields)
+    private Scope createAndAssignScope(Node node, Scope parent, List<Field> fields)
     {
-        return createScope(node, parent, new RelationType(fields));
+        return createAndAssignScope(node, parent, new RelationType(fields));
     }
 
-    public Scope createScope(Node node, Scope parent, RelationType relationType)
+    private Scope createAndAssignScope(Node node, Scope parent, RelationType relationType)
     {
         Scope scope = Scope.builder()
                 .withParent(parent)
