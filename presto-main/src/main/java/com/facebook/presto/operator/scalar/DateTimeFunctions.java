@@ -25,6 +25,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
+import org.joda.time.DateTimeZone;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
@@ -44,6 +45,7 @@ import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -96,9 +98,17 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long currentTime(ConnectorSession session)
     {
-        // Stack value is number of milliseconds from start of the current day,
-        // but the start of the day is relative to the current time zone.
+        // We do all calculation in UTC, as session.getStartTime() is in UTC
+        // and we need to have UTC millis for packDateTimeWithZone
         long millis = UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
+
+        if (!session.isLegacyTimestamp()) {
+            // However, those UTC millis are pointing to the correct UTC timestamp
+            // Our TIME WITH TIME ZONE representation does use UTC 1970-01-01 representation
+            // So we have to hack here in order to get valid representation
+            // of TIME WITH TIME ZONE
+            millis -= valueToSessionTimeZoneOffsetDiff(session.getStartTime(), getDateTimeZone(session.getTimeZoneKey()));
+        }
         return packDateTimeWithZone(millis, session.getTimeZoneKey());
     }
 
@@ -107,7 +117,11 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME)
     public static long localTime(ConnectorSession session)
     {
-        return UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
+        if (session.isLegacyTimestamp()) {
+            return UTC_CHRONOLOGY.millisOfDay().get(session.getStartTime());
+        }
+        ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+        return localChronology.millisOfDay().get(session.getStartTime());
     }
 
     @Description("current time zone")
@@ -131,7 +145,11 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP)
     public static long localTimestamp(ConnectorSession session)
     {
-        return session.getStartTime();
+        if (session.isLegacyTimestamp()) {
+            return session.getStartTime();
+        }
+        ISOChronology localChronology = getChronology(session.getTimeZoneKey());
+        return localChronology.getZone().convertUTCToLocal(session.getStartTime());
     }
 
     @ScalarFunction("from_unixtime")
@@ -1087,5 +1105,22 @@ public final class DateTimeFunctions
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+    }
+
+    // HACK WARNING!
+    // This method does calculate difference between timezone offset on current date (session start)
+    // and 1970-01-01 (same timezone). This is used to be able to avoid using fixed offset TZ for
+    // places where TZ offset is explicitly accessed (namely AT TIME ZONE).
+    // DateTimeFormatter does format specified instance in specified time zone calculating offset for
+    // that time zone based on provided instance. As Presto TIME type is represented as millis since
+    // 00:00.000 of some day UTC, we always use timezone offset that was valid on 1970-01-01.
+    // Best effort without changing representation of TIME WITH TIME ZONE is to use offset of the timezone
+    // based on session start time.
+    // By adding this difference to instance that we would like to convert to other TZ, we can
+    // get exact value of utcMillis for current session start time.
+    // Silent assumption is made, that no changes in TZ offsets were done on 1970-01-01.
+    private static long valueToSessionTimeZoneOffsetDiff(long millisUtcSessionStart, DateTimeZone timeZone)
+    {
+        return timeZone.getOffset(0) - timeZone.getOffset(millisUtcSessionStart);
     }
 }
