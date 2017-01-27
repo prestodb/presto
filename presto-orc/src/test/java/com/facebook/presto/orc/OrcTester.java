@@ -35,7 +35,6 @@ import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
@@ -892,7 +891,7 @@ public class OrcTester
         }
         else if (actualValue instanceof TimestampWritable) {
             TimestampWritable timestamp = (TimestampWritable) actualValue;
-            actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), TimeZoneKey.UTC_KEY);
+            actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L));
         }
         else if (actualValue instanceof OrcStruct) {
             List<Object> fields = new ArrayList<>();
