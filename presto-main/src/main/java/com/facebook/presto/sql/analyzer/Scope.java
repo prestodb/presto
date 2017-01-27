@@ -162,7 +162,6 @@ public class Scope
     public static final class Builder
     {
         private RelationType relationType = new RelationType();
-        private Optional<Boolean> approximate = Optional.empty();
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
 
