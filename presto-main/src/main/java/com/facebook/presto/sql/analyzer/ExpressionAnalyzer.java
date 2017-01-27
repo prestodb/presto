@@ -1015,7 +1015,6 @@ public class ExpressionAnalyzer
             Scope subqueryScope = Scope.builder()
                     .withParent(scope)
                     .build();
-            analyzer.getAnalysis().setScope(node, subqueryScope);
             Scope queryScope = analyzer.process(node.getQuery(), subqueryScope);
 
             // Subquery should only produce one column
