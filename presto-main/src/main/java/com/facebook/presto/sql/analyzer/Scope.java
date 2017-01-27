@@ -37,6 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class Scope
 {
     private final Optional<Scope> parent;
+    private final boolean queryBoundary;
     private final RelationType relation;
     private final Map<String, WithQuery> namedQueries;
 
@@ -52,10 +53,12 @@ public class Scope
 
     private Scope(
             Optional<Scope> parent,
+            boolean queryBoundary,
             RelationType relation,
             Map<String, WithQuery> namedQueries)
     {
         this.parent = requireNonNull(parent, "parent is null");
+        this.queryBoundary = queryBoundary;
         this.relation = requireNonNull(relation, "relation is null");
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
     }
@@ -164,6 +167,7 @@ public class Scope
         private RelationType relationType = new RelationType();
         private final Map<String, WithQuery> namedQueries = new HashMap<>();
         private Optional<Scope> parent = Optional.empty();
+        private boolean queryBoundary;
 
         public Builder withRelationType(RelationType relationType)
         {
@@ -173,7 +177,16 @@ public class Scope
 
         public Builder withParent(Scope parent)
         {
+            checkArgument(!this.parent.isPresent(), "parent is already set");
             this.parent = Optional.of(parent);
+            return this;
+        }
+
+        public Builder withOuterQueryParent(Scope parent)
+        {
+            checkArgument(!this.parent.isPresent(), "parent is already set");
+            this.parent = Optional.of(parent);
+            this.queryBoundary = true;
             return this;
         }
 
@@ -191,7 +204,7 @@ public class Scope
 
         public Scope build()
         {
-            return new Scope(parent, relationType, namedQueries);
+            return new Scope(parent, queryBoundary, relationType, namedQueries);
         }
     }
 }
