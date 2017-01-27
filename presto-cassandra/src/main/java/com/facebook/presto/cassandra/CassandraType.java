@@ -457,6 +457,36 @@ public enum CassandraType
         }
     }
 
+    public Object validateClusteringKey(Object value)
+    {
+        switch (this) {
+            case ASCII:
+            case TEXT:
+            case VARCHAR:
+            case BIGINT:
+            case BOOLEAN:
+            case DOUBLE:
+            case INET:
+            case INT:
+            case FLOAT:
+            case DECIMAL:
+            case TIMESTAMP:
+            case UUID:
+            case TIMEUUID:
+                return value;
+            case COUNTER:
+            case BLOB:
+            case CUSTOM:
+            case VARINT:
+            case SET:
+            case LIST:
+            case MAP:
+            default:
+                // todo should we just skip partition pruning instead of throwing an exception?
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported clustering key type: " + this);
+        }
+    }
+
     public static CassandraType toCassandraType(Type type)
     {
         if (type.equals(BooleanType.BOOLEAN)) {

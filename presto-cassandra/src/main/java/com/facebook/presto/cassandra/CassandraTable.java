@@ -49,6 +49,13 @@ public class CassandraTable
                 .collect(toList());
     }
 
+    public List<CassandraColumnHandle> getClusteringKeyColumns()
+    {
+        return columns.stream()
+                .filter(CassandraColumnHandle::isClusteringKey)
+                .collect(toList());
+    }
+
     public String getTokenExpression()
     {
         StringBuilder sb = new StringBuilder();

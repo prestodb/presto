@@ -39,6 +39,9 @@ public class CassandraTestingUtils
     public static final int PORT = 9142;
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
+    public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
+    public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
+    public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
     private static final String CLUSTER_NAME = "TestCluster";
 
     private CassandraTestingUtils() {}
@@ -60,6 +63,9 @@ public class CassandraTestingUtils
             try (Session session = cluster.connect(keyspace)) {
                 createTableAllTypes(session, keyspace, TABLE_ALL_TYPES, date);
                 createTableAllTypesPartitionKey(session, keyspace, TABLE_ALL_TYPES_PARTITION_KEY, date);
+                createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS, 9);
+                createTableClusteringKeys(session, keyspace, TABLE_CLUSTERING_KEYS_LARGE, 1000);
+                createTableMultiPartitionClusteringKeys(session, keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS);
             }
         }
     }
@@ -68,6 +74,62 @@ public class CassandraTestingUtils
     {
         session.execute("DROP KEYSPACE IF EXISTS " + keyspaceName);
         session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor':1}");
+    }
+
+    public static void createTableClusteringKeys(Session session, String keyspace, String table, int rowsCount)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                "key text, " +
+                "clust_one text, " +
+                "clust_two text, " +
+                "clust_three text, " +
+                "data text, " +
+                "PRIMARY KEY((key), clust_one, clust_two, clust_three) " +
+                ")");
+        insertIntoTableClusteringKeys(session, keyspace, table, rowsCount);
+    }
+
+    public static void insertIntoTableClusteringKeys(Session session, String keyspace, String table, int rowsCount)
+    {
+        for (Integer rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
+            Insert insert = QueryBuilder.insertInto(keyspace, table)
+                    .value("key", "key_" + rowNumber.toString())
+                    .value("clust_one", "clust_one")
+                    .value("clust_two", "clust_two_" + rowNumber.toString())
+                    .value("clust_three", "clust_three_" + rowNumber.toString());
+            session.execute(insert);
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+    }
+
+    public static void createTableMultiPartitionClusteringKeys(Session session, String keyspace, String table)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                "partition_one text, " +
+                "partition_two text, " +
+                "clust_one text, " +
+                "clust_two text, " +
+                "clust_three text, " +
+                "data text, " +
+                "PRIMARY KEY((partition_one, partition_two), clust_one, clust_two, clust_three) " +
+                ")");
+        insertIntoTableMultiPartitionClusteringKeys(session, keyspace, table);
+    }
+
+    public static void insertIntoTableMultiPartitionClusteringKeys(Session session, String keyspace, String table)
+    {
+        for (Integer rowNumber = 1; rowNumber < 10; rowNumber++) {
+            Insert insert = QueryBuilder.insertInto(keyspace, table)
+                    .value("partition_one", "partition_one_" + rowNumber.toString())
+                    .value("partition_two", "partition_two_" + rowNumber.toString())
+                    .value("clust_one", "clust_one")
+                    .value("clust_two", "clust_two_" + rowNumber.toString())
+                    .value("clust_three", "clust_three_" + rowNumber.toString());
+            session.execute(insert);
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
     }
 
     public static void createTableAllTypes(Session session, String keyspace, String tableName, Date date)
