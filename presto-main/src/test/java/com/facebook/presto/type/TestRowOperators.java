@@ -18,7 +18,6 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +40,7 @@ import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
 import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.type.TypeJsonUtils.appendToBlockBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
@@ -95,7 +95,7 @@ public class TestRowOperators
         assertFunction(
                 "CAST(ROW(from_unixtime(1), cast(null as TIMESTAMP)) AS JSON)",
                 JSON,
-                format("[\"%s\",null]", sqlTimestamp(1000).toString()));
+                format("[\"%s\",null]", sqlTimestampOf(1000, TEST_SESSION.toConnectorSession()).toString()));
 
         assertFunction(
                 "cast(ROW(ARRAY[1, 2], ARRAY[3, null], ARRAY[], ARRAY[null, null], CAST(null AS ARRAY<BIGINT>)) AS JSON)",
@@ -263,10 +263,5 @@ public class TestRowOperators
             assertFunction(base + operator + greater, BOOLEAN, lessOrInequalityOperators.contains(operator));
             assertFunction(greater + operator + base, BOOLEAN, greaterOrInequalityOperators.contains(operator));
         }
-    }
-
-    private static SqlTimestamp sqlTimestamp(long millisUtc)
-    {
-        return new SqlTimestamp(millisUtc, TEST_SESSION.getTimeZoneKey());
     }
 }

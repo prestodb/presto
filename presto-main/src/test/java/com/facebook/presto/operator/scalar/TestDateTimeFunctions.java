@@ -40,6 +40,7 @@ import java.time.ZoneId;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -753,7 +754,14 @@ public class TestDateTimeFunctions
     public void testFormatDatetime()
     {
         assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm')", VARCHAR, "2001/08/22 03:04");
-        assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 Asia/Kathmandu");
+        if (isLegacyTimestamp(session)) {
+            assertFunction("format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 Asia/Kathmandu");
+        }
+        else {
+            assertInvalidFunction(
+                    "format_datetime(" + TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')",
+                    "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+        }
         assertFunction("format_datetime(" + WEIRD_TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm')", VARCHAR, "2001/08/22 03:04");
         assertFunction("format_datetime(" + WEIRD_TIMESTAMP_LITERAL + ", 'YYYY/MM/dd HH:mm ZZZZ')", VARCHAR, "2001/08/22 03:04 +07:09");
     }
@@ -1051,12 +1059,22 @@ public class TestDateTimeFunctions
 
     private SqlTime toTime(long milliseconds)
     {
-        return new SqlTime(milliseconds, session.getTimeZoneKey());
+        if (isLegacyTimestamp(session)) {
+            return new SqlTime(milliseconds, session.getTimeZoneKey());
+        }
+        else {
+            return new SqlTime(milliseconds);
+        }
     }
 
     private SqlTime toTime(DateTime dateTime)
     {
-        return new SqlTime(dateTime.getMillis(), session.getTimeZoneKey());
+        if (isLegacyTimestamp(session)) {
+            return new SqlTime(dateTime.getMillis(), session.getTimeZoneKey());
+        }
+        else {
+            return new SqlTime(dateTime.getMillisOfDay());
+        }
     }
 
     private static SqlTimeWithTimeZone toTimeWithTimeZone(DateTime dateTime)
@@ -1066,17 +1084,28 @@ public class TestDateTimeFunctions
 
     private SqlTimestamp toTimestamp(long milliseconds)
     {
-        return new SqlTimestamp(milliseconds, session.getTimeZoneKey());
+        if (isLegacyTimestamp(session)) {
+            return new SqlTimestamp(milliseconds, session.getTimeZoneKey());
+        }
+        else {
+            return new SqlTimestamp(milliseconds);
+        }
     }
 
     private SqlTimestamp toTimestamp(DateTime dateTime)
     {
-        return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
+        return toTimestamp(dateTime, session);
     }
 
+    @Deprecated
     private static SqlTimestamp toTimestamp(DateTime dateTime, Session session)
     {
-        return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
+        if (isLegacyTimestamp(session)) {
+            return new SqlTimestamp(dateTime.getMillis(), session.getTimeZoneKey());
+        }
+        else {
+            return new SqlTimestamp(dateTime.getMillis());
+        }
     }
 
     private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)

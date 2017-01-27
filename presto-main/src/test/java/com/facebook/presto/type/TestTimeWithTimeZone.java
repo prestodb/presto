@@ -15,9 +15,7 @@ package com.facebook.presto.type;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.spi.type.SqlTime;
 import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestamp;
 import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
@@ -36,6 +34,8 @@ import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimeOf;
+import static com.facebook.presto.testing.TestingSqlTime.sqlTimestampOf;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public class TestTimeWithTimeZone
@@ -214,7 +214,7 @@ public class TestTimeWithTimeZone
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as time)",
                 TIME,
-                new SqlTime(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+                sqlTimeOf(3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session.toConnectorSession()));
     }
 
     @Test
@@ -223,7 +223,7 @@ public class TestTimeWithTimeZone
     {
         assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)",
                 TIMESTAMP,
-                new SqlTimestamp(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE).getMillis(), session.getTimeZoneKey()));
+                sqlTimestampOf(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE, session.getTimeZoneKey(), session.toConnectorSession()));
     }
 
     @Test
