@@ -88,7 +88,8 @@ public class TestHiveClientConfig
                 .setSkipDeletionForAlter(false)
                 .setBucketExecutionEnabled(true)
                 .setBucketWritingEnabled(true)
-                .setFileSystemMaxCacheSize(1000));
+                .setFileSystemMaxCacheSize(1000)
+                .setHiveStagingDir(null));
     }
 
     @Test
@@ -150,6 +151,7 @@ public class TestHiveClientConfig
                 .put("hive.bucket-execution", "false")
                 .put("hive.bucket-writing", "false")
                 .put("hive.fs.cache.max-size", "1010")
+                .put("hive.staging-dir", ".hive-staging")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -207,7 +209,8 @@ public class TestHiveClientConfig
                 .setSkipDeletionForAlter(true)
                 .setBucketExecutionEnabled(false)
                 .setBucketWritingEnabled(false)
-                .setFileSystemMaxCacheSize(1010);
+                .setFileSystemMaxCacheSize(1010)
+                .setHiveStagingDir(".hive-staging");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

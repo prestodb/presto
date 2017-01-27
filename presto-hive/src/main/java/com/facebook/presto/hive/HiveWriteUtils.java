@@ -456,8 +456,9 @@ public final class HiveWriteUtils
 
     public static Path createTemporaryPath(String user, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
-        // use a per-user temporary directory to avoid permission problems
-        String temporaryPrefix = "/tmp/presto-" + user;
+        // Will use the staging dir if it is configured. Otherwise, use the default tmp directory.
+        String hiveStagingDir = hdfsEnvironment.getHiveStagingDir();
+        String temporaryPrefix = hiveStagingDir == null ? "/tmp/presto-" + user : hiveStagingDir;
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);

@@ -115,6 +115,8 @@ public class HiveClientConfig
 
     private int fileSystemMaxCacheSize = 1000;
 
+    private String hiveStagingDir;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -855,6 +857,20 @@ public class HiveClientConfig
     public HiveClientConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
     {
         this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
+        return this;
+    }
+
+    public String getHiveStagingDir()
+    {
+        return hiveStagingDir;
+    }
+
+    @Config("hive.staging-dir")
+    @ConfigDescription("Directory name that will be created inside table locations in order to store temporary files. If" +
+            "this is not configured, Presto will use the default /tmp directory.")
+    public HiveClientConfig setHiveStagingDir(String stagingDir)
+    {
+        this.hiveStagingDir = stagingDir;
         return this;
     }
 }
