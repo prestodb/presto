@@ -171,6 +171,12 @@ public final class DateTimeUtils
         return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withChronology(chronology).print(millis);
     }
 
+    public static String printTimestampWithoutTimeZone(long timestamp)
+    {
+        return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.print(timestamp);
+    }
+
+    @Deprecated
     public static String printTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, long timestamp)
     {
         return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
@@ -266,6 +272,12 @@ public final class DateTimeUtils
         return TIME_WITH_TIME_ZONE_FORMATTER.withZone(timeZone).print(millis);
     }
 
+    public static String printTimeWithoutTimeZone(long value)
+    {
+        return TIME_FORMATTER.print(value);
+    }
+
+    @Deprecated
     public static String printTimeWithoutTimeZone(TimeZoneKey timeZoneKey, long value)
     {
         return TIME_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).print(value);
