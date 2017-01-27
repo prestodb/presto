@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +22,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.planner.optimizations.ScalarQueryUtil.isScalar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
