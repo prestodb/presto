@@ -15,6 +15,7 @@ package com.facebook.presto.split;
 
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
@@ -24,6 +25,8 @@ public interface SplitSource
         extends Closeable
 {
     ConnectorId getConnectorId();
+
+    ConnectorTransactionHandle getTransactionHandle();
 
     ListenableFuture<List<Split>> getNextBatch(int maxSize);
 

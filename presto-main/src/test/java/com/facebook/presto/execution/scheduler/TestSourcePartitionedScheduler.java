@@ -128,6 +128,12 @@ public class TestSourcePartitionedScheduler
 
         ScheduleResult scheduleResult = scheduler.schedule();
 
+        assertFalse(scheduleResult.isFinished());
+        assertTrue(scheduleResult.getBlocked().isDone());
+        assertEquals(scheduleResult.getNewTasks().size(), 1);
+
+        scheduleResult = scheduler.schedule();
+
         assertTrue(scheduleResult.isFinished());
         assertTrue(scheduleResult.getBlocked().isDone());
         assertTrue(scheduleResult.getNewTasks().isEmpty());

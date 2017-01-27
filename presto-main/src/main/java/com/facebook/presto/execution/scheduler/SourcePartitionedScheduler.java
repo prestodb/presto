@@ -17,10 +17,12 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.Node;
+import com.facebook.presto.split.EmptySplit;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
@@ -38,11 +40,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler
         implements StageScheduler
 {
+    private enum State
+    {
+        INITIALIZED,
+        SPLITS_SCHEDULED,
+        FINISHED
+    }
+
     private final SqlStageExecution stage;
     private final SplitSource splitSource;
     private final SplitPlacementPolicy splitPlacementPolicy;
@@ -51,6 +61,7 @@ public class SourcePartitionedScheduler
 
     private ListenableFuture<List<Split>> batchFuture;
     private Set<Split> pendingSplits = ImmutableSet.of();
+    private State state = State.INITIALIZED;
 
     public SourcePartitionedScheduler(
             SqlStageExecution stage,
@@ -75,14 +86,14 @@ public class SourcePartitionedScheduler
         // try to get the next batch if necessary
         if (pendingSplits.isEmpty()) {
             if (batchFuture == null) {
-                if (splitSource.isFinished()) {
-                    // no more splits
-                    splitSource.close();
-                    return new ScheduleResult(true, ImmutableSet.of(), 0);
+                if (!splitSource.isFinished()) {
+                    batchFuture = splitSource.getNextBatch(splitBatchSize);
+                }
+                else {
+                    return handleNoMoreSplits();
                 }
 
                 long start = System.nanoTime();
-                batchFuture = splitSource.getNextBatch(splitBatchSize);
                 Futures.addCallback(batchFuture, new FutureCallback<List<Split>>()
                 {
                     @Override
@@ -105,6 +116,10 @@ public class SourcePartitionedScheduler
             }
             pendingSplits = ImmutableSet.copyOf(getFutureValue(batchFuture));
             batchFuture = null;
+        }
+
+        if (!pendingSplits.isEmpty() && state == State.INITIALIZED) {
+            state = State.SPLITS_SCHEDULED;
         }
 
         // assign the splits
@@ -133,10 +148,40 @@ public class SourcePartitionedScheduler
         return new ScheduleResult(finished, newTasks, splitAssignment.values().size());
     }
 
+    private ScheduleResult handleNoMoreSplits()
+    {
+        switch (state) {
+            case INITIALIZED:
+                // we have not scheduled a single split so far
+                return scheduleEmptySplit();
+            case SPLITS_SCHEDULED:
+                state = State.FINISHED;
+                splitSource.close();
+                return new ScheduleResult(true, ImmutableSet.of(), 0);
+            default:
+                throw new IllegalStateException(
+                        format("SourcePartitionedScheduler expected to be in INITIALIZED or SPLITS_SCHEDULED state" +
+                                " but is in [%s]", state));
+        }
+    }
+
     @Override
     public void close()
     {
         splitSource.close();
+    }
+
+    private ScheduleResult scheduleEmptySplit()
+    {
+        state = State.SPLITS_SCHEDULED;
+
+        Split emptySplit = new Split(
+                splitSource.getConnectorId(),
+                splitSource.getTransactionHandle(),
+                new EmptySplit(splitSource.getConnectorId()));
+        Node node = Iterables.getLast(splitPlacementPolicy.allNodes());
+        Set<RemoteTask> emptyTask = assignSplits(ImmutableMultimap.of(node, emptySplit));
+        return new ScheduleResult(false, emptyTask, 1);
     }
 
     private Set<RemoteTask> assignSplits(Multimap<Node, Split> splitAssignment)
