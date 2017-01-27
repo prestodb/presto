@@ -17,20 +17,29 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class SqlTime
 {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
     private final long millisUtc;
-    private final TimeZoneKey sessionTimeZoneKey;
+    private final Optional<TimeZoneKey> sessionTimeZoneKey;
 
+    public SqlTime(long millisUtc)
+    {
+        this.millisUtc = millisUtc;
+        this.sessionTimeZoneKey = Optional.empty();
+    }
+
+    @Deprecated
     public SqlTime(long millisUtc, TimeZoneKey sessionTimeZoneKey)
     {
         this.millisUtc = millisUtc;
-        this.sessionTimeZoneKey = sessionTimeZoneKey;
+        this.sessionTimeZoneKey = Optional.of(sessionTimeZoneKey);
     }
 
     public long getMillisUtc()
@@ -38,9 +47,16 @@ public final class SqlTime
         return millisUtc;
     }
 
-    public TimeZoneKey getSessionTimeZoneKey()
+    @Deprecated
+    public Optional<TimeZoneKey> getSessionTimeZoneKey()
     {
         return sessionTimeZoneKey;
+    }
+
+    @Deprecated
+    private boolean isDeprecatedTimestamp()
+    {
+        return sessionTimeZoneKey.isPresent();
     }
 
     @Override
@@ -67,6 +83,12 @@ public final class SqlTime
     @Override
     public String toString()
     {
-        return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(sessionTimeZoneKey.getId())).format(formatter);
+        if (isDeprecatedTimestamp()) {
+            return Instant.ofEpochMilli(millisUtc).atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
+        }
+        else {
+            // For testing purposes this should be exact equivalent of TIMESTAMP to VARCHAR cast
+            return Instant.ofEpochMilli(millisUtc).atZone(ZoneOffset.UTC).format(formatter);
+        }
     }
 }
