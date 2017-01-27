@@ -261,8 +261,13 @@ public final class SqlToRowExpressionTranslator
                 value = parseTimeWithTimeZone(node.getValue());
             }
             else {
-                // parse in time zone of client
-                value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+                if (isLegacyTimestamp) {
+                    // parse in time zone of client
+                    value = parseTimeWithoutTimeZone(timeZoneKey, node.getValue());
+                }
+                else {
+                    value = parseTimeWithoutTimeZone(node.getValue());
+                }
             }
             return constant(value, types.get(node));
         }
