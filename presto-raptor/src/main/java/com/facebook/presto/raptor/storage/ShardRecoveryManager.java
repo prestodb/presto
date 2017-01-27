@@ -127,7 +127,7 @@ public class ShardRecoveryManager
             return;
         }
         if (started.compareAndSet(false, true)) {
-            enqueueMissingShards();
+            scheduleRecoverMissingShards();
         }
     }
 
@@ -138,27 +138,40 @@ public class ShardRecoveryManager
         missingShardExecutor.shutdownNow();
     }
 
-    private void enqueueMissingShards()
+    private void scheduleRecoverMissingShards()
     {
         missingShardExecutor.scheduleWithFixedDelay(() -> {
             try {
                 // jitter to avoid overloading database
                 long interval = missingShardDiscoveryInterval.roundTo(SECONDS);
                 SECONDS.sleep(ThreadLocalRandom.current().nextLong(1, interval));
-                for (ShardMetadata shard : getMissingShards()) {
-                    stats.incrementBackgroundShardRecovery();
-                    Futures.addCallback(
-                            shardQueue.submit(MissingShard.createBackgroundMissingShard(shard.getShardUuid(), shard.getCompressedSize())),
-                            failureCallback(t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid())));
-                }
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            catch (Throwable t) {
-                log.error(t, "Error creating shard recovery tasks");
-            }
+            enqueueMissingShards();
         }, 0, missingShardDiscoveryInterval.toMillis(), TimeUnit.MILLISECONDS);
+    }
+
+    @Managed
+    public void recoverMissingShards()
+    {
+        missingShardExecutor.submit(this::enqueueMissingShards);
+    }
+
+    private synchronized void enqueueMissingShards()
+    {
+        try {
+            for (ShardMetadata shard : getMissingShards()) {
+                stats.incrementBackgroundShardRecovery();
+                Futures.addCallback(
+                        shardQueue.submit(MissingShard.createBackgroundMissingShard(shard.getShardUuid(), shard.getCompressedSize())),
+                        failureCallback(t -> log.warn(t, "Error recovering shard: %s", shard.getShardUuid())));
+            }
+        }
+        catch (Throwable t) {
+            log.error(t, "Error creating shard recovery tasks");
+        }
     }
 
     private Set<ShardMetadata> getMissingShards()
