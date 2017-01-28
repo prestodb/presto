@@ -14,9 +14,9 @@ Every node in the cluster must be configured. Nodes that have not been
 configured, or are configured incorrectly, will not be able to communicate with
 other nodes in the cluster.
 
-.. warning::
+.. note::
 
-    Internal SSL/TLS communication is not compatible with :doc:`Kerberos</security/cli>`
+    Internal SSL/TLS communication with LDAP requires an additional LDAP service user for internal communication.
 
 .. note::
 
@@ -121,13 +121,30 @@ To enable SSL/TLS for Presto internal communication, do the following:
         internal-communication.https.keystore.path=<keystore path>
         internal-communication.https.keystore.key=<keystore password>
 
-9. If the :doc:`LDAP</security/ldap>` authentication is enabled, specify valid LDAP
-   credentials for the internal communication.
+Internal SSL/TLS communication with LDAP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the :doc:`LDAP</security/ldap>` authentication is enabled, specify valid LDAP
+credentials for the internal communication, in addition to the SSL/TLS properties.
 
     .. code-block:: none
 
         internal-communication.authentication.ldap.user=<internal communication user>
         internal-communication.authentication.ldap.password=<internal communication password>
+
+Internal SSL/TLS communication with Kerberos
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the :doc:`Kerberos</security/server>` authentication is enabled, specify valid Kerberos
+credentials for the internal communication, in addition to the SSL/TLS properties.
+
+    .. code-block:: none
+
+        internal-communication.authentication.kerberos.enabled=true
+        internal-communication.authentication.krb5.principal=<principal to use for authentication>
+        internal-communication.authentication.krb5.service-name=<kerberos service name>
+        internal-communication.authentication.krb5.config=<kerberos configuration file>
+        internal-communication.authentication.krb5.keytab=<location of the keytab file that can be used to authenticate the principal>
 
 Performance with SSL/TLS enabled
 --------------------------------
