@@ -61,7 +61,6 @@ import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -113,7 +112,7 @@ public class ColumnJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        GlobalSystemTransactionHandle transaction = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transaction");
+        GlobalSystemTransactionHandle transaction = (GlobalSystemTransactionHandle) transactionHandle;
         Session session = toSession(transaction.getTransactionId(), connectorSession);
         Optional<String> catalogFilter = stringFilter(constraint, 0);
         Optional<String> schemaFilter = stringFilter(constraint, 1);

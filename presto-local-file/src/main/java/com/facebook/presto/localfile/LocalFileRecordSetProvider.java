@@ -25,7 +25,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.localfile.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileRecordSetProvider
@@ -43,11 +42,11 @@ public class LocalFileRecordSetProvider
     public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
-        LocalFileSplit localFileSplit = checkType(split, LocalFileSplit.class, "split");
+        LocalFileSplit localFileSplit = (LocalFileSplit) split;
 
         ImmutableList.Builder<LocalFileColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
-            handles.add(checkType(handle, LocalFileColumnHandle.class, "handle"));
+            handles.add((LocalFileColumnHandle) handle);
         }
 
         return new LocalFileRecordSet(localFileTables, localFileSplit, handles.build());

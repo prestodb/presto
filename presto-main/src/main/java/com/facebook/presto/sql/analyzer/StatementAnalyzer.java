@@ -176,7 +176,6 @@ import static com.facebook.presto.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.tree.WindowFrame.Type.RANGE;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
@@ -1770,8 +1769,7 @@ class StatementAnalyzer
     private Query parseView(String view, QualifiedObjectName name, Node node)
     {
         try {
-            Statement statement = sqlParser.createStatement(view);
-            return checkType(statement, Query.class, "parsed view");
+            return (Query) sqlParser.createStatement(view);
         }
         catch (ParsingException e) {
             throw new SemanticException(VIEW_PARSE_ERROR, node, "Failed parsing stored view '%s': %s", name, e.getMessage());

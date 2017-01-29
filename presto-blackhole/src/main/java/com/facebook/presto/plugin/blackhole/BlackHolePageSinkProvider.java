@@ -22,7 +22,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 
-import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class BlackHolePageSinkProvider
@@ -38,14 +37,14 @@ public class BlackHolePageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        BlackHoleOutputTableHandle handle = checkType(outputTableHandle, BlackHoleOutputTableHandle.class, "outputTableHandle");
+        BlackHoleOutputTableHandle handle = (BlackHoleOutputTableHandle) outputTableHandle;
         return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        BlackHoleInsertTableHandle handle = checkType(insertTableHandle, BlackHoleInsertTableHandle.class, "insertTableHandle");
+        BlackHoleInsertTableHandle handle = (BlackHoleInsertTableHandle) insertTableHandle;
         return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
     }
 }

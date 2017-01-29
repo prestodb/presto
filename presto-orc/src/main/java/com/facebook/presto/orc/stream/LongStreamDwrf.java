@@ -51,7 +51,7 @@ public class LongStreamDwrf
     public void seekToCheckpoint(LongStreamCheckpoint checkpoint)
             throws IOException
     {
-        LongStreamDwrfCheckpoint dwrfCheckpoint = OrcStreamUtils.checkType(checkpoint, LongStreamDwrfCheckpoint.class, "Checkpoint");
+        LongStreamDwrfCheckpoint dwrfCheckpoint = (LongStreamDwrfCheckpoint) checkpoint;
         input.seekToCheckpoint(dwrfCheckpoint.getInputStreamCheckpoint());
     }
 

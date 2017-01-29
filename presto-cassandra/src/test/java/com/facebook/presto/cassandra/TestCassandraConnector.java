@@ -49,7 +49,6 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.HOSTNAME;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.PORT;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
-import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -277,7 +276,7 @@ public class TestCassandraConnector
         ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
         int i = 0;
         for (ColumnHandle columnHandle : columnHandles) {
-            String name = checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getName();
+            String name = ((CassandraColumnHandle) columnHandle).getName();
             index.put(name, i);
             i++;
         }

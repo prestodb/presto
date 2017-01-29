@@ -45,7 +45,6 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
@@ -362,6 +361,6 @@ public class ShardMetadataRecordCursor
 
     private static String getStringValue(Object value)
     {
-        return checkType(value, Slice.class, "value").toStringUtf8();
+        return ((Slice) value).toStringUtf8();
     }
 }

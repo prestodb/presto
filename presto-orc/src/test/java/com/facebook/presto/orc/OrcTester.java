@@ -100,7 +100,6 @@ import static com.facebook.presto.spi.type.StandardTypes.MAP;
 import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Functions.constant;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.io.Files.createTempDir;
@@ -577,7 +576,7 @@ public class OrcTester
                 }
                 break;
             case MAP:
-                MapTypeInfo mapTypeInfo = checkType(typeInfo, MapTypeInfo.class, "fieldInspector");
+                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
                 TypeInfo keyTypeInfo = mapTypeInfo.getMapKeyTypeInfo();
                 TypeInfo valueTypeInfo = mapTypeInfo.getMapValueTypeInfo();
                 Map<Object, Object> newMap = new HashMap<>();
@@ -586,7 +585,7 @@ public class OrcTester
                 }
                 return newMap;
             case LIST:
-                ListTypeInfo listTypeInfo = checkType(typeInfo, ListTypeInfo.class, "fieldInspector");
+                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
                 TypeInfo elementTypeInfo = listTypeInfo.getListElementTypeInfo();
                 List<Object> newList = new ArrayList<>(((Collection<?>) value).size());
                 for (Object element : (Iterable<?>) value) {
@@ -594,7 +593,7 @@ public class OrcTester
                 }
                 return newList;
             case STRUCT:
-                StructTypeInfo structTypeInfo = checkType(typeInfo, StructTypeInfo.class, "fieldInspector");
+                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 List<?> fieldValues = (List<?>) value;
                 List<TypeInfo> fieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
                 List<Object> newStruct = new ArrayList<>();
@@ -834,18 +833,5 @@ public class OrcTester
             typeSignatureParameters.add(TypeSignatureParameter.of(new NamedTypeSignature(filedName, fieldType.getTypeSignature())));
         }
         return TYPE_MANAGER.getParameterizedType(ROW, typeSignatureParameters.build());
-    }
-
-    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
-    {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
-        checkArgument(target.isInstance(value),
-                "%s must be of type %s, not %s",
-                name,
-                target.getName(),
-                value.getClass().getName());
-        return target.cast(value);
     }
 }

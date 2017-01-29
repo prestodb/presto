@@ -52,7 +52,6 @@ import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getTableStructFields;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -313,7 +312,7 @@ final class HiveBucketing
             }
 
             ObjectInspector udfInspector = udf.initialize(objectInspectors);
-            IntObjectInspector inspector = checkType(udfInspector, IntObjectInspector.class, "udfInspector");
+            IntObjectInspector inspector = (IntObjectInspector) udfInspector;
 
             Object result = udf.evaluate(deferredObjects);
             HiveKey hiveKey = new HiveKey();

@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -84,7 +83,7 @@ public class ExampleMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        ExampleTableHandle tableHandle = checkType(table, ExampleTableHandle.class, "table");
+        ExampleTableHandle tableHandle = (ExampleTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new ExampleTableLayoutHandle(tableHandle));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
@@ -98,7 +97,7 @@ public class ExampleMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        ExampleTableHandle exampleTableHandle = checkType(table, ExampleTableHandle.class, "table");
+        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) table;
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
         SchemaTableName tableName = new SchemaTableName(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
 
@@ -128,7 +127,7 @@ public class ExampleMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ExampleTableHandle exampleTableHandle = checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
+        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
         checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
@@ -185,7 +184,6 @@ public class ExampleMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, ExampleTableHandle.class, "tableHandle");
-        return checkType(columnHandle, ExampleColumnHandle.class, "columnHandle").getColumnMetadata();
+        return ((ExampleColumnHandle) columnHandle).getColumnMetadata();
     }
 }

@@ -30,7 +30,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.accumulo.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -65,13 +64,13 @@ public class AccumuloRecordSetProvider
         requireNonNull(columns, "columns is null");
 
         // Convert split
-        AccumuloSplit accSplit = checkType(split, AccumuloSplit.class, "split");
+        AccumuloSplit accSplit = (AccumuloSplit) split;
         checkArgument(accSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         // Convert all columns handles
         ImmutableList.Builder<AccumuloColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
-            handles.add(checkType(handle, AccumuloColumnHandle.class, "handle"));
+            handles.add((AccumuloColumnHandle) handle);
         }
 
         // Return new record set

@@ -296,7 +296,6 @@ import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -346,7 +345,7 @@ public class FunctionRegistry
                             throws Exception
                     {
                         // TODO the function map should be updated, so that this cast can be removed
-                        SqlScalarFunction scalarFunction = checkType(key.getFunction(), SqlScalarFunction.class, "function");
+                        SqlScalarFunction scalarFunction = (SqlScalarFunction) key.getFunction();
                         return scalarFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });
@@ -359,7 +358,7 @@ public class FunctionRegistry
                     public InternalAggregationFunction load(SpecializedFunctionKey key)
                             throws Exception
                     {
-                        SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
+                        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) key.getFunction();
                         return aggregationFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                     }
                 });
@@ -373,11 +372,11 @@ public class FunctionRegistry
                             throws Exception
                     {
                         if (key.getFunction() instanceof SqlAggregationFunction) {
-                            SqlAggregationFunction aggregationFunction = checkType(key.getFunction(), SqlAggregationFunction.class, "function");
+                            SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) key.getFunction();
                             return supplier(aggregationFunction.getSignature(), specializedAggregationCache.getUnchecked(key));
                         }
                         else {
-                            SqlWindowFunction windowFunction = checkType(key.getFunction(), SqlWindowFunction.class, "function");
+                            SqlWindowFunction windowFunction = (SqlWindowFunction) key.getFunction();
                             return windowFunction.specialize(key.getBoundVariables(), key.getArity(), typeManager, FunctionRegistry.this);
                         }
                     }

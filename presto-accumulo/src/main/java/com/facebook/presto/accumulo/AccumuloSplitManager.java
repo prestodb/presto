@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.accumulo.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class AccumuloSplitManager
@@ -60,7 +59,7 @@ public class AccumuloSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        AccumuloTableLayoutHandle layoutHandle = checkType(layout, AccumuloTableLayoutHandle.class, "layout");
+        AccumuloTableLayoutHandle layoutHandle = (AccumuloTableLayoutHandle) layout;
         AccumuloTableHandle tableHandle = layoutHandle.getTable();
 
         String schemaName = tableHandle.getSchema();
@@ -99,7 +98,7 @@ public class AccumuloSplitManager
     {
         if (constraint.getColumnDomains().isPresent()) {
             for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
-                AccumuloColumnHandle col = checkType(cd.getColumn(), AccumuloColumnHandle.class, "column handle");
+                AccumuloColumnHandle col = (AccumuloColumnHandle) cd.getColumn();
                 if (col.getName().equals(rowIdName)) {
                     return Optional.of(cd.getDomain());
                 }
@@ -120,7 +119,7 @@ public class AccumuloSplitManager
     {
         ImmutableList.Builder<AccumuloColumnConstraint> constraintBuilder = ImmutableList.builder();
         for (ColumnDomain<ColumnHandle> columnDomain : constraint.getColumnDomains().get()) {
-            AccumuloColumnHandle columnHandle = checkType(columnDomain.getColumn(), AccumuloColumnHandle.class, "column handle");
+            AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) columnDomain.getColumn();
 
             if (!columnHandle.getName().equals(rowIdName)) {
                 // Family and qualifier will exist for non-row ID columns

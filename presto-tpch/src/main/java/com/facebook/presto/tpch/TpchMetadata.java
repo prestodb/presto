@@ -53,7 +53,6 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.tpch.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class TpchMetadata
@@ -110,7 +109,7 @@ public class TpchMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        TpchTableHandle tableHandle = checkType(table, TpchTableHandle.class, "table");
+        TpchTableHandle tableHandle = (TpchTableHandle) table;
 
         Optional<ConnectorNodePartitioning> nodePartition = Optional.empty();
         Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
@@ -155,7 +154,7 @@ public class TpchMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        TpchTableLayoutHandle layout = checkType(handle, TpchTableLayoutHandle.class, "layout");
+        TpchTableLayoutHandle layout = (TpchTableLayoutHandle) handle;
 
         // tables in this connector have a single layout
         return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
@@ -166,7 +165,7 @@ public class TpchMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
+        TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
 
         TpchTable<?> tpchTable = TpchTable.getTable(tpchTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpchTableHandle.getScaleFactor());
@@ -215,7 +214,7 @@ public class TpchMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-        String columnName = checkType(columnHandle, TpchColumnHandle.class, "columnHandle").getColumnName();
+        String columnName = ((TpchColumnHandle) columnHandle).getColumnName();
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.getName().equals(columnName)) {

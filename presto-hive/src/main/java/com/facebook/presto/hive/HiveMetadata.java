@@ -124,7 +124,6 @@ import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.
 import static com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -273,7 +272,7 @@ public class HiveMetadata
     @Override
     public Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
     {
-        HiveTableLayoutHandle tableLayoutHandle = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
+        HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         if (tableLayoutHandle.getPartitions().isPresent()) {
             return Optional.of(new HiveInputInfo(tableLayoutHandle.getPartitions().get().stream()
                     .map(HivePartition::getPartitionId)
@@ -352,8 +351,7 @@ public class HiveMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, HiveTableHandle.class, "tableHandle");
-        return checkType(columnHandle, HiveColumnHandle.class, "columnHandle").getColumnMetadata(typeManager);
+        return ((HiveColumnHandle) columnHandle).getColumnMetadata(typeManager);
     }
 
     @Override
@@ -534,7 +532,7 @@ public class HiveMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
 
         metastore.addColumn(handle.getSchemaName(), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
     }
@@ -542,8 +540,8 @@ public class HiveMetadata
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
-        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
-        HiveColumnHandle sourceHandle = checkType(source, HiveColumnHandle.class, "columnHandle");
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
+        HiveColumnHandle sourceHandle = (HiveColumnHandle) source;
 
         metastore.renameColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
     }
@@ -551,14 +549,14 @@ public class HiveMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
         metastore.renameTable(handle.getSchemaName(), handle.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
     }
 
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = schemaTableName(tableHandle);
 
         Optional<Table> target = metastore.getTable(handle.getSchemaName(), handle.getTableName());
@@ -621,7 +619,7 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        HiveOutputTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
+        HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
 
         List<PartitionUpdate> partitionUpdates = fragments.stream()
                 .map(Slice::getBytes)
@@ -809,7 +807,7 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments)
     {
-        HiveInsertTableHandle handle = checkType(insertHandle, HiveInsertTableHandle.class, "invalid insertTableHandle");
+        HiveInsertTableHandle handle = (HiveInsertTableHandle) insertHandle;
 
         List<PartitionUpdate> partitionUpdates = fragments.stream()
                 .map(Slice::getBytes)
@@ -1013,8 +1011,8 @@ public class HiveMetadata
     @Override
     public OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
-        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
-        HiveTableLayoutHandle layoutHandle = checkType(tableLayoutHandle, HiveTableLayoutHandle.class, "tableLayoutHandle");
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutHandle;
 
         Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
         if (!table.isPresent()) {
@@ -1042,7 +1040,7 @@ public class HiveMetadata
             TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
             Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(promisedPredicate);
             List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
-            return checkType(Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), HiveTableLayoutHandle.class, "tableLayoutHandle").getPartitions().get();
+            return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
         }
     }
 
@@ -1061,7 +1059,7 @@ public class HiveMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        HiveTableHandle handle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
 
         HivePartitionResult hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
 
@@ -1080,7 +1078,7 @@ public class HiveMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
     {
-        HiveTableLayoutHandle hiveLayoutHandle = checkType(layoutHandle, HiveTableLayoutHandle.class, "layoutHandle");
+        HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
         List<ColumnHandle> partitionColumns = hiveLayoutHandle.getPartitionColumns();
         List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
 

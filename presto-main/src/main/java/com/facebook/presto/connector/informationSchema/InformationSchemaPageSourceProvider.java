@@ -64,7 +64,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
@@ -88,7 +87,7 @@ public class InformationSchemaPageSourceProvider
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
-            String columnName = checkType(column, InformationSchemaColumnHandle.class, "column").getColumnName();
+            String columnName = ((InformationSchemaColumnHandle) column).getColumnName();
             int columnIndex = table.getColumnIndex(columnName);
             channels.add(columnIndex);
         }
@@ -106,8 +105,8 @@ public class InformationSchemaPageSourceProvider
 
     private InternalTable getInternalTable(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
     {
-        InformationSchemaTransactionHandle transaction = checkType(transactionHandle, InformationSchemaTransactionHandle.class, "transaction");
-        InformationSchemaSplit split = checkType(connectorSplit, InformationSchemaSplit.class, "split");
+        InformationSchemaTransactionHandle transaction = (InformationSchemaTransactionHandle) transactionHandle;
+        InformationSchemaSplit split = (InformationSchemaSplit) connectorSplit;
 
         requireNonNull(columns, "columns is null");
 

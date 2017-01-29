@@ -20,7 +20,6 @@ import com.facebook.presto.spi.type.Type;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.rcfile.RcFileDecoderUtils.checkType;
 import static com.facebook.presto.spi.type.Decimals.isLongDecimal;
 import static com.facebook.presto.spi.type.Decimals.isShortDecimal;
 
@@ -108,7 +107,7 @@ public class BinaryRcFileEncoding
     @Override
     public ColumnEncoding listEncoding(Type type, ColumnEncoding elementEncoding)
     {
-        return new ListEncoding(type, checkType(elementEncoding, BinaryColumnEncoding.class, "elementEncoding"));
+        return new ListEncoding(type, (BinaryColumnEncoding) elementEncoding);
     }
 
     @Override
@@ -116,8 +115,8 @@ public class BinaryRcFileEncoding
     {
         return new MapEncoding(
                 type,
-                checkType(keyEncoding, BinaryColumnEncoding.class, "keyEncoding"),
-                checkType(valueEncoding, BinaryColumnEncoding.class, "valueEncoding"));
+                (BinaryColumnEncoding) keyEncoding,
+                (BinaryColumnEncoding) valueEncoding);
     }
 
     @Override
@@ -126,7 +125,7 @@ public class BinaryRcFileEncoding
         return new StructEncoding(
                 type,
                 fieldEncodings.stream()
-                        .map(field -> checkType(field, BinaryColumnEncoding.class, "fieldEncoding"))
+                        .map(field -> (BinaryColumnEncoding) field)
                         .collect(Collectors.toList()));
     }
 }

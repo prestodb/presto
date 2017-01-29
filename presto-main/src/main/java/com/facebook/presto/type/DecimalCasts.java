@@ -61,7 +61,6 @@ import static com.facebook.presto.type.JsonType.JSON;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
-import static com.facebook.presto.util.Types.checkType;
 import static java.lang.Double.isFinite;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -139,7 +138,7 @@ public final class DecimalCasts
                 .implementation(b -> b
                         .methods(methodNames)
                         .withExtraParameters((context) -> {
-                            DecimalType resultType = checkType(context.getReturnType(), DecimalType.class, "resultType");
+                            DecimalType resultType = (DecimalType) context.getReturnType();
                             Number tenToScale;
                             if (isShortDecimal(resultType)) {
                                 tenToScale = longTenToNth(resultType.getScale());

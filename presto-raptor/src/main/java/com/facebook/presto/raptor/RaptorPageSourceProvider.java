@@ -32,9 +32,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
-import java.util.function.Function;
 
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -52,7 +50,7 @@ public class RaptorPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        RaptorSplit raptorSplit = checkType(split, RaptorSplit.class, "split");
+        RaptorSplit raptorSplit = (RaptorSplit) split;
 
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
@@ -79,15 +77,10 @@ public class RaptorPageSourceProvider
             ReaderAttributes attributes,
             OptionalLong transactionId)
     {
-        List<RaptorColumnHandle> columnHandles = columns.stream().map(toRaptorColumnHandle()).collect(toList());
+        List<RaptorColumnHandle> columnHandles = columns.stream().map(RaptorColumnHandle.class::cast).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
         return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, attributes, transactionId);
-    }
-
-    private static Function<ColumnHandle, RaptorColumnHandle> toRaptorColumnHandle()
-    {
-        return handle -> checkType(handle, RaptorColumnHandle.class, "columnHandle");
     }
 }

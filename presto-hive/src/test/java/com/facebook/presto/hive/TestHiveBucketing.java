@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -254,7 +253,7 @@ public class TestHiveBucketing
         }
 
         ObjectInspector udfInspector = udf.initialize(objectInspectors);
-        IntObjectInspector inspector = checkType(udfInspector, IntObjectInspector.class, "udfInspector");
+        IntObjectInspector inspector = (IntObjectInspector) udfInspector;
 
         Object result = udf.evaluate(deferredObjects);
         HiveKey hiveKey = new HiveKey();

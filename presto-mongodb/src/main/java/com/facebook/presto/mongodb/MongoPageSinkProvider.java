@@ -22,8 +22,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.mongodb.TypeUtils.checkType;
-
 public class MongoPageSinkProvider
         implements ConnectorPageSinkProvider
 {
@@ -40,14 +38,14 @@ public class MongoPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        MongoOutputTableHandle handle = checkType(outputTableHandle, MongoOutputTableHandle.class, "outputTableHandle");
+        MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        MongoInsertTableHandle handle = checkType(insertTableHandle, MongoInsertTableHandle.class, "insertTableHandle");
+        MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
     }
 }

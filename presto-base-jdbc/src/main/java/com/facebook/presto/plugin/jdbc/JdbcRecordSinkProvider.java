@@ -22,7 +22,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.plugin.jdbc.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordSinkProvider
@@ -39,12 +38,12 @@ public class JdbcRecordSinkProvider
     @Override
     public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        return new JdbcRecordSink(checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle"), jdbcClient);
+        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 
     @Override
     public RecordSink getRecordSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        return new JdbcRecordSink(checkType(tableHandle, JdbcOutputTableHandle.class, "tableHandle"), jdbcClient);
+        return new JdbcRecordSink((JdbcOutputTableHandle) tableHandle, jdbcClient);
     }
 }

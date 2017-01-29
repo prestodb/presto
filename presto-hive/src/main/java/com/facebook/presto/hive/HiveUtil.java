@@ -89,7 +89,6 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -680,7 +679,7 @@ public final class HiveUtil
     public static Slice varcharPartitionKey(String value, String name, Type columnType)
     {
         Slice partitionKey = Slices.utf8Slice(value);
-        VarcharType varcharType = checkType(columnType, VarcharType.class, "columnType");
+        VarcharType varcharType = (VarcharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > varcharType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
@@ -690,7 +689,7 @@ public final class HiveUtil
     public static Slice charPartitionKey(String value, String name, Type columnType)
     {
         Slice partitionKey = trimSpaces(Slices.utf8Slice(value));
-        CharType charType = checkType(columnType, CharType.class, "columnType");
+        CharType charType = (CharType) columnType;
         if (SliceUtf8.countCodePoints(partitionKey) > charType.getLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
@@ -699,7 +698,7 @@ public final class HiveUtil
 
     public static SchemaTableName schemaTableName(ConnectorTableHandle tableHandle)
     {
-        return checkType(tableHandle, HiveTableHandle.class, "tableHandle").getSchemaTableName();
+        return ((HiveTableHandle) tableHandle).getSchemaTableName();
     }
 
     public static List<HiveColumnHandle> hiveColumnHandles(String connectorId, Table table)

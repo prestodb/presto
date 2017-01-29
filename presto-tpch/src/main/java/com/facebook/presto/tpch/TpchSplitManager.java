@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Set;
 
-import static com.facebook.presto.tpch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class TpchSplitManager
@@ -45,7 +44,7 @@ public class TpchSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        TpchTableHandle tableHandle = checkType(layout, TpchTableLayoutHandle.class, "layout").getTable();
+        TpchTableHandle tableHandle = ((TpchTableLayoutHandle) layout).getTable();
 
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
 

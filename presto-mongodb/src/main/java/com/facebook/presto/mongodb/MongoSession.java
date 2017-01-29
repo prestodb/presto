@@ -59,7 +59,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
-import static com.facebook.presto.mongodb.TypeUtils.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -260,7 +259,7 @@ public class MongoSession
         Document query = new Document();
         if (tupleDomain.getDomains().isPresent()) {
             for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
-                MongoColumnHandle column = checkType(entry.getKey(), MongoColumnHandle.class, "columnHandle");
+                MongoColumnHandle column = (MongoColumnHandle) entry.getKey();
                 query.putAll(buildPredicate(column, entry.getValue()));
             }
         }

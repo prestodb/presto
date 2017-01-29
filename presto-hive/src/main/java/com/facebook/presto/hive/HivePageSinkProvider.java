@@ -29,7 +29,6 @@ import javax.inject.Inject;
 
 import java.util.OptionalInt;
 
-import static com.facebook.presto.hive.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSinkProvider
@@ -69,14 +68,14 @@ public class HivePageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        HiveWritableTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
+        HiveWritableTableHandle handle = (HiveOutputTableHandle) tableHandle;
         return createPageSink(handle, true, session);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        HiveInsertTableHandle handle = checkType(tableHandle, HiveInsertTableHandle.class, "tableHandle");
+        HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         return createPageSink(handle, false, session);
     }
 

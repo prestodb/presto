@@ -117,7 +117,6 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -522,7 +521,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
         {
-            RowType rowType = checkType(types.get(node.getBase()), RowType.class, "type");
+            RowType rowType = (RowType) types.get(node.getBase());
             List<RowField> fields = rowType.getFields();
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {

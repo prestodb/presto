@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -137,7 +136,6 @@ public class IndexSourceOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkType(split.getConnectorSplit(), IndexSplit.class, "connectorSplit");
         checkState(source == null, "Index source split already set");
 
         IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();

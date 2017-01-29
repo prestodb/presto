@@ -41,7 +41,6 @@ import org.apache.hive.hcatalog.data.JsonSerDe;
 
 import java.util.List;
 
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -135,11 +134,11 @@ public enum HiveStorageFormat
 
     private static PrimitiveTypeInfo primitiveTypeInfo(TypeInfo typeInfo)
     {
-        return checkType(typeInfo, PrimitiveTypeInfo.class, "typeInfo");
+        return (PrimitiveTypeInfo) typeInfo;
     }
 
     private static MapTypeInfo mapTypeInfo(TypeInfo typeInfo)
     {
-        return checkType(typeInfo, MapTypeInfo.class, "typeInfo");
+        return (MapTypeInfo) typeInfo;
     }
 }

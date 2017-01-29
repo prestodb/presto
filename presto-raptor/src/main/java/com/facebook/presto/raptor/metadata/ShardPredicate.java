@@ -35,7 +35,6 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn;
 import static com.facebook.presto.raptor.storage.ColumnIndexStatsUtils.jdbcType;
 import static com.facebook.presto.raptor.storage.ShardStats.truncateIndexValue;
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidStringToBytes;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -175,7 +174,7 @@ class ShardPredicate
 
         StringJoiner rangePredicate = new StringJoiner(" OR ");
         for (Range range : ranges) {
-            Slice uuidText = checkType(range.getSingleValue(), Slice.class, "uuid");
+            Slice uuidText = (Slice) range.getSingleValue();
             try {
                 Slice uuidBytes = uuidStringToBytes(uuidText);
                 typesBuilder.add(jdbcType);

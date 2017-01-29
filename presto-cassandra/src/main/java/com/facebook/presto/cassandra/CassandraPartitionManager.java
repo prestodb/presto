@@ -39,7 +39,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
-import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_EXTERNAL;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
@@ -63,7 +62,7 @@ public class CassandraPartitionManager
 
     public CassandraPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
+        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
 
         CassandraTable table = schemaProvider.getTable(cassandraTableHandle);
         List<CassandraColumnHandle> partitionKeys = table.getPartitionKeyColumns();

@@ -28,7 +28,6 @@ import io.airlift.tpch.TpchTable;
 import java.util.List;
 
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
-import static com.facebook.presto.tpch.Types.checkType;
 import static io.airlift.tpch.TpchColumnTypes.IDENTIFIER;
 
 public class TpchRecordSetProvider
@@ -37,7 +36,7 @@ public class TpchRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        TpchSplit tpchSplit = checkType(split, TpchSplit.class, "split");
+        TpchSplit tpchSplit = (TpchSplit) split;
 
         String tableName = tpchSplit.getTableHandle().getTableName();
 
@@ -55,7 +54,7 @@ public class TpchRecordSetProvider
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            String columnName = checkType(column, TpchColumnHandle.class, "column").getColumnName();
+            String columnName = ((TpchColumnHandle) column).getColumnName();
             if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
                 builder.add(new RowNumberTpchColumn<E>());
             }

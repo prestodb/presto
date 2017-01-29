@@ -49,7 +49,6 @@ import static com.facebook.presto.hive.HiveBucketing.getHiveBucketNumbers;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
@@ -105,7 +104,7 @@ public class HivePartitionManager
 
     public HivePartitionResult getPartitions(SemiTransactionalHiveMetastore metastore, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
-        HiveTableHandle hiveTableHandle = checkType(tableHandle, HiveTableHandle.class, "tableHandle");
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary();
 
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
@@ -165,7 +164,7 @@ public class HivePartitionManager
 
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
-            HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ConnectorColumnHandle");
+            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) entry.getKey();
 
             ValueSet values = entry.getValue().getValues();
             ValueSet compactValueSet = values.getValuesProcessor().<Optional<ValueSet>>transform(

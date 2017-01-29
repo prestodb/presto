@@ -37,7 +37,6 @@ import static com.facebook.presto.connector.system.jdbc.FilterUtil.tablePrefix;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.toSession;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class TableJdbcTable
@@ -75,7 +74,7 @@ public class TableJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
-        GlobalSystemTransactionHandle transaction = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transaction");
+        GlobalSystemTransactionHandle transaction = (GlobalSystemTransactionHandle) transactionHandle;
         Session session = toSession(transaction.getTransactionId(), connectorSession);
         Optional<String> catalogFilter = stringFilter(constraint, 0);
         Optional<String> schemaFilter = stringFilter(constraint, 1);

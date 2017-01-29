@@ -33,7 +33,6 @@ import java.util.Map;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogSystemTable
@@ -68,7 +67,7 @@ public class CatalogSystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        TransactionId transactionId = checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transactionHandle").getTransactionId();
+        TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
         for (Map.Entry<String, ConnectorId> entry : transactionManager.getCatalogNames(transactionId).entrySet()) {
             table.addRow(entry.getKey(), entry.getValue().toString());

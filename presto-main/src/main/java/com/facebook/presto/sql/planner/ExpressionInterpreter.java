@@ -121,7 +121,6 @@ import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateV
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpressions;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.instanceOf;
@@ -394,7 +393,7 @@ public class ExpressionInterpreter
                 return new DereferenceExpression(toExpression(base, type), node.getFieldName());
             }
 
-            RowType rowType = checkType(type, RowType.class, "type");
+            RowType rowType = (RowType) type;
             Block row = (Block) base;
             Type returnType = expressionTypes.get(node);
             List<RowField> fields = rowType.getFields();
@@ -1165,7 +1164,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitRow(Row node, Object context)
         {
-            RowType rowType = checkType(expressionTypes.get(node), RowType.class, "type");
+            RowType rowType = (RowType) expressionTypes.get(node);
             List<Type> parameterTypes = rowType.getTypeParameters();
             List<Expression> arguments = node.getItems();
 

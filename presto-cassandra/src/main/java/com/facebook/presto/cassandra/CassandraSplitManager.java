@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +64,7 @@ public class CassandraSplitManager
     @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
-        CassandraTableLayoutHandle layoutHandle = checkType(layout, CassandraTableLayoutHandle.class, "layout");
+        CassandraTableLayoutHandle layoutHandle = (CassandraTableLayoutHandle) layout;
         CassandraTableHandle cassandraTableHandle = layoutHandle.getTable();
         List<CassandraPartition> partitions = layoutHandle.getPartitions().get();
 

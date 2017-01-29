@@ -47,7 +47,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
-import static com.facebook.presto.cassandra.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -106,7 +105,7 @@ public class CassandraMetadata
 
     private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
-        return checkType(tableHandle, CassandraTableHandle.class, "tableHandle").getSchemaTableName();
+        return ((CassandraTableHandle) tableHandle).getSchemaTableName();
     }
 
     @Override
@@ -121,7 +120,7 @@ public class CassandraMetadata
     {
         CassandraTableHandle tableHandle = schemaProvider.getTableHandle(tableName);
         List<ColumnMetadata> columns = getColumnHandles(session, tableHandle).values().stream()
-                .map(column -> checkType(column, CassandraColumnHandle.class, "columnHandle").getColumnMetadata())
+                .map(column -> ((CassandraColumnHandle) column).getColumnMetadata())
                 .collect(toList());
         return new ConnectorTableMetadata(tableName, columns);
     }
@@ -189,14 +188,13 @@ public class CassandraMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
-        return checkType(columnHandle, CassandraColumnHandle.class, "columnHandle").getColumnMetadata();
+        return ((CassandraColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        CassandraTableHandle handle = checkType(table, CassandraTableHandle.class, "table");
+        CassandraTableHandle handle = (CassandraTableHandle) table;
         CassandraPartitionResult result = partitionManager.getPartitions(handle, constraint.getSummary());
         ConnectorTableLayout layout = getTableLayout(session, new CassandraTableLayoutHandle(handle, result.getPartitions()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, result.getUnenforcedConstraint()));
@@ -293,7 +291,7 @@ public class CassandraMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
-        CassandraOutputTableHandle outputTableHandle = checkType(tableHandle, CassandraOutputTableHandle.class, "tableHandle");
+        CassandraOutputTableHandle outputTableHandle = (CassandraOutputTableHandle) tableHandle;
         schemaProvider.flushTable(new SchemaTableName(outputTableHandle.getSchemaName(), outputTableHandle.getTableName()));
         return Optional.empty();
     }

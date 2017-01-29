@@ -25,7 +25,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.example.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -44,12 +43,12 @@ public class ExampleRecordSetProvider
     public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         requireNonNull(split, "partitionChunk is null");
-        ExampleSplit exampleSplit = checkType(split, ExampleSplit.class, "split");
+        ExampleSplit exampleSplit = (ExampleSplit) split;
         checkArgument(exampleSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         ImmutableList.Builder<ExampleColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
-            handles.add(checkType(handle, ExampleColumnHandle.class, "handle"));
+            handles.add((ExampleColumnHandle) handle);
         }
 
         return new ExampleRecordSet(exampleSplit, handles.build());

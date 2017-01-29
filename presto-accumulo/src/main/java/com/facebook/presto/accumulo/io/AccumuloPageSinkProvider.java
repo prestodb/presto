@@ -26,7 +26,6 @@ import org.apache.accumulo.core.client.Connector;
 
 import javax.inject.Inject;
 
-import static com.facebook.presto.accumulo.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -55,13 +54,13 @@ public class AccumuloPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
-        AccumuloTableHandle tableHandle = checkType(outputTableHandle, AccumuloTableHandle.class, "tableHandle");
+        AccumuloTableHandle tableHandle = (AccumuloTableHandle) outputTableHandle;
         return new AccumuloPageSink(connector, client.getTable(tableHandle.toSchemaTableName()), username);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
-        return createPageSink(transactionHandle, session, checkType(insertTableHandle, ConnectorOutputTableHandle.class, "tHandle"));
+        return createPageSink(transactionHandle, session, (ConnectorOutputTableHandle) insertTableHandle);
     }
 }

@@ -22,23 +22,10 @@ import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimeType.TIME;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public final class TypeUtils
 {
     private TypeUtils() {}
-
-    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
-    {
-        requireNonNull(value, String.format("%s is null", name));
-        checkArgument(target.isInstance(value),
-                "%s must be of type %s, not %s",
-                name,
-                target.getName(),
-                value.getClass().getName());
-        return target.cast(value);
-    }
 
     public static boolean isArrayType(Type type)
     {

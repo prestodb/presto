@@ -36,7 +36,6 @@ import io.airlift.slice.Slices;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.facebook.presto.plugin.blackhole.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -72,12 +71,12 @@ public final class BlackHolePageSourceProvider
             ConnectorSplit split,
             List<ColumnHandle> columns)
     {
-        BlackHoleSplit blackHoleSplit = checkType(split, BlackHoleSplit.class, "BlackHoleSplit");
+        BlackHoleSplit blackHoleSplit = (BlackHoleSplit) split;
 
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
 
         for (ColumnHandle column : columns) {
-            builder.add((checkType(column, BlackHoleColumnHandle.class, "BlackHoleColumnHandle")).getColumnType());
+            builder.add(((BlackHoleColumnHandle) column).getColumnType());
         }
         List<Type> types = builder.build();
 

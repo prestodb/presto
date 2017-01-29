@@ -33,7 +33,6 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.util.Map;
 
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -191,7 +190,7 @@ public final class HiveQueryRunner
             default:
                 throw new UnsupportedOperationException();
         }
-        long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 

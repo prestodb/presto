@@ -28,7 +28,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 // faster versions of org.apache.hadoop.io.WritableUtils methods adapted for Slice
@@ -164,20 +163,6 @@ public final class RcFileDecoderUtils
             }
         }
         return -1;
-    }
-
-    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
-    {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
-        checkArgument(
-                target.isInstance(value),
-                "%s must be of type %s, not %s",
-                name,
-                target.getName(),
-                value.getClass().getName());
-        return target.cast(value);
     }
 
     public static int calculateTruncationLength(Type type, Slice slice, int offset, int length)

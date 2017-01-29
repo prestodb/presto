@@ -73,7 +73,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_AGGREGAT
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -127,7 +126,7 @@ class AggregationAnalyzer
                 name = QualifiedName.of(((Identifier) expression).getName());
             }
             else {
-                name = DereferenceExpression.getQualifiedName(checkType(expression, DereferenceExpression.class, "expression"));
+                name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
             }
 
             List<Field> fields = scope.getRelationType().resolveFields(name);

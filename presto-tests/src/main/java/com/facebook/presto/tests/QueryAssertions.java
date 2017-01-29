@@ -29,7 +29,6 @@ import org.intellij.lang.annotations.Language;
 import java.util.List;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.util.Types.checkType;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -234,7 +233,7 @@ public final class QueryAssertions
         long start = System.nanoTime();
         log.info("Running import for %s", table.getObjectName());
         @Language("SQL") String sql = format("CREATE TABLE %s AS SELECT * FROM %s", table.getObjectName(), table);
-        long rows = checkType(queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0), Long.class, "rows");
+        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 }

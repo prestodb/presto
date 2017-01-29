@@ -28,7 +28,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.facebook.presto.raptor.util.Types.checkType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -50,7 +49,7 @@ public class RaptorPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
-        RaptorOutputTableHandle handle = checkType(tableHandle, RaptorOutputTableHandle.class, "tableHandle");
+        RaptorOutputTableHandle handle = (RaptorOutputTableHandle) tableHandle;
         return new RaptorPageSink(
                 pageSorter,
                 storageManager,
@@ -68,7 +67,7 @@ public class RaptorPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
-        RaptorInsertTableHandle handle = checkType(tableHandle, RaptorInsertTableHandle.class, "tableHandle");
+        RaptorInsertTableHandle handle = (RaptorInsertTableHandle) tableHandle;
         return new RaptorPageSink(
                 pageSorter,
                 storageManager,

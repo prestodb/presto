@@ -18,7 +18,6 @@ import com.facebook.presto.ml.type.ModelType;
 
 import java.util.List;
 
-import static com.facebook.presto.ml.Types.checkType;
 import static java.util.Objects.requireNonNull;
 
 public class ClassifierFeatureTransformer
@@ -49,7 +48,7 @@ public class ClassifierFeatureTransformer
     {
         List<Model> models = ModelUtils.deserializeModels(data);
 
-        return new ClassifierFeatureTransformer(checkType(models.get(0), Classifier.class, "model 0"), checkType(models.get(1), FeatureTransformation.class, "model 1"));
+        return new ClassifierFeatureTransformer((Classifier) models.get(0), (FeatureTransformation) models.get(1));
     }
 
     @Override

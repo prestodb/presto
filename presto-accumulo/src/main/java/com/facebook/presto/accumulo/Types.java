@@ -16,36 +16,12 @@ package com.facebook.presto.accumulo;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.spi.type.Type;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
-
 /**
  * Utility class for Presto Type-related functionality.
  */
 public final class Types
 {
     private Types() {}
-
-    /**
-     * Validates the given value is an instance of the target class.
-     *
-     * @param <A> Generic type for value
-     * @param <B> Generic type for the target, which extends A
-     * @param value Instance of an object
-     * @param target Expected class type of the value
-     * @param name Helpful name for the object which is used for error reporting
-     * @return The given value cast to the target
-     * @throws NullPointerException If value is null
-     * @throws IllegalArgumentException If the value is not an instance of target
-     */
-    public static <A, B extends A> B checkType(A value, Class<B> target, String name)
-    {
-        if (value == null) {
-            throw new NullPointerException(format("%s is null", name));
-        }
-        checkArgument(target.isInstance(value), "%s must be of type %s, not %s", name, target.getName(), value.getClass().getName());
-        return target.cast(value);
-    }
 
     public static boolean isArrayType(Type type)
     {

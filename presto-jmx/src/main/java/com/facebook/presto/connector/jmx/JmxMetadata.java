@@ -44,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.connector.jmx.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -142,7 +141,7 @@ public class JmxMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return checkType(tableHandle, JmxTableHandle.class, "tableHandle").getTableMetadata();
+        return ((JmxTableHandle) tableHandle).getTableMetadata();
     }
 
     @Override
@@ -174,15 +173,14 @@ public class JmxMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        JmxTableHandle jmxTableHandle = checkType(tableHandle, JmxTableHandle.class, "tableHandle");
+        JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
         return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.getColumnName().toLowerCase(ENGLISH)));
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, JmxTableHandle.class, "tableHandle");
-        return checkType(columnHandle, JmxColumnHandle.class, "columnHandle").getColumnMetadata();
+        return ((JmxColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override
@@ -215,7 +213,7 @@ public class JmxMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        JmxTableHandle handle = checkType(table, JmxTableHandle.class, "table");
+        JmxTableHandle handle = (JmxTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new JmxTableLayoutHandle(handle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }

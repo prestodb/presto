@@ -31,7 +31,7 @@ public class CheckpointStreamSource<S extends ValueStream<C>, C extends StreamCh
         requireNonNull(checkpoint, "checkpoint is null");
 
         Class<? extends C> checkpointType = stream.getCheckpointType();
-        C verifiedCheckpoint = OrcStreamUtils.checkType(checkpoint, checkpointType, "Checkpoint");
+        C verifiedCheckpoint = (C) checkpoint;
         return new CheckpointStreamSource<>(stream, verifiedCheckpoint);
     }
 

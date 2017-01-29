@@ -24,7 +24,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.util.Types;
 
 import javax.inject.Inject;
 
@@ -58,7 +57,7 @@ public class CatalogJdbcTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        TransactionId transactionId = Types.checkType(transactionHandle, GlobalSystemTransactionHandle.class, "transactionHandle").getTransactionId();
+        TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String name : transactionManager.getCatalogNames(transactionId).keySet()) {
             table.addRow(name);

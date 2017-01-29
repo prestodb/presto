@@ -43,7 +43,6 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.atop.AtopTable.AtopColumn.END_TIME;
 import static com.facebook.presto.atop.AtopTable.AtopColumn.START_TIME;
-import static com.facebook.presto.atop.Types.checkType;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
@@ -92,7 +91,7 @@ public class AtopMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        AtopTableHandle tableHandle = checkType(table, AtopTableHandle.class, "table");
+        AtopTableHandle tableHandle = (AtopTableHandle) table;
         Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
         Domain endTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
         Domain startTimeDomain = Domain.all(TIMESTAMP_WITH_TIME_ZONE);
@@ -118,7 +117,7 @@ public class AtopMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        AtopTableHandle atopTableHandle = checkType(tableHandle, AtopTableHandle.class, "tableHandle");
+        AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
             columns.add(new ColumnMetadata(column.getName(), typeManager.getType(column.getType())));
@@ -146,7 +145,7 @@ public class AtopMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        AtopTableHandle atopTableHandle = checkType(tableHandle, AtopTableHandle.class, "tableHandle");
+        AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
             columnHandles.put(column.getName(), new AtopColumnHandle(column.getName()));
@@ -168,7 +167,7 @@ public class AtopMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        String columnName = checkType(columnHandle, AtopColumnHandle.class, "columnHandle").getName();
+        String columnName = ((AtopColumnHandle) columnHandle).getName();
 
         for (ColumnMetadata column : getTableMetadata(session, tableHandle).getColumns()) {
             if (column.getName().equals(columnName)) {
@@ -176,7 +175,7 @@ public class AtopMetadata
             }
         }
 
-        AtopTableHandle atopTableHandle = checkType(tableHandle, AtopTableHandle.class, "tableHandle");
+        AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         SchemaTableName tableName = new SchemaTableName(atopTableHandle.getSchema(), atopTableHandle.getTable().getName());
         throw new ColumnNotFoundException(tableName, columnName);
     }

@@ -39,7 +39,6 @@ import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tab
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.base.Predicates.equalTo;
@@ -107,7 +106,7 @@ public class InformationSchemaMetadata
 
     private InformationSchemaTableHandle checkTableHandle(ConnectorTableHandle tableHandle)
     {
-        InformationSchemaTableHandle handle = checkType(tableHandle, InformationSchemaTableHandle.class, "tableHandle");
+        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tableHandle;
         checkArgument(handle.getCatalogName().equals(catalogName), "invalid table handle: expected catalog %s but got %s", catalogName, handle.getCatalogName());
         checkArgument(TABLES.containsKey(handle.getSchemaTableName()), "table %s does not exist", handle.getSchemaTableName());
         return handle;
@@ -152,7 +151,7 @@ public class InformationSchemaMetadata
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
         ConnectorTableMetadata tableMetadata = TABLES.get(informationSchemaTableHandle.getSchemaTableName());
 
-        String columnName = checkType(columnHandle, InformationSchemaColumnHandle.class, "columnHandle").getColumnName();
+        String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column %s on table %s does not exist", columnName, tableMetadata.getTable());
@@ -187,7 +186,7 @@ public class InformationSchemaMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        InformationSchemaTableHandle handle = checkType(table, InformationSchemaTableHandle.class, "table");
+        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }

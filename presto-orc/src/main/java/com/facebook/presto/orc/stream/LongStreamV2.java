@@ -346,7 +346,7 @@ public class LongStreamV2
     public void seekToCheckpoint(LongStreamCheckpoint checkpoint)
             throws IOException
     {
-        LongStreamV2Checkpoint v2Checkpoint = OrcStreamUtils.checkType(checkpoint, LongStreamV2Checkpoint.class, "Checkpoint");
+        LongStreamV2Checkpoint v2Checkpoint = (LongStreamV2Checkpoint) checkpoint;
 
         // if the checkpoint is within the current buffer, just adjust the pointer
         if (lastReadInputCheckpoint == v2Checkpoint.getInputStreamCheckpoint() && v2Checkpoint.getOffset() <= numLiterals) {

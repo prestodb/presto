@@ -62,7 +62,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.Chars.trimSpacesAndTruncateToLength;
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -132,7 +131,7 @@ public final class SerDeUtils
                 type.writeSlice(builder, Slices.utf8Slice(((HiveVarcharObjectInspector) inspector).getPrimitiveJavaObject(object).getValue()));
                 return;
             case CHAR:
-                CharType charType = checkType(type, CharType.class, "type");
+                CharType charType = (CharType) type;
                 HiveChar hiveChar = ((HiveCharObjectInspector) inspector).getPrimitiveJavaObject(object);
                 type.writeSlice(builder, trimSpacesAndTruncateToLength(Slices.utf8Slice(hiveChar.getValue()), charType.getLength()));
                 return;
@@ -146,7 +145,7 @@ public final class SerDeUtils
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
                 return;
             case DECIMAL:
-                DecimalType decimalType = checkType(type, DecimalType.class, "type");
+                DecimalType decimalType = (DecimalType) type;
                 HiveDecimalWritable hiveDecimal = ((HiveDecimalObjectInspector) inspector).getPrimitiveWritableObject(object);
                 if (decimalType.isShort()) {
                     decimalType.writeLong(builder, DecimalUtils.getShortDecimalValue(hiveDecimal, decimalType.getScale()));

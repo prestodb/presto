@@ -38,7 +38,6 @@ import java.util.Set;
 
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
-import static com.facebook.presto.localfile.Types.checkType;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -75,7 +74,7 @@ public class LocalFileMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        LocalFileTableHandle tableHandle = checkType(table, LocalFileTableHandle.class, "tableHandle");
+        LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), localFileTables.getColumns(tableHandle));
     }
 
@@ -88,7 +87,7 @@ public class LocalFileMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
-        LocalFileTableHandle tableHandle = checkType(table, LocalFileTableHandle.class, "tableHandle");
+        LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new LocalFileTableLayoutHandle(tableHandle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
@@ -96,14 +95,14 @@ public class LocalFileMetadata
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        LocalFileTableLayoutHandle layout = checkType(handle, LocalFileTableLayoutHandle.class, "layout");
+        LocalFileTableLayoutHandle layout = (LocalFileTableLayoutHandle) handle;
         return new ConnectorTableLayout(layout);
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle table)
     {
-        LocalFileTableHandle tableHandle = checkType(table, LocalFileTableHandle.class, "tableHandle");
+        LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
         return getColumnHandles(tableHandle);
     }
 
@@ -128,8 +127,7 @@ public class LocalFileMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkType(tableHandle, LocalFileTableHandle.class, "tableHandle");
-        return checkType(columnHandle, LocalFileColumnHandle.class, "columnHandle").toColumnMetadata();
+        return ((LocalFileColumnHandle) columnHandle).toColumnMetadata();
     }
 
     @Override
