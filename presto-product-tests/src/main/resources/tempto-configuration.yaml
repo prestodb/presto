@@ -71,6 +71,13 @@ databases:
     jdbc_pooling: true
     table_manager_type: jdbc
 
+  cassandra:
+    host: cassandra
+    port: 9042
+    default_schema: test
+    skip_create_schema: false
+    table_manager_type: cassandra
+
 tests:
   hdfs:
     path: /product-test
