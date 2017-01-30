@@ -334,12 +334,12 @@ public class TaskContext
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
-            long currentSystemMemory = systemMemoryReservation.get();
-            long averageMemoryForLastPeriod = (currentSystemMemory + lastMemoryReservation) / 2;
+            long currentMemory = memoryReservation.get();
+            long averageMemoryForLastPeriod = (currentMemory + lastMemoryReservation) / 2;
             cumulativeMemory.addAndGet(averageMemoryForLastPeriod * sinceLastPeriodMillis);
 
             lastTaskStatCallNanos = System.nanoTime();
-            lastMemoryReservation = currentSystemMemory;
+            lastMemoryReservation = currentMemory;
         }
 
         boolean fullyBlocked = pipelineStats.stream()
