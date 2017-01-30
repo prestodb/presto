@@ -198,7 +198,8 @@ class StatementAnalyzer
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
-            AccessControl accessControl, Session session)
+            AccessControl accessControl,
+            Session session)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -207,28 +208,45 @@ class StatementAnalyzer
         this.session = requireNonNull(session, "session is null");
     }
 
-    public Scope analyze(Node node, Scope scope)
+    public Scope analyze(Node node, Scope outerQueryScope)
     {
-        return new Visitor().process(node, scope);
+        return analyze(node, Optional.of(outerQueryScope));
     }
 
-    private void analyzeWhere(Node node, Scope scope, Expression predicate)
+    public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        Visitor visitor = new Visitor();
-        visitor.analyzeWhere(node, scope, predicate);
+        return new Visitor(outerQueryScope).process(node, Optional.empty());
+    }
+
+    private void analyzeWhere(Node node, Scope outerQueryScope, Expression predicate)
+    {
+        Visitor visitor = new Visitor(Optional.of(outerQueryScope));
+        visitor.analyzeWhere(node, outerQueryScope, predicate);
     }
 
     private class Visitor
-            extends DefaultTraversalVisitor<Scope, Scope>
+            extends DefaultTraversalVisitor<Scope, Optional<Scope>>
     {
+        private final Optional<Scope> outerQueryScope;
+
+        private Visitor(Optional<Scope> outerQueryScope)
+        {
+            this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
+        }
+
+        private Scope process(Node node, Scope scope)
+        {
+            return process(node, Optional.of(scope));
+        }
+
         @Override
-        protected Scope visitUse(Use node, Scope scope)
+        protected Scope visitUse(Use node, Optional<Scope> scope)
         {
             throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
         }
 
         @Override
-        protected Scope visitInsert(Insert insert, Scope scope)
+        protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
             if (metadata.getView(session, targetTable).isPresent()) {
@@ -314,7 +332,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitDelete(Delete node, Scope scope)
+        protected Scope visitDelete(Delete node, Optional<Scope> scope)
         {
             Table table = node.getTable();
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
@@ -342,7 +360,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Scope scope)
+        protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
             analysis.setUpdateType("CREATE TABLE");
 
@@ -362,7 +380,7 @@ class StatementAnalyzer
             for (Expression expression : node.getProperties().values()) {
                 // analyze table property value expressions which must be constant
                 createConstantAnalyzer(metadata, session, analysis.getParameters(), analysis.isDescribe())
-                        .analyze(expression, scope);
+                        .analyze(expression, createScope(scope));
             }
             analysis.setCreateTableProperties(node.getProperties());
 
@@ -379,7 +397,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitCreateView(CreateView node, Scope scope)
+        protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
             analysis.setUpdateType("CREATE VIEW");
 
@@ -399,127 +417,127 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitSetSession(SetSession node, Scope scope)
+        protected Scope visitSetSession(SetSession node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitResetSession(ResetSession node, Scope scope)
+        protected Scope visitResetSession(ResetSession node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitAddColumn(AddColumn node, Scope scope)
+        protected Scope visitAddColumn(AddColumn node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitCreateSchema(CreateSchema node, Scope scope)
+        protected Scope visitCreateSchema(CreateSchema node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitDropSchema(DropSchema node, Scope scope)
+        protected Scope visitDropSchema(DropSchema node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitRenameSchema(RenameSchema node, Scope scope)
+        protected Scope visitRenameSchema(RenameSchema node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitCreateTable(CreateTable node, Scope scope)
+        protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitDropTable(DropTable node, Scope scope)
+        protected Scope visitDropTable(DropTable node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitRenameTable(RenameTable node, Scope scope)
+        protected Scope visitRenameTable(RenameTable node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitRenameColumn(RenameColumn node, Scope scope)
+        protected Scope visitRenameColumn(RenameColumn node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitDropView(DropView node, Scope scope)
+        protected Scope visitDropView(DropView node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitStartTransaction(StartTransaction node, Scope scope)
+        protected Scope visitStartTransaction(StartTransaction node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitCommit(Commit node, Scope scope)
+        protected Scope visitCommit(Commit node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitRollback(Rollback node, Scope scope)
+        protected Scope visitRollback(Rollback node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitPrepare(Prepare node, Scope scope)
+        protected Scope visitPrepare(Prepare node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitDeallocate(Deallocate node, Scope scope)
+        protected Scope visitDeallocate(Deallocate node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitExecute(Execute node, Scope scope)
+        protected Scope visitExecute(Execute node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitGrant(Grant node, Scope scope)
+        protected Scope visitGrant(Grant node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitRevoke(Revoke node, Scope scope)
+        protected Scope visitRevoke(Revoke node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         @Override
-        protected Scope visitCall(Call node, Scope scope)
+        protected Scope visitCall(Call node, Optional<Scope> scope)
         {
-            return createAndAssignScope(node, scope, emptyList());
+            return createAndAssignScope(node, scope);
         }
 
         private void validateColumns(Statement node, RelationType descriptor)
@@ -542,7 +560,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitExplain(Explain node, Scope scope)
+        protected Scope visitExplain(Explain node, Optional<Scope> scope)
                 throws SemanticException
         {
             checkState(node.isAnalyze(), "Non analyze explain should be rewritten to Query");
@@ -555,7 +573,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitQuery(Query node, Scope scope)
+        protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
             Scope withScope = analyzeWith(node, scope);
             Scope queryScope = Scope.builder()
@@ -576,11 +594,11 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitUnnest(Unnest node, Scope scope)
+        protected Scope visitUnnest(Unnest node, Optional<Scope> scope)
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     outputFields.add(Field.newUnqualified(Optional.empty(), ((ArrayType) expressionType).getElementType()));
@@ -600,13 +618,13 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitTable(Table table, Scope scope)
+        protected Scope visitTable(Table table, Optional<Scope> scope)
         {
             if (!table.getName().getPrefix().isPresent()) {
                 // is this a reference to a WITH query?
                 String name = table.getName().getSuffix();
 
-                Optional<WithQuery> withQuery = scope.getNamedQuery(name);
+                Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(name);
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
                     analysis.registerNamedQuery(table, query);
@@ -737,7 +755,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitAliasedRelation(AliasedRelation relation, Scope scope)
+        protected Scope visitAliasedRelation(AliasedRelation relation, Optional<Scope> scope)
         {
             Scope relationScope = process(relation.getRelation(), scope);
 
@@ -755,7 +773,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitSampledRelation(SampledRelation relation, Scope scope)
+        protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
             if (!DependencyExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
@@ -794,7 +812,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitTableSubquery(TableSubquery node, Scope scope)
+        protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
@@ -802,7 +820,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitQuerySpecification(QuerySpecification node, Scope scope)
+        protected Scope visitQuerySpecification(QuerySpecification node, Optional<Scope> scope)
         {
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             // to pass down to analyzeFrom
@@ -831,7 +849,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitSetOperation(SetOperation node, Scope scope)
+        protected Scope visitSetOperation(SetOperation node, Optional<Scope> scope)
         {
             checkState(node.getRelations().size() >= 2);
 
@@ -899,7 +917,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitIntersect(Intersect node, Scope scope)
+        protected Scope visitIntersect(Intersect node, Optional<Scope> scope)
         {
             if (!node.isDistinct()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "INTERSECT ALL not yet implemented");
@@ -909,7 +927,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitExcept(Except node, Scope scope)
+        protected Scope visitExcept(Except node, Optional<Scope> scope)
         {
             if (!node.isDistinct()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
@@ -919,7 +937,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitJoin(Join node, Scope scope)
+        protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
             JoinCriteria criteria = node.getCriteria().orElse(null);
             if (criteria instanceof NaturalJoin) {
@@ -927,7 +945,7 @@ class StatementAnalyzer
             }
 
             Scope left = process(node.getLeft(), scope);
-            Scope right = process(node.getRight(), isUnnestRelation(node.getRight()) ? left : scope);
+            Scope right = process(node.getRight(), isUnnestRelation(node.getRight()) ? Optional.of(left) : scope);
 
             Scope output = createAndAssignScope(node, scope, left.getRelationType().joinWith(right.getRelationType()));
 
@@ -1082,12 +1100,12 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitValues(Values node, Scope scope)
+        protected Scope visitValues(Values node, Optional<Scope> scope)
         {
             checkState(node.getRows().size() >= 1);
 
             List<List<Type>> rowTypes = node.getRows().stream()
-                    .map(row -> analyzeExpression(row, scope).getType(row))
+                    .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
                     .map(type -> {
                         if (type instanceof RowType) {
                             return type.getTypeParameters();
@@ -1603,7 +1621,7 @@ class StatementAnalyzer
                 }
             }
 
-            return createAndAssignScope(node, scope, outputFields.build());
+            return createAndAssignScope(node, Optional.of(scope), outputFields.build());
         }
 
         private List<Expression> analyzeSelect(QuerySpecification node, Scope scope)
@@ -1677,13 +1695,13 @@ class StatementAnalyzer
             analysis.setWhere(node, predicate);
         }
 
-        private Scope analyzeFrom(QuerySpecification node, Scope scope)
+        private Scope analyzeFrom(QuerySpecification node, Optional<Scope> scope)
         {
             if (node.getFrom().isPresent()) {
                 return process(node.getFrom().get(), scope);
             }
 
-            return scope;
+            return createScope(scope);
         }
 
         private void analyzeAggregations(
@@ -1839,19 +1857,18 @@ class StatementAnalyzer
             return builder.build();
         }
 
-        private Scope analyzeWith(Query node, Scope scope)
+        private Scope analyzeWith(Query node, Optional<Scope> scope)
         {
             // analyze WITH clause
             if (!node.getWith().isPresent()) {
-                return scope;
+                return createScope(scope);
             }
             With with = node.getWith().get();
             if (with.isRecursive()) {
                 throw new SemanticException(NOT_SUPPORTED, with, "Recursive WITH queries are not supported");
             }
 
-            Scope.Builder withScopeBuilder = Scope.builder()
-                    .withParent(scope);
+            Scope.Builder withScopeBuilder = scopeBuilder(scope);
             for (WithQuery withQuery : with.getQueries()) {
                 Query query = withQuery.getQuery();
                 process(query, withScopeBuilder.build());
@@ -1914,24 +1931,49 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByFieldsBuilder.build());
         }
 
-        private Scope createAndAssignScope(Node node, Scope parent, Field... fields)
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)
         {
-            return createAndAssignScope(node, parent, new RelationType(fields));
+            return createAndAssignScope(node, parentScope, emptyList());
         }
 
-        private Scope createAndAssignScope(Node node, Scope parent, List<Field> fields)
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, Field... fields)
         {
-            return createAndAssignScope(node, parent, new RelationType(fields));
+            return createAndAssignScope(node, parentScope, new RelationType(fields));
         }
 
-        private Scope createAndAssignScope(Node node, Scope parent, RelationType relationType)
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, List<Field> fields)
         {
-            Scope scope = Scope.builder()
-                    .withParent(parent)
-                    .withRelationType(relationType)
-                    .build();
+            return createAndAssignScope(node, parentScope, new RelationType(fields));
+        }
+
+        private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType)
+        {
+            Scope.Builder scopeBuilder = scopeBuilder(parentScope);
+            scopeBuilder.withRelationType(relationType);
+
+            Scope scope = scopeBuilder.build();
             analysis.setScope(node, scope);
             return scope;
+        }
+
+        private Scope createScope(Optional<Scope> parentScope)
+        {
+            return scopeBuilder(parentScope).build();
+        }
+
+        private Scope.Builder scopeBuilder(Optional<Scope> parentScope)
+        {
+            Scope.Builder scopeBuilder = Scope.builder();
+
+            if (parentScope.isPresent()) {
+                scopeBuilder.withParent(parentScope.get());
+            }
+            else if (outerQueryScope.isPresent()) {
+                scopeBuilder.withOuterQueryParent(outerQueryScope.get())
+                        .withParentNamedQueries(outerQueryScope.get());
+            }
+
+            return scopeBuilder;
         }
     }
 }
