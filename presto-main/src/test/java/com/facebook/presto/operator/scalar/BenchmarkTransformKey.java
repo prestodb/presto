@@ -19,7 +19,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -52,7 +51,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -84,14 +82,7 @@ public class BenchmarkTransformKey
     public Object benchmark(BenchmarkData data)
             throws Throwable
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return data.getPageProcessor().processColumnar(SESSION, data.getPage(), data.getTypes());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -102,8 +93,8 @@ public class BenchmarkTransformKey
         private String type = "DOUBLE";
 
         private String name = "transform_keys";
-        private PageBuilder pageBuilder;
         private Page page;
+        private List<Type> types;
         private PageProcessor pageProcessor;
 
         @Setup
@@ -146,7 +137,7 @@ public class BenchmarkTransformKey
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            types = projections.stream().map(RowExpression::getType).collect(Collectors.toList());
             page = new Page(block);
         }
 
@@ -183,9 +174,9 @@ public class BenchmarkTransformKey
             return page;
         }
 
-        public PageBuilder getPageBuilder()
+        public List<Type> getTypes()
         {
-            return pageBuilder;
+            return types;
         }
     }
 

@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
@@ -70,6 +69,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.math.BigInteger.ONE;
@@ -123,7 +123,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> castDoubleToDecimalBenchmark(CastDoubleToDecimalBenchmarkState state)
+    public Object castDoubleToDecimalBenchmark(CastDoubleToDecimalBenchmarkState state)
     {
         return execute(state);
     }
@@ -158,7 +158,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> castDecimalToDoubleBenchmark(CastDecimalToDoubleBenchmarkState state)
+    public Object castDecimalToDoubleBenchmark(CastDecimalToDoubleBenchmarkState state)
     {
         return execute(state);
     }
@@ -193,7 +193,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> castDecimalToVarcharBenchmark(CastDecimalToVarcharBenchmarkState state)
+    public Object castDecimalToVarcharBenchmark(CastDecimalToVarcharBenchmarkState state)
     {
         return execute(state);
     }
@@ -244,7 +244,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> additionBenchmark(AdditionBenchmarkState state)
+    public Object additionBenchmark(AdditionBenchmarkState state)
     {
         return execute(state);
     }
@@ -306,7 +306,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> multiplyBenchmark(MultiplyBenchmarkState state)
+    public Object multiplyBenchmark(MultiplyBenchmarkState state)
     {
         return execute(state);
     }
@@ -374,7 +374,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> divisionBenchmark(DivisionBenchmarkState state)
+    public Object divisionBenchmark(DivisionBenchmarkState state)
     {
         return execute(state);
     }
@@ -439,7 +439,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> moduloBenchmark(ModuloBenchmarkState state)
+    public Object moduloBenchmark(ModuloBenchmarkState state)
     {
         return execute(state);
     }
@@ -489,7 +489,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> inequalityBenchmark(InequalityBenchmarkState state)
+    public Object inequalityBenchmark(InequalityBenchmarkState state)
     {
         return execute(state);
     }
@@ -529,7 +529,7 @@ public class BenchmarkDecimalOperators
     }
 
     @Benchmark
-    public List<Page> decimalToShortDecimalCastBenchmark(DecimalToShortDecimalCastBenchmarkState state)
+    public Object decimalToShortDecimalCastBenchmark(DecimalToShortDecimalCastBenchmarkState state)
     {
         return execute(state);
     }
@@ -542,22 +542,9 @@ public class BenchmarkDecimalOperators
         decimalToShortDecimalCastBenchmark(state);
     }
 
-    private List<Page> execute(BaseState state)
+    private Object execute(BaseState state)
     {
-        ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        Page inputPage = state.getInputPage();
-        PageBuilder pageBuilder = state.getPageBuilder();
-        PageProcessor processor = state.getProcessor();
-
-        int currentPosition = 0;
-
-        while (currentPosition < PAGE_SIZE) {
-            pageBuilder.reset();
-            currentPosition = processor.process(null, inputPage, currentPosition, inputPage.getPositionCount(), pageBuilder);
-            pages.add(pageBuilder.build());
-        }
-
-        return pages.build();
+        return state.getProcessor().processColumnar(SESSION, state.getInputPage(), ImmutableList.of(state.getOutputType()));
     }
 
     private static class BaseState
@@ -572,7 +559,7 @@ public class BenchmarkDecimalOperators
         protected final List<Type> types = new LinkedList<>();
 
         protected Page inputPage;
-        private PageBuilder pageBuilder;
+        private Type outputType;
         private PageProcessor processor;
         private double doubleMaxValue = 2L << 31;
 
@@ -581,14 +568,14 @@ public class BenchmarkDecimalOperators
             return inputPage;
         }
 
-        public PageBuilder getPageBuilder()
-        {
-            return pageBuilder;
-        }
-
         public PageProcessor getProcessor()
         {
             return processor;
+        }
+
+        public Type getOutputType()
+        {
+            return outputType;
         }
 
         protected void addSymbol(String name, Type type)
@@ -634,9 +621,7 @@ public class BenchmarkDecimalOperators
             RelationType tupleDescriptor = new RelationType(fields.build());
 
             ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, symbolTypes, ImmutableList.of(parsedExpression), emptyList());
-            Type resultType = expressionAnalysis.getType(parsedExpression);
-
-            pageBuilder = new PageBuilder(ImmutableList.of(resultType));
+            outputType = expressionAnalysis.getType(parsedExpression);
         }
 
         protected void generateProcessor(String expression)

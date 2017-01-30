@@ -52,7 +52,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.sql.relational.Signatures.IN;
-import static com.google.common.base.Preconditions.checkState;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 @State(Scope.Thread)
@@ -134,10 +134,7 @@ public class InCodeGeneratorBenchmark
     @Benchmark
     public Page benchmark()
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(prestoType));
-        int count = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        checkState(count == inputPage.getPositionCount());
-        return pageBuilder.build();
+        return processor.processColumnar(SESSION, inputPage, ImmutableList.of(prestoType));
     }
 
     public static void main(String[] args)

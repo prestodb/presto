@@ -56,7 +56,6 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @State(Scope.Thread)
@@ -115,10 +114,7 @@ public class BenchmarkPageProcessor
 
     public static Page execute(Page inputPage, PageProcessor processor)
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
-        int count = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        checkState(count == inputPage.getPositionCount());
-        return pageBuilder.build();
+        return processor.processColumnar(null, inputPage, ImmutableList.of(DOUBLE));
     }
 
     private static Page createInputPage()

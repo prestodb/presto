@@ -148,6 +148,9 @@ public class FixedWidthBlockBuilder
     @Override
     public BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
+        if (length != fixedSize) {
+            throw new IllegalStateException("Expected entry size to be exactly " + fixedSize + " but was " + currentEntrySize);
+        }
         checkCapacity();
         sliceOutput.writeBytes(source, sourceIndex, length);
         currentEntrySize += length;

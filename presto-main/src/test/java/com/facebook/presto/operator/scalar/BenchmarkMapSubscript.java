@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -83,14 +82,7 @@ public class BenchmarkMapSubscript
     public Object mapSubscript(BenchmarkData data)
             throws Throwable
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return data.getPageProcessor().processColumnar(SESSION, data.getPage(), data.getTypes());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -103,9 +95,9 @@ public class BenchmarkMapSubscript
         @Param({"1", "13"})
         private int mapSize = 13;
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
+        private List<Type> types;
 
         @Setup
         public void setup()
@@ -166,7 +158,9 @@ public class BenchmarkMapSubscript
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            types = projections.stream()
+                    .map(RowExpression::getType)
+                    .collect(Collectors.toList());
             page = new Page(block);
         }
 
@@ -180,9 +174,9 @@ public class BenchmarkMapSubscript
             return page;
         }
 
-        public PageBuilder getPageBuilder()
+        public List<Type> getTypes()
         {
-            return pageBuilder;
+            return types;
         }
 
         private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)

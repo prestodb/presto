@@ -20,7 +20,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -55,11 +54,9 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.operator.scalar.CombineHashFunction.getHash;
 import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
@@ -71,6 +68,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -87,14 +85,7 @@ public class BenchmarkArrayHashCodeOperator
     public Object arrayHashCode(BenchmarkData data)
             throws Throwable
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return data.getPageProcessor().processColumnar(SESSION, data.getPage(), data.getTypes());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -107,9 +98,9 @@ public class BenchmarkArrayHashCodeOperator
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
+        private List<Type> types;
 
         @Setup
         public void setup()
@@ -144,7 +135,9 @@ public class BenchmarkArrayHashCodeOperator
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            types = projections.stream()
+                    .map(RowExpression::getType)
+                    .collect(toImmutableList());
             page = new Page(blocks);
         }
 
@@ -185,9 +178,9 @@ public class BenchmarkArrayHashCodeOperator
             return page;
         }
 
-        public PageBuilder getPageBuilder()
+        public List<Type> getTypes()
         {
-            return pageBuilder;
+            return types;
         }
     }
 

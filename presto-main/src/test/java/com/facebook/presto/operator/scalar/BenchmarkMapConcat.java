@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.ArrayBlock;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -27,6 +26,7 @@ import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -53,7 +53,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -80,14 +79,7 @@ public class BenchmarkMapConcat
     public Object mapConcat(BenchmarkData data)
             throws Throwable
     {
-        int position = 0;
-        List<Page> pages = new ArrayList<>();
-        while (position < data.getPage().getPositionCount()) {
-            position = data.getPageProcessor().process(SESSION, data.getPage(), position, data.getPage().getPositionCount(), data.getPageBuilder());
-            pages.add(data.getPageBuilder().build());
-            data.getPageBuilder().reset();
-        }
-        return pages;
+        return data.getPageProcessor().processColumnar(SESSION, data.getPage(), data.getTypes());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -99,9 +91,9 @@ public class BenchmarkMapConcat
         @Param({"left_empty", "right_empty", "both_empty", "non_empty"})
         private String mapConfig = "left_empty";
 
-        private PageBuilder pageBuilder;
         private Page page;
         private PageProcessor pageProcessor;
+        private List<Type> types;
 
         @Setup
         public void setup()
@@ -157,7 +149,7 @@ public class BenchmarkMapConcat
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(new ConstantExpression(true, BooleanType.BOOLEAN), projections).get();
-            pageBuilder = new PageBuilder(projections.stream().map(RowExpression::getType).collect(Collectors.toList()));
+            types = projections.stream().map(RowExpression::getType).collect(Collectors.toList());
             page = new Page(leftBlock, rightBlock);
         }
 
@@ -171,9 +163,9 @@ public class BenchmarkMapConcat
             return page;
         }
 
-        public PageBuilder getPageBuilder()
+        public List<Type> getTypes()
         {
-            return pageBuilder;
+            return types;
         }
 
         private static Block createMapBlock(int positionCount, Block keyBlock, Block valueBlock)
