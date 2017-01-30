@@ -54,8 +54,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -192,14 +190,9 @@ public class BenchmarkArraySort
             positions.set(i, i);
         }
 
-        Collections.sort(positions, new Comparator<Integer>()
-        {
-            @Override
-            public int compare(Integer p1, Integer p2)
-            {
-                //TODO: This could be quite slow, it should use parametric equals
-                return VARCHAR.compareTo(block, p1, block, p2);
-            }
+        positions.sort((p1, p2) -> {
+            //TODO: This could be quite slow, it should use parametric equals
+            return VARCHAR.compareTo(block, p1, block, p2);
         });
 
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(new BlockBuilderStatus(), block.getPositionCount());

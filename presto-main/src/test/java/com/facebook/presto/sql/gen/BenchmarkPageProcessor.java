@@ -121,7 +121,7 @@ public class BenchmarkPageProcessor
         return pageBuilder.build();
     }
 
-    public static Page createInputPage()
+    private static Page createInputPage()
     {
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
         LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);

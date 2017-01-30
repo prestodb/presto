@@ -58,10 +58,12 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpre
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static com.google.common.base.Verify.verify;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
+@SuppressWarnings("PackageVisibleField")
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(10)
@@ -115,6 +117,7 @@ public class PageProcessorBenchmark
     {
         PageBuilder pageBuilder = new PageBuilder(types);
         int end = processor.process(null, inputPage, 0, inputPage.getPositionCount(), pageBuilder);
+        verify(end == inputPage.getPositionCount());
         return pageBuilder.build();
     }
 
