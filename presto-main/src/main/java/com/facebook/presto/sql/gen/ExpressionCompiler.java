@@ -26,6 +26,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
@@ -47,7 +48,7 @@ public class ExpressionCompiler
 {
     private final Metadata metadata;
 
-    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends PageProcessor>>()
             {
                 @Override
@@ -58,7 +59,7 @@ public class ExpressionCompiler
                 }
             });
 
-    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().maximumSize(1000).build(
+    private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
             {
                 @Override
@@ -79,6 +80,20 @@ public class ExpressionCompiler
     public long getCacheSize()
     {
         return pageProcessors.size();
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getPageCacheStats()
+    {
+        return new CacheStatsMBean(pageProcessors);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getCursorCacheStats()
+    {
+        return new CacheStatsMBean(cursorProcessors);
     }
 
     public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
