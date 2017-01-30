@@ -4,6 +4,11 @@ Cassandra Connector
 
 The Cassandra connector allows querying data stored in Cassandra.
 
+Compatibility
+-------------
+
+Connector is compatible with all Cassandra versions starting from 2.1.5.
+
 Configuration
 -------------
 
@@ -78,6 +83,11 @@ Property Name                                      Description
                                                    This is a global setting used for all connections, regardless
                                                    of the user who is connected to Presto.
 ================================================== ======================================================================
+
+.. note::
+
+        If authorization is enabled, ``cassandra.username`` must have enough permissions to perform ``SELECT`` queries on
+        the ``system.size_estimates`` table.
 
 .. _Cassandra consistency: http://www.datastax.com/documentation/cassandra/2.0/cassandra/dml/dml_config_consistency_c.html
 
