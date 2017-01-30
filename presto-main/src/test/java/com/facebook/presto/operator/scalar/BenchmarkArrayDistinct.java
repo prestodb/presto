@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.metadata.FunctionKind;
-import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.PageProcessor;
@@ -60,6 +59,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 
@@ -111,7 +111,7 @@ public class BenchmarkArrayDistinct
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            metadata.addFunctions(new FunctionListBuilder().scalar(BenchmarkArrayDistinct.class).getFunctions());
+            metadata.addFunctions(extractFunctions(BenchmarkArrayDistinct.class));
             ExpressionCompiler compiler = new ExpressionCompiler(metadata);
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];

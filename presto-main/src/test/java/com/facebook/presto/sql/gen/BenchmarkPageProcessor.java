@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
+import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -102,6 +103,8 @@ public class BenchmarkPageProcessor
     public static void main(String[] args)
             throws RunnerException
     {
+        new BenchmarkPageProcessor().setup();
+
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkPageProcessor.class.getSimpleName() + ".*")
@@ -197,35 +200,35 @@ public class BenchmarkPageProcessor
     //    and quantity < 24;
     private static final RowExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
             BOOLEAN,
-            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
+            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                     BOOLEAN,
                     field(SHIP_DATE, VARCHAR),
                     constant(MIN_SHIP_DATE, VARCHAR)),
             call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                     BOOLEAN,
-                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.VARCHAR)),
+                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                             BOOLEAN,
                             field(SHIP_DATE, VARCHAR),
                             constant(MAX_SHIP_DATE, VARCHAR)),
                     call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                             BOOLEAN,
-                            call(new Signature(OperatorType.GREATER_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+                            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                     BOOLEAN,
                                     field(DISCOUNT, DOUBLE),
                                     constant(0.05, DOUBLE)),
                             call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
                                     BOOLEAN,
-                                    call(new Signature(OperatorType.LESS_THAN_OR_EQUAL.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+                                    call(internalOperator(OperatorType.LESS_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                             BOOLEAN,
                                             field(DISCOUNT, DOUBLE),
                                             constant(0.07, DOUBLE)),
-                                    call(new Signature(OperatorType.LESS_THAN.name(), SCALAR, parseTypeSignature(StandardTypes.BOOLEAN), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+                                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
                                             BOOLEAN,
                                             field(QUANTITY, DOUBLE),
-                                            constant((long) 24, DOUBLE))))));
+                                            constant(24.0, DOUBLE))))));
 
     private static final RowExpression PROJECT = call(
-            new Signature(OperatorType.MULTIPLY.name(), SCALAR, parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE), parseTypeSignature(StandardTypes.DOUBLE)),
+            internalOperator(OperatorType.MULTIPLY, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
             DOUBLE,
             field(EXTENDED_PRICE, DOUBLE),
             field(DISCOUNT, DOUBLE));
