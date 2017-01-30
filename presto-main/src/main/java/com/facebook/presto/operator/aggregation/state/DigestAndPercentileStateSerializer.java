@@ -17,13 +17,15 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.stats.QuantileDigest;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class DigestAndPercentileStateSerializer
         implements AccumulatorStateSerializer<DigestAndPercentileState>
@@ -31,7 +33,7 @@ public class DigestAndPercentileStateSerializer
     @Override
     public Type getSerializedType()
     {
-        return VARCHAR;
+        return VARBINARY;
     }
 
     @Override
@@ -41,27 +43,29 @@ public class DigestAndPercentileStateSerializer
             out.appendNull();
         }
         else {
-            DynamicSliceOutput sliceOutput = new DynamicSliceOutput(state.getDigest().estimatedSerializedSizeInBytes() + SIZE_OF_DOUBLE);
-            // write digest
-            state.getDigest().serialize(sliceOutput);
-            // write percentile
-            sliceOutput.appendDouble(state.getPercentile());
+            Slice serialized = state.getDigest().serialize();
 
-            Slice slice = sliceOutput.slice();
-            VARCHAR.writeSlice(out, slice);
+            SliceOutput output = Slices.allocate(SIZE_OF_DOUBLE + SIZE_OF_INT + serialized.length()).getOutput();
+            output.appendDouble(state.getPercentile());
+            output.appendInt(serialized.length());
+            output.appendBytes(serialized);
+
+            VARBINARY.writeSlice(out, output.slice());
         }
     }
 
     @Override
     public void deserialize(Block block, int index, DigestAndPercentileState state)
     {
-        SliceInput input = VARCHAR.getSlice(block, index).getInput();
-
-        // read digest
-        state.setDigest(QuantileDigest.deserialize(input));
-        state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
+        SliceInput input = VARBINARY.getSlice(block, index).getInput();
 
         // read percentile
         state.setPercentile(input.readDouble());
+
+        // read digest
+        int length = input.readInt();
+        QuantileDigest digest = new QuantileDigest(input.readSlice(length));
+        state.setDigest(digest);
+        state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
     }
 }

@@ -18,15 +18,17 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 
 public class DigestAndPercentileArrayStateSerializer
         implements AccumulatorStateSerializer<DigestAndPercentileArrayState>
@@ -44,18 +46,26 @@ public class DigestAndPercentileArrayStateSerializer
             out.appendNull();
         }
         else {
-            DynamicSliceOutput sliceOutput =
-                    new DynamicSliceOutput(state.getDigest().estimatedSerializedSizeInBytes() + (state.getPercentiles().size() * SIZE_OF_DOUBLE) +  SIZE_OF_LONG);
-            // write digest
-            state.getDigest().serialize(sliceOutput);
+            Slice digest = state.getDigest().serialize();
+
+            SliceOutput output = Slices.allocate(
+                    SIZE_OF_INT + // number of percentiles
+                            state.getPercentiles().size() * SIZE_OF_DOUBLE + // percentiles
+                            SIZE_OF_INT + // digest length
+                            digest.length()) // digest
+                    .getOutput();
+
             // write percentiles
             List<Double> percentiles = state.getPercentiles();
-            sliceOutput.appendLong(percentiles.size());
-            for (Double percentile : percentiles) {
-                sliceOutput.appendDouble(percentile);
+            output.appendInt(percentiles.size());
+            for (double percentile : percentiles) {
+                output.appendDouble(percentile);
             }
 
-            VARBINARY.writeSlice(out, sliceOutput.slice());
+            output.appendInt(digest.length());
+            output.appendBytes(digest);
+
+            VARBINARY.writeSlice(out, output.slice());
         }
     }
 
@@ -64,17 +74,18 @@ public class DigestAndPercentileArrayStateSerializer
     {
         SliceInput input = VARBINARY.getSlice(block, index).getInput();
 
-        // read digest
-        state.setDigest(QuantileDigest.deserialize(input));
-        state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
-
         // read number of percentiles
-        long numPercentiles = input.readLong();
+        int numPercentiles = input.readInt();
 
         ImmutableList.Builder<Double> percentilesListBuilder = ImmutableList.builder();
         for (int i = 0; i < numPercentiles; i++) {
             percentilesListBuilder.add(input.readDouble());
         }
         state.setPercentiles(percentilesListBuilder.build());
+
+        // read digest
+        int length = input.readInt();
+        state.setDigest(new QuantileDigest(input.readSlice(length)));
+        state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
     }
 }
