@@ -1,4 +1,5 @@
--- database: presto_tpcds; groups: tpcds; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds, big_query; requires: com.teradata.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+--- takes over 30 minutes on travis to complete
 SELECT
   "a"."ca_state" "STATE"
 , "count"(*) "cnt"
