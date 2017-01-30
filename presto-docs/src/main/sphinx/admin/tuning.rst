@@ -23,6 +23,13 @@ As an example, on a 11-node cluster dedicated to Presto (1 Coordinator + 10 Work
   * `query.initial-hash-partitions = 10`
   * `task.concurrency = 8`
 
+If your workload consists of queries that have very quick processing time of the splits you might encounter situation when whole cluster is under utilized (very small usage of CPU, network and disks).
+For example this can happen when your queries are highly selective and most splits can be filtered out just by looking into theirs headers (like bloom filters or min/max statistics in ORC files) without reading the actual data.
+In such case you might want to increase values of the following properties:
+
+  * :ref:`node-scheduler.max-pending-splits-per-node-per-stage <tuning-pref-node>`
+  * :ref:`node-scheduler.max-splits-per-node <tuning-pref-node>`
+
 If this guide does not suit your needs, You may look for more tuning options on
 :doc:`/admin/properties` page.
 
