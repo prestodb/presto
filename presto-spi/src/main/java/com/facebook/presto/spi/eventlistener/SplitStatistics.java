@@ -30,10 +30,22 @@ public class SplitStatistics
     private final long completedPositions;
     private final long completedDataSizeBytes;
 
+    private final long peakMemoryReservation;
+
     private final Optional<Duration> timeToFirstByte;
     private final Optional<Duration> timeToLastByte;
 
-    public SplitStatistics(Duration cpuTime, Duration wallTime, Duration queuedTime, Duration userTime, Duration completedReadTime, long completedPositions, long completedDataSizeBytes, Optional<Duration> timeToFirstByte, Optional<Duration> timeToLastByte)
+    public SplitStatistics(
+            Duration cpuTime,
+            Duration wallTime,
+            Duration queuedTime,
+            Duration userTime,
+            Duration completedReadTime,
+            long completedPositions,
+            long completedDataSizeBytes,
+            long peakMemoryReservation,
+            Optional<Duration> timeToFirstByte,
+            Optional<Duration> timeToLastByte)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -42,6 +54,7 @@ public class SplitStatistics
         this.completedReadTime = requireNonNull(completedReadTime, "completedReadTime is null");
         this.completedPositions = completedPositions;
         this.completedDataSizeBytes = completedDataSizeBytes;
+        this.peakMemoryReservation = peakMemoryReservation;
         this.timeToFirstByte = requireNonNull(timeToFirstByte, "timeToFirstByte is null");
         this.timeToLastByte = requireNonNull(timeToLastByte, "timeToLastByte is null");
     }
@@ -79,6 +92,11 @@ public class SplitStatistics
     public long getCompletedDataSizeBytes()
     {
         return completedDataSizeBytes;
+    }
+
+    public long getPeakMemoryReservation()
+    {
+        return peakMemoryReservation;
     }
 
     public Optional<Duration> getTimeToFirstByte()
