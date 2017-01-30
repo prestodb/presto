@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -28,9 +29,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -211,7 +215,7 @@ public class StateMachine<T>
         checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
         requireNonNull(newState, "newState is null");
 
-        executor.execute(() -> {
+        safeExecute(() -> {
             checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
             try {
                 futureStateChange.complete(newState);
@@ -328,5 +332,18 @@ public class StateMachine<T>
     public String toString()
     {
         return get().toString();
+    }
+
+    private void safeExecute(Runnable command)
+    {
+        try {
+            executor.execute(command);
+        }
+        catch (RejectedExecutionException e) {
+            if ((executor instanceof ExecutorService) && ((ExecutorService) executor).isShutdown()) {
+                throw new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
+            }
+            throw e;
+        }
     }
 }
