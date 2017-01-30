@@ -65,7 +65,7 @@ public class Analyzer
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl);
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session);
-        analyzer.analyze(rewrittenStatement, Scope.create());
+        analyzer.analyze(rewrittenStatement, Optional.empty());
         return analysis;
     }
 
