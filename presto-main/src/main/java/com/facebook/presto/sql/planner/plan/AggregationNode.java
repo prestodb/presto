@@ -48,6 +48,11 @@ public class AggregationNode
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
 
+    public boolean hasEmptyGroupingSet()
+    {
+        return groupingSets.stream().anyMatch(List::isEmpty);
+    }
+
     public enum Step
     {
         PARTIAL(true, true),
@@ -222,6 +227,19 @@ public class AggregationNode
     public List<List<Symbol>> getGroupingSets()
     {
         return groupingSets;
+    }
+
+    /**
+     * @return whether this node should produce default output in case of no input pages.
+     * For example for query:
+     *
+     * SELECT count(*) FROM nation WHERE nationkey < 0
+     *
+     * A default output of "0" is expected to be produced by FINAL aggregation operator.
+     */
+    public boolean hasDefaultOutput()
+    {
+        return hasEmptyGroupingSet() && step.isOutputPartial();
     }
 
     @JsonProperty("source")
