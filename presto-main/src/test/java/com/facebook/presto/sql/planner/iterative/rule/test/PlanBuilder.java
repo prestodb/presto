@@ -352,7 +352,7 @@ public class PlanBuilder
     {
         Symbol symbol = new Symbol(name);
 
-        Type old = symbols.get(symbol);
+        Type old = symbols.put(symbol, type);
         if (old != null && !old.equals(type)) {
             throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old));
         }
