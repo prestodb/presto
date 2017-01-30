@@ -1919,9 +1919,4 @@ class StatementAnalyzer
         analysis.setScope(node, scope);
         return scope;
     }
-
-    public Analysis getAnalysis()
-    {
-        return analysis;
-    }
 }

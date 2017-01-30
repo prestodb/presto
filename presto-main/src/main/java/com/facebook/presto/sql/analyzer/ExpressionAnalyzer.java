@@ -1046,7 +1046,6 @@ public class ExpressionAnalyzer
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             Scope subqueryScope = Scope.builder().withParent(scope).build();
-            analyzer.getAnalysis().setScope(node, subqueryScope);
             analyzer.process(node.getSubquery(), subqueryScope);
 
             existsSubqueries.add(node);
