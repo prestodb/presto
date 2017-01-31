@@ -25,13 +25,13 @@ import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class Alias
+public class AliasMatcher
     implements Matcher
 {
     private final Optional<String> alias;
     private final RvalueMatcher matcher;
 
-    Alias(Optional<String> alias, RvalueMatcher matcher)
+    AliasMatcher(Optional<String> alias, RvalueMatcher matcher)
     {
         this.alias = requireNonNull(alias, "alias is null");
         this.matcher = requireNonNull(matcher, "matcher is null");
