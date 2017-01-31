@@ -14,22 +14,26 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.operator.FilterAndProjectOperator;
-import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static java.util.Collections.singleton;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.field;
 
 public class PredicateFilterBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -43,42 +47,21 @@ public class PredicateFilterBenchmark
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
+        RowExpression filter = call(
+                internalOperator(GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())),
+                BOOLEAN,
+                field(0, DOUBLE),
+                constant(50000.0, DOUBLE));
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata());
+        Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
+
         FilterAndProjectOperator.FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                () -> new GenericPageProcessor(new DoubleFilter(50000.00), ImmutableList.of(singleColumn(DOUBLE, 0))),
+                pageProcessor,
                 ImmutableList.of(DOUBLE));
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
-    }
-
-    public static class DoubleFilter
-            implements FilterFunction
-    {
-        private final double minValue;
-
-        public DoubleFilter(double minValue)
-        {
-            this.minValue = minValue;
-        }
-
-        @Override
-        public boolean filter(int position, Block... blocks)
-        {
-            return DOUBLE.getDouble(blocks[0], position) >= minValue;
-        }
-
-        @Override
-        public boolean filter(RecordCursor cursor)
-        {
-            return cursor.getDouble(0) >= minValue;
-        }
-
-        @Override
-        public Set<Integer> getInputChannels()
-        {
-            return singleton(0);
-        }
     }
 
     public static void main(String[] args)

@@ -18,7 +18,6 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Parameter;
-import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
@@ -71,12 +70,14 @@ public class VarArgsToMapAdapterGenerator
         }
         ImmutableList<Parameter> parameterList = parameterListBuilder.build();
 
-        MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToMap", ParameterizedType.type(returnType), parameterList);
+        MethodDefinition methodDefinition = classDefinition.declareMethod(a(PUBLIC, STATIC), "varArgsToMap", type(returnType), parameterList);
         BytecodeBlock body = methodDefinition.getBody();
 
         // ImmutableMap.Builder can not be used here because it doesn't allow nulls.
-        Variable map = methodDefinition.getScope().declareVariable(HashMap.class, "map");
-        body.append(map.set(invokeStatic(Maps.class, "newHashMapWithExpectedSize", HashMap.class, constantInt(javaTypes.size()))));
+        Variable map = methodDefinition.getScope().declareVariable(
+                "map",
+                methodDefinition.getBody(),
+                invokeStatic(Maps.class, "newHashMapWithExpectedSize", HashMap.class, constantInt(javaTypes.size())));
         for (int i = 0; i < javaTypes.size(); i++) {
             body.append(map.invoke("put", Object.class, constantString(names.get(i)).cast(Object.class), parameterList.get(i).cast(Object.class)));
         }

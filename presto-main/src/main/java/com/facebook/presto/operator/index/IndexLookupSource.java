@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -31,7 +30,6 @@ public class IndexLookupSource
 {
     private final IndexLoader indexLoader;
     private IndexedData indexedData;
-    private FilterFunction filterFunction;
 
     public IndexLookupSource(IndexLoader indexLoader)
     {

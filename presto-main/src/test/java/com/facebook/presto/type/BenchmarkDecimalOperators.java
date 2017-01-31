@@ -16,17 +16,13 @@ package com.facebook.presto.type;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DecimalType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.SqlDecimal;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
-import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
-import com.facebook.presto.sql.analyzer.Field;
-import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -57,6 +53,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -118,7 +115,6 @@ public class BenchmarkDecimalOperators
             }
             generateRandomInputPage();
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -153,7 +149,6 @@ public class BenchmarkDecimalOperators
             String expression = "CAST(v1 AS DOUBLE)";
             generateRandomInputPage();
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -188,7 +183,6 @@ public class BenchmarkDecimalOperators
             String expression = "CAST(v1 AS VARCHAR)";
             generateRandomInputPage();
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -239,7 +233,6 @@ public class BenchmarkDecimalOperators
 
             generateRandomInputPage();
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -301,7 +294,6 @@ public class BenchmarkDecimalOperators
 
             generateRandomInputPage();
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -369,7 +361,6 @@ public class BenchmarkDecimalOperators
 
             generateRandomInputPage();
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -434,7 +425,6 @@ public class BenchmarkDecimalOperators
 
             generateRandomInputPage();
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -484,7 +474,6 @@ public class BenchmarkDecimalOperators
 
             generateInputPage(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -524,7 +513,6 @@ public class BenchmarkDecimalOperators
 
             generateInputPage(10000, 10000, 10000, 10000, 10000);
             generateProcessor(expression);
-            generateResultPageBuilder(expression);
         }
     }
 
@@ -544,7 +532,7 @@ public class BenchmarkDecimalOperators
 
     private Object execute(BaseState state)
     {
-        return state.getProcessor().process(SESSION, state.getInputPage(), ImmutableList.of(state.getOutputType()));
+        return ImmutableList.copyOf(state.getProcessor().process(SESSION, state.getInputPage()));
     }
 
     private static class BaseState
@@ -559,7 +547,6 @@ public class BenchmarkDecimalOperators
         protected final List<Type> types = new LinkedList<>();
 
         protected Page inputPage;
-        private Type outputType;
         private PageProcessor processor;
         private double doubleMaxValue = 2L << 31;
 
@@ -571,11 +558,6 @@ public class BenchmarkDecimalOperators
         public PageProcessor getProcessor()
         {
             return processor;
-        }
-
-        public Type getOutputType()
-        {
-            return outputType;
         }
 
         protected void addSymbol(String name, Type type)
@@ -609,24 +591,9 @@ public class BenchmarkDecimalOperators
             inputPage = getOnlyElement(buildPagesBuilder.build());
         }
 
-        protected void generateResultPageBuilder(String expression)
-        {
-            SqlParser sqlParser = new SqlParser();
-            Expression parsedExpression = sqlParser.createExpression(expression);
-
-            ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (Map.Entry<Symbol, Type> entry : symbolTypes.entrySet()) {
-                fields.add(Field.newUnqualified(entry.getKey().getName(), entry.getValue()));
-            }
-            RelationType tupleDescriptor = new RelationType(fields.build());
-
-            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpressions(session, metadata, sqlParser, tupleDescriptor, symbolTypes, ImmutableList.of(parsedExpression), emptyList());
-            outputType = expressionAnalysis.getType(parsedExpression);
-        }
-
         protected void generateProcessor(String expression)
         {
-            processor = new ExpressionCompiler(metadata).compilePageProcessor(rowExpression("true"), ImmutableList.of(rowExpression(expression))).get();
+            processor = new ExpressionCompiler(metadata).compilePageProcessor(Optional.empty(), ImmutableList.of(rowExpression(expression))).get();
         }
 
         protected void setDoubleMaxValue(double doubleMaxValue)

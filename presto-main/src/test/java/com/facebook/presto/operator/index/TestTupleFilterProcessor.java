@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
@@ -22,6 +24,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -41,7 +44,6 @@ public class TestTupleFilterProcessor
                 .build());
 
         List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, BOOLEAN, DOUBLE, DOUBLE);
-        TupleFilterProcessor tupleFilterProcessor = new TupleFilterProcessor(tuplePage, outputTypes, new int[] { 1, 0, 3 });
 
         Page inputPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)
@@ -50,6 +52,14 @@ public class TestTupleFilterProcessor
                 .row("a", 0L, false, 0.2, 0.2)
                 .build());
 
+        DynamicTupleFilterFactory filterFactory = new DynamicTupleFilterFactory(
+                42,
+                new PlanNodeId("42"),
+                new int[] {0, 1, 2},
+                new int[] {1, 0, 3},
+                outputTypes,
+                createTestMetadataManager());
+        PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage).get();
         Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, inputPage));
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)

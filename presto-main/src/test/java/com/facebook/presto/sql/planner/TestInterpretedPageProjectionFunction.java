@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockAssertions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.project.InterpretedPageProjection;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
@@ -30,6 +32,7 @@ import javax.annotation.Nullable;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.operator.project.SelectedPositions.positionsList;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -38,7 +41,7 @@ import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
-public class TestInterpretedProjectionFunction
+public class TestInterpretedPageProjectionFunction
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
@@ -162,7 +165,7 @@ public class TestInterpretedProjectionFunction
         assertProjection("symbol", null, symbolToInputMappings, ImmutableMap.of(symbol, VARCHAR), 0, createBlock(VARCHAR, null));
     }
 
-    public static void assertProjection(String expression, @Nullable Object expectedValue)
+    private static void assertProjection(String expression, @Nullable Object expectedValue)
     {
         assertProjection(
                 expression,
@@ -180,24 +183,19 @@ public class TestInterpretedProjectionFunction
             int position,
             Block... blocks)
     {
-        InterpretedProjectionFunction projectionFunction = new InterpretedProjectionFunction(
+        InterpretedPageProjection projectionFunction = new InterpretedPageProjection(
                 createExpression(expression, METADATA, symbolTypes),
                 symbolTypes,
                 symbolToInputMappings,
                 METADATA,
                 SQL_PARSER,
-                TEST_SESSION
-        );
-
-        // create output
-        Type type = projectionFunction.getType();
-        BlockBuilder builder = type.createBlockBuilder(new BlockBuilderStatus(), 1);
+                TEST_SESSION);
 
         // project
-        projectionFunction.project(position, blocks, builder);
+        Block block = projectionFunction.project(TEST_SESSION.toConnectorSession(), new Page(1, blocks), positionsList(new int[] {position},  0, 1));
 
         // extract single value
-        Object actualValue = BlockAssertions.getOnlyValue(type, builder.build());
+        Object actualValue = BlockAssertions.getOnlyValue(projectionFunction.getType(), block);
         assertEquals(actualValue, expectedValue);
     }
 

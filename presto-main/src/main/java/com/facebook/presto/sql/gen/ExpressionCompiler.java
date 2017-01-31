@@ -17,7 +17,9 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.CompilationException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
+import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Throwables;
@@ -46,21 +48,11 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ExpressionCompiler
 {
     private final Metadata metadata;
-
-    private final LoadingCache<CacheKey, Class<? extends PageProcessor>> pageProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
-            new CacheLoader<CacheKey, Class<? extends PageProcessor>>()
-            {
-                @Override
-                public Class<? extends PageProcessor> load(CacheKey key)
-                        throws Exception
-                {
-                    return compile(key.getFilter(), key.getProjections(), new PageProcessorCompiler(metadata), PageProcessor.class);
-                }
-            });
 
     private final LoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors = CacheBuilder.newBuilder().recordStats().maximumSize(1000).build(
             new CacheLoader<CacheKey, Class<? extends CursorProcessor>>()
@@ -82,14 +74,7 @@ public class ExpressionCompiler
     @Managed
     public long getCacheSize()
     {
-        return pageProcessors.size();
-    }
-
-    @Managed
-    @Nested
-    public CacheStatsMBean getPageCacheStats()
-    {
-        return new CacheStatsMBean(pageProcessors);
+        return cursorProcessors.size();
     }
 
     @Managed
@@ -114,14 +99,18 @@ public class ExpressionCompiler
 
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
-        Class<? extends PageProcessor> pageProcessor = pageProcessors.getUnchecked(new CacheKey(filter, projections, null));
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata);
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(pageFunctionCompiler::compileFilter);
+        List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
+                .map(pageFunctionCompiler::compileProjection)
+                .collect(toImmutableList());
+
         return () -> {
-            try {
-                return pageProcessor.newInstance();
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
+            Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+            List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
+                    .map(Supplier::get)
+                    .collect(toImmutableList());
+            return new PageProcessor(filterFunction, pageProjections);
         };
     }
 

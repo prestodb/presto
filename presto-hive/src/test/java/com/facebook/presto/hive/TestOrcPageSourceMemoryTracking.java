@@ -16,15 +16,13 @@ package com.facebook.presto.hive;
 import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.hive.orc.OrcPageSourceFactory;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.FilterFunctions;
-import com.facebook.presto.operator.GenericCursorProcessor;
-import com.facebook.presto.operator.GenericPageProcessor;
-import com.facebook.presto.operator.ProjectionFunction;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -32,7 +30,9 @@ import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Joiner;
@@ -88,8 +88,9 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
-import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Predicates.not;
@@ -120,6 +121,7 @@ public class TestOrcPageSourceMemoryTracking
     private static final Configuration CONFIGURATION = new Configuration();
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
+    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(createTestMetadataManager());
 
     private final Random random = new Random();
     private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
@@ -399,18 +401,19 @@ public class TestOrcPageSourceMemoryTracking
         public SourceOperator newScanFilterAndProjectOperator(DriverContext driverContext)
         {
             ConnectorPageSource pageSource = newPageSource();
-            ImmutableList.Builder<ProjectionFunction> projectionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             for (int i = 0; i < types.size(); i++) {
-                projectionsBuilder.add(singleColumn(types.get(i), i));
+                projectionsBuilder.add(field(i, types.get(i)));
             }
-            ImmutableList<ProjectionFunction> projections = projectionsBuilder.build();
+            Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(Optional.empty(), projectionsBuilder.build(), "key");
+            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(Optional.empty(), projectionsBuilder.build());
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
                     (session, split, columnHandles) -> pageSource,
-                    () -> new GenericCursorProcessor(FilterFunctions.TRUE_FUNCTION, projections),
-                    () -> new GenericPageProcessor(FilterFunctions.TRUE_FUNCTION, projections),
+                    cursorProcessor,
+                    pageProcessor,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types
             );

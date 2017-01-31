@@ -246,9 +246,15 @@ public class ExpressionInterpreter
         this.metadata = metadata;
         this.session = session.toConnectorSession();
         this.expressionTypes = expressionTypes;
+        verify((expressionTypes.containsKey(expression)));
         this.optimize = optimize;
 
         this.visitor = new Visitor();
+    }
+
+    public Type getType()
+    {
+        return expressionTypes.get(expression);
     }
 
     public Object evaluate(RecordCursor inputs)

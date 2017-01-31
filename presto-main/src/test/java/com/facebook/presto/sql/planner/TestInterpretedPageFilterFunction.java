@@ -15,9 +15,11 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.project.InterpretedPageFilter;
+import com.facebook.presto.operator.project.SelectedPositions;
+import com.facebook.presto.spi.Page;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -25,8 +27,9 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpression;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
-public class TestInterpretedFilterFunction
+public class TestInterpretedPageFilterFunction
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
@@ -190,19 +193,28 @@ public class TestInterpretedFilterFunction
         }
     }
 
-    public static void assertFilter(String expression, boolean expectedValue)
+    private static void assertFilter(String expression, boolean expectedValue)
     {
-        Expression parsed = createExpression(expression, METADATA, ImmutableMap.of());
-
-        InterpretedInternalFilterFunction filterFunction = new InterpretedInternalFilterFunction(parsed,
+        InterpretedPageFilter filterFunction = new InterpretedPageFilter(
+                createExpression(expression, METADATA, ImmutableMap.of()),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 METADATA,
                 SQL_PARSER,
-                TEST_SESSION
-        );
+                TEST_SESSION);
 
-        boolean result = filterFunction.filter(0);
-        assertEquals(result, expectedValue);
+        SelectedPositions selectedPositions = filterFunction.filter(TEST_SESSION.toConnectorSession(), new Page(1));
+        assertEquals(selectedPositions.size(), expectedValue ? 1 : 0);
+        if (expectedValue) {
+            if (selectedPositions.isList()) {
+                assertEquals(selectedPositions.getPositions()[selectedPositions.getOffset()], 0);
+            }
+            else {
+                assertEquals(selectedPositions.getOffset(), 0);
+            }
+        }
+        else {
+            assertTrue(selectedPositions.isEmpty());
+        }
     }
 }

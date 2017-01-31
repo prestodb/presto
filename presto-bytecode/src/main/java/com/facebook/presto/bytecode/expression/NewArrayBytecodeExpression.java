@@ -48,7 +48,7 @@ class NewArrayBytecodeExpression
     {
         super(type);
         requireNonNull(type, "type is null");
-        checkArgument(type.getArrayComponentType() != null, "type %s must be array type");
+        checkArgument(type.getArrayComponentType() != null, "type %s must be array type", type);
         this.elementType = type.getArrayComponentType();
         this.length = requireNonNull(length, "length is null");
         this.elements = null;

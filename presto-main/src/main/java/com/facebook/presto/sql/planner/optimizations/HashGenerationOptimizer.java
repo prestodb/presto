@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.Partitioning.ArgumentBinding;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -48,7 +49,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -67,6 +67,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -74,6 +75,7 @@ import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -88,6 +90,11 @@ public class HashGenerationOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
     private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
+    private static final Signature COMBINE_HASH = new Signature(
+            "combine_hash",
+            SCALAR,
+            BIGINT.getTypeSignature(),
+            ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, Map<Symbol, Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
@@ -788,6 +795,27 @@ public class HashGenerationOptimizer
         return Optional.of(new HashComputation(fields));
     }
 
+    public static Optional<Expression> getHashExpression(List<Symbol> symbols)
+    {
+        if (symbols.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Expression result = new LongLiteral(String.valueOf(INITIAL_HASH_VALUE));
+        for (Symbol symbol : symbols) {
+            Expression hashField = new FunctionCall(
+                    QualifiedName.of(HASH_CODE),
+                    Optional.empty(),
+                    false,
+                    ImmutableList.of(new SymbolReference(symbol.getName())));
+
+            hashField = new CoalesceExpression(hashField, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
+
+            result = new FunctionCall(QualifiedName.of("combine_hash"), ImmutableList.of(result, hashField));
+        }
+        return Optional.of(result);
+    }
+
     private static class HashComputation
     {
         private final List<Symbol> fields;
@@ -844,7 +872,7 @@ public class HashGenerationOptimizer
 
         private static Expression orNullHashCode(Expression expression)
         {
-            return new CoalesceExpression(expression, new LongLiteral(String.valueOf(TypeUtils.NULL_HASH_CODE)));
+            return new CoalesceExpression(expression, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
         }
 
         @Override

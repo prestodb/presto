@@ -300,12 +300,12 @@ public final class BytecodeUtils
                 .ifFalse(notNull);
     }
 
-    public static BytecodeNode invoke(Binding binding, String name)
+    public static BytecodeExpression invoke(Binding binding, String name)
     {
         return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name, binding.getType());
     }
 
-    public static BytecodeNode invoke(Binding binding, Signature signature)
+    public static BytecodeExpression invoke(Binding binding, Signature signature)
     {
         return invoke(binding, signature.getName());
     }
