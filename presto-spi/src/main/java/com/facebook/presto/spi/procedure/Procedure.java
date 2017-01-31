@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.procedure;
 
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -91,9 +92,14 @@ public class Procedure
     public static class Argument
     {
         private final String name;
-        private final Type type;
+        private final TypeSignature type;
 
-        public Argument(String name, Type type)
+        public Argument(String name, String type)
+        {
+            this(name, parseTypeSignature(type));
+        }
+
+        public Argument(String name, TypeSignature type)
         {
             this.name = checkNotNullOrEmpty(name, "name");
             this.type = requireNonNull(type, "type is null");
@@ -104,7 +110,7 @@ public class Procedure
             return name;
         }
 
-        public Type getType()
+        public TypeSignature getType()
         {
             return type;
         }

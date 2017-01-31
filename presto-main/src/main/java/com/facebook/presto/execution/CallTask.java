@@ -46,12 +46,14 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.propagateIfInstanceOf;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -126,7 +128,8 @@ public class CallTask
             Argument argument = procedure.getArguments().get(index);
 
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
-            Type type = argument.getType();
+            Type type = metadata.getType(argument.getType());
+            checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
 
             Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
 

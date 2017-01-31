@@ -19,6 +19,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 
@@ -47,12 +48,19 @@ public class ProcedureRegistry
 {
     private final Map<ConnectorId, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
+    private final TypeManager typeManager;
+
+    public ProcedureRegistry(TypeManager typeManager)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+    }
+
     public void addProcedures(ConnectorId connectorId, Collection<Procedure> procedures)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(procedures, "procedures is null");
 
-        procedures.forEach(ProcedureRegistry::validateProcedure);
+        procedures.forEach(this::validateProcedure);
 
         Map<SchemaTableName, Procedure> proceduresByName = Maps.uniqueIndex(
                 procedures,
@@ -78,15 +86,19 @@ public class ProcedureRegistry
         throw new PrestoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
     }
 
-    private static void validateProcedure(Procedure procedure)
+    private void validateProcedure(Procedure procedure)
     {
         List<Class<?>> parameters = procedure.getMethodHandle().type().parameterList().stream()
                 .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
                 .collect(toList());
+
         for (int i = 0; i < procedure.getArguments().size(); i++) {
             Argument argument = procedure.getArguments().get(i);
+            Type type = typeManager.getType(argument.getType());
+            checkArgument(type != null, "Unknown argument type: %s", argument.getType());
+
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));
-            Class<?> expectedType = getObjectType(argument.getType());
+            Class<?> expectedType = getObjectType(type);
             checkArgument(expectedType.equals(argumentType),
                     "Argument '%s' has invalid type %s (expected %s)",
                     argument.getName(),

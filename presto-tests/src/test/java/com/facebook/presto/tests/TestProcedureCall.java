@@ -52,7 +52,7 @@ public class TestProcedureCall
         // register procedures in the bogus testing catalog
         TypeManager typeManager = coordinator.getMetadata().getTypeManager();
         ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
-        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester(), typeManager);
+        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
                 new ConnectorId(TESTING_CATALOG),
                 procedures.getProcedures(PROCEDURE_SCHEMA));
