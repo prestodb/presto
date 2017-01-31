@@ -18,6 +18,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -35,16 +36,13 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:
- *
  * <pre>
  * - Aggregation
  *        F1(...) FILTER (WHERE C1(...)),
  *        F2(...) FILTER (WHERE C2(...))
  *     - X
  * </pre>
- *
  * into
- *
  * <pre>
  * - Aggregation
  *        F1(...) mask ($0)
@@ -59,13 +57,17 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 public class ImplementFilteredAggregations
         implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(AggregationNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
         AggregationNode aggregation = (AggregationNode) node;
 
         boolean hasFilters = aggregation.getAggregations()
