@@ -406,6 +406,7 @@ pre {
     line-height: 14px;
     word-wrap: normal;
     overflow-y: hidden;
+    max-width: 1000px;
 }
 
 /** Stage List **/
