@@ -28,7 +28,6 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -772,6 +771,31 @@ public class TestDomainTranslator
         result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_COLOR, Domain.onlyNull(COLOR))));
+    }
+
+    @Test
+    void testNonImplictCastOnSymbolSide()
+    {
+        // we expect TupleDomain.all here().
+        // see comment in DomainTranslator.Visitor.visitComparisonExpression()
+
+        // CAST(timestamp as DATE) = date_literal
+        Expression originalExpression = equal(
+                new Cast(C_TIMESTAMP.toSymbolReference(), DATE.toString()),
+                LiteralInterpreter.toExpression(DATE_VALUE, DATE));
+
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+
+        // CAST(DECIMAL as BIGINT) = bigint_literal
+        originalExpression = equal(
+                new Cast(C_DECIMAL_12_2.toSymbolReference(), BIGINT.toString()),
+                bigintLiteral(135L));
+
+        result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), originalExpression);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
     }
 
     @Test
