@@ -22,12 +22,11 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.testing.ProcedureTester;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -36,8 +35,8 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -148,18 +147,11 @@ public final class TestingProcedures
 
     private MethodHandle handle(String name)
     {
-        List<Method> methods = asList(getClass().getMethods()).stream()
+        List<Method> methods = Arrays.stream(getClass().getMethods())
                 .filter(method -> method.getName().equals(name))
                 .collect(toList());
         checkArgument(!methods.isEmpty(), "no matching methods: %s", name);
         checkArgument(methods.size() == 1, "multiple matching methods: %s", methods);
-        Method method = methods.get(0);
-
-        try {
-            return MethodHandles.lookup().unreflect(method).bindTo(this);
-        }
-        catch (IllegalAccessException e) {
-            throw Throwables.propagate(e);
-        }
+        return methodHandle(methods.get(0)).bindTo(this);
     }
 }
