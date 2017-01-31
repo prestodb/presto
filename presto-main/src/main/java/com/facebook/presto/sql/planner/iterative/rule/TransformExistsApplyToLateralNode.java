@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Aggregation;
@@ -58,6 +59,7 @@ import static java.util.Objects.requireNonNull;
 public class TransformExistsApplyToLateralNode
         implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(ApplyNode.class);
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
@@ -69,12 +71,14 @@ public class TransformExistsApplyToLateralNode
     }
 
     @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
+    @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof ApplyNode)) {
-            return Optional.empty();
-        }
-
         ApplyNode parent = (ApplyNode) node;
 
         if (parent.getSubqueryAssignments().size() != 1) {

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -28,13 +29,17 @@ import java.util.Optional;
 public class MergeLimitWithDistinct
     implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(LimitNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof LimitNode)) {
-            return Optional.empty();
-        }
-
         LimitNode parent = (LimitNode) node;
 
         PlanNode input = lookup.resolve(parent.getSource());

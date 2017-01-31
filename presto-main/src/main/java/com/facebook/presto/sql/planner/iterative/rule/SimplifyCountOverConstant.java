@@ -20,6 +20,7 @@ import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.Pattern;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
@@ -44,13 +45,17 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 public class SimplifyCountOverConstant
         implements Rule
 {
+    private static final Pattern PATTERN = Pattern.node(AggregationNode.class);
+
+    @Override
+    public Pattern getPattern()
+    {
+        return PATTERN;
+    }
+
     @Override
     public Optional<PlanNode> apply(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
     {
-        if (!(node instanceof AggregationNode)) {
-            return Optional.empty();
-        }
-
         AggregationNode parent = (AggregationNode) node;
 
         PlanNode input = lookup.resolve(parent.getSource());

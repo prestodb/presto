@@ -24,9 +24,9 @@ import com.facebook.presto.sql.planner.SymbolAllocator;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +41,7 @@ public class IterativeOptimizer
         implements PlanOptimizer
 {
     private final List<PlanOptimizer> legacyRules;
-    private final Set<Rule> rules;
+    private final RuleStore ruleStore;
     private final StatsRecorder stats;
 
     public IterativeOptimizer(StatsRecorder stats, Set<Rule> rules)
@@ -52,10 +52,13 @@ public class IterativeOptimizer
     public IterativeOptimizer(StatsRecorder stats, List<PlanOptimizer> legacyRules, Set<Rule> newRules)
     {
         this.legacyRules = ImmutableList.copyOf(legacyRules);
-        this.rules = ImmutableSet.copyOf(newRules);
+        this.ruleStore = RuleStore.builder()
+                .register(newRules)
+                .build();
+
         this.stats = stats;
 
-        stats.registerAll(rules);
+        stats.registerAll(newRules);
     }
 
     @Override
@@ -112,8 +115,15 @@ public class IterativeOptimizer
             }
 
             done = true;
-            for (Rule rule : rules) {
+            Iterator<Rule> possiblyMatchingRules = ruleStore.getCandidates(node).iterator();
+            while (possiblyMatchingRules.hasNext()) {
+                Rule rule = possiblyMatchingRules.next();
                 Optional<PlanNode> transformed;
+
+                if (!rule.getPattern().matches(node)) {
+                    continue;
+                }
+
                 long duration;
                 try {
                     long start = System.nanoTime();
