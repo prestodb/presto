@@ -21,7 +21,6 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -45,6 +44,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -92,7 +92,7 @@ public class BenchmarkArrayJoin
                             constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
 
             pageProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager())
-                    .compilePageProcessor(constant(true, BooleanType.BOOLEAN), projections)
+                    .compilePageProcessor(Optional.empty(), projections)
                     .get();
 
             page = new Page(createChannel(POSITIONS, ARRAY_SIZE));

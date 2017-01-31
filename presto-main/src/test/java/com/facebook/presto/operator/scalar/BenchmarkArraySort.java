@@ -23,7 +23,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -51,12 +50,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 
@@ -113,7 +112,7 @@ public class BenchmarkArraySort
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(constant(true, BooleanType.BOOLEAN), projections).get();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 

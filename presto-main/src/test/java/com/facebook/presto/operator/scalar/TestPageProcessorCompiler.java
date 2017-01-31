@@ -33,6 +33,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -45,7 +47,6 @@ import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static java.lang.Boolean.TRUE;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -67,8 +68,8 @@ public class TestPageProcessorCompiler
         projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
-        PageProcessor pageProcessor = compiler.compilePageProcessor(constant(true, BOOLEAN), projections).get();
-        PageProcessor pageProcessor2 = compiler.compilePageProcessor(constant(true, BOOLEAN), projections).get();
+        PageProcessor pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
+        PageProcessor pageProcessor2 = compiler.compilePageProcessor(Optional.empty(), projections).get();
         assertTrue(pageProcessor != pageProcessor2);
     }
 
@@ -77,7 +78,7 @@ public class TestPageProcessorCompiler
             throws Exception
     {
         PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(constant(TRUE, BOOLEAN), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
+                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, BIGINT), field(1, VARCHAR))).get();
 
         Slice varcharValue = Slices.utf8Slice("hello");
         Page page = new Page(RunLengthEncodedBlock.create(BIGINT, 123L, 100), RunLengthEncodedBlock.create(VARCHAR, varcharValue, 100));
@@ -104,7 +105,7 @@ public class TestPageProcessorCompiler
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
         PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(filter, ImmutableList.of(field(0, VARCHAR))).get();
+                .compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = processor.process(null, page, ImmutableList.of(VARCHAR));
@@ -133,7 +134,7 @@ public class TestPageProcessorCompiler
         CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(filter, ImmutableList.of(field(0, BIGINT))).get();
+                .compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT))).get();
 
         Page page = new Page(createRLEBlock(5L, 100));
         Page outputPage = processor.process(null, page, ImmutableList.of(BIGINT));
@@ -150,7 +151,7 @@ public class TestPageProcessorCompiler
             throws Exception
     {
         PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(constant(TRUE, BOOLEAN), ImmutableList.of(field(0, VARCHAR))).get();
+                .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, VARCHAR))).get();
 
         Page page = new Page(createDictionaryBlock(createExpectedValues(10), 100));
         Page outputPage = processor.process(null, page, ImmutableList.of(VARCHAR));
@@ -173,7 +174,7 @@ public class TestPageProcessorCompiler
         CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
 
         PageProcessor processor = new ExpressionCompiler(createTestMetadataManager())
-                .compilePageProcessor(constant(TRUE, BOOLEAN), ImmutableList.of(lessThanRandomExpression)).get();
+                .compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression)).get();
 
         assertFalse(new DeterminismEvaluator(METADATA_MANAGER.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
 

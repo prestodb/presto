@@ -49,6 +49,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -107,7 +108,7 @@ public class PageProcessorBenchmark
         types = projections.stream().map(RowExpression::getType).collect(toList());
 
         inputPage = createPage(types, dictionaryBlocks);
-        processor = new ExpressionCompiler(createTestMetadataManager()).compilePageProcessor(getFilter(type), projections).get();
+        processor = new ExpressionCompiler(createTestMetadataManager()).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
     }
 
     @Benchmark

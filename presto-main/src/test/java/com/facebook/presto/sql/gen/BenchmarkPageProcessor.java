@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
@@ -79,7 +80,7 @@ public class BenchmarkPageProcessor
     {
         inputPage = createInputPage();
 
-        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT)).get();
+        compiledProcessor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(Optional.of(FILTER), ImmutableList.of(PROJECT)).get();
     }
 
     @Benchmark

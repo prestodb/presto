@@ -55,6 +55,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -130,7 +131,7 @@ public class BenchmarkArrayFilter
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(constant(true, BOOLEAN), projections).get();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
 

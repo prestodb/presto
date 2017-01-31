@@ -39,6 +39,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -128,7 +129,7 @@ public class InCodeGeneratorBenchmark
                 BOOLEAN,
                 arguments);
 
-        processor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(filter, ImmutableList.of(project)).get();
+        processor = new ExpressionCompiler(MetadataManager.createTestMetadataManager()).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
     }
 
     @Benchmark

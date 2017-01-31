@@ -25,7 +25,6 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.InterleavedBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -52,13 +51,13 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -148,7 +147,7 @@ public class BenchmarkMapConcat
                     ImmutableList.of(field(0, mapType), field(1, mapType))));
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(constant(true, BooleanType.BOOLEAN), projections).get();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             types = projections.stream().map(RowExpression::getType).collect(Collectors.toList());
             page = new Page(leftBlock, rightBlock);
         }

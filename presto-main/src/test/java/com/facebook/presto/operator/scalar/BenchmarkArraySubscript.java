@@ -24,7 +24,6 @@ import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.SliceArrayBlock;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
@@ -52,6 +51,7 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -145,7 +145,7 @@ public class BenchmarkArraySubscript
             }
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(constant(true, BooleanType.BOOLEAN), projections).get();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             types = projections.stream()
                     .map(RowExpression::getType)
                     .collect(Collectors.toList());

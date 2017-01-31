@@ -32,6 +32,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
@@ -41,7 +42,9 @@ import static com.facebook.presto.bytecode.CompilerUtils.defineClass;
 import static com.facebook.presto.bytecode.CompilerUtils.makeClassName;
 import static com.facebook.presto.bytecode.ParameterizedType.type;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ExpressionCompiler
@@ -96,7 +99,7 @@ public class ExpressionCompiler
         return new CacheStatsMBean(cursorProcessors);
     }
 
-    public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
+    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
     {
         Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
         return () -> {
@@ -109,7 +112,7 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(RowExpression filter, List<RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
         Class<? extends PageProcessor> pageProcessor = pageProcessors.getUnchecked(new CacheKey(filter, projections, null));
         return () -> {
@@ -122,11 +125,11 @@ public class ExpressionCompiler
         };
     }
 
-    private <T> Class<? extends T> compile(RowExpression filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
+    private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)
     {
         // create filter and project page iterator class
         try {
-            return compileProcessor(filter, projections, bodyCompiler, superType);
+            return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
         }
         catch (CompilationException e) {
             throw new PrestoException(COMPILER_ERROR, e.getCause());
@@ -173,18 +176,18 @@ public class ExpressionCompiler
 
     private static final class CacheKey
     {
-        private final RowExpression filter;
+        private final Optional<RowExpression> filter;
         private final List<RowExpression> projections;
         private final Object uniqueKey;
 
-        private CacheKey(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
+        private CacheKey(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
         {
             this.filter = filter;
             this.uniqueKey = uniqueKey;
             this.projections = ImmutableList.copyOf(projections);
         }
 
-        private RowExpression getFilter()
+        private Optional<RowExpression> getFilter()
         {
             return filter;
         }

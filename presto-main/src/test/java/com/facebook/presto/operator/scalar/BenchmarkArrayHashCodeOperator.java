@@ -53,6 +53,7 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -62,7 +63,6 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
@@ -134,7 +134,7 @@ public class BenchmarkArrayHashCodeOperator
             blocks[0] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(constant(true, BOOLEAN), projections).get();
+            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             types = projections.stream()
                     .map(RowExpression::getType)
                     .collect(toImmutableList());

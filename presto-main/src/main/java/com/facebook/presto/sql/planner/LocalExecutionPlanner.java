@@ -33,7 +33,6 @@ import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunction;
-import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.GenericCursorProcessor;
 import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.GroupIdOperator;
@@ -143,7 +142,6 @@ import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
-import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -187,6 +185,7 @@ import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionE
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
+import static com.facebook.presto.operator.FilterFunctions.TRUE_FUNCTION;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import static com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -220,7 +219,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singleton;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
 
@@ -966,22 +964,21 @@ public class LocalExecutionPlanner
             Expression filterExpression = node.getPredicate();
             List<Symbol> outputSymbols = node.getOutputSymbols();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, Assignments.identity(outputSymbols), outputSymbols);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputSymbols), outputSymbols);
         }
 
         @Override
         public PhysicalOperation visitProject(ProjectNode node, LocalExecutionPlanContext context)
         {
             PlanNode sourceNode;
-            Expression filterExpression;
+            Optional<Expression> filterExpression = Optional.empty();
             if (node.getSource() instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node.getSource();
                 sourceNode = filterNode.getSource();
-                filterExpression = filterNode.getPredicate();
+                filterExpression = Optional.of(filterNode.getPredicate());
             }
             else {
                 sourceNode = node.getSource();
-                filterExpression = BooleanLiteral.TRUE_LITERAL;
             }
 
             List<Symbol> outputSymbols = node.getOutputSymbols();
@@ -994,7 +991,7 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext context,
                 PlanNodeId planNodeId,
                 PlanNode sourceNode,
-                Expression filterExpression,
+                Optional<Expression> filterExpression,
                 Assignments assignments,
                 List<Symbol> outputSymbols)
         {
@@ -1041,7 +1038,7 @@ public class LocalExecutionPlanner
 
             // compiler uses inputs instead of symbols, so rewrite the expressions first
             SymbolToInputRewriter symbolToInputRewriter = new SymbolToInputRewriter(sourceLayout);
-            Expression rewrittenFilter = symbolToInputRewriter.rewrite(filterExpression);
+            Optional<Expression> rewrittenFilter = filterExpression.map(symbolToInputRewriter::rewrite);
 
             List<Expression> rewrittenProjections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -1053,10 +1050,10 @@ public class LocalExecutionPlanner
                     metadata,
                     sqlParser,
                     sourceTypes,
-                    concat(singleton(rewrittenFilter), rewrittenProjections),
+                    concat(rewrittenFilter.map(ImmutableList::of).orElse(ImmutableList.of()), rewrittenProjections),
                     emptyList());
 
-            RowExpression translatedFilter = toRowExpression(rewrittenFilter, expressionTypes);
+            Optional<RowExpression> translatedFilter = rewrittenFilter.map(filter -> toRowExpression(filter, expressionTypes));
             List<RowExpression> translatedProjections = rewrittenProjections.stream()
                     .map(expression -> toRowExpression(expression, expressionTypes))
                     .collect(toImmutableList());
@@ -1099,13 +1096,15 @@ public class LocalExecutionPlanner
                 log.error(e, "Compile failed for filter=%s projections=%s sourceTypes=%s error=%s", filterExpression, assignments, sourceTypes, e);
             }
 
-            FilterFunction filterFunction;
-            if (filterExpression != BooleanLiteral.TRUE_LITERAL) {
-                filterFunction = new InterpretedInternalFilterFunction(filterExpression, context.getTypes(), sourceLayout, metadata, sqlParser, context.getSession());
-            }
-            else {
-                filterFunction = FilterFunctions.TRUE_FUNCTION;
-            }
+            FilterFunction filterFunction = filterExpression.<FilterFunction>map(
+                    expression -> new InterpretedInternalFilterFunction(
+                            expression,
+                            context.getTypes(),
+                            sourceLayout,
+                            metadata,
+                            sqlParser,
+                            context.getSession()))
+                    .orElse(TRUE_FUNCTION);
 
             List<ProjectionFunction> projectionFunctions = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
