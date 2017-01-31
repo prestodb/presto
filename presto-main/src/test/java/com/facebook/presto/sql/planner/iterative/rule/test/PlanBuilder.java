@@ -16,10 +16,13 @@ package com.facebook.presto.sql.planner.iterative.rule.test;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -30,12 +33,17 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.util.ImmutableCollectors;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.lang.String.format;
 
 public class PlanBuilder
@@ -84,6 +92,72 @@ public class PlanBuilder
     public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation);
+    }
+
+    public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)
+    {
+        ExchangeBuilder exchangeBuilder = new ExchangeBuilder();
+        exchangeBuilderConsumer.accept(exchangeBuilder);
+        return exchangeBuilder.build();
+    }
+
+    public class ExchangeBuilder
+    {
+        private ExchangeNode.Type type = ExchangeNode.Type.GATHER;
+        private ExchangeNode.Scope scope = ExchangeNode.Scope.REMOTE;
+        private PartitioningScheme partitioningScheme;
+        private List<PlanNode> sources = new ArrayList<>();
+        private List<List<Symbol>> inputs = new ArrayList<>();
+
+        public ExchangeBuilder type(ExchangeNode.Type type)
+        {
+            this.type = type;
+            return this;
+        }
+
+        public ExchangeBuilder scope(ExchangeNode.Scope scope)
+        {
+            this.scope = scope;
+            return this;
+        }
+
+        public ExchangeBuilder singleDistributionPartitioningScheme(Symbol... outputSymbols)
+        {
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.copyOf(outputSymbols)));
+        }
+
+        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols)
+        {
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningSymbols)), ImmutableList.copyOf(outputSymbols)));
+        }
+
+        public ExchangeBuilder fixedHashDistributionParitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, Symbol hashSymbol)
+        {
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.copyOf(partitioningSymbols)), ImmutableList.copyOf(outputSymbols), Optional.of(hashSymbol)));
+        }
+
+        public ExchangeBuilder partitioningScheme(PartitioningScheme partitioningScheme)
+        {
+            this.partitioningScheme = partitioningScheme;
+            return this;
+        }
+
+        public ExchangeBuilder addSource(PlanNode source)
+        {
+            this.sources.add(source);
+            return this;
+        }
+
+        public ExchangeBuilder addInputsSet(Symbol... inputs)
+        {
+            this.inputs.add(ImmutableList.copyOf(inputs));
+            return this;
+        }
+
+        protected ExchangeNode build()
+        {
+            return new ExchangeNode(idAllocator.getNextId(), type, scope, partitioningScheme, sources, inputs);
+        }
     }
 
     public Symbol symbol(String name, Type type)
