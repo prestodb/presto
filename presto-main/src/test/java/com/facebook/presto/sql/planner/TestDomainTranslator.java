@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -1166,6 +1167,16 @@ public class TestDomainTranslator
 
         Expression expression = toPredicate(result.getTupleDomain());
         assertEquals(expression, comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), varbinaryLiteral(value)));
+    }
+
+    @Test
+    void testMultipleCoercionsOnSymbolSide()
+            throws Exception
+    {
+        ComparisonExpression originalExpression = comparison(GREATER_THAN, cast(cast(C_BIGINT, REAL), DOUBLE), doubleLiteral(3.7));
+        ExtractionResult result = fromPredicate(originalExpression);
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 3L)), false))));
     }
 
     @Test
