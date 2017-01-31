@@ -18,6 +18,7 @@ import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
@@ -74,6 +75,11 @@ public class PlanBuilder
         return new FilterNode(idAllocator.getNextId(), source, predicate);
     }
 
+    public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
+    {
+        return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation);
+    }
+
     public Symbol symbol(String name, Type type)
     {
         Symbol symbol = new Symbol(name);
@@ -81,6 +87,10 @@ public class PlanBuilder
         Type old = symbols.get(symbol);
         if (old != null && !old.equals(type)) {
             throw new IllegalArgumentException(format("Symbol '%s' already registered with type '%s'", name, old));
+        }
+
+        if (old == null) {
+            symbols.put(symbol, type);
         }
 
         return symbol;

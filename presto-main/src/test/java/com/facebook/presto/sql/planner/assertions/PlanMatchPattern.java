@@ -26,6 +26,7 @@ import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
@@ -286,6 +287,11 @@ public final class PlanMatchPattern
         values.entrySet().forEach(
                 alias -> result.withAlias(alias.getKey(), new ValuesMatcher(alias.getValue())));
         return result;
+    }
+
+    public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
+    {
+        return node(LimitNode.class, source).with(new LimitMatcher(limit));
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)

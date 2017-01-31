@@ -148,7 +148,10 @@ public class PlanOptimizers
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
                 new MergeProjections(),
-                new TransformExistsApplyToScalarApply(metadata),
+                new IterativeOptimizer(
+                        stats,
+                        ImmutableList.of(new TransformExistsApplyToScalarApply(metadata)),
+                        ImmutableSet.of(new com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToScalarApply(metadata.getFunctionRegistry()))),
                 new TransformQuantifiedComparisonApplyToScalarApply(metadata),
                 new RemoveUnreferencedScalarInputApplyNodes(),
                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
