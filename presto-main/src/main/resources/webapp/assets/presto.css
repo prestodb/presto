@@ -401,7 +401,7 @@ pre {
     font-size: 23px;
 }
 
-.stack-trace {
+#stack-trace {
     font-size: 10px;
     line-height: 14px;
     word-wrap: normal;

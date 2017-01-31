@@ -918,9 +918,12 @@ var QueryDetail = React.createClass({
                                 <tr>
                                     <td className="info-title">
                                         Stack Trace
+                                        <a className="btn copy-button" data-clipboard-target="#stack-trace" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
+                                        </a>
                                     </td>
                                     <td className="info-text">
-                                        <pre className="stack-trace">
+                                        <pre id="stack-trace">
                                             { formatStackTrace(query.failureInfo) }
                                         </pre>
                                     </td>
