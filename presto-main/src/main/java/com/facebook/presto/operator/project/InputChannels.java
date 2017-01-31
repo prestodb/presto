@@ -15,8 +15,10 @@ package com.facebook.presto.operator.project;
 
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.google.common.primitives.Ints;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -35,9 +37,14 @@ public class InputChannels
         this.inputChannels = inputChannels.stream().mapToInt(Integer::intValue).toArray();
     }
 
-    public int getCount()
+    public int size()
     {
         return inputChannels.length;
+    }
+
+    public List<Integer> getInputChannels()
+    {
+        return Collections.unmodifiableList(Ints.asList(inputChannels));
     }
 
     public Page getInputChannels(Page page)

@@ -81,7 +81,7 @@ public class TuplePageFilter
 
     private boolean matches(Page page, int position)
     {
-        for (int channel = 0; channel < inputChannels.getCount(); channel++) {
+        for (int channel = 0; channel < inputChannels.size(); channel++) {
             Type type = types.get(channel);
             Block outputBlock = page.getBlock(channel);
             Block singleTupleBlock = tuplePage.getBlock(channel);

@@ -16,17 +16,23 @@ package com.facebook.presto.operator.project;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.spi.block.DictionaryId;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
+import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -36,6 +42,7 @@ public class PageProcessor
     static final int MAX_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
     static final int MIN_PAGE_SIZE_IN_BYTES = 1024 * 1024;
 
+    private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<PageFilter> filter;
     private final List<PageProjection> projections;
 
@@ -43,12 +50,28 @@ public class PageProcessor
 
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
     {
-        this.filter = requireNonNull(filter, "filter is null");
-        this.projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
+        this.filter = requireNonNull(filter, "filter is null")
+                .map(pageFilter -> {
+                    if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
+                        return new DictionaryAwarePageFilter(pageFilter);
+                    }
+                    return pageFilter;
+                });
+        this.projections = requireNonNull(projections, "projections is null").stream()
+                .map(projection -> {
+                    if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
+                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction);
+                    }
+                    return projection;
+                })
+                .collect(toImmutableList());
     }
 
     public PageProcessorOutput process(ConnectorSession session, Page page)
     {
+        // limit the scope of the dictionary ids to just one page
+        dictionarySourceIdFunction.reset();
+
         if (page.getPositionCount() == 0) {
             return EMPTY_PAGE_PROCESSOR_OUTPUT;
         }
@@ -160,6 +183,24 @@ public class PageProcessor
                 pageSize += blocks[i].getSizeInBytes();
             }
             return Optional.of(new Page(positionsBatch.size(), blocks));
+        }
+    }
+
+    @NotThreadSafe
+    private static class DictionarySourceIdFunction
+            implements Function<DictionaryBlock, DictionaryId>
+    {
+        private final Map<DictionaryId, DictionaryId> dictionarySourceIds = new HashMap<>();
+
+        @Override
+        public DictionaryId apply(DictionaryBlock block)
+        {
+            return dictionarySourceIds.computeIfAbsent(block.getDictionarySourceId(), ignored -> randomDictionaryId());
+        }
+
+        public void reset()
+        {
+            dictionarySourceIds.clear();
         }
     }
 }
