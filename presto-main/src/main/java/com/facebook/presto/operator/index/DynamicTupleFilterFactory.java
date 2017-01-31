@@ -14,7 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;

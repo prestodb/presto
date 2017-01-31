@@ -25,7 +25,8 @@ import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -412,7 +413,7 @@ public class PageProcessorCompiler
         Parameter session = arg("session", ConnectorSession.class);
         Parameter page = arg("page", Page.class);
         Parameter types = arg("types", List.class);
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(Page.class), session, page, types);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "process", type(PageProcessorOutput.class), session, page, types);
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
@@ -454,7 +455,7 @@ public class PageProcessorCompiler
             body.append(outputBlocks.setElement(projectionIndex, thisVariable.invoke(projectDictionaryMethods.get(projectionIndex), params)));
         }
 
-        body.append(newInstance(Page.class, cardinality, outputBlocks).ret());
+        body.append(newInstance(PageProcessorOutput.class, newInstance(Page.class, cardinality, outputBlocks)).ret());
     }
 
     private static void generateGetNonLazyPageMethod(ClassDefinition classDefinition, RowExpression filter, List<RowExpression> projections)

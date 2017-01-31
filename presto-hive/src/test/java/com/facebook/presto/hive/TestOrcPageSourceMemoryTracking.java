@@ -28,7 +28,6 @@ import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.predicate.TupleDomain;
@@ -297,37 +296,16 @@ public class TestOrcPageSourceMemoryTracking
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
 
-        for (int i = 0; i < 52; i++) {
+        for (int i = 0; i < 50; i++) {
             assertFalse(operator.isFinished());
-            operator.getOutput();
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 550000L, 639999L);
+            assertNotNull(operator.getOutput());
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 90_000L, 499_999L);
         }
 
-        for (int i = 52; i < 65; i++) {
-            assertFalse(operator.isFinished());
-            operator.getOutput();
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 450000L, 539999L);
-        }
-
-        // Page source is over, but data still exist in buffer of ScanFilterProjectOperator
-        assertFalse(operator.isFinished());
+        // done... in the current implementation finish is not set until output returns a null page
         assertNull(operator.getOutput());
-        assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 100000L, 109999L);
-        assertFalse(operator.isFinished());
-        Page lastPage = operator.getOutput();
-        assertNotNull(lastPage);
-
-        // No data is left
         assertTrue(operator.isFinished());
-        // an empty page builder of two variable width block builders is left in ScanFilterAndProjectOperator
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(createUnboundedVarcharType(), createUnboundedVarcharType()));
-        for (int i = 0; i < lastPage.getPositionCount(); i++) {
-            pageBuilder.declarePosition();
-            createUnboundedVarcharType().appendTo(lastPage.getBlock(0), i, pageBuilder.getBlockBuilder(0));
-            createUnboundedVarcharType().appendTo(lastPage.getBlock(1), i, pageBuilder.getBlockBuilder(1));
-        }
-        pageBuilder.reset();
-        assertEquals(driverContext.getSystemMemoryUsage(), pageBuilder.getRetainedSizeInBytes());
+        assertEquals(driverContext.getSystemMemoryUsage(), 0);
     }
 
     private class TestPreparer

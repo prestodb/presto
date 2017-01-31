@@ -16,12 +16,11 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -64,14 +63,13 @@ public class BenchmarkArrayJoin
 {
     private static final int POSITIONS = 100_000;
     private static final int ARRAY_SIZE = 10;
-    private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE)
-    public Object benchmark(BenchmarkData data)
+    public List<Page> benchmark(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().process(SESSION, data.getPage(), TYPES);
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

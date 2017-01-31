@@ -11,21 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.operator.project;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-
-import javax.annotation.Nullable;
-
-import java.util.List;
 
 public interface PageProcessor
 {
     /**
      * @return filtered and projected page, null if all positions are filtered
      */
-    @Nullable
-    Page process(ConnectorSession session, Page page, List<? extends Type> types);
+    PageProcessorOutput process(ConnectorSession session, Page page);
 }

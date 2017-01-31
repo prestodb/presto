@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import static com.facebook.presto.operator.ProjectionFunctions.singleColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.collect.Iterators.getOnlyElement;
 
 public class TestGenericPageProcessor
 {
@@ -40,7 +42,7 @@ public class TestGenericPageProcessor
             throws Exception
     {
         Page page = createPage(types, false);
-        Page outputPage = processor.process(SESSION, page, types);
+        Page outputPage = getOnlyElement(processor.process(SESSION, page));
         assertPageEquals(types, outputPage, page);
     }
 
@@ -49,7 +51,7 @@ public class TestGenericPageProcessor
             throws Exception
     {
         Page page = createPage(types, true);
-        Page outputPage = processor.process(SESSION, page, types);
+        Page outputPage = getOnlyElement(processor.process(SESSION, page));
         assertPageEquals(types, outputPage, page);
     }
 

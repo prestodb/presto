@@ -17,7 +17,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -48,11 +48,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -82,7 +80,7 @@ public class BenchmarkTransformKey
     public Object benchmark(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().process(SESSION, data.getPage(), data.getTypes());
+        return data.getPageProcessor().process(SESSION, data.getPage());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -94,7 +92,6 @@ public class BenchmarkTransformKey
 
         private String name = "transform_keys";
         private Page page;
-        private List<Type> types;
         private PageProcessor pageProcessor;
 
         @Setup
@@ -137,7 +134,6 @@ public class BenchmarkTransformKey
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
-            types = projections.stream().map(RowExpression::getType).collect(Collectors.toList());
             page = new Page(block);
         }
 
@@ -172,11 +168,6 @@ public class BenchmarkTransformKey
         public Page getPage()
         {
             return page;
-        }
-
-        public List<Type> getTypes()
-        {
-            return types;
         }
     }
 

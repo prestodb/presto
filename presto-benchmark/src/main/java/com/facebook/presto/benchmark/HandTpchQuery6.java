@@ -17,13 +17,13 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.AggregationNode.Step;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -88,7 +88,7 @@ public class HandTpchQuery6
         private static final int MAX_SHIP_DATE = DateTimeUtils.parseDate("1995-01-01");
 
         @Override
-        public Page process(ConnectorSession session, Page page, List<? extends Type> types)
+        public PageProcessorOutput process(ConnectorSession session, Page page)
         {
             PageBuilder pageBuilder = new PageBuilder(page.getPositionCount(), ImmutableList.of(DOUBLE));
             Block discountBlock = page.getBlock(1);
@@ -102,7 +102,7 @@ public class HandTpchQuery6
                     project(position, pageBuilder, page.getBlock(0), discountBlock);
                 }
             }
-            return pageBuilder.build();
+            return new PageProcessorOutput(pageBuilder.build());
         }
 
         private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)

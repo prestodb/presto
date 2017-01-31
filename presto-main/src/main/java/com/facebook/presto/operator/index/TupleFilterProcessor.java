@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.operator.index;
 
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -53,9 +54,9 @@ public class TupleFilterProcessor
     }
 
     @Override
-    public Page process(ConnectorSession session, Page page, List<? extends Type> types)
+    public PageProcessorOutput process(ConnectorSession session, Page page)
     {
-        PageBuilder pageBuilder = new PageBuilder(types);
+        PageBuilder pageBuilder = new PageBuilder(outputTypes);
         int positionCount = page.getPositionCount();
 
         int[] selectedPositions = new int[positionCount];
@@ -75,7 +76,7 @@ public class TupleFilterProcessor
             }
         }
         pageBuilder.declarePositions(selectedCount);
-        return pageBuilder.build();
+        return new PageProcessorOutput(pageBuilder.build());
     }
 
     private boolean matches(int position, Page page)

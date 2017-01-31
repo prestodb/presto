@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -68,7 +68,6 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.type.TypeUtils.checkElementNotNull;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
@@ -82,10 +81,10 @@ public class BenchmarkArrayHashCodeOperator
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
-    public Object arrayHashCode(BenchmarkData data)
+    public List<Page> arrayHashCode(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().process(SESSION, data.getPage(), data.getTypes());
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -100,7 +99,6 @@ public class BenchmarkArrayHashCodeOperator
 
         private Page page;
         private PageProcessor pageProcessor;
-        private List<Type> types;
 
         @Setup
         public void setup()
@@ -135,9 +133,6 @@ public class BenchmarkArrayHashCodeOperator
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
-            types = projections.stream()
-                    .map(RowExpression::getType)
-                    .collect(toImmutableList());
             page = new Page(blocks);
         }
 
@@ -176,11 +171,6 @@ public class BenchmarkArrayHashCodeOperator
         public Page getPage()
         {
             return page;
-        }
-
-        public List<Type> getTypes()
-        {
-            return types;
         }
     }
 

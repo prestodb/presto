@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
@@ -34,6 +36,7 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Arrays.copyOf;
@@ -46,6 +49,7 @@ public class GenericPageProcessor
 
     private final Block[] inputDictionaries;
     private final Block[] outputDictionaries;
+    private final ImmutableList<Type> types;
 
     private Block inputFilterDictionary;
     private boolean[] filterResult;
@@ -57,10 +61,14 @@ public class GenericPageProcessor
 
         this.inputDictionaries = new Block[this.projections.size()];
         this.outputDictionaries = new Block[this.projections.size()];
+
+        types = this.projections.stream()
+                .map(ProjectionFunction::getType)
+                .collect(toImmutableList());
     }
 
     @Override
-    public Page process(ConnectorSession session, Page page, List<? extends Type> types)
+    public PageProcessorOutput process(ConnectorSession session, Page page)
     {
         Page inputPage = getNonLazyPage(page);
         int[] selectedPositions = filterPage(inputPage);
@@ -71,7 +79,7 @@ public class GenericPageProcessor
         }
 
         if (projections.isEmpty()) {
-            return new Page(selectedPositions.length);
+            return new PageProcessorOutput(new Page(selectedPositions.length));
         }
 
         PageBuilder pageBuilder = new PageBuilder(types);
@@ -92,7 +100,7 @@ public class GenericPageProcessor
         for (Block block : outputBlocks) {
             verify(block.getPositionCount() == selectedPositions.length);
         }
-        return new Page(selectedPositions.length, outputBlocks);
+        return new PageProcessorOutput(new Page(selectedPositions.length, outputBlocks));
     }
 
     private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection, Map<DictionaryId, DictionaryId> dictionarySourceIds)

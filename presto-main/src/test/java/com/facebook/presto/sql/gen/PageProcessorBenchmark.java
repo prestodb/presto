@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -62,7 +62,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
-@SuppressWarnings("PackageVisibleField")
+@SuppressWarnings({"PackageVisibleField", "FieldCanBeLocal"})
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(10)
@@ -112,9 +112,9 @@ public class PageProcessorBenchmark
     }
 
     @Benchmark
-    public Page columnOriented()
+    public List<Page> columnOriented()
     {
-        return processor.process(null, inputPage, types);
+        return ImmutableList.copyOf(processor.process(null, inputPage));
     }
 
     private RowExpression getFilter(Type type)

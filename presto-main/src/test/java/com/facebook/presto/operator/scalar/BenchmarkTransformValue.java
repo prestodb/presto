@@ -17,7 +17,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -49,11 +49,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -85,7 +83,7 @@ public class BenchmarkTransformValue
     public Object benchmark(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().process(SESSION, data.getPage(), data.getTypes());
+        return data.getPageProcessor().process(SESSION, data.getPage());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -98,7 +96,6 @@ public class BenchmarkTransformValue
         private String name = "transform_values";
         private Page page;
         private PageProcessor pageProcessor;
-        private List<Type> types;
 
         @Setup
         public void setup()
@@ -150,7 +147,6 @@ public class BenchmarkTransformValue
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
-            types = projections.stream().map(RowExpression::getType).collect(Collectors.toList());
             page = new Page(block);
         }
 
@@ -192,11 +188,6 @@ public class BenchmarkTransformValue
         public Page getPage()
         {
             return page;
-        }
-
-        public List<Type> getTypes()
-        {
-            return types;
         }
     }
 

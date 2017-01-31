@@ -17,7 +17,7 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.CompilationException;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Throwables;

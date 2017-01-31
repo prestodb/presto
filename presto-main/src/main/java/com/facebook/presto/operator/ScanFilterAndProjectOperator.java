@@ -15,6 +15,8 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.memory.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessorOutput;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
@@ -37,6 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.operator.project.PageProcessorOutput.EMPTY_PAGE_PROCESSOR_OUTPUT;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +65,7 @@ public class ScanFilterAndProjectOperator
     private ConnectorPageSource pageSource;
 
     private Split split;
-    private Page currentPage;
+    private PageProcessorOutput currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
 
     private boolean finishing;
 
@@ -171,11 +174,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public final boolean isFinished()
     {
-        if (pageSource != null && pageSource.isFinished() && currentPage == null) {
-            finishing = true;
-        }
-
-        return finishing && pageBuilder.isEmpty();
+        return finishing && pageBuilder.isEmpty() && !currentOutput.hasNext();
     }
 
     @Override
@@ -210,67 +209,77 @@ public class ScanFilterAndProjectOperator
             return null;
         }
 
-        if (!finishing) {
-            if ((pageSource == null) && (cursor == null)) {
-                ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
-                if (source instanceof RecordPageSource) {
-                    cursor = ((RecordPageSource) source).getCursor();
-                }
-                else {
-                    pageSource = source;
-                }
-            }
-
-            if (cursor != null) {
-                int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
-
-                pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
-
-                long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
-                long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-                operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
-                completedBytes = cursor.getCompletedBytes();
-                readTimeNanos = cursor.getReadTimeNanos();
-
-                if (rowsProcessed == 0) {
-                    finishing = true;
-                }
+        if (!finishing && pageSource == null && cursor == null) {
+            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+            if (source instanceof RecordPageSource) {
+                cursor = ((RecordPageSource) source).getCursor();
             }
             else {
-                if (currentPage == null) {
-                    currentPage = pageSource.getNextPage();
-
-                    if (currentPage != null) {
-                        // update operator stats
-                        long endCompletedBytes = pageSource.getCompletedBytes();
-                        long endReadTimeNanos = pageSource.getReadTimeNanos();
-                        operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, currentPage.getPositionCount(), endReadTimeNanos - readTimeNanos);
-                        completedBytes = endCompletedBytes;
-                        readTimeNanos = endReadTimeNanos;
-                    }
-                }
-
-                if (currentPage != null) {
-                    Page page = pageProcessor.process(operatorContext.getSession().toConnectorSession(), currentPage, getTypes());
-                    currentPage = null;
-                    return page;
-                }
-
-                pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
+                pageSource = source;
             }
         }
 
-        // only return a full page if buffer is full or we are finishing
-        if (pageBuilder.isEmpty() || (!finishing && !pageBuilder.isFull())) {
-            pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-            return null;
+        if (pageSource != null) {
+            return processPageSource();
+        }
+        else {
+            return processColumnSource();
+        }
+    }
+
+    private Page processColumnSource()
+    {
+        if (!finishing) {
+            int rowsProcessed = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), cursor, ROWS_PER_PAGE, pageBuilder);
+
+            pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
+
+            long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
+            long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
+            operatorContext.recordGeneratedInput(bytesProcessed, rowsProcessed, elapsedNanos);
+            completedBytes = cursor.getCompletedBytes();
+            readTimeNanos = cursor.getReadTimeNanos();
+
+            if (rowsProcessed == 0) {
+                finishing = true;
+            }
         }
 
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-
+        // only return a page if buffer is full or we are finishing
+        Page page = null;
+        if (!pageBuilder.isEmpty() && (finishing || pageBuilder.isFull())) {
+            page = pageBuilder.build();
+            pageBuilder.reset();
+        }
         pageBuilderMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
         return page;
+    }
+
+    private Page processPageSource()
+    {
+        if (!finishing && !currentOutput.hasNext()) {
+            Page page = pageSource.getNextPage();
+
+            finishing = pageSource.isFinished();
+            pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
+
+            if (page == null) {
+                currentOutput = EMPTY_PAGE_PROCESSOR_OUTPUT;
+            }
+            else {
+                // update operator stats
+                long endCompletedBytes = pageSource.getCompletedBytes();
+                long endReadTimeNanos = pageSource.getReadTimeNanos();
+                operatorContext.recordGeneratedInput(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+                completedBytes = endCompletedBytes;
+                readTimeNanos = endReadTimeNanos;
+
+                currentOutput = pageProcessor.process(operatorContext.getSession().toConnectorSession(), page);
+            }
+            pageBuilderMemoryContext.setBytes(currentOutput.getRetainedSizeInBytes());
+        }
+
+        return currentOutput.hasNext() ? currentOutput.next() : null;
     }
 
     public static class ScanFilterAndProjectOperatorFactory

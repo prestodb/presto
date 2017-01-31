@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.collect.Iterators.getOnlyElement;
 
 public class TestTupleFilterProcessor
 {
@@ -49,7 +50,7 @@ public class TestTupleFilterProcessor
                 .row("a", 0L, false, 0.2, 0.2)
                 .build());
 
-        Page actualPage = tupleFilterProcessor.process(SESSION, inputPage, outputTypes);
+        Page actualPage = getOnlyElement(tupleFilterProcessor.process(SESSION, inputPage));
 
         Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)

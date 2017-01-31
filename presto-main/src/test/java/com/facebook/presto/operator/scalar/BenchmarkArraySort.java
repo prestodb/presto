@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
@@ -79,10 +79,10 @@ public class BenchmarkArraySort
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS * ARRAY_SIZE * NUM_TYPES)
-    public Object arraySort(BenchmarkData data)
+    public List<Page> arraySort(BenchmarkData data)
             throws Throwable
     {
-        return data.getPageProcessor().process(SESSION, data.getPage(), TYPES);
+        return ImmutableList.copyOf(data.getPageProcessor().process(SESSION, data.getPage()));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

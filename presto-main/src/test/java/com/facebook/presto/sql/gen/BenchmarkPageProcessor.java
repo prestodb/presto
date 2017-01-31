@@ -15,7 +15,7 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.operator.PageProcessor;
+import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -93,9 +94,9 @@ public class BenchmarkPageProcessor
     }
 
     @Benchmark
-    public Page compiled()
+    public List<Page> compiled()
     {
-        return compiledProcessor.process(null, inputPage, ImmutableList.of(DOUBLE));
+        return ImmutableList.copyOf(compiledProcessor.process(null, inputPage));
     }
 
     public static void main(String[] args)
