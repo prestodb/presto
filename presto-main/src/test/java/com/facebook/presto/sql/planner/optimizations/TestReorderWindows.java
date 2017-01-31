@@ -63,6 +63,9 @@ public class TestReorderWindows
     private static final ExpectedValueProvider<WindowNode.Specification> windowAp;
     private static final ExpectedValueProvider<WindowNode.Specification> windowApp;
     private static final ExpectedValueProvider<WindowNode.Specification> windowB;
+    private static final ExpectedValueProvider<WindowNode.Specification> windowC;
+    private static final ExpectedValueProvider<WindowNode.Specification> windowD;
+    private static final ExpectedValueProvider<WindowNode.Specification> windowE;
 
     static {
         ImmutableMap.Builder<String, String> columns = ImmutableMap.builder();
@@ -104,6 +107,21 @@ public class TestReorderWindows
 
         windowB = specification(
                 ImmutableList.of(PARTKEY_ALIAS),
+                ImmutableList.of(RECEIPTDATE_ALIAS),
+                ImmutableMap.of(RECEIPTDATE_ALIAS, SortOrder.ASC_NULLS_LAST));
+
+        windowC = specification(
+                ImmutableList.of(RECEIPTDATE_ALIAS),
+                ImmutableList.of(SUPPKEY_ALIAS),
+                ImmutableMap.of(SUPPKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
+
+        windowD = specification(
+                ImmutableList.of(TAX_ALIAS),
+                ImmutableList.of(RECEIPTDATE_ALIAS),
+                ImmutableMap.of(RECEIPTDATE_ALIAS, SortOrder.ASC_NULLS_LAST));
+
+        windowE = specification(
+                ImmutableList.of(QUANTITY_ALIAS),
                 ImmutableList.of(RECEIPTDATE_ALIAS),
                 ImmutableMap.of(RECEIPTDATE_ALIAS, SortOrder.ASC_NULLS_LAST));
     }
@@ -217,6 +235,43 @@ public class TestReorderWindows
                                 ImmutableList.of(
                                         functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
                                 LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
+    }
+
+    @Test
+    public void testReorderBDAC()
+    {
+        // This test is to catch the mistake with naive implementation of swapping adjacent windows without recursions, e.g.:
+        // sorting of B,D,A,C descending should result in D,C,B,A but when swap is applied to adjacent windows only without recursions, then:
+        // B,D is swapped, resulting in D,B,A,C, then B and A are in correct order, lastly A and C is swapped resulting in
+        // D,B,C,A instead of D,C,B,A
+
+        // The order of windows by partition key is:
+        // 1st - windowE
+        // 2nd - windowC
+        // 3rd - windowA
+        // 4th - windowD
+
+        @Language("SQL") String sql = "select " +
+                "avg(discount) over(PARTITION BY suppkey ORDER BY orderkey ASC NULLS LAST) avg_discount_A, " +
+                "sum(tax) over(PARTITION BY quantity ORDER BY receiptdate ASC NULLS LAST) sum_tax_E, " +
+                "avg(quantity) over(PARTITION BY tax ORDER BY receiptdate ASC NULLS LAST) avg_quantity_D, " +
+                "sum(discount) over(PARTITION BY receiptdate ORDER BY suppkey ASC NULLS LAST) sum_discount_C " +
+                "from lineitem";
+
+        assertUnitPlan(sql,
+                anyTree(window(windowD,
+                        ImmutableList.of(
+                                functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
+                                window(windowA,
+                                ImmutableList.of(
+                                        functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                        window(windowC,
+                                        ImmutableList.of(
+                                                functionCall("sum", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                window(windowE,
+                                                ImmutableList.of(
+                                                        functionCall("sum", commonFrame, ImmutableList.of(TAX_ALIAS))),
+                                        LINEITEM_TABLESCAN_DOQRST)))))); // should be anyTree(LINEITEM_TABLESCAN_DOQRST) but anyTree does not handle zero nodes case correctly
     }
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
