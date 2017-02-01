@@ -118,32 +118,32 @@ public class Scope
 
     public Optional<ResolvedField> tryResolveField(Expression node, QualifiedName name)
     {
-        return resolveField(node, name, true);
+        return resolveField(node, name, 0, true);
     }
 
-    private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, boolean local)
+    private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, int fieldIndexOffset, boolean local)
     {
         List<Field> matches = relation.resolveFields(name);
         if (matches.size() > 1) {
             throw ambiguousAttributeException(node, name);
         }
         else if (matches.size() == 1) {
-            return Optional.of(asResolvedField(getOnlyElement(matches), local));
+            return Optional.of(asResolvedField(getOnlyElement(matches), fieldIndexOffset, local));
         }
         else {
             if (isColumnReference(name, relation)) {
                 return Optional.empty();
             }
             if (parent.isPresent()) {
-                return parent.get().resolveField(node, name, false);
+                return parent.get().resolveField(node, name, fieldIndexOffset + relation.getAllFieldCount(), local && !queryBoundary);
             }
             return Optional.empty();
         }
     }
 
-    private ResolvedField asResolvedField(Field field, boolean local)
+    private ResolvedField asResolvedField(Field field, int fieldIndexOffset, boolean local)
     {
-        int fieldIndex = relation.indexOf(field);
+        int fieldIndex = relation.indexOf(field) + fieldIndexOffset;
         return new ResolvedField(this, field, fieldIndex, local);
     }
 

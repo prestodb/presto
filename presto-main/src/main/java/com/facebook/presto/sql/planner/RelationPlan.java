@@ -19,6 +19,7 @@ import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -28,6 +29,11 @@ import static java.util.Objects.requireNonNull;
  * for a relation (query, table, values, etc.), and the mapping to
  * indicate how the fields (by position) in the relation map to
  * the outputs of the plan.
+ *
+ * Fields are resolved by {@link TranslationMap} within local scopes hierarchy.
+ * Indexes of resolved parent scope fields start from "total number of child scope fields".
+ * For instance if a child scope has n fields, then first parent scope field
+ * will have index n.
  */
 class RelationPlan
 {
@@ -41,10 +47,11 @@ class RelationPlan
         requireNonNull(fieldMappings, "outputSymbols is null");
         requireNonNull(scope, "scope is null");
 
-        checkArgument(scope.getRelationType().getAllFieldCount() == fieldMappings.size(),
-                "Number of outputs (%s) doesn't match scope size (%s)",
+        int allFieldCount = getAllFieldCount(scope);
+        checkArgument(allFieldCount == fieldMappings.size(),
+                "Number of outputs (%s) doesn't match number of fields in scopes tree (%s)",
                 fieldMappings.size(),
-                scope.getRelationType().getAllFieldCount());
+                allFieldCount);
 
         this.root = root;
         this.scope = scope;
@@ -75,5 +82,16 @@ class RelationPlan
     public Scope getScope()
     {
         return scope;
+    }
+
+    private static int getAllFieldCount(Scope root)
+    {
+        int allFieldCount = 0;
+        Optional<Scope> current = Optional.of(root);
+        while (current.isPresent()) {
+            allFieldCount += current.get().getRelationType().getAllFieldCount();
+            current = current.get().getLocalParent();
+        }
+        return allFieldCount;
     }
 }
