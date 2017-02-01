@@ -245,7 +245,7 @@ class QueryPlanner
                     .process(node.getFrom().get(), null);
         }
         else {
-            relationPlan = planImplicitTable(node);
+            relationPlan = planImplicitTable();
         }
 
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToSymbolMap);
@@ -257,12 +257,10 @@ class QueryPlanner
         return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
     }
 
-    private RelationPlan planImplicitTable(QuerySpecification node)
+    private RelationPlan planImplicitTable()
     {
         List<Expression> emptyRow = ImmutableList.of();
-        Scope scope = Scope.builder()
-                .withParent(analysis.getScope(node))
-                .build();
+        Scope scope = Scope.builder().build();
         return new RelationPlan(
                 new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(emptyRow)),
                 scope,

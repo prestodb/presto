@@ -1628,7 +1628,11 @@ class StatementAnalyzer
                 }
             }
 
-            return createAndAssignScope(node, Optional.of(scope), outputFields.build());
+            Scope.Builder scopeBuilder = scopeBuilderWithParentNamedQueries(scope);
+            scopeBuilder.withRelationType(new RelationType(outputFields.build()));
+            Scope outputScope = scopeBuilder.build();
+            analysis.setScope(node, outputScope);
+            return outputScope;
         }
 
         private List<Expression> analyzeSelect(QuerySpecification node, Scope scope)
@@ -1981,6 +1985,16 @@ class StatementAnalyzer
                 scopeBuilder.withOuterQueryParent(outerQueryScope.get())
                         .withParentNamedQueries(outerQueryScope.get());
             }
+
+            return scopeBuilder;
+        }
+
+        private Scope.Builder scopeBuilderWithParentNamedQueries(Scope namedQueriesParent)
+        {
+            Scope.Builder scopeBuilder = Scope.builder()
+                    .withParentNamedQueries(namedQueriesParent);
+
+            outerQueryScope.ifPresent(scopeBuilder::withOuterQueryParent);
 
             return scopeBuilder;
         }
