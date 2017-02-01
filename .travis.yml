@@ -6,9 +6,11 @@ env:
     - MAVEN_SKIP_CHECKS_AND_DOCS="-Dair.check.skip-all=true -Dmaven.javadoc.skip=true"
     - MAVEN_FAST_INSTALL="-DskipTests $MAVEN_SKIP_CHECKS_AND_DOCS -B -q -T C1"
     - ARTIFACTS_UPLOAD_PATH=travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
+    - TEST_FLAGS=""
   matrix:
     - MAVEN_CHECKS=true
     - TEST_SPECIFIC_MODULES=presto-tests
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
     - TEST_SPECIFIC_MODULES=presto-raptor
     - TEST_SPECIFIC_MODULES=presto-accumulo
     - TEST_SPECIFIC_MODULES=presto-cassandra
@@ -53,7 +55,7 @@ script:
     fi
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
-      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES
+      ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl $TEST_SPECIFIC_MODULES $TEST_FLAGS
     fi
   - |
     if [[ -v TEST_OTHER_MODULES ]]; then

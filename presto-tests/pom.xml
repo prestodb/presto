@@ -226,5 +226,26 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>ci-only</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                            <includes>
+                                <include>**/TestDistributedQueriesNoHashGeneration.java</include>
+                                <include>**/TestLocalQueries.java</include>
+                                <include>**/TestLocalQueriesIndexed.java</include>
+                                <include>**/TestLocalBinarySpilledQueries.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
