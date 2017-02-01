@@ -504,7 +504,7 @@ public class LocalQueryRunner
             TaskContext taskContext = createTaskContext(executor, session);
 
             List<Driver> drivers = createDrivers(session, sql, outputFactory, taskContext);
-            drivers.stream().map(closer::register);
+            drivers.forEach(closer::register);
 
             boolean done = false;
             while (!done) {
