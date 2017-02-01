@@ -90,7 +90,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillerFactory;
@@ -161,7 +160,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
@@ -1982,7 +1980,7 @@ public class LocalExecutionPlanner
         }
     }
 
-    public static List<Type> toTypes(List<ProjectionFunction> projections)
+    private static List<Type> toTypes(List<ProjectionFunction> projections)
     {
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
         for (ProjectionFunction projection : projections) {
@@ -1994,29 +1992,24 @@ public class LocalExecutionPlanner
     private static TableFinisher createTableFinisher(Session session, TableFinishNode node, Metadata metadata)
     {
         WriterTarget target = node.getTarget();
-        return new TableFinisher()
-        {
-            @Override
-            public Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments)
-            {
-                if (target instanceof CreateHandle) {
-                    return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
-                }
-                else if (target instanceof InsertHandle) {
-                    return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments);
-                }
-                else if (target instanceof DeleteHandle) {
-                    metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
-                    return Optional.empty();
-                }
-                else {
-                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
-                }
+        return fragments -> {
+            if (target instanceof CreateHandle) {
+                return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments);
+            }
+            else if (target instanceof InsertHandle) {
+                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments);
+            }
+            else if (target instanceof DeleteHandle) {
+                metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
+                return Optional.empty();
+            }
+            else {
+                throw new AssertionError("Unhandled target type: " + target.getClass().getName());
             }
         };
     }
 
-    public static Function<Page, Page> enforceLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
+    private static Function<Page, Page> enforceLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
     {
         int[] channels = expectedLayout.stream()
                 .mapToInt(inputLayout::get)

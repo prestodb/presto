@@ -21,7 +21,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.Operator;
@@ -93,8 +93,6 @@ import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
 import static com.facebook.presto.metadata.FunctionKind.SCALAR;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createNormalSplit;
-import static com.facebook.presto.operator.scalar.FunctionAssertions.TestSplit.createRecordSetSplit;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -106,13 +104,11 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static com.facebook.presto.sql.planner.LocalExecutionPlanner.toTypes;
 import static com.facebook.presto.sql.planner.optimizations.CanonicalizeExpressions.canonicalizeExpression;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -231,23 +227,13 @@ public final class FunctionAssertions
         }
 
         Object actual = selectSingleValue(projection, expectedType, compiler);
-        try {
-            assertEquals(actual, expected);
-        }
-        catch (Throwable e) {
-            throw e;
-        }
+        assertEquals(actual, expected);
     }
 
     public void assertFunctionString(String projection, Type expectedType, String expected)
     {
         Object actual = selectSingleValue(projection, expectedType, compiler);
-        try {
-            assertEquals(actual.toString(), expected);
-        }
-        catch (Throwable e) {
-            throw e;
-        }
+        assertEquals(actual.toString(), expected);
     }
 
     public void tryEvaluate(String expression, Type expectedType)
@@ -255,7 +241,7 @@ public final class FunctionAssertions
         tryEvaluate(expression, expectedType, session);
     }
 
-    public void tryEvaluate(String expression, Type expectedType, Session session)
+    private void tryEvaluate(String expression, Type expectedType, Session session)
     {
         selectUniqueValue(expression, expectedType, session, compiler);
     }
@@ -444,7 +430,7 @@ public final class FunctionAssertions
                 SQL_PARSER,
                 symbolTypes,
                 ImmutableList.of(parsedExpression),
-                emptyList(),
+                ImmutableList.of(),
                 false);
 
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
@@ -565,8 +551,7 @@ public final class FunctionAssertions
                 INPUT_MAPPING,
                 metadata,
                 SQL_PARSER,
-                session
-        );
+                session);
 
         ProjectionFunction projectionFunction = new InterpretedProjectionFunction(
                 projection,
@@ -574,11 +559,13 @@ public final class FunctionAssertions
                 INPUT_MAPPING,
                 metadata,
                 SQL_PARSER,
-                session
-        );
+                session);
 
-        OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), () -> new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)), toTypes(
-                ImmutableList.of(projectionFunction)));
+        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                () -> new GenericPageProcessor(filterFunction, ImmutableList.of(projectionFunction)),
+                ImmutableList.of(projectionFunction.getType()));
         return operatorFactory.createOperator(createDriverContext(session));
     }
 
@@ -586,12 +573,18 @@ public final class FunctionAssertions
     {
         filter = new SymbolToInputRewriter(ImmutableMap.of()).rewrite(filter);
 
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter), emptyList());
+        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+                TEST_SESSION,
+                metadata,
+                SQL_PARSER,
+                INPUT_TYPES,
+                ImmutableList.of(filter),
+                ImmutableList.of());
 
         try {
             Supplier<PageProcessor> processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of());
 
-            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of());
+            return new FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of());
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -606,14 +599,23 @@ public final class FunctionAssertions
         filter = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(filter);
         projection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projection);
 
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata,
-                SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection), emptyList());
+        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+                TEST_SESSION,
+                metadata,
+                SQL_PARSER,
+                INPUT_TYPES,
+                ImmutableList.of(filter, projection),
+                ImmutableList.of());
 
         try {
-            List<RowExpression> projections = ImmutableList.of(toRowExpression(projection, expressionTypes));
-            Supplier<PageProcessor> processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), projections);
+            RowExpression projectionRowExpression = toRowExpression(projection, expressionTypes);
+            Supplier<PageProcessor> processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of(projectionRowExpression));
 
-            return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, new PlanNodeId("test"), processor, ImmutableList.of(expressionTypes.get(projection)));
+            return new FilterAndProjectOperatorFactory(
+                    0,
+                    new PlanNodeId("test"),
+                    processor,
+                    ImmutableList.of(projectionRowExpression.getType()));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -628,8 +630,13 @@ public final class FunctionAssertions
         filter = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(filter);
         projection = new SymbolToInputRewriter(INPUT_MAPPING).rewrite(projection);
 
-        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata,
-                SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter, projection), emptyList());
+        IdentityLinkedHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(
+                TEST_SESSION,
+                metadata,
+                SQL_PARSER,
+                INPUT_TYPES,
+                ImmutableList.of(filter, projection),
+                ImmutableList.of());
 
         try {
             Supplier<CursorProcessor> cursorProcessor = compiler.compileCursorProcessor(
@@ -742,19 +749,19 @@ public final class FunctionAssertions
         }
     }
 
-    static class TestSplit
+    private static Split createRecordSetSplit()
+    {
+        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(true));
+    }
+
+    private static Split createNormalSplit()
+    {
+        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(false));
+    }
+
+    private static class TestSplit
             implements ConnectorSplit
     {
-        static Split createRecordSetSplit()
-        {
-            return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(true));
-        }
-
-        static Split createNormalSplit()
-        {
-            return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(false));
-        }
-
         private final boolean recordSet;
 
         private TestSplit(boolean recordSet)
