@@ -54,12 +54,12 @@ Create a new table ``orders``::
     )
     WITH (format = 'ORC')
 
-Create the table ``orders`` if it does not already exist::
+Create the table ``orders`` if it does not already exist, adding a comment::
 
     CREATE TABLE IF NOT EXISTS orders (
       orderkey bigint,
       orderstatus varchar,
-      totalprice double,
+      totalprice double COMMENT 'Price in cents.',
       orderdate date
     )
 
