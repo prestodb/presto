@@ -588,16 +588,13 @@ class StatementAnalyzer
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
             Scope withScope = analyzeWith(node, scope);
-            Scope queryScope = Scope.builder()
-                    .withParent(withScope)
-                    .build();
-            Scope queryBodyScope = process(node.getQueryBody(), queryScope);
+            Scope queryBodyScope = process(node.getQueryBody(), withScope);
             analyzeOrderBy(node, queryBodyScope);
 
             // Input fields == Output fields
             analysis.setOutputExpressions(node, descriptorToFields(queryBodyScope));
 
-            queryScope = Scope.builder()
+            Scope queryScope = Scope.builder()
                     .withParent(withScope)
                     .withRelationType(queryBodyScope.getRelationType())
                     .build();
