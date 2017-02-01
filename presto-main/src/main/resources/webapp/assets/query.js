@@ -1020,6 +1020,14 @@ var QueryDetail = React.createClass({
                                 </tr>
                                 <tr>
                                     <td className="info-title">
+                                        Client Address
+                                    </td>
+                                    <td className="info-text">
+                                        { query.session.remoteUserAddress }
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td className="info-title">
                                         Submission Time
                                     </td>
                                     <td className="info-text">
