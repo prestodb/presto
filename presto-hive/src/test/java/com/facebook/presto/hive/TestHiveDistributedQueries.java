@@ -38,24 +38,6 @@ public class TestHiveDistributedQueries
         // Hive connector currently does not support row-by-row delete
     }
 
-    @Override
-    public void testAddColumn()
-    {
-        // Hive connector currently does not support schema change
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        // Hive connector currently does not support schema change
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-        // Hive connector currently does not support table rename
-    }
-
     @Test
     public void testOrderByChar()
             throws Exception
