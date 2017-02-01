@@ -61,7 +61,7 @@ function getQueryStateColor(query)
         default:
             return STATE_COLOR_MAP.QUEUED;
     }
-};
+}
 
 function getStageStateColor(state)
 {
@@ -79,7 +79,7 @@ function getStageStateColor(state)
         case "CANCELED":
         case "ABORTED":
         case "FAILED":
-            return STATE_COLOR_MAP.UNKNOWN_ERROR
+            return STATE_COLOR_MAP.UNKNOWN_ERROR;
         default:
             return "#b5b5b5"
     }
@@ -156,14 +156,14 @@ var MOVING_AVERAGE_ALPHA = 0.2;
 
 function addToHistory (value, valuesArray) {
     if (valuesArray.length == 0) {
-        return valuesArray.concat([value]);;
+        return valuesArray.concat([value]);
     }
     return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
 }
 
 function addExponentiallyWeightedToHistory (value, valuesArray) {
     if (valuesArray.length == 0) {
-        return valuesArray.concat([value]);;
+        return valuesArray.concat([value]);
     }
 
     var movingAverage = (value * MOVING_AVERAGE_ALPHA) + (valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA));

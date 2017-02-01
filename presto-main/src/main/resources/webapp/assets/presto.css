@@ -16,8 +16,12 @@
 /** ======================== **/
 
 body {
-  padding-top: 20px;
-  padding-bottom: 20px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+h2 {
+    color: #cecece;
 }
 
 h3 {
@@ -29,7 +33,6 @@ pre {
     padding: 5px;
     color: #999;
     background-color: #2C2F38;
-    border: 1px #404040 solid;
     border: none;
 }
 
@@ -37,14 +40,14 @@ pre {
 /** ================== **/
 
 .container {
-    min-width:960px;
+    min-width: 960px;
     width: auto !important;
-    max-width:1200px;
+    max-width: 1200px;
 }
 
 /* To make the table striping less stark */
 .table-striped > tbody > tr:nth-of-type(odd) {
-  background-color: #353944;
+    background-color: #353944;
 }
 
 .table > tbody > tr > td {
@@ -66,8 +69,8 @@ pre {
 /** ====== **/
 
 .navbar {
-  padding: 0 5px 0px 5px;
-  border-bottom: 1px solid #1EDCFF;
+    padding: 0 5px 0 5px;
+    border-bottom: 1px solid #1EDCFF;
 }
 
 .navbar-brand {
@@ -79,7 +82,7 @@ pre {
 }
 
 .navbar img {
-    width:40px;
+    width: 40px;
     height: auto;
     padding-top: 17px;
 }
@@ -130,17 +133,17 @@ pre {
     color: #fff;
     border-bottom: 1px #424242 solid;
     border-left: 1px #424242 solid;
-    margin: 0 0 0 0px;
+    margin: 0;
     font-size: 72px;
     height: 81px;
     display: flex;
     align-items: center;
     padding-left: 0;
-    padding-top:15px;
+    padding-top: 15px;
 }
 
 .stat-text {
-    padding:0 5px 0 5px;
+    padding: 0 5px 0 5px;
     z-index: 9999;
 }
 
@@ -161,19 +164,16 @@ pre {
 .sparkline {
     height: 80px;
     width: 100%;
-    margin:0;
+    margin: 0;
 }
 
 .sparkline-tooltip {
-    color: pink;
-    background-color: #fff;
     position: absolute;
-    left: 0px;
-    top: 0px;
+    left: 0;
+    top: 0;
     visibility: hidden;
-    background: rgb(0, 0, 0) transparent;
-    background-color: rgba(0,0,0,0.6);
-    filter:progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000);
+    background-color: rgba(0, 0, 0, 0.6);
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000);
     -ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000)";
     color: white;
     font: 20px arial, san serif;
@@ -300,13 +300,13 @@ pre {
 
 .toolbar-row .input-group-btn .active {
     background-color: #277F98;
-    border:  1px #529eb5 solid;
+    border: 1px #529eb5 solid;
 }
 
 .style-radio {
     color: #ebe6ff;
     background-color: #2e264e;
-    border:  1px #5d4f94 solid;
+    border: 1px #5d4f94 solid;
     font-weight: 500;
 }
 
@@ -321,7 +321,7 @@ pre {
 .toolbar-row .input-group .form-control {
     margin-top: 2px;
     margin-bottom: -2px;
-    width:98%;
+    width: 98%;
 }
 
 .toolbar-row .dropdown-menu li a {
@@ -412,7 +412,7 @@ pre {
 /** Stage List **/
 /** =========== **/
 
-#stage-list{
+#stage-list {
     margin-top: 5px;
     text-align: right;
 }
