@@ -29,8 +29,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.LocalTime;
 import org.joda.time.ReadableInstant;
+import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -119,8 +119,14 @@ public class TestDateTimeFunctions
             throws Exception
     {
         TimeZoneKey kievTimeZoneKey = getTimeZoneKey("Europe/Kiev");
-        for (long instant = new DateTime(2000, 6, 15, 0, 0).getMillis(); instant < new DateTime(2016, 6, 15, 0, 0).getMillis(); instant += TimeUnit.HOURS.toMillis(1)) {
+        TimeZoneKey montrealTimeZoneKey = getTimeZoneKey("America/Montreal");
+        long timeIncrement = TimeUnit.MINUTES.toMillis(53);
+        // We expect UTC millis later on so we have to use UTC chronology
+        for (long instant = ISOChronology.getInstanceUTC().getDateTimeMillis(2000, 6, 15, 0, 0, 0, 0);
+             instant < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
+             instant += timeIncrement) {
             assertCurrentDateAtInstant(kievTimeZoneKey, instant);
+            assertCurrentDateAtInstant(montrealTimeZoneKey, instant);
             assertCurrentDateAtInstant(TIME_ZONE_KEY, instant);
         }
     }
@@ -141,29 +147,47 @@ public class TestDateTimeFunctions
     public void testLocalTime()
             throws Exception
     {
-        long millis = new LocalTime(session.getStartTime(), DATE_TIME_ZONE).getMillisOfDay();
-        functionAssertions.assertFunction("LOCALTIME", TimeType.TIME, toTime(millis));
+        Session localSession = testSessionBuilder()
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
+                .build();
+        FunctionAssertions localAssertion = new FunctionAssertions(localSession);
+        localAssertion.assertFunctionString("LOCALTIME", TimeType.TIME, "15:45:00.000");
     }
 
     @Test
     public void testCurrentTime()
             throws Exception
     {
-        long millis = new LocalTime(session.getStartTime(), DateTimeZone.UTC).getMillisOfDay();
-        functionAssertions.assertFunction("CURRENT_TIME", TIME_WITH_TIME_ZONE, new SqlTimeWithTimeZone(millis, session.getTimeZoneKey()));
+        Session localSession = testSessionBuilder()
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
+                .build();
+        FunctionAssertions localAssertion = new FunctionAssertions(localSession);
+        localAssertion.assertFunctionString("CURRENT_TIME", TIME_WITH_TIME_ZONE, "15:45:00.000 Asia/Kathmandu");
     }
 
     @Test
     public void testLocalTimestamp()
     {
-        functionAssertions.assertFunction("localtimestamp", TimestampType.TIMESTAMP, toTimestamp(session.getStartTime()));
+        Session localSession = testSessionBuilder()
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
+                .build();
+        FunctionAssertions localAssertion = new FunctionAssertions(localSession);
+        localAssertion.assertFunctionString("LOCALTIMESTAMP", TimestampType.TIMESTAMP, "2017-03-01 15:45:00.000");
     }
 
     @Test
     public void testCurrentTimestamp()
     {
-        functionAssertions.assertFunction("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
-        functionAssertions.assertFunction("now()", TIMESTAMP_WITH_TIME_ZONE, new SqlTimestampWithTimeZone(session.getStartTime(), session.getTimeZoneKey()));
+        Session localSession = testSessionBuilder()
+                .setTimeZoneKey(TIME_ZONE_KEY)
+                .setStartTime(new DateTime(2017, 3, 1, 10, 0, 0, 0, DateTimeZone.UTC).getMillis())
+                .build();
+        FunctionAssertions localAssertion = new FunctionAssertions(localSession);
+        localAssertion.assertFunctionString("CURRENT_TIMESTAMP", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
+        localAssertion.assertFunctionString("NOW()", TIMESTAMP_WITH_TIME_ZONE, "2017-03-01 15:45:00.000 Asia/Kathmandu");
     }
 
     @Test
