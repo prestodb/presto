@@ -511,3 +511,55 @@ pre {
 .expanded-chart {
     display: inline-table;
 }
+
+/** ============== **/
+/** Live Plan Page **/
+/** ============== **/
+
+#live-plan {
+    margin-top: 15px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #1b1b1b;
+}
+
+#live-plan .label {
+    font-size: 15px;
+    color: #fff;
+    font-weight: normal;
+    line-height: 18px;
+}
+
+#live-plan hr {
+    margin-top:10px;
+    margin-bottom: 10px;
+}
+
+.clusters rect {
+    fill: #e0e0e0;
+}
+
+.node .stage-stats rect {
+    stroke: #999;
+    stroke-width: 1px;
+}
+
+.node rect {
+    fill: #353535;
+}
+
+text {
+    font-size: 15px;
+}
+
+.edgePath path {
+    stroke: #fff;
+    stroke-width: 3px;
+    fill: transparent;
+}
+
+.plan-aligner {
+    max-width: 50%;
+}

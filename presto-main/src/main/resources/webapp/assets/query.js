@@ -970,7 +970,7 @@ var QueryDetail = React.createClass({
                                 <td>
                                     <a onClick={ this.killQuery } className={ "btn btn-warning " + (["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1 ? "disabled" : "") } target="_blank">Kill Query</a>
                                     &nbsp;&nbsp;&nbsp;
-                                    <a href={ "/ui/plan?" + query.queryId } className="btn btn-info" target="_blank">Live Plan</a>
+                                    <a href={ "plan.html?" + query.queryId } className="btn btn-info" target="_blank">Live Plan</a>
                                     &nbsp;
                                     <a href={ "/v1/query/" + query.queryId + "?pretty" } className="btn btn-info" target="_blank">Raw JSON</a>
                                     &nbsp;
