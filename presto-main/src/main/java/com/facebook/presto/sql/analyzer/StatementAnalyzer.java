@@ -215,7 +215,9 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        return new Visitor(outerQueryScope).process(node, Optional.empty());
+        Scope scope = new Visitor(outerQueryScope).process(node, Optional.empty());
+        checkState(scope.getOuterParent().equals(outerQueryScope), "result scope should have outer query scope equal with parameter outer query scope");
+        return scope;
     }
 
     private void analyzeWhere(Node node, Scope outerQueryScope, Expression predicate)
@@ -224,6 +226,11 @@ class StatementAnalyzer
         visitor.analyzeWhere(node, outerQueryScope, predicate);
     }
 
+    /**
+     * Visitor context represents local query scope (if exists). The invariant is
+     * that the local query scopes hierarchy should always have outer query scope
+     * (if provided) as ancestor.
+     */
     private class Visitor
             extends DefaultTraversalVisitor<Scope, Optional<Scope>>
     {
@@ -1948,10 +1955,10 @@ class StatementAnalyzer
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope, RelationType relationType)
         {
-            Scope.Builder scopeBuilder = scopeBuilder(parentScope);
-            scopeBuilder.withRelationType(relationType);
+            Scope scope = scopeBuilder(parentScope)
+                    .withRelationType(relationType)
+                    .build();
 
-            Scope scope = scopeBuilder.build();
             analysis.setScope(node, scope);
             return scope;
         }
@@ -1966,6 +1973,8 @@ class StatementAnalyzer
             Scope.Builder scopeBuilder = Scope.builder();
 
             if (parentScope.isPresent()) {
+                // parent scope represents local query scope hierarchy. Local query scope
+                // hierarchy should have outer query scope as ancestor already.
                 scopeBuilder.withParent(parentScope.get());
             }
             else if (outerQueryScope.isPresent()) {

@@ -69,6 +69,19 @@ public class Scope
         }
     }
 
+    public Optional<Scope> getOuterParent()
+    {
+        Scope scope = this;
+        while (scope.parent.isPresent()) {
+            if (scope.queryBoundary) {
+                return scope.parent;
+            }
+            scope = scope.parent.get();
+        }
+
+        return Optional.empty();
+    }
+
     public RelationType getRelationType()
     {
         return relation;
