@@ -17,29 +17,34 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.LDAP;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.NONE;
-
-public class TestSecurityConfig
+public class TestKerberosConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
-                .setAuthenticationType(NONE));
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KerberosConfig.class)
+                .setKerberosConfig(null)
+                .setServiceName(null)
+                .setKeytab(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("http-server.authentication.type", "LDAP")
+                .put("http.authentication.krb5.config", "/etc/krb5.conf")
+                .put("http.server.authentication.krb5.service-name", "airlift")
+                .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
                 .build();
 
-        SecurityConfig expected = new SecurityConfig()
-                .setAuthenticationType(LDAP);
+        KerberosConfig expected = new KerberosConfig()
+                .setKerberosConfig(new File("/etc/krb5.conf"))
+                .setServiceName("airlift")
+                .setKeytab(new File("/tmp/presto.keytab"));
+
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }
