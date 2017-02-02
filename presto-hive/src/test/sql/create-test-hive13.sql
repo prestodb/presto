@@ -82,7 +82,6 @@ SELECT * FROM presto_test_types_textfile
 ;
 
 
--- Parquet fails when trying to use complex nested types.
 -- Parquet is missing TIMESTAMP and BINARY.
 CREATE TABLE presto_test_types_parquet (
   t_string STRING
@@ -99,11 +98,14 @@ CREATE TABLE presto_test_types_parquet (
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
+, t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
 )
+PARTITIONED BY (dummy INT)
 STORED AS PARQUET
 ;
 
 INSERT INTO TABLE presto_test_types_parquet
+PARTITION (dummy=0)
 SELECT
   t_string
 , t_varchar
@@ -119,9 +121,12 @@ SELECT
 , t_map
 , t_array_string
 , t_array_struct
+, t_array_struct[0]
 FROM presto_test_types_textfile
 ;
 
+ALTER TABLE presto_test_types_parquet
+CHANGE COLUMN t_struct t_struct STRUCT<s_string:STRING, s_double:DOUBLE, s_boolean:BOOLEAN>;
 
 ALTER TABLE presto_test_types_textfile ADD COLUMNS (new_column INT);
 ALTER TABLE presto_test_types_sequencefile ADD COLUMNS (new_column INT);
