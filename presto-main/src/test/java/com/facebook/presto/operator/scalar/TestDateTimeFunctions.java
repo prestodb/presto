@@ -44,12 +44,14 @@ import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -72,6 +74,7 @@ public class TestDateTimeFunctions
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("Asia/Kathmandu");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
+    private static final DateTimeZone UTC_TIME_ZONE = getDateTimeZone(UTC_KEY);
     private static final DateTimeZone DATE_TIME_ZONE_NUMERICAL = getDateTimeZone(getTimeZoneKey("+05:45"));
     private static final TimeZoneKey WEIRD_ZONE_KEY = getTimeZoneKey("+07:09");
     private static final DateTimeZone WEIRD_ZONE = getDateTimeZone(WEIRD_ZONE_KEY);
@@ -85,13 +88,17 @@ public class TestDateTimeFunctions
     private static final DateTime WEIRD_TIME = new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_ZONE);
     private static final String WEIRD_TIME_LITERAL = "TIME '03:04:05.321 +07:09'";
 
-    private static final DateTime TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, DATE_TIME_ZONE);
+    private static final DateTime NEW_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC_TIME_ZONE); // This is TIMESTAMP w/o TZ
+    private static final DateTime LEGACY_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, DATE_TIME_ZONE);
     private static final DateTime TIMESTAMP_WITH_NUMERICAL_ZONE = new DateTime(2001, 8, 22, 3, 4, 5, 321, DATE_TIME_ZONE_NUMERICAL);
     private static final String TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321'";
     private static final String TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+05:45";
     private static final DateTime WEIRD_TIMESTAMP = new DateTime(2001, 8, 22, 3, 4, 5, 321, WEIRD_ZONE);
     private static final String WEIRD_TIMESTAMP_LITERAL = "TIMESTAMP '2001-08-22 03:04:05.321 +07:09'";
     private static final String WEIRD_TIMESTAMP_ISO8601_STRING = "2001-08-22T03:04:05.321+07:09";
+
+    @SuppressWarnings("MemberName")
+    private final DateTime TIMESTAMP;
 
     private final Session session;
 
@@ -105,6 +112,7 @@ public class TestDateTimeFunctions
     {
         super(session);
         this.session = session;
+        TIMESTAMP = isLegacyTimestamp(session) ? LEGACY_TIMESTAMP : NEW_TIMESTAMP;
     }
 
     @Test
@@ -601,7 +609,7 @@ public class TestDateTimeFunctions
     @Test
     public void testDateDiffTimestamp()
     {
-        DateTime baseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, DATE_TIME_ZONE);
+        DateTime baseDateTime = new DateTime(1960, 5, 3, 7, 2, 9, 678, isLegacyTimestamp(session) ? DATE_TIME_ZONE : UTC_TIME_ZONE);
         String baseDateTimeLiteral = "TIMESTAMP '1960-05-03 07:02:09.678'";
 
         assertFunction("date_diff('millisecond', " + baseDateTimeLiteral + ", " + TIMESTAMP_LITERAL + ")", BIGINT, millisBetween(baseDateTime, TIMESTAMP));
