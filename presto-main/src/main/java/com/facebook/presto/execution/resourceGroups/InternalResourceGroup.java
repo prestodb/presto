@@ -52,6 +52,12 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+/**
+ * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
+ * Queries are submitted to leaf groups. Never to intermediate groups. Intermediate groups
+ * aggregate resource consumption from their children, and may have their own limitations that
+ * are enforced.
+ */
 @ThreadSafe
 public class InternalResourceGroup
         implements ResourceGroup
@@ -70,6 +76,7 @@ public class InternalResourceGroup
     // That is, they must return true when internalStartNext() is called on them
     @GuardedBy("root")
     private UpdateablePriorityQueue<InternalResourceGroup> eligibleSubGroups = new FifoQueue<>();
+    // Sub groups whose memory usage may be out of date. Most likely because they have a running query.
     @GuardedBy("root")
     private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
     @GuardedBy("root")
@@ -90,6 +97,7 @@ public class InternalResourceGroup
     private int descendantRunningQueries;
     @GuardedBy("root")
     private int descendantQueuedQueries;
+    // Memory usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
     @GuardedBy("root")
     private long cachedMemoryUsageBytes;
     @GuardedBy("root")
@@ -324,6 +332,7 @@ public class InternalResourceGroup
                 checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
             }
 
+            // Switch to the appropriate queue implementation to implement the desired policy
             UpdateablePriorityQueue<InternalResourceGroup> queue;
             UpdateablePriorityQueue<QueryExecution> queryQueue;
             switch (policy) {
@@ -446,6 +455,7 @@ public class InternalResourceGroup
         }
     }
 
+    // This method must be called whenever the group's eligibility to run more queries may have changed.
     private void updateEligiblility()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
@@ -519,6 +529,7 @@ public class InternalResourceGroup
         }
     }
 
+    // Memory usage stats are expensive to maintain, so this method must be called periodically to update them
     protected void internalRefreshStats()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
