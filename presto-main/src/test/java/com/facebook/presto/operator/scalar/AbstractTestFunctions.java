@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlFunction;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.DecimalParseResult;
 import com.facebook.presto.spi.type.Decimals;
@@ -77,6 +78,18 @@ public abstract class AbstractTestFunctions
         assertFunction(statement,
                 createDecimalType(expectedResult.getPrecision(), expectedResult.getScale()),
                 expectedResult);
+    }
+
+    protected void assertThrowsPrestoException(String projection, StandardErrorCode errorCode, String message)
+    {
+        try {
+            evaluateInvalid(projection);
+            fail("Expected to throw an " + errorCode.toErrorCode() + " exception with message " + message);
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), errorCode.toErrorCode());
+            assertEquals(e.getMessage(), message);
+        }
     }
 
     protected void assertInvalidFunction(String projection, String message)

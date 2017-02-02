@@ -34,6 +34,7 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.util.Locale;
 
 import static com.facebook.presto.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -188,9 +189,15 @@ public final class DateTimeFunctions
     // the maximum year represented by 64bits timestamp is ~584944387 it may require up to 35 characters.
     public static Slice toISO8601FromTimestamp(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
-                .withChronology(getChronology(session.getTimeZoneKey()));
-        return utf8Slice(formatter.print(timestamp));
+        if (session.isLegacyTimestamp()) {
+            DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
+                    .withChronology(getChronology(session.getTimeZoneKey()));
+            return utf8Slice(formatter.print(timestamp));
+        }
+        else {
+            // FIXME: Simply remove this function when legacyTimestamp flag will be dropped
+            throw new PrestoException(FUNCTION_NOT_FOUND, "to_iso8601(timestamp) does not exist");
+        }
     }
 
     @ScalarFunction("to_iso8601")

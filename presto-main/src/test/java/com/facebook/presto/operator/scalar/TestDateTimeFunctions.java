@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -278,7 +279,15 @@ public class TestDateTimeFunctions
     @Test
     public void testToISO8601()
     {
-        assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
+        if (isLegacyTimestamp(session)) {
+            assertFunction("to_iso8601(" + TIMESTAMP_LITERAL + ")", createVarcharType(35), TIMESTAMP_ISO8601_STRING);
+        }
+        else {
+            assertThrowsPrestoException(
+                    "to_iso8601(" + TIMESTAMP_LITERAL + ")",
+                    FUNCTION_NOT_FOUND,
+                    "to_iso8601(timestamp) does not exist");
+        }
         assertFunction("to_iso8601(" + WEIRD_TIMESTAMP_LITERAL + ")", createVarcharType(35), WEIRD_TIMESTAMP_ISO8601_STRING);
         assertFunction("to_iso8601(" + DATE_LITERAL + ")", createVarcharType(16), DATE_ISO8601_STRING);
     }
