@@ -55,6 +55,7 @@ import static java.util.Objects.requireNonNull;
  *           -- subquery
  * </pre>
  */
+@Deprecated
 public class TransformExistsApplyToScalarApply
         implements PlanOptimizer
 {
