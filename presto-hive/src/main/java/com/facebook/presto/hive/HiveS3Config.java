@@ -38,8 +38,10 @@ public class HiveS3Config
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
+    private boolean s3SseKmsEnabled;
     private String s3EncryptionMaterialsProvider;
     private String s3KmsKeyId;
+    private String s3SseKmsKeyId;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
@@ -151,6 +153,19 @@ public class HiveS3Config
         return this;
     }
 
+    public String getS3SseKmsKeyId()
+    {
+        return s3SseKmsKeyId;
+    }
+
+    @Config("hive.s3.sse.kms-key-id")
+    @ConfigDescription("Use an AWS KMS key for S3 data encryption")
+    public HiveS3Config setS3SseKmsKeyId(String s3SseKmsKeyId)
+    {
+        this.s3SseKmsKeyId = s3SseKmsKeyId;
+        return this;
+    }
+
     public boolean isS3SseEnabled()
     {
         return s3SseEnabled;
@@ -161,6 +176,19 @@ public class HiveS3Config
     public HiveS3Config setS3SseEnabled(boolean s3SseEnabled)
     {
         this.s3SseEnabled = s3SseEnabled;
+        return this;
+    }
+
+    public boolean isS3SseKmsEnabled()
+    {
+        return s3SseKmsEnabled;
+    }
+
+    @Config("hive.s3.sse-kms.enabled")
+    @ConfigDescription("Enable S3 server side encryption with KMS")
+    public HiveS3Config setS3SseKmsEnabled(boolean s3SseKmsEnabled)
+    {
+        this.s3SseKmsEnabled = s3SseKmsEnabled;
         return this;
     }
 
