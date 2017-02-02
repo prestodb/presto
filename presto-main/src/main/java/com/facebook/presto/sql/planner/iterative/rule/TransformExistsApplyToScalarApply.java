@@ -55,7 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class TransformExistsApplyToScalarApply
         implements Rule
 {
-    private static final QualifiedName COUNT = QualifiedName.of("count");;
+    private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
 
