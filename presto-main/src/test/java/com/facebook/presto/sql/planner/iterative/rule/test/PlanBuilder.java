@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule.test;
 
+import com.facebook.presto.connector.ConnectorId;
+import com.facebook.presto.metadata.TableHandle;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -20,14 +25,19 @@ import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.Assignments;
+import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableScanNode;
+import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.util.ImmutableCollectors;
@@ -92,6 +102,48 @@ public class PlanBuilder
     public ApplyNode apply(Assignments subqueryAssignments, List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
         return new ApplyNode(idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation);
+    }
+
+    public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
+    {
+        Expression originalConstraint = null;
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                new TableHandle(
+                        new ConnectorId("testConnector"),
+                        new TestingTableHandle()),
+                symbols,
+                assignments,
+                Optional.empty(),
+                TupleDomain.all(),
+                originalConstraint
+        );
+    }
+
+    public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
+    {
+        TableWriterNode.DeleteHandle deleteHandle = new TableWriterNode.DeleteHandle(
+                new TableHandle(
+                        new ConnectorId("testConnector"),
+                        new TestingTableHandle()),
+                schemaTableName
+        );
+        return new TableFinishNode(
+                idAllocator.getNextId(),
+                exchange(e -> e
+                        .addSource(new DeleteNode(
+                                idAllocator.getNextId(),
+                                deleteSource,
+                                deleteHandle,
+                                deleteRowId,
+                                ImmutableList.of(deleteRowId)
+                        ))
+                        .addInputsSet(deleteRowId)
+                        .singleDistributionPartitioningScheme(deleteRowId)
+                ),
+                deleteHandle,
+                ImmutableList.of(deleteRowId)
+        );
     }
 
     public ExchangeNode exchange(Consumer<ExchangeBuilder> exchangeBuilderConsumer)
