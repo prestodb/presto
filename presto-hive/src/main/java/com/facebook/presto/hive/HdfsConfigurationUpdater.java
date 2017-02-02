@@ -58,7 +58,7 @@ public class HdfsConfigurationUpdater
     private final boolean s3UseInstanceCredentials;
     private final boolean s3SslEnabled;
     private final boolean s3SseEnabled;
-    private final boolean s3SseKmsEnabled;
+    private final String s3SseType;
     private final String s3EncryptionMaterialsProvider;
     private final String s3KmsKeyId;
     private final String s3SseKmsKeyId;
@@ -98,7 +98,7 @@ public class HdfsConfigurationUpdater
         this.s3UseInstanceCredentials = s3Config.isS3UseInstanceCredentials();
         this.s3SslEnabled = s3Config.isS3SslEnabled();
         this.s3SseEnabled = s3Config.isS3SseEnabled();
-        this.s3SseKmsEnabled = s3Config.isS3SseKmsEnabled();
+        this.s3SseType = s3Config.getS3SseType();
         this.s3EncryptionMaterialsProvider = s3Config.getS3EncryptionMaterialsProvider();
         this.s3KmsKeyId = s3Config.getS3KmsKeyId();
         this.s3SseKmsKeyId = s3Config.getS3SseKmsKeyId();
@@ -177,7 +177,9 @@ public class HdfsConfigurationUpdater
         config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, s3UseInstanceCredentials);
         config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
         config.setBoolean(PrestoS3FileSystem.S3_SSE_ENABLED, s3SseEnabled);
-        config.setBoolean(PrestoS3FileSystem.S3_SSE_KMS_ENABLED, s3SseKmsEnabled);
+        if (s3SseType != null) {
+            config.set(PrestoS3FileSystem.S3_SSE_TYPE, s3SseType);
+        }
         if (s3EncryptionMaterialsProvider != null) {
             config.set(PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER, s3EncryptionMaterialsProvider);
         }

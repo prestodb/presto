@@ -140,7 +140,7 @@ public class PrestoS3FileSystem
     public static final String S3_KMS_KEY_ID = "presto.s3.kms-key-id";
     public static final String S3_SSE_KMS_KEY_ID = "presto.s3.sse.kms-key-id";
     public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
-    public static final String S3_SSE_KMS_ENABLED = "presto.s3.sse-kms.enabled";
+    public static final String S3_SSE_TYPE = "presto.s3.sse.type";
     public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
     public static final String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
     public static final String S3_USER_AGENT_SUFFIX = "presto";
@@ -163,7 +163,7 @@ public class PrestoS3FileSystem
     private boolean useInstanceCredentials;
     private boolean pinS3ClientToCurrentRegion;
     private boolean sseEnabled;
-    private boolean sseKmsEnabled;
+    private String sseType;
     private String sseKmsKeyId;
 
     @Override
@@ -193,7 +193,7 @@ public class PrestoS3FileSystem
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
-        this.sseKmsEnabled = conf.getBoolean(S3_SSE_KMS_ENABLED, defaults.isS3SseKmsEnabled());
+        this.sseType = conf.get(S3_SSE_TYPE, defaults.getS3SseType());
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
 
@@ -357,7 +357,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile, sseEnabled, sseKmsEnabled, sseKmsKeyId),
+                new PrestoS3OutputStream(s3, transferConfig, uri.getHost(), key, tempFile, sseEnabled, sseType, sseKmsKeyId),
                 statistics);
     }
 
@@ -942,12 +942,12 @@ public class PrestoS3FileSystem
         private final String key;
         private final File tempFile;
         private final boolean sseEnabled;
-        private final boolean sseKmsEnabled;
+        private final SseType sseType;
         private final String sseKmsKeyId;
 
         private boolean closed;
 
-        public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile, boolean sseEnabled, boolean sseKmsEnabled, String sseKmsKeyId)
+        public PrestoS3OutputStream(AmazonS3 s3, TransferManagerConfiguration config, String host, String key, File tempFile, boolean sseEnabled, String sseType, String sseKmsKeyId)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -959,7 +959,7 @@ public class PrestoS3FileSystem
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
             this.sseEnabled = sseEnabled;
-            this.sseKmsEnabled = sseKmsEnabled;
+            this.sseType = SseType.getValueOf(sseType);
             this.sseKmsKeyId = sseKmsKeyId;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
@@ -996,20 +996,23 @@ public class PrestoS3FileSystem
 
                 PutObjectRequest request = new PutObjectRequest(host, key, tempFile);
                 if (sseEnabled) {
-                    if (!sseKmsEnabled) {
-                        ObjectMetadata metadata = new ObjectMetadata();
-                        metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-                        request.setMetadata(metadata);
-                    }
-                    else {
-                        if (sseKmsKeyId.toLowerCase().equals(DEFAULT_SSE_KMS_KEY_ID.toLowerCase())) {
-                            request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
-                        }
-                        else {
-                            request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(sseKmsKeyId));
-                        }
+                    switch (sseType) {
+                        case KMS:
+                            if (sseKmsKeyId != null) {
+                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(sseKmsKeyId));
+                            }
+                            else {
+                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
+                            }
+                            break;
+                        default:
+                            ObjectMetadata metadata = new ObjectMetadata();
+                            metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
+                            request.setMetadata(metadata);
+                            break;
                     }
                 }
+
                 Upload upload = transferManager.upload(request);
 
                 if (log.isDebugEnabled()) {
