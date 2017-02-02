@@ -60,18 +60,17 @@ public class SimplifyCountOverConstant
         ProjectNode child = (ProjectNode) input;
 
         boolean changed = false;
-        Map<Symbol, FunctionCall> aggregations = new LinkedHashMap<>(parent.getAggregations());
-        Map<Symbol, Signature> functions = new LinkedHashMap<>(parent.getFunctions());
+        Map<Symbol, AggregationNode.Aggregation> assignments = new LinkedHashMap<>(parent.getAssignments());
 
-        for (Entry<Symbol, FunctionCall> entry : parent.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAssignments().entrySet()) {
             Symbol symbol = entry.getKey();
-            FunctionCall functionCall = entry.getValue();
-            Signature signature = parent.getFunctions().get(symbol);
+            AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (isCountOverConstant(functionCall, signature, child.getAssignments())) {
+            if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
-                aggregations.put(symbol, new FunctionCall(QualifiedName.of("count"), ImmutableList.of()));
-                functions.put(symbol, new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)));
+                assignments.put(symbol, new AggregationNode.Aggregation(
+                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
+                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT))));
             }
         }
 
@@ -82,22 +81,21 @@ public class SimplifyCountOverConstant
         return Optional.of(new AggregationNode(
                 node.getId(),
                 child,
-                aggregations,
-                functions,
-                parent.getMasks(),
+                assignments,
                 parent.getGroupingSets(),
                 parent.getStep(),
                 parent.getHashSymbol(),
                 parent.getGroupIdSymbol()));
     }
 
-    private static boolean isCountOverConstant(FunctionCall function, Signature signature, Assignments inputs)
+    private static boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
+        Signature signature = aggregation.getSignature();
         if (!signature.getName().equals("count") || signature.getArgumentTypes().size() != 1) {
             return false;
         }
 
-        Expression argument = function.getArguments().get(0);
+        Expression argument = aggregation.getCall().getArguments().get(0);
         if (argument instanceof SymbolReference) {
             argument = inputs.get(Symbol.from(argument));
         }
