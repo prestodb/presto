@@ -38,8 +38,10 @@ public class HiveS3Config
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
+    private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
     private String s3EncryptionMaterialsProvider;
     private String s3KmsKeyId;
+    private String s3SseKmsKeyId;
     private int s3MaxClientRetries = 3;
     private int s3MaxErrorRetries = 10;
     private Duration s3MaxBackoffTime = new Duration(10, TimeUnit.MINUTES);
@@ -151,6 +153,19 @@ public class HiveS3Config
         return this;
     }
 
+    public String getS3SseKmsKeyId()
+    {
+        return s3SseKmsKeyId;
+    }
+
+    @Config("hive.s3.sse.kms-key-id")
+    @ConfigDescription("KMS Key ID to use for S3 server-side encryption with KMS-managed key")
+    public HiveS3Config setS3SseKmsKeyId(String s3SseKmsKeyId)
+    {
+        this.s3SseKmsKeyId = s3SseKmsKeyId;
+        return this;
+    }
+
     public boolean isS3SseEnabled()
     {
         return s3SseEnabled;
@@ -161,6 +176,20 @@ public class HiveS3Config
     public HiveS3Config setS3SseEnabled(boolean s3SseEnabled)
     {
         this.s3SseEnabled = s3SseEnabled;
+        return this;
+    }
+
+    @NotNull
+    public PrestoS3SseType getS3SseType()
+    {
+        return s3SseType;
+    }
+
+    @Config("hive.s3.sse.type")
+    @ConfigDescription("Key management type for S3 server-side encryption (S3 or KMS)")
+    public HiveS3Config setS3SseType(PrestoS3SseType s3SseType)
+    {
+        this.s3SseType = s3SseType;
         return this;
     }
 
