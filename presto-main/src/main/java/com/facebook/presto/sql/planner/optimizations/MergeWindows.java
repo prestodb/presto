@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.planner.DependencyExtractor;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -26,7 +27,9 @@ import com.google.common.collect.Multimap;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -85,28 +88,43 @@ public class MergeWindows
                 RewriteContext<Multimap<WindowNode.Specification, WindowNode>> context)
         {
             PlanNode newNode = context.defaultRewrite(node, ImmutableListMultimap.of());
-            for (WindowNode.Specification specification : context.get().keySet()) {
-                Collection<WindowNode> windows = context.get().get(specification);
-                newNode = collapseWindows(newNode, specification, windows);
-            }
-            return newNode;
+            return collapseWindowsWithinSpecification(context.get(), newNode);
         }
 
         @Override
         public PlanNode visitWindow(
-                WindowNode node,
+                WindowNode windowNode,
                 RewriteContext<Multimap<WindowNode.Specification, WindowNode>> context)
         {
-            checkState(!node.getHashSymbol().isPresent(), "MergeWindows should be run before HashGenerationOptimizer");
-            checkState(node.getPrePartitionedInputs().isEmpty() && node.getPreSortedOrderPrefix() == 0, "MergeWindows should be run before AddExchanges");
-            checkState(node.getWindowFunctions().values().stream().distinct().count() == 1, "Frames expected to be identical");
+            checkState(!windowNode.getHashSymbol().isPresent(), "MergeWindows should be run before HashGenerationOptimizer");
+            checkState(windowNode.getPrePartitionedInputs().isEmpty() && windowNode.getPreSortedOrderPrefix() == 0, "MergeWindows should be run before AddExchanges");
+            checkState(windowNode.getWindowFunctions().values().stream().distinct().count() == 1, "Frames expected to be identical");
+
+            for (WindowNode.Specification specification : context.get().keySet()) {
+                Collection<WindowNode> nodes = context.get().get(specification);
+                if (nodes.stream().anyMatch(node -> dependsOn(node, windowNode))) {
+                    return collapseWindowsWithinSpecification(context.get(),
+                            context.rewrite(
+                                    windowNode.getSource(),
+                                    ImmutableListMultimap.of(windowNode.getSpecification(), windowNode)));
+                }
+            }
 
             return context.rewrite(
-                    node.getSource(),
+                    windowNode.getSource(),
                     ImmutableListMultimap.<WindowNode.Specification, WindowNode>builder()
-                            .put(node.getSpecification(), node) // Add the current window first so that it gets precedence in iteration order
+                            .put(windowNode.getSpecification(), windowNode) // Add the current window first so that it gets precedence in iteration order
                             .putAll(context.get())
                             .build());
+        }
+
+        private static PlanNode collapseWindowsWithinSpecification(Multimap<WindowNode.Specification, WindowNode> windowsMap, PlanNode sourceNode)
+        {
+            for (WindowNode.Specification specification : windowsMap.keySet()) {
+                Collection<WindowNode> windows = windowsMap.get(specification);
+                sourceNode = collapseWindows(sourceNode, specification, windows);
+            }
+            return sourceNode;
         }
 
         private static WindowNode collapseWindows(PlanNode source, WindowNode.Specification specification, Collection<WindowNode> windows)
@@ -123,6 +141,21 @@ public class MergeWindows
                     canonical.getHashSymbol(),
                     canonical.getPrePartitionedInputs(),
                     canonical.getPreSortedOrderPrefix());
+        }
+
+        private static boolean dependsOn(WindowNode parent, WindowNode child)
+        {
+            Set<Symbol> childOutputs = child.getCreatedSymbols();
+
+            Stream<Symbol> arguments = parent.getWindowFunctions().values().stream()
+                    .map(WindowNode.Function::getFunctionCall)
+                    .flatMap(functionCall -> functionCall.getArguments().stream())
+                    .map(DependencyExtractor::extractUnique)
+                    .flatMap(Collection::stream);
+
+            return parent.getPartitionBy().stream().anyMatch(childOutputs::contains)
+                    || parent.getOrderBy().stream().anyMatch(childOutputs::contains)
+                    || arguments.anyMatch(childOutputs::contains);
         }
     }
 }
