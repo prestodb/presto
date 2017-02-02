@@ -3714,6 +3714,24 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testDependentWindows()
+            throws Exception
+    {
+        // For such query as below generated plan has two adjacent window nodes where second depends on output of first.
+
+        String sql = "WITH " +
+                "t1 AS (" +
+                "SELECT extendedprice FROM lineitem ORDER BY orderkey, partkey LIMIT 2)," +
+                "t2 AS (" +
+                "SELECT extendedprice, sum(extendedprice) OVER() AS x FROM t1)," +
+                "t3 AS (" +
+                "SELECT max(x) OVER() FROM t2) " +
+                "SELECT * FROM t3";
+
+        assertQuery(sql, "VALUES 59645.36, 59645.36");
+    }
+
+    @Test
     public void testHaving()
     {
         assertQuery("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus HAVING orderstatus = 'O'");
