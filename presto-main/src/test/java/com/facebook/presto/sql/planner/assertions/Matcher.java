@@ -25,7 +25,7 @@ public interface Matcher
      * should be limited to tests that validate the type of the node or
      * attributes of that type.
      * <p>
-     * Matchers that can be applied to nodes of any typeshould return true from
+     * Matchers that can be applied to nodes of any type should return true from
      * shapeMatches and do the rest of their work in detailMatches.
      *
      * @param node The node to apply the matching tests to

@@ -474,6 +474,20 @@ public class AddExchanges
                         gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                         child.getProperties());
             }
+            else {
+                // current plan so far is single node, so local properties are effectively global properties
+                // skip the SortNode if the local properties guarantee ordering on Sort keys
+                // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
+                List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+                for (Symbol symbol : node.getOrderBy()) {
+                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderings().get(symbol)));
+                }
+
+                if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
+                        .noneMatch(Optional::isPresent)) {
+                    return child;
+                }
+            }
 
             return rebaseAndDeriveProperties(node, child);
         }

@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -176,6 +177,11 @@ public final class PlanMatchPattern
         assignments.entrySet().forEach(
                 assignment -> result.withAlias(assignment.getKey(), new WindowFunctionMatcher(assignment.getValue())));
         return result;
+    }
+
+    public static PlanMatchPattern sort(PlanMatchPattern source)
+    {
+        return node(SortNode.class, source);
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)
