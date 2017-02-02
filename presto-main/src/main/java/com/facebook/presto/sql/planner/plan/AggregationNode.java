@@ -39,14 +39,12 @@ public class AggregationNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final Map<Symbol, FunctionCall> aggregations;
-    // Map from function symbol, to the mask symbol
-    private final Map<Symbol, Symbol> masks;
+    private final Map<Symbol, Aggregation> assignments;
     private final List<List<Symbol>> groupingSets;
-    private final Map<Symbol, Signature> functions;
     private final Step step;
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
+    private final List<Symbol> outputs;
 
     public enum Step
     {
@@ -96,11 +94,10 @@ public class AggregationNode
     }
 
     @JsonCreator
-    public AggregationNode(@JsonProperty("id") PlanNodeId id,
+    public AggregationNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("aggregations") Map<Symbol, FunctionCall> aggregations,
-            @JsonProperty("functions") Map<Symbol, Signature> functions,
-            @JsonProperty("masks") Map<Symbol, Symbol> masks,
+            @JsonProperty("assignments") Map<Symbol, Aggregation> assignments,
             @JsonProperty("groupingSets") List<List<Symbol>> groupingSets,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
@@ -109,18 +106,38 @@ public class AggregationNode
         super(id);
 
         this.source = source;
-        this.aggregations = ImmutableMap.copyOf(requireNonNull(aggregations, "aggregations is null"));
-        this.functions = ImmutableMap.copyOf(requireNonNull(functions, "functions is null"));
-        this.masks = ImmutableMap.copyOf(requireNonNull(masks, "masks is null"));
-        for (Symbol mask : masks.keySet()) {
-            checkArgument(aggregations.containsKey(mask), "mask does not match any aggregations");
-        }
+        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "aggregations is null"));
         requireNonNull(groupingSets, "groupingSets is null");
         checkArgument(!groupingSets.isEmpty(), "grouping sets list cannot be empty");
         this.groupingSets = ImmutableList.copyOf(groupingSets);
         this.step = step;
         this.hashSymbol = hashSymbol;
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
+
+        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        outputs.addAll(getGroupingKeys());
+        hashSymbol.ifPresent(outputs::add);
+        outputs.addAll(assignments.keySet());
+
+        this.outputs = outputs.build();
+    }
+
+    /**
+     * @deprecated pass Assignments object instead
+     */
+    @Deprecated
+    public AggregationNode(
+            PlanNodeId id,
+            PlanNode source,
+            Map<Symbol, FunctionCall> assignments,
+            Map<Symbol, Signature> functions,
+            Map<Symbol, Symbol> masks,
+            List<List<Symbol>> groupingSets,
+            Step step,
+            Optional<Symbol> hashSymbol,
+            Optional<Symbol> groupIdSymbol)
+    {
+        this(id, source, makeAssignments(assignments, functions, masks), groupingSets, step, hashSymbol, groupIdSymbol);
     }
 
     @Override
@@ -132,31 +149,60 @@ public class AggregationNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-
-        symbols.addAll(getGroupingKeys());
-        hashSymbol.ifPresent(symbols::add);
-        symbols.addAll(aggregations.keySet());
-
-        return symbols.build();
+        return outputs;
     }
 
-    @JsonProperty("aggregations")
+    @JsonProperty
+    public Map<Symbol, Aggregation> getAssignments()
+    {
+        return assignments;
+    }
+
+    /**
+     * @deprecated Use getAssignments
+     */
+    @Deprecated
     public Map<Symbol, FunctionCall> getAggregations()
     {
-        return aggregations;
+        // use an ImmutableMap.Builder because the output has to preserve
+        // the iteration order of the original map.
+        ImmutableMap.Builder<Symbol, FunctionCall> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
+            builder.put(entry.getKey(), entry.getValue().getCall());
+        }
+        return builder.build();
     }
 
-    @JsonProperty("functions")
+    /**
+     * @deprecated Use getAssignments
+     */
+    @Deprecated
     public Map<Symbol, Signature> getFunctions()
     {
-        return functions;
+        // use an ImmutableMap.Builder because the output has to preserve
+        // the iteration order of the original map.
+        ImmutableMap.Builder<Symbol, Signature> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
+            builder.put(entry.getKey(), entry.getValue().getSignature());
+        }
+        return builder.build();
     }
 
-    @JsonProperty("masks")
+    /**
+     * @deprecated Use getAssignments
+     */
+    @Deprecated
     public Map<Symbol, Symbol> getMasks()
     {
-        return masks;
+        // use an ImmutableMap.Builder because the output has to preserve
+        // the iteration order of the original map.
+        ImmutableMap.Builder<Symbol, Symbol> builder = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Aggregation> entry : assignments.entrySet()) {
+            entry.getValue()
+                    .getMask()
+                    .ifPresent(symbol -> builder.put(entry.getKey(), symbol));
+        }
+        return builder.build();
     }
 
     public List<Symbol> getGroupingKeys()
@@ -209,6 +255,67 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, functions, masks, groupingSets, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), assignments, groupingSets, step, hashSymbol, groupIdSymbol);
+    }
+
+    private static Map<Symbol, Aggregation> makeAssignments(
+            Map<Symbol, FunctionCall> aggregations,
+            Map<Symbol, Signature> functions,
+            Map<Symbol, Symbol> masks)
+    {
+        ImmutableMap.Builder<Symbol, Aggregation> builder = ImmutableMap.builder();
+
+        for (Map.Entry<Symbol, FunctionCall> entry : aggregations.entrySet()) {
+            Symbol output = entry.getKey();
+            builder.put(output, new Aggregation(
+                    entry.getValue(),
+                    functions.get(output),
+                    Optional.ofNullable(masks.get(output))));
+        }
+
+        return builder.build();
+    }
+
+    public static class Aggregation
+    {
+        private final FunctionCall call;
+        private final Signature signature;
+        private final Optional<Symbol> mask;
+
+        public Aggregation(
+                FunctionCall call,
+                Signature signature)
+        {
+            this(call, signature, Optional.empty());
+        }
+
+        @JsonCreator
+        public Aggregation(
+                @JsonProperty("call") FunctionCall call,
+                @JsonProperty("signature") Signature signature,
+                @JsonProperty("mask") Optional<Symbol> mask)
+        {
+            this.call = call;
+            this.signature = signature;
+            this.mask = mask;
+        }
+
+        @JsonProperty
+        public FunctionCall getCall()
+        {
+            return call;
+        }
+
+        @JsonProperty
+        public Signature getSignature()
+        {
+            return signature;
+        }
+
+        @JsonProperty
+        public Optional<Symbol> getMask()
+        {
+            return mask;
+        }
     }
 }
