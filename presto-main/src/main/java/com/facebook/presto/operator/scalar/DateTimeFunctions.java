@@ -290,7 +290,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIME)
     public static long truncateTime(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIME) long time)
     {
-        return getTimeField(getChronology(session.getTimeZoneKey()), unit).roundFloor(time);
+        if (session.isLegacyTimestamp()) {
+            return getTimeField(getChronology(session.getTimeZoneKey()), unit).roundFloor(time);
+        }
+        else {
+            return getTimeField(UTC_CHRONOLOGY, unit).roundFloor(time);
+        }
     }
 
     @Description("truncate to the specified precision")
@@ -309,7 +314,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.TIMESTAMP)
     public static long truncateTimestamp(ConnectorSession session, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
+        if (session.isLegacyTimestamp()) {
+            return getTimestampField(getChronology(session.getTimeZoneKey()), unit).roundFloor(timestamp);
+        }
+        else {
+            return getTimestampField(UTC_CHRONOLOGY, unit).roundFloor(timestamp);
+        }
     }
 
     @Description("truncate to the specified precision")
