@@ -56,9 +56,14 @@ public class TestFormatFunctions
         assertFunction("format_count(DOUBLE '123.0')", VARCHAR, "123");
         assertFunction("format_count(DOUBLE '12345.0')", VARCHAR, "12.3K");
         assertFunction("format_count(DOUBLE '1234567.0')", VARCHAR, "1.23M");
+
         assertFunction("format_count(REAL '123.0')", VARCHAR, "123");
         assertFunction("format_count(REAL '12345.0')", VARCHAR, "12.3K");
         assertFunction("format_count(REAL '1234567.0')", VARCHAR, "1.23M");
+
+        assertFunction("format_count(DECIMAL '123.0')", VARCHAR, "123");
+        assertFunction("format_count(DECIMAL '12345.0')", VARCHAR, "12.3K");
+        assertFunction("format_count(DECIMAL '1234567.0')", VARCHAR, "1.23M");
 
         assertFunction("format_count(CAST(NULL AS TINYINT))", VARCHAR, null);
         assertFunction("format_count(CAST(NULL AS SMALLINT))", VARCHAR, null);
