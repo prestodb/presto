@@ -302,11 +302,27 @@ public final class PlanMatchPattern
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(groups, ImmutableMap.of(), groupIdAlias));
     }
 
-    public static PlanMatchPattern values(Map<String, Integer> values)
+    public static PlanMatchPattern values(Map<String, Integer> aliasToIndex)
     {
         PlanMatchPattern result = node(ValuesNode.class);
-        values.entrySet().forEach(
-                alias -> result.withAlias(alias.getKey(), new ValuesMatcher(alias.getValue())));
+        aliasToIndex.entrySet().forEach(
+                aliasWithIndex -> result.withAlias(aliasWithIndex.getKey(), new ValuesMatcher(aliasWithIndex.getValue())));
+        return result;
+    }
+
+    public static PlanMatchPattern values(String ... aliases)
+    {
+        return values(ImmutableList.copyOf(aliases));
+    }
+
+    public static PlanMatchPattern values(List<String> aliases)
+    {
+        PlanMatchPattern result = node(ValuesNode.class).withNumberOfOutputColumns(aliases.size());
+        int index = 0;
+        for (String alias : aliases) {
+            result.withAlias(alias, new ValuesMatcher(index));
+            ++index;
+        }
         return result;
     }
 
