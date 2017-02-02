@@ -542,7 +542,16 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice formatDatetime(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
-        return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        if (session.isLegacyTimestamp()) {
+            return formatDatetime(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        }
+        else {
+            if (formatString.toStringUtf8().toLowerCase().contains("z")) {
+                // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+            }
+            return formatDatetime(UTC_CHRONOLOGY, session.getLocale(), timestamp, formatString);
+        }
     }
 
     @Description("formats the given time by the given format")
@@ -575,7 +584,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice dateFormat(ConnectorSession session, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
-        return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        if (session.isLegacyTimestamp()) {
+            return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
+        }
+        else {
+            return dateFormat(UTC_CHRONOLOGY, session.getLocale(), timestamp, formatString);
+        }
     }
 
     @ScalarFunction("date_format")
