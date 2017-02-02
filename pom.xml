@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.165-SNAPSHOT</version>
+    <version>0.166-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -53,7 +53,8 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.28</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
-        <dep.tempto.version>1.23</dep.tempto.version>
+        <dep.tempto.version>1.24</dep.tempto.version>
+        <dep.testng.version>6.10</dep.testng.version>
 
         <cli.skip-execute>true</cli.skip-execute>
         <cli.main-class>None</cli.main-class>
@@ -342,7 +343,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>0.19</version>
+                <version>0.21</version>
             </dependency>
 
             <dependency>
@@ -875,12 +876,14 @@
                 <plugin>
                     <groupId>org.gaul</groupId>
                     <artifactId>modernizer-maven-plugin</artifactId>
-                    <version>1.4.0</version>
+                    <version>1.5.0</version>
                     <configuration>
                         <skip>${air.check.skip-modernizer}</skip>
                         <javaVersion>1.8</javaVersion>
                         <failOnViolations>true</failOnViolations>
-                        <exclusionsFile>${air.main.basedir}/src/modernizer/exclusions.txt</exclusionsFile>
+                        <exclusionPatterns>
+                            <exclusionPattern>org/joda/time/.*</exclusionPattern>
+                        </exclusionPatterns>
                     </configuration>
                 </plugin>
 

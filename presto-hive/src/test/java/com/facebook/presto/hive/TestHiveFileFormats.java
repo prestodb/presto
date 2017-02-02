@@ -65,6 +65,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.JSON;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
@@ -120,6 +121,50 @@ public class TestHiveFileFormats
         assertEquals(TimeZone.getDefault().getID(),
                 "Asia/Katmandu",
                 "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testTextFile(int rowCount)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                .collect(toList());
+
+        assertThatFileFormat(TEXTFILE)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+    }
+
+    @Test(dataProvider = "rowCount")
+    public void testJson(int rowCount)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                // binary is not supported
+                .filter(column -> !column.getName().equals("t_binary"))
+                // non-string map keys are not supported
+                .filter(column -> !column.getName().equals("t_map_tinyint"))
+                .filter(column -> !column.getName().equals("t_map_smallint"))
+                .filter(column -> !column.getName().equals("t_map_int"))
+                .filter(column -> !column.getName().equals("t_map_bigint"))
+                .filter(column -> !column.getName().equals("t_map_float"))
+                .filter(column -> !column.getName().equals("t_map_double"))
+                // null map keys are not supported
+                .filter(column -> !column.getName().equals("t_map_null_key"))
+                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                .filter(column -> !column.getName().equals("t_map_null_key_complex_value"))
+                // decimal(38) is broken or not supported
+                .filter(column -> !column.getName().equals("t_decimal_precision_38"))
+                .filter(column -> !column.getName().equals("t_map_decimal_precision_38"))
+                .filter(column -> !column.getName().equals("t_array_decimal_precision_38"))
+                .collect(toList());
+
+        assertThatFileFormat(JSON)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
     @Test(dataProvider = "rowCount")

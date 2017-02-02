@@ -62,7 +62,7 @@ public class AtopSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
         ZonedDateTime end = ZonedDateTime.now(timeZone);
-        for (Node node : nodeManager.getAllNodes()) {
+        for (Node node : nodeManager.getWorkerNodes()) {
             ZonedDateTime start = end.minusDays(maxHistoryDays - 1).withHour(0).withMinute(0).withSecond(0).withNano(0);
             while (start.isBefore(end)) {
                 ZonedDateTime splitEnd = start.withHour(23).withMinute(59).withSecond(59).withNano(0);

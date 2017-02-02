@@ -37,6 +37,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
+import org.apache.hive.hcatalog.data.JsonSerDe;
 
 import java.util.List;
 
@@ -68,6 +69,9 @@ public enum HiveStorageFormat
     SEQUENCEFILE(LazySimpleSerDe.class.getName(),
             SequenceFileInputFormat.class.getName(),
             HiveSequenceFileOutputFormat.class.getName()),
+    JSON(JsonSerDe.class.getName(),
+            TextInputFormat.class.getName(),
+            HiveIgnoreKeyTextOutputFormat.class.getName()),
     TEXTFILE(LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName());

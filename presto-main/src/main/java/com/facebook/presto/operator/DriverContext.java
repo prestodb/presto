@@ -78,6 +78,7 @@ public class DriverContext
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
 
     private final AtomicLong memoryReservation = new AtomicLong();
+    private final AtomicLong peakMemoryReservation = new AtomicLong();
     private final AtomicLong systemMemoryReservation = new AtomicLong();
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
@@ -193,7 +194,8 @@ public class DriverContext
     public ListenableFuture<?> reserveMemory(long bytes)
     {
         ListenableFuture<?> future = pipelineContext.reserveMemory(bytes);
-        memoryReservation.getAndAdd(bytes);
+        long newMemoryReservation = memoryReservation.addAndGet(bytes);
+        peakMemoryReservation.accumulateAndGet(newMemoryReservation, Math::max);
         return future;
     }
 
@@ -208,7 +210,8 @@ public class DriverContext
     public boolean tryReserveMemory(long bytes)
     {
         if (pipelineContext.tryReserveMemory(bytes)) {
-            memoryReservation.getAndAdd(bytes);
+            long newMemoryReservation = memoryReservation.addAndGet(bytes);
+            peakMemoryReservation.accumulateAndGet(newMemoryReservation, Math::max);
             return true;
         }
         return false;
@@ -376,6 +379,7 @@ public class DriverContext
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 succinctBytes(memoryReservation.get()),
+                succinctBytes(peakMemoryReservation.get()),
                 succinctBytes(systemMemoryReservation.get()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

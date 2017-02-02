@@ -1157,10 +1157,7 @@ public class ExpressionAnalyzer
                 if (!typeManager.canCoerce(actualType, expectedType)) {
                     throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
                 }
-                expressionCoercions.put(expression, expectedType);
-                if (typeManager.isTypeOnlyCoercion(actualType, expectedType)) {
-                    typeOnlyCoercions.add(expression);
-                }
+                addOrReplaceExpressionCoercion(expression, actualType, expectedType);
             }
         }
 
@@ -1188,16 +1185,10 @@ public class ExpressionAnalyzer
                     && typeManager.canCoerce(secondType, superTypeOptional.get())) {
                 Type superType = superTypeOptional.get();
                 if (!firstType.equals(superType)) {
-                    expressionCoercions.put(first, superType);
-                    if (typeManager.isTypeOnlyCoercion(firstType, superType)) {
-                        typeOnlyCoercions.add(first);
-                    }
+                    addOrReplaceExpressionCoercion(first, firstType, superType);
                 }
                 if (!secondType.equals(superType)) {
-                    expressionCoercions.put(second, superType);
-                    if (typeManager.isTypeOnlyCoercion(secondType, superType)) {
-                        typeOnlyCoercions.add(second);
-                    }
+                    addOrReplaceExpressionCoercion(second, secondType, superType);
                 }
                 return superType;
             }
@@ -1224,14 +1215,22 @@ public class ExpressionAnalyzer
                     if (!typeManager.canCoerce(type, superType)) {
                         throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
                     }
-                    expressionCoercions.put(expression, superType);
-                    if (typeManager.isTypeOnlyCoercion(type, superType)) {
-                        typeOnlyCoercions.add(expression);
-                    }
+                    addOrReplaceExpressionCoercion(expression, type, superType);
                 }
             }
 
             return superType;
+        }
+
+        private void addOrReplaceExpressionCoercion(Expression expression, Type type, Type superType)
+        {
+            expressionCoercions.put(expression, superType);
+            if (typeManager.isTypeOnlyCoercion(type, superType)) {
+                typeOnlyCoercions.add(expression);
+            }
+            else if (typeOnlyCoercions.contains(expression)) {
+                typeOnlyCoercions.remove(expression);
+            }
         }
     }
 

@@ -250,7 +250,7 @@ public class HiveWriterFactory
                 }
                 else {
                     if (bucketNumber.isPresent()) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Can not insert into bucketed unpartitioned Hive table");
+                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
                     }
                     if (immutablePartitions) {
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
@@ -274,10 +274,10 @@ public class HiveWriterFactory
         else {
             // Write to: an existing partition in an existing partitioned table,
             if (bucketNumber.isPresent()) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Can not insert into existing partitions of bucketed Hive table");
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into existing partition of bucketed Hive table: " + partitionName.get());
             }
             if (immutablePartitions) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Hive partitions are immutable");
+                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Hive partitions are immutable: " + partitionName.get());
             }
             isNew = false;
 
