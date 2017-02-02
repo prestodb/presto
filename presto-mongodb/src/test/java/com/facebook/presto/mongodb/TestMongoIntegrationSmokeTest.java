@@ -144,6 +144,14 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
     }
 
+    @Test
+    public void testCollectionNameContainsDots()
+    {
+        assertUpdate("CREATE TABLE \"tmp.dot1\" AS SELECT 'foo' _varchar", 1);
+        assertQuery("SELECT _varchar FROM \"tmp.dot1\"", "SELECT 'foo'");
+        assertUpdate("DROP TABLE \"tmp.dot1\"");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
