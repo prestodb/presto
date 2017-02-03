@@ -87,7 +87,7 @@ Parallelism: 2.5
         try {
             while (client.isValid()) {
                 try {
-                    // exit status loop if there is there is pending output
+                    // exit status loop if there is pending output
                     if (client.current().getData() != null) {
                         return;
                     }
@@ -110,8 +110,8 @@ Parallelism: 2.5
                         console.resetScreen();
                         update = true;
                     }
-
                     // update screen
+
                     if (update) {
                         updateScreen();
                         lastPrint = System.nanoTime();
