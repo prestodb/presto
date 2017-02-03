@@ -30,6 +30,7 @@ import javax.net.SocketFactory;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -116,7 +117,7 @@ public class HdfsConfigurationUpdater
     {
         if (resourcePaths != null) {
             for (String resourcePath : resourcePaths) {
-                config.addResource(new Path(resourcePath));
+                addResource(config, new Path(resourcePath));
             }
         }
 
@@ -233,6 +234,15 @@ public class HdfsConfigurationUpdater
         public void reloadCachedMappings()
         {
             // no-op
+        }
+    }
+
+    private static void addResource(Configuration config, Path resource)
+    {
+        Configuration resourceProperties = new Configuration(false);
+        resourceProperties.addResource(resource);
+        for (Map.Entry<String, String> entry : resourceProperties) {
+            config.set(entry.getKey(), entry.getValue());
         }
     }
 }
