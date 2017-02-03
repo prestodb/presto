@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * A BytecodeExpression is chain of Java like expressions that results in at most
  * a single value being pushed on the stack.  The chain starts with a constant,
- * local variable, static field, static method or invoke dynamic followed followed
+ * local variable, static field, static method or invoke dynamic followed
  * by zero or more invocations, field dereferences, array element fetches, or casts.
  * The expression can optionally be terminated by a set expression, and in this
  * case no value is pushed on the stack.
