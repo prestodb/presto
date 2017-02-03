@@ -69,7 +69,7 @@ public class TestConditions
         assertFunction("'monkey' not like null", BOOLEAN, null);
         assertFunction("'monkey' not like 'monkey' escape null", BOOLEAN, null);
 
-        assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", "Escape must be empty or a single character");
+        assertInvalidFunction("'monkey' like 'monkey' escape 'foo'", "Escape string must be a single character");
     }
 
     @Test

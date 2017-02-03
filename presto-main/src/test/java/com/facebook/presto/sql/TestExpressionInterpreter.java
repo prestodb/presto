@@ -1062,25 +1062,33 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("'^' LIKE '^'", "true");
         assertOptimizedEquals("'$' LIKE '$'", "true");
 
-        assertOptimizedEquals("null like '%'", "null");
-        assertOptimizedEquals("'a' like null", "null");
-        assertOptimizedEquals("'a' like '%' escape null", "null");
+        assertOptimizedEquals("null LIKE '%'", "null");
+        assertOptimizedEquals("'a' LIKE null", "null");
+        assertOptimizedEquals("'a' LIKE '%' ESCAPE null", "null");
 
-        assertOptimizedEquals("'%' like 'z%' escape 'z'", "true");
+        assertOptimizedEquals("'%' LIKE 'z%' ESCAPE 'z'", "true");
     }
 
     @Test
     public void testLikeOptimization()
             throws Exception
     {
-        assertOptimizedEquals("unbound_string like 'abc'", "unbound_string = CAST('abc' AS VARCHAR)");
+        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = CAST('abc' AS VARCHAR)");
 
-        assertOptimizedEquals("bound_string like bound_pattern", "true");
-        assertOptimizedEquals("'abc' like bound_pattern", "false");
+        assertOptimizedEquals("unbound_string LIKE '' ESCAPE '#'", "unbound_string LIKE '' ESCAPE '#'");
+        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = CAST('abc' AS VARCHAR)");
+        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = CAST('a_b' AS VARCHAR)");
+        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = CAST('a%b' AS VARCHAR)");
+        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = CAST('a_#b' AS VARCHAR)");
+        assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
+        assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
 
-        assertOptimizedEquals("unbound_string like bound_pattern", "unbound_string like bound_pattern");
+        assertOptimizedEquals("bound_string LIKE bound_pattern", "true");
+        assertOptimizedEquals("'abc' LIKE bound_pattern", "false");
 
-        assertOptimizedEquals("unbound_string like unbound_pattern escape unbound_string", "unbound_string like unbound_pattern escape unbound_string");
+        assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
+
+        assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
     }
 
     @Test
