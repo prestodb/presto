@@ -53,7 +53,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.28</dep.slice.version>
         <dep.aws-sdk.version>1.11.30</dep.aws-sdk.version>
-        <dep.tempto.version>1.24</dep.tempto.version>
+        <dep.tempto.version>1.26</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
 
         <cli.skip-execute>true</cli.skip-execute>
