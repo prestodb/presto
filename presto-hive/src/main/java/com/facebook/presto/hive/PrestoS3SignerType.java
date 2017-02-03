@@ -13,27 +13,15 @@
  */
 package com.facebook.presto.hive;
 
-import static java.util.Objects.requireNonNull;
-
+// These are the exact names used by SignerFactory in the AWS library
+// and thus cannot be renamed or use the normal naming convention.
 @SuppressWarnings("EnumeratedConstantNamingConvention")
 public enum PrestoS3SignerType
 {
-    S3SignerType("S3SignerType"),
-    AWS3SignerType("AWS3SignerType"),
-    AWS4SignerType("AWS4SignerType"),
-    AWSS3V4SignerType("AWSS3V4SignerType"),
-    CloudFrontSignerType("CloudFrontSignerType"),
-    QueryStringSignerType("QueryStringSignerType");
-
-    private final String signerType;
-
-    PrestoS3SignerType(String signerType)
-    {
-        this.signerType = requireNonNull(signerType, "signerType is null");
-    }
-
-    public String getSignerType()
-    {
-        return signerType;
-    }
+    S3SignerType,
+    AWS3SignerType,
+    AWS4SignerType,
+    AWSS3V4SignerType,
+    CloudFrontSignerType,
+    QueryStringSignerType,
 }

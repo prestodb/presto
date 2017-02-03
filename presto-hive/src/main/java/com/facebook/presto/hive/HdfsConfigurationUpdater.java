@@ -162,7 +162,7 @@ public class HdfsConfigurationUpdater
             config.set("fs.s3bfs.Endpoint", s3Endpoint);
         }
         if (s3SignerType != null) {
-            config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, s3SignerType.getSignerType());
+            config.set(PrestoS3FileSystem.S3_SIGNER_TYPE, s3SignerType.name());
         }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
