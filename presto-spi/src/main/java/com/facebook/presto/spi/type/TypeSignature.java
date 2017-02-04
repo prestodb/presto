@@ -179,7 +179,7 @@ public class TypeSignature
             }
             else if (c == ' ') {
                 if (bracketCount == 1 && inFieldName) {
-                    checkArgument(parameterStart >= 0, "Bad type signature: '%s'", signature);
+                    checkArgument(parameterStart >= 0 && parameterStart < i, "Bad type signature: '%s'", signature);
                     fieldNames.add(signature.substring(parameterStart, i));
                     parameterStart = i + 1;
                     inFieldName = false;

@@ -38,6 +38,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functi
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.groupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -95,15 +96,41 @@ public class TestMixedDistinctAggregationOptimizer
                                         groupingSet(groups.build(), group,
                                                 anyTree(tableScan))))));
 
-        List<PlanOptimizer> optimizerProvider = ImmutableList.of(
+        assertUnitPlan(sql, expectedPlanPattern);
+    }
+
+    @Test
+    public void testNestedType()
+    {
+        // Second Aggregation data
+        Map<String, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
+                "arbitrary", PlanMatchPattern.functionCall("arbitrary", false, ImmutableList.of(anySymbol())),
+                "count", PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
+
+        // First Aggregation data
+        Map<String, ExpectedValueProvider<FunctionCall>> aggregationsFirst = ImmutableMap.of(
+                "max", PlanMatchPattern.functionCall("max", false, ImmutableList.of(anySymbol())));
+
+        assertUnitPlan("SELECT count(DISTINCT a), max(b) FROM (VALUES (ROW(1, 2), 3)) t(a, b)",
+                anyTree(
+                        aggregation(aggregationsSecond,
+                                project(
+                                        aggregation(aggregationsFirst,
+                                                anyTree(values(ImmutableMap.of()))
+                                        )))));
+    }
+
+    public void assertUnitPlan(String sql, PlanMatchPattern pattern)
+    {
+        List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new PruneIdentityProjections(),
                 new OptimizeMixedDistinctAggregations(queryRunner.getMetadata()),
                 new PruneUnreferencedOutputs());
 
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizerProvider);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, expectedPlanPattern);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), actualPlan, pattern);
             return null;
         });
     }

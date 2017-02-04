@@ -274,7 +274,7 @@ public class OptimizeMixedDistinctAggregations
          * Without this Project, we would count additional values for count(c)
          *
          * This method also populates maps of old to new symbols. For each key of outputNonDistinctAggregateSymbols,
-         * Higher level aggregation node's aggregaton <key, AggregateExpression> will now have to run AggregateExpression on value of outputNonDistinctAggregateSymbols
+         * Higher level aggregation node's aggregation <key, AggregateExpression> will now have to run AggregateExpression on value of outputNonDistinctAggregateSymbols
          * Same for outputDistinctAggregateSymbols map
          */
         private ProjectNode createProjectNode(
@@ -441,7 +441,7 @@ public class OptimizeMixedDistinctAggregations
             return new IfExpression(
                     new ComparisonExpression(type, left, right),
                     result,
-                    new Cast(new NullLiteral(), trueValueType.getDisplayName()));
+                    new Cast(new NullLiteral(), trueValueType.getTypeSignature().toString()));
         }
     }
 
