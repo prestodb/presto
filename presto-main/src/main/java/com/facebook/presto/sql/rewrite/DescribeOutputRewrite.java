@@ -44,7 +44,6 @@ import static com.facebook.presto.sql.QueryUtil.row;
 import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.values;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeOutputRewrite
@@ -121,7 +120,7 @@ final class DescribeOutputRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    emptyList(),
+                    Optional.empty(),
                     limit);
         }
 

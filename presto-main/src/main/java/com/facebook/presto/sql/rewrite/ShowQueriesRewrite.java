@@ -51,6 +51,7 @@ import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Relation;
@@ -207,7 +208,7 @@ final class ShowQueriesRewrite
                     selectList(aliasedName("schema_name", "Schema")),
                     from(node.getCatalog().orElseGet(() -> session.getCatalog().get()), TABLE_SCHEMATA),
                     predicate,
-                    ordering(ascending("schema_name")));
+                    Optional.of(ordering(ascending("schema_name"))));
         }
 
         @Override
@@ -227,7 +228,7 @@ final class ShowQueriesRewrite
                     selectList(new AllColumns()),
                     aliased(new Values(rows), "catalogs", ImmutableList.of("Catalog")),
                     predicate,
-                    ordering(ascending("Catalog")));
+                    Optional.of(ordering(ascending("Catalog"))));
         }
 
         @Override
@@ -344,7 +345,7 @@ final class ShowQueriesRewrite
                             equal(identifier("table_name"), new StringLiteral(table.getObjectName())))),
                     Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(identifier("partition_number")))))),
                     Optional.empty(),
-                    ImmutableList.of(),
+                    Optional.empty(),
                     Optional.empty());
 
             return simpleQuery(
@@ -353,10 +354,10 @@ final class ShowQueriesRewrite
                     showPartitions.getWhere(),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableList.<SortItem>builder()
+                    Optional.of(new OrderBy(ImmutableList.<SortItem>builder()
                             .addAll(showPartitions.getOrderBy())
                             .add(ascending("partition_number"))
-                            .build(),
+                            .build())),
                     showPartitions.getLimit());
         }
 

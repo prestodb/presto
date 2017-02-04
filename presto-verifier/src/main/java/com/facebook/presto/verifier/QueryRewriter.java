@@ -163,10 +163,10 @@ public class QueryRewriter
                     querySpecification.getOrderBy(),
                     Optional.of("0"));
 
-            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.empty());
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty());
         }
         else {
-            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, ImmutableList.of(), Optional.of("0"));
+            zeroRowsQuery = new com.facebook.presto.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.of("0"));
         }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
@@ -199,7 +199,7 @@ public class QueryRewriter
         }
 
         Select select = new Select(false, selectItems.build());
-        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty()), Optional.empty());
+        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()), Optional.empty());
     }
 
     private static String dropTableSql(QualifiedName table)
@@ -210,7 +210,7 @@ public class QueryRewriter
     public static class QueryRewriteException
             extends Exception
     {
-        public QueryRewriteException(String messageFormat, Object...args)
+        public QueryRewriteException(String messageFormat, Object... args)
         {
             super(format(messageFormat, args));
         }
