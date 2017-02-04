@@ -108,18 +108,21 @@ public final class LikeFunctions
 
         char escapeChar = stringEscape.charAt(0);
         boolean escaped = false;
+        boolean isLikePattern = false;
         for (int currentChar : stringPattern.codePoints().toArray()) {
             if (!escaped && (currentChar == escapeChar)) {
                 escaped = true;
             }
             else if (escaped) {
+                checkEscape(currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
                 escaped = false;
             }
             else if ((currentChar == '%') || (currentChar == '_')) {
-                return true;
+                isLikePattern = true;
             }
         }
-        return false;
+        checkEscape(!escaped);
+        return isLikePattern;
     }
 
     public static Slice unescapeLiteralLikePattern(Slice pattern, Slice escape)
@@ -145,6 +148,11 @@ public final class LikeFunctions
         return Slices.utf8Slice(unescapedPattern.toString());
     }
 
+    private static void checkEscape(boolean condition)
+    {
+        checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
+    }
+
     private static boolean regexMatches(Regex regex, byte[] bytes)
     {
         return regex.matcher(bytes).match(0, bytes.length, Option.NONE) != -1;
@@ -158,6 +166,7 @@ public final class LikeFunctions
         regex.append('^');
         boolean escaped = false;
         for (char currentChar : patternString.toCharArray()) {
+            checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
             if (shouldEscape && !escaped && (currentChar == escapeChar)) {
                 escaped = true;
             }
@@ -187,6 +196,7 @@ public final class LikeFunctions
                 }
             }
         }
+        checkEscape(!escaped);
         regex.append('$');
 
         byte[] bytes = regex.toString().getBytes(UTF_8);

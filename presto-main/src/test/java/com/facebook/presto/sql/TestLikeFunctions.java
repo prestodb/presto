@@ -108,10 +108,17 @@ public class TestLikeFunctions
     public void testAlternateEscapedCharacters()
             throws Exception
     {
-        Regex regex = likePattern(utf8Slice("xxx%x_xabcxx"), utf8Slice("x"));
+        Regex regex = likePattern(utf8Slice("xxx%x_abcxx"), utf8Slice("x"));
         assertTrue(like(utf8Slice("x%_abcx"), regex));
     }
 
+    @Test
+    public void testInvalidLikePattern()
+    {
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("#"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("#")));
+    }
 
     @Test
     public void testIsLikePattern()
@@ -124,6 +131,9 @@ public class TestLikeFunctions
         assertTrue(isLikePattern(utf8Slice("abcdef_"), null));
         assertTrue(isLikePattern(utf8Slice("abcdef##_"), utf8Slice("#")));
         assertTrue(isLikePattern(utf8Slice("%abcdef#_"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("#"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("abc#abc"), utf8Slice("#")));
+        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("abc#"), utf8Slice("#")));
     }
 
     @Test
