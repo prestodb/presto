@@ -38,7 +38,7 @@ public class HiveS3Config
     private boolean s3UseInstanceCredentials = true;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
-    private String s3SseType;
+    private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
     private String s3EncryptionMaterialsProvider;
     private String s3KmsKeyId;
     private String s3SseKmsKeyId;
@@ -159,7 +159,7 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.sse.kms-key-id")
-    @ConfigDescription("Use an AWS KMS key for S3 data encryption")
+    @ConfigDescription("KMS Key ID to use for S3 server-side encryption with KMS-managed key")
     public HiveS3Config setS3SseKmsKeyId(String s3SseKmsKeyId)
     {
         this.s3SseKmsKeyId = s3SseKmsKeyId;
@@ -179,14 +179,15 @@ public class HiveS3Config
         return this;
     }
 
-    public String getS3SseType()
+    @NotNull
+    public PrestoS3SseType getS3SseType()
     {
         return s3SseType;
     }
 
     @Config("hive.s3.sse.type")
-    @ConfigDescription("Use an AWS KMS key for S3 data encryption")
-    public HiveS3Config setS3SseType(String s3SseType)
+    @ConfigDescription("Key management type for S3 server-side encryption (S3 or KMS)")
+    public HiveS3Config setS3SseType(PrestoS3SseType s3SseType)
     {
         this.s3SseType = s3SseType;
         return this;

@@ -96,7 +96,7 @@ public class TestHiveS3Config
                 .setS3UseInstanceCredentials(false)
                 .setS3SslEnabled(false)
                 .setS3SseEnabled(true)
-                .setS3SseType("KMS")
+                .setS3SseType(PrestoS3SseType.KMS)
                 .setS3SseKmsKeyId("KMS_KEY_ID")
                 .setS3EncryptionMaterialsProvider("EMP_CLASS")
                 .setS3KmsKeyId("KEY_ID")

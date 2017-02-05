@@ -148,7 +148,6 @@ public class PrestoS3FileSystem
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
     private static final String PATH_SEPARATOR = "/";
-    private static final String DEFAULT_SSE_KMS_KEY_ID = "DEFAULT";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
 
     private final TransferManagerConfiguration transferConfig = new TransferManagerConfiguration();
@@ -193,7 +192,7 @@ public class PrestoS3FileSystem
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
-        this.sseType = conf.get(S3_SSE_TYPE, defaults.getS3SseType());
+        this.sseType = conf.get(S3_SSE_TYPE, defaults.getS3SseType().name());
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
 
@@ -942,7 +941,7 @@ public class PrestoS3FileSystem
         private final String key;
         private final File tempFile;
         private final boolean sseEnabled;
-        private final SseType sseType;
+        private final PrestoS3SseType sseType;
         private final String sseKmsKeyId;
 
         private boolean closed;
@@ -959,7 +958,7 @@ public class PrestoS3FileSystem
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
             this.sseEnabled = sseEnabled;
-            this.sseType = SseType.getValueOf(sseType);
+            this.sseType = PrestoS3SseType.valueOf(sseType);
             this.sseKmsKeyId = sseKmsKeyId;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
@@ -1005,7 +1004,7 @@ public class PrestoS3FileSystem
                                 request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
                             }
                             break;
-                        default:
+                        case S3:
                             ObjectMetadata metadata = new ObjectMetadata();
                             metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
                             request.setMetadata(metadata);
