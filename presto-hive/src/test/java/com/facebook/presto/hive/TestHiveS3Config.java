@@ -41,7 +41,7 @@ public class TestHiveS3Config
                 .setS3UseInstanceCredentials(true)
                 .setS3SslEnabled(true)
                 .setS3SseEnabled(false)
-                .setS3SseType(null)
+                .setS3SseType(PrestoS3SseType.S3)
                 .setS3SseKmsKeyId(null)
                 .setS3KmsKeyId(null)
                 .setS3EncryptionMaterialsProvider(null)
