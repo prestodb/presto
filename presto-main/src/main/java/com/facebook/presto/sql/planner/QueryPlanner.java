@@ -290,6 +290,13 @@ class QueryPlanner
 
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
+            if (expression instanceof SymbolReference) {
+                Symbol symbol = Symbol.from(expression);
+                projections.put(symbol, expression);
+                outputTranslations.put(expression, symbol);
+                continue;
+            }
+
             Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
             Symbol symbol = symbolAllocator.newSymbol(rewritten, analysis.getTypeWithCoercions(expression));
             projections.put(symbol, subPlan.rewrite(rewritten));
