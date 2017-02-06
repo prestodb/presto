@@ -42,6 +42,12 @@ String Functions
 
     Returns the length of ``string`` in characters.
 
+.. function:: levenshtein_distance(string1, string2) -> bigint
+
+    Returns the Levenshtein edit distance of ``string1`` and ``string2``,
+    i.e. the minimum number of single-character edits (insertions,
+    deletions or substitutions) needed to change ``string1`` into ``string2``.
+
 .. function:: lower(string) -> varchar
 
     Converts ``string`` to lowercase.
