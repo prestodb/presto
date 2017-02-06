@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,9 +32,10 @@ public interface GroupByHash
             List<? extends Type> hashTypes,
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
-            int expectedSize)
+            int expectedSize,
+            JoinCompiler joinCompiler)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session));
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler);
     }
 
     static GroupByHash createGroupByHash(
@@ -41,12 +43,13 @@ public interface GroupByHash
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
-            boolean processDictionary)
+            boolean processDictionary,
+            JoinCompiler joinCompiler)
     {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
             return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary);
+        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler);
     }
 
     long getEstimatedSize();

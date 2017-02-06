@@ -42,6 +42,7 @@ public class IndexSnapshotBuilder
     private final List<Integer> keyOutputChannels;
     private final Optional<Integer> keyOutputHashChannel;
     private final List<Integer> missingKeysChannels;
+    private final PagesIndex.Factory pagesIndexFactory;
 
     private final long maxMemoryInBytes;
     private PagesIndex outputPagesIndex;
@@ -56,15 +57,18 @@ public class IndexSnapshotBuilder
             Optional<Integer> keyOutputHashChannel,
             DriverContext driverContext,
             DataSize maxMemoryInBytes,
-            int expectedPositions)
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory)
     {
         requireNonNull(outputTypes, "outputTypes is null");
         requireNonNull(keyOutputChannels, "keyOutputChannels is null");
         requireNonNull(keyOutputHashChannel, "keyOutputHashChannel is null");
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(maxMemoryInBytes, "maxMemoryInBytes is null");
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         checkArgument(expectedPositions > 0, "expectedPositions must be greater than zero");
 
+        this.pagesIndexFactory = pagesIndexFactory;
         this.session = driverContext.getSession();
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.expectedPositions = expectedPositions;
@@ -82,8 +86,8 @@ public class IndexSnapshotBuilder
         this.missingKeysTypes = missingKeysTypes.build();
         this.missingKeysChannels = missingKeysChannels.build();
 
-        this.outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
-        this.missingKeysIndex = new PagesIndex(missingKeysTypes.build(), expectedPositions);
+        this.outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        this.missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes.build(), expectedPositions);
         this.missingKeys = missingKeysIndex.createLookupSourceSupplier(session, this.missingKeysChannels).get();
     }
 
@@ -159,7 +163,7 @@ public class IndexSnapshotBuilder
     {
         memoryInBytes = 0;
         pages.clear();
-        outputPagesIndex = new PagesIndex(outputTypes, expectedPositions);
-        missingKeysIndex = new PagesIndex(missingKeysTypes, expectedPositions);
+        outputPagesIndex = pagesIndexFactory.newPagesIndex(outputTypes, expectedPositions);
+        missingKeysIndex = pagesIndexFactory.newPagesIndex(missingKeysTypes, expectedPositions);
     }
 }

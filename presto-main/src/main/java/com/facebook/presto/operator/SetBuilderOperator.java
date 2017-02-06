@@ -17,6 +17,7 @@ import com.facebook.presto.operator.ChannelSet.ChannelSetBuilder;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -72,6 +73,7 @@ public class SetBuilderOperator
         private final int setChannel;
         private final int expectedPositions;
         private boolean closed;
+        private final JoinCompiler joinCompiler;
 
         public SetBuilderOperatorFactory(
                 int operatorId,
@@ -79,7 +81,8 @@ public class SetBuilderOperator
                 Type type,
                 int setChannel,
                 Optional<Integer> hashChannel,
-                int expectedPositions)
+                int expectedPositions,
+                JoinCompiler joinCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -88,6 +91,7 @@ public class SetBuilderOperator
             this.setChannel = setChannel;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.expectedPositions = expectedPositions;
+            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         }
 
         public SetSupplier getSetProvider()
@@ -106,7 +110,7 @@ public class SetBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SetBuilderOperator.class.getSimpleName());
-            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions);
+            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions, joinCompiler);
         }
 
         @Override
@@ -118,7 +122,7 @@ public class SetBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions);
+            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions, joinCompiler);
         }
     }
 
@@ -136,7 +140,8 @@ public class SetBuilderOperator
             SetSupplier setSupplier,
             int setChannel,
             Optional<Integer> hashChannel,
-            int expectedPositions)
+            int expectedPositions,
+            JoinCompiler joinCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.setSupplier = requireNonNull(setSupplier, "setProvider is null");
@@ -149,7 +154,8 @@ public class SetBuilderOperator
                 setSupplier.getType(),
                 channelSetHashChannel,
                 expectedPositions,
-                requireNonNull(operatorContext, "operatorContext is null"));
+                requireNonNull(operatorContext, "operatorContext is null"),
+                requireNonNull(joinCompiler, "joinCompiler is null"));
     }
 
     @Override

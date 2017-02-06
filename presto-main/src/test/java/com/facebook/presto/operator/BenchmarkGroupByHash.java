@@ -18,6 +18,7 @@ import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -63,12 +64,13 @@ public class BenchmarkGroupByHash
     private static final String GROUP_COUNT_STRING = "3000000";
     private static final int GROUP_COUNT = Integer.parseInt(GROUP_COUNT_STRING);
     private static final int EXPECTED_SIZE = 10_000;
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler();
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
     public Object groupByHashPreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER);
         data.getPages().forEach(groupByHash::getGroupIds);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -89,7 +91,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, JOIN_COMPILER);
         data.getPages().forEach(groupByHash::addPage);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();

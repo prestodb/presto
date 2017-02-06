@@ -280,7 +280,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 false,
                 Optional.empty(),
                 10_000,
-                1);
+                1,
+                new PagesIndex.TestingFactory());
 
         Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
         for (Page page : buildContext.getBuildPages()) {

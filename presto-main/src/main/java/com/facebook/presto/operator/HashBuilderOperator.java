@@ -47,6 +47,7 @@ public class HashBuilderOperator
         private final List<Integer> hashChannels;
         private final Optional<Integer> preComputedHashChannel;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
+        private final PagesIndex.Factory pagesIndexFactory;
 
         private final int expectedPositions;
 
@@ -64,7 +65,8 @@ public class HashBuilderOperator
                 boolean outer,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions,
-                int partitionCount)
+                int partitionCount,
+                PagesIndex.Factory pagesIndexFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -84,6 +86,7 @@ public class HashBuilderOperator
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
             this.preComputedHashChannel = requireNonNull(preComputedHashChannel, "preComputedHashChannel is null");
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
+            this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
             this.expectedPositions = expectedPositions;
         }
@@ -112,7 +115,8 @@ public class HashBuilderOperator
                     hashChannels,
                     preComputedHashChannel,
                     filterFunctionFactory,
-                    expectedPositions);
+                    expectedPositions,
+                    pagesIndexFactory);
 
             partitionIndex++;
             return operator;
@@ -153,13 +157,16 @@ public class HashBuilderOperator
             List<Integer> hashChannels,
             Optional<Integer> preComputedHashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
-            int expectedPositions)
+            int expectedPositions,
+            PagesIndex.Factory pagesIndexFactory)
     {
+        requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
+
         this.operatorContext = operatorContext;
         this.partitionIndex = partitionIndex;
         this.filterFunctionFactory = filterFunctionFactory;
 
-        this.index = new PagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
+        this.index = pagesIndexFactory.newPagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
         this.lookupSourceFactory = lookupSourceFactory;
 
         this.outputChannels = outputChannels;

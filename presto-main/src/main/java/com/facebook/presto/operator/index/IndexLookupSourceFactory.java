@@ -15,8 +15,10 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.LookupSourceFactory;
+import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,17 +52,19 @@ public class IndexLookupSourceFactory
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider,
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats,
-            boolean shareIndexLoading)
+            boolean shareIndexLoading,
+            PagesIndex.Factory pagesIndexFactory,
+            JoinCompiler joinCompiler)
     {
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
         this.layout = ImmutableMap.copyOf(requireNonNull(layout, "layout is null"));
 
         if (shareIndexLoading) {
-            IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats);
+            IndexLoader shared = new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler);
             this.indexLoaderSupplier = () -> shared;
         }
         else {
-            this.indexLoaderSupplier = () -> new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats);
+            this.indexLoaderSupplier = () -> new IndexLoader(lookupSourceInputChannels, keyOutputChannels, keyOutputHashChannel, outputTypes, indexBuildDriverFactoryProvider, 10_000, maxIndexMemorySize, stats, pagesIndexFactory, joinCompiler);
         }
     }
 
