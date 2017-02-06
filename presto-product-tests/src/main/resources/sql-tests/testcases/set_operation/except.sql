@@ -1,4 +1,4 @@
--- database: presto; requires: com.teradata.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements; tables: nation, workers; groups: set_operation;
+-- database: presto; tables: nation, workers; groups: set_operation;
 -- delimiter: |; ignoreOrder: true;
 --! name: except_union_intersect
 SELECT n_name FROM nation WHERE n_nationkey = 17
