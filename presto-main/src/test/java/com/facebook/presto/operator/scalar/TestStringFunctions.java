@@ -103,6 +103,32 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testLevenshteinDistance()
+    {
+        assertFunction("LEVENSHTEIN_DISTANCE('', '')", BIGINT, 0L);
+        assertFunction("LEVENSHTEIN_DISTANCE('', 'hello')", BIGINT, 5L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello', '')", BIGINT, 5L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello', 'hello')", BIGINT, 0L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello', 'hello world')", BIGINT, 6L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello world', 'hel wold')", BIGINT, 3L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello world', 'hellq wodld')", BIGINT, 2L);
+        assertFunction("LEVENSHTEIN_DISTANCE('helo word', 'hello world')", BIGINT, 2L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello word', 'dello world')", BIGINT, 2L);
+
+        // Test for non-ASCII
+        assertFunction("LEVENSHTEIN_DISTANCE('hello na\u00EFve world', 'hello naive world')", BIGINT, 1L);
+        assertFunction("LEVENSHTEIN_DISTANCE('hello na\u00EFve world', 'hello na:ive world')", BIGINT, 2L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u4EF0,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4F11\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5\u5E0C\u671B')", BIGINT, 3L);
+        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,love,\u5E0C\u671B')", BIGINT, 4L);
+
+        // Test for invalid utf-8 characters
+        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
     public void testReplace()
     {
         assertFunction("REPLACE('aaa', 'a', 'aa')", createVarcharType(11), "aaaaaa");
@@ -417,8 +443,8 @@ public class TestStringFunctions
         assertFunction("CAST(LTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
         assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
-        assertInvalidFunction("LTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters to trim: �");
-        assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters to trim: 2�");
+        assertInvalidFunction("LTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
     }
 
     private static SqlVarbinary varbinary(int... bytesAsInts)
@@ -454,8 +480,8 @@ public class TestStringFunctions
         assertFunction("CAST(RTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(' ', 0x81));
         assertFunction("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(' ', 0x81));
-        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters to trim: �");
-        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters to trim: 2�");
+        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
     }
 
     @Test
@@ -485,8 +511,8 @@ public class TestStringFunctions
         assertFunction("CAST(TRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(TRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
         assertFunction("CAST(TRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertInvalidFunction("TRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters to trim: �");
-        assertInvalidFunction("TRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters to trim: 2�");
+        assertInvalidFunction("TRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("TRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
     }
 
     @Test

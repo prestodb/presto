@@ -519,7 +519,7 @@ public final class StringFunctions
         for (int position = 0; position < slice.length(); ) {
             int codePoint = tryGetCodePointAt(slice, position);
             if (codePoint < 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters to trim: " + slice.toStringUtf8());
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters: " + slice.toStringUtf8());
             }
             position += lengthOfCodePoint(codePoint);
             codePoints++;
@@ -615,6 +615,53 @@ public final class StringFunctions
     public static Slice rightPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
         return pad(text, targetLength, padString, text.length());
+    }
+
+    @Description("computes Levenshtein distance between two strings")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BIGINT)
+    public static long levenshteinDistance(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int[] leftCodePoints = castToCodePoints(left);
+        int[] rightCodePoints = castToCodePoints(right);
+
+        if (leftCodePoints.length < rightCodePoints.length) {
+            int[] tempCodePoints = leftCodePoints;
+            leftCodePoints = rightCodePoints;
+            rightCodePoints = tempCodePoints;
+        }
+
+        if (rightCodePoints.length == 0) {
+            return leftCodePoints.length;
+        }
+
+        int[] distances = new int[rightCodePoints.length];
+        for (int i = 0; i < rightCodePoints.length; i++) {
+            distances[i] = i + 1;
+        }
+
+        for (int i = 0; i < leftCodePoints.length; i++) {
+            int leftUpDistance = distances[0];
+            if (leftCodePoints[i] == rightCodePoints[0]) {
+                distances[0] = i;
+            }
+            else {
+                distances[0] = Math.min(i, distances[0]) + 1;
+            }
+            for (int j = 1; j < rightCodePoints.length; j++) {
+                int leftUpDistanceNext = distances[j];
+                if (leftCodePoints[i] == rightCodePoints[j]) {
+                    distances[j] = leftUpDistance;
+                }
+                else {
+                    distances[j] = Math.min(distances[j - 1], Math.min(leftUpDistance, distances[j])) + 1;
+                }
+                leftUpDistance = leftUpDistanceNext;
+            }
+        }
+
+        return distances[rightCodePoints.length - 1];
     }
 
     @Description("transforms the string to normalized form")
