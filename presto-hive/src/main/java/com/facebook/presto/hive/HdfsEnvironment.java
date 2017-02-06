@@ -37,7 +37,6 @@ public class HdfsEnvironment
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
     private final boolean verifyChecksum;
-    private final String hiveStagingDir;
 
     @Inject
     public HdfsEnvironment(
@@ -48,7 +47,6 @@ public class HdfsEnvironment
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
-        this.hiveStagingDir = config.getHiveStagingDir();
     }
 
     public Configuration getConfiguration(Path path)
@@ -81,10 +79,5 @@ public class HdfsEnvironment
     public void doAs(String user, Runnable action)
     {
         hdfsAuthentication.doAs(user, action);
-    }
-
-    public String getHiveStagingDir()
-    {
-        return hiveStagingDir;
     }
 }
