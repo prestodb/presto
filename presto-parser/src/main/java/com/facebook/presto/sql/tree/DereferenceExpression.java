@@ -56,7 +56,7 @@ public class DereferenceExpression
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(base);
     }
 
     public Expression getBase()
